@@ -1,0 +1,22 @@
+TOK_VAR
+TOK_ID variable
+TOK_FN
+TOK_ID function
+TOK_FOR
+TOK_ID format
+TOK_IF
+TOK_ID cliff
+TOK_ELIF
+TOK_ELSE
+TOK_WHILE
+TOK_ID when
+TOK_RET
+TOK_ID returns
+TOK_CHAR
+TOK_ID chart
+TOK_i64
+TOK_ID i64x
+TOK_ID _if
+TOK_ID _x1
+TOK_ID foo_bar123
+TOK_EOF

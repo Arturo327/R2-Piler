@@ -1,0 +1,14 @@
+TOK_LIT_STR 
+TOK_LIT_STR hello
+TOK_LIT_STR line\nbreak
+TOK_LIT_STR tab\there
+TOK_LIT_STR carriage\rreturn
+TOK_LIT_STR null\0byte
+TOK_LIT_STR quote\"mark
+TOK_LIT_STR apostrophe'mark
+TOK_LIT_STR backslash\\mark
+TOK_LIT_STR it's
+TOK_LIT_STR say \"hi\"
+TOK_LIT_STR ends\\
+TOK_LIT_STR first\nsecond
+TOK_EOF
