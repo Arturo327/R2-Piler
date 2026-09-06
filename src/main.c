@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <sys/stat.h>
 
 #include "compiler.h"
 
@@ -66,60 +65,23 @@ static Args parse_args (int argc, char *argv[])
 	return args;
 }
 
-static long file_size (FILE *f, const char *file)
-{
-	if (fseek(f, 0, SEEK_END) != 0) {
-		fprintf(stderr, "Error: cannot seek in %s\n", file);
-		exit(1);
-	}
-	long size = ftell(f);
-	if (size < 0) {
-		fprintf(stderr, "Error: cannot determine size of %s\n", file);
-		exit(1);
-	}
-	rewind(f);
-	return size;
-}
-
-static char *read_src (const char *file)
-{
-	struct stat st;
-	if (stat(file, &st) != 0 || !S_ISREG(st.st_mode)) {
-		fprintf(stderr, "Error: %s is not a regular file\n", file);
-		exit(1);
-	}
-
-	FILE *f = fopen(file, "rb");
-	if (!f) {
-		fprintf(stderr, "Error: could not read file %s\n", file);
-		exit(1);
-	}
-	size_t src_size = (size_t)file_size(f, file);
-
-	char *src = arena_alloc(src_size + 1);
-	if (fread(src, sizeof(char), src_size, f) != src_size) {
-		fprintf(stderr, "Could not read the file %s correctly\n", file);
-		fclose(f);
-		exit(1);
-	}
-	src[src_size] = '\0';
-	fclose(f);
-	return src;
-}
-
 int main (int argc, char *argv[])
 {
 	Args args = parse_args(argc, argv);
-	arena_init();
-	char *src = read_src(args.path);
-	Compiler *compiler = init_compiler(src);
 
-	if (args.dump) {
-		int failed = dump_tokens(&compiler->lexer) != 0;
-		arena_destroy();
-		return failed ? 1 : 0;
+	Compiler comp;
+	compiler_init(&comp);
+
+	if (compiler_load_file(&comp, args.path) != 0) {
+		compiler_destroy(&comp);
+		return 1;
 	}
 
-	arena_destroy();
-	return 0;			       
-}					       
+	int status = 0;
+	if (args.dump) {
+		status = dump_tokens(&comp.lexer) != 0 ? 1 : 0;
+	}
+
+	compiler_destroy(&comp);
+	return status;
+}

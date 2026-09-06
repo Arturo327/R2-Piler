@@ -6,14 +6,14 @@
 #include <stdarg.h>
 
 #include "lexer/lexer.h"
-#include "arena/arena.h"
 
-void init_lexer (Lexer *lexer, char *src)
+void init_lexer (Lexer *lexer, char *src, Arena *arena)
 {
 	lexer->line = 1;
 	lexer->err_count = 0;
 	lexer->cursor = src;
 	lexer->line_start = src;
+	lexer->arena = arena;
 }
 
 static void vlex_error_line_col (int line, int col, const char *fmt, va_list ap)
@@ -161,7 +161,7 @@ static Token handle_string_literal (Lexer *l)
 	}
 
 	int len = a - l->cursor;
-	char *str = arena_alloc((size_t)len + 1);
+	char *str = arena_alloc(l->arena, (size_t)len + 1);
 
 	int str_len = 0;
 	while (l->cursor < a) {

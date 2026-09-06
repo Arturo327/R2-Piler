@@ -1,6 +1,6 @@
 # R2-Piler
 
-A small hand-written compiler for the (invented) **R2-Lang** language, written in C.
+A small compiler for the (invented) **R2-Lang** language, written in C.
 
 ## Current Status
 

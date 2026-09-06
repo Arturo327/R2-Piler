@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "arena/arena.h"
+
 typedef enum {
 	TOK_NONE = 0, TOK_INVALID, TOK_EOF,
 	TOK_VAR, TOK_ID, TOK_FN, TOK_SEMCOL, TOK_COMMA, TOK_COL,		// Punctuation
@@ -34,9 +36,10 @@ typedef struct Lexer {
 	char *line_start;
 	int line;
 	int err_count;
+	Arena *arena;
 } Lexer;
 
-void init_lexer (Lexer *lexer, char *src);
+void init_lexer (Lexer *lexer, char *src, Arena *arena);
 int dump_tokens (Lexer *l);
 Token get_token (Lexer *l);
 

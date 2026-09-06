@@ -14,17 +14,6 @@ typedef struct ArenaBlock {
 	uint8_t data[];
 } ArenaBlock;
 
-typedef struct Arena {
-	ArenaBlock *head;
-	ArenaBlock *tail;
-	size_t cap;
-	size_t block_size;
-	void *last_ptr;
-	size_t last_size;
-} Arena;
-
-static Arena arena = {0};
-
 static size_t align_up (size_t n)
 {
 	return (n + (ARENA_ALIGN - 1)) & ~(size_t)(ARENA_ALIGN - 1);
@@ -43,66 +32,67 @@ static ArenaBlock *new_block (size_t capacity)
 	return block;
 }
 
-void arena_init (void)
+void arena_init (Arena *a)
 {
-	arena.block_size = ARENA_DEFAULT_BLOCK;
-	arena.head = new_block(arena.block_size);
-	arena.tail = arena.head;
-	arena.cap = arena.block_size;
+	a->block_size = ARENA_DEFAULT_BLOCK;
+	a->head = new_block(a->block_size);
+	a->tail = a->head;
+	a->cap = a->block_size;
+	a->last_ptr = NULL;
+	a->last_size = 0;
 }
 
-void *arena_alloc (size_t size)
+void *arena_alloc (Arena *a, size_t size)
 {
 	size_t aligned = align_up(size);
 
-	if (aligned > arena.cap - arena.tail->used) {
-		size_t cap = aligned > arena.block_size ? aligned : arena.block_size;
-		arena.tail->next = new_block(cap);
-		arena.tail = arena.tail->next;
-		arena.cap = cap;
+	if (aligned > a->cap - a->tail->used) {
+		size_t cap = aligned > a->block_size ? aligned : a->block_size;
+		a->tail->next = new_block(cap);
+		a->tail = a->tail->next;
+		a->cap = cap;
 	}
 
-	void *ptr = arena.tail->data + arena.tail->used;
-	arena.tail->used += aligned;
+	void *ptr = a->tail->data + a->tail->used;
+	a->tail->used += aligned;
+	a->last_ptr = ptr;
+	a->last_size = aligned;
 	return ptr;
 }
 
-void *arena_realloc (void *ptr, size_t old_size, size_t new_size)
+void *arena_realloc (Arena *a, void *ptr, size_t old_size, size_t new_size)
 {
 	if (new_size <= old_size)
 		return ptr;
 
-	if (ptr == NULL)
-		return arena_alloc(new_size);
+	if (!ptr)
+		return arena_alloc(a, new_size);
 
-	if (ptr == arena.last_ptr) {
+	if (ptr == a->last_ptr) {
 		size_t grown = align_up(new_size);
-		if (grown <= arena.last_size)
+		if (grown <= a->last_size)
 			return ptr;
 
-		size_t extra = grown - arena.last_size;
-		if (extra <= arena.cap - arena.tail->used) {
-			arena.tail->used += extra;
-			arena.last_size = grown;
+		size_t extra = grown - a->last_size;
+		if (extra <= a->cap - a->tail->used) {
+			a->tail->used += extra;
+			a->last_size = grown;
 			return ptr;
 		}
 	}
 
-	void *new_ptr = arena_alloc(new_size);
+	void *new_ptr = arena_alloc(a, new_size);
 	memcpy(new_ptr, ptr, old_size);
 	return new_ptr;
 }
 
-void arena_destroy (void)
+void arena_destroy (Arena *a)
 {
-	ArenaBlock *block = arena.head;
+	ArenaBlock *block = a->head;
 	while (block) {
 		ArenaBlock *next = block->next;
 		free(block);
 		block = next;
 	}
-	arena.head = NULL;
-	arena.tail = NULL;
-	arena.cap = 0;
-	arena.block_size = 0;
+	memset(a, 0, sizeof(*a));
 }

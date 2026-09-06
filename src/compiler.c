@@ -1,16 +1,62 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include "compiler.h"
 
-Compiler *init_compiler (char *src)
+void compiler_init (Compiler *comp)
 {
-	Compiler *comp = arena_alloc(sizeof(Compiler));
-	memset(comp, 0, sizeof(Compiler));
+	memset(comp, 0, sizeof(*comp));
+	arena_init(&comp->arena);
+}
 
-	comp->src = src;
-	init_lexer(&comp->lexer, src);
-	
-	return comp;
+static long file_size (FILE *f, const char *file)
+{
+	if (fseek(f, 0, SEEK_END) != 0) {
+		fprintf(stderr, "Error: cannot seek in %s\n", file);
+		exit(1);
+	}
+	long size = ftell(f);
+	if (size < 0) {
+		fprintf(stderr, "Error: cannot determine size of %s\n", file);
+		exit(1);
+	}
+	rewind(f);
+	return size;
+}
+
+int compiler_load_file (Compiler *comp, const char *file)
+{
+	struct stat st;
+	if (stat(file, &st) != 0 || !S_ISREG(st.st_mode)) {
+		fprintf(stderr, "Error: %s is not a regular file\n", file);
+		return 1;
+	}
+
+	FILE *f = fopen(file, "rb");
+	if (!f) {
+		fprintf(stderr, "Error: could not read file %s\n", file);
+		return 1;
+	}
+	size_t src_size = (size_t)file_size(f, file);
+
+	comp->src = arena_alloc(&comp->arena, src_size + 1);
+	if (fread(comp->src, sizeof(char), src_size, f) != src_size) {
+		fprintf(stderr, "Could not read the file %s correctly\n", file);
+		fclose(f);
+		return 1;
+	}
+
+	comp->src[src_size] = '\0';
+	fclose(f);
+	init_lexer(&comp->lexer, comp->src, &comp->arena);
+
+	return 0;
+}
+
+void compiler_destroy (Compiler *comp)
+{
+	arena_destroy(&comp->arena);
+	memset(comp, 0, sizeof(*comp));
 }
