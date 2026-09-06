@@ -338,45 +338,40 @@ static TokenType id_keyword (char *str, size_t length)
 	return kw ? kw->type : TOK_ID;
 }
 
-static Token handle_symbols (Lexer *l)
+typedef struct SimpleOp { char ch; TokenType type; } SimpleOp;
+
+static const SimpleOp simple_ops[] = {
+	{'+', TOK_ADD}, {'-', TOK_SUB}, {'*', TOK_STAR}, {'/', TOK_SLASH},
+	{'^', TOK_XOR}, {';', TOK_SEMCOL}, {':', TOK_COL}, {',', TOK_COMMA},
+	{'~', TOK_NOT_A}, {'(', TOK_LPAREN}, {')', TOK_RPAREN},
+	{'[', TOK_LBRACE}, {']', TOK_RBRACE}, {'{', TOK_LKEY}, {'}', TOK_RKEY},
+};
+
+static int find_simple_op (char c, TokenType *out)
 {
-	int sym_line = l->line;
-	int sym_col = (int)(l->cursor - l->line_start) + 1;
-	char c = *l->cursor++;
+	for (size_t i = 0; i < sizeof(simple_ops) / sizeof(simple_ops[0]); i++) {
+		if (simple_ops[i].ch == c) { *out = simple_ops[i].type; return 1; }
+	}
+	return 0;
+}
+
+static Token handle_compound_op (Lexer *l, char c)
+{
 	switch (c)
 	{
-	case '+': return make_token(TOK_ADD, NULL, 0, l->line);
-	case '-': return make_token(TOK_SUB, NULL, 0, l->line);
-	case '*': return make_token(TOK_STAR, NULL, 0, l->line);
-	case '/': return make_token(TOK_SLASH, NULL, 0, l->line);
-	case '^': return make_token(TOK_XOR, NULL, 0, l->line);
-	case ';': return make_token(TOK_SEMCOL, NULL, 0, l->line);
-	case ':': return make_token(TOK_COL, NULL, 0, l->line);
-	case ',': return make_token(TOK_COMMA, NULL, 0, l->line);
-	case '~': return make_token(TOK_NOT_A, NULL, 0, l->line);
-
-	case '(': return make_token(TOK_LPAREN, NULL, 0, l->line);
-	case ')': return make_token(TOK_RPAREN, NULL, 0, l->line);
-	case '[': return make_token(TOK_LBRACE, NULL, 0, l->line);
-	case ']': return make_token(TOK_RBRACE, NULL, 0, l->line);
-	case '{': return make_token(TOK_LKEY, NULL, 0, l->line);
-	case '}': return make_token(TOK_RKEY, NULL, 0, l->line);
-
-	case '=': {
+	case '=':
 		if (*l->cursor == '=') {
 			l->cursor++;
 			return make_token(TOK_EQ, NULL, 0, l->line);
 		}
 		return make_token(TOK_ASSIGN, NULL, 0, l->line);
-	}
-	case '!': {
+	case '!':
 		if (*l->cursor == '=') {
 			l->cursor++;
 			return make_token(TOK_NE, NULL, 0, l->line);
 		}
 		return make_token(TOK_NOT_L, NULL, 0, l->line);
-	}
-	case '>': {
+	case '>':
 		if (*l->cursor == '>') {
 			l->cursor++;
 			return make_token(TOK_RS, NULL, 0, l->line);
@@ -385,8 +380,7 @@ static Token handle_symbols (Lexer *l)
 			return make_token(TOK_GE, NULL, 0, l->line);
 		}
 		return make_token(TOK_GT, NULL, 0, l->line);
-	}
-	case '<': {
+	case '<':
 		if (*l->cursor == '<') {
 			l->cursor++;
 			return make_token(TOK_LS, NULL, 0, l->line);
@@ -395,28 +389,36 @@ static Token handle_symbols (Lexer *l)
 			return make_token(TOK_LE, NULL, 0, l->line);
 		}
 		return make_token(TOK_LT, NULL, 0, l->line);
-	}
-	case '&': {
+	case '&':
 		if (*l->cursor == '&') {
 			l->cursor++;
 			return make_token(TOK_AND_L, NULL, 0, l->line);
 		}
 		return make_token(TOK_AND_A, NULL, 0, l->line);
-	}
-	case '|': {
+	default:
 		if (*l->cursor == '|') {
 			l->cursor++;
 			return make_token(TOK_OR_L, NULL, 0, l->line);
 		}
 		return make_token(TOK_OR_A, NULL, 0, l->line);
 	}
-	default:
-		if (isprint((unsigned char)c))
-			lex_error_line_col(l, sym_line, sym_col, "character '%c' is not valid", c);
-		else
-			lex_error_line_col(l, sym_line, sym_col, "character '\\x%02X' is not valid", (unsigned char)c);
-		return make_token(TOK_INVALID, NULL, 0, l->line);
-	}
+}
+
+static Token handle_symbols (Lexer *l)
+{
+	int sym_line = l->line;
+	int sym_col = (int)(l->cursor - l->line_start) + 1;
+	char c = *l->cursor++;
+	TokenType simple;
+
+	if (find_simple_op(c, &simple)) return make_token(simple, NULL, 0, l->line);
+	if (strchr("=!><&|", c)) return handle_compound_op(l, c);
+
+	if (isprint((unsigned char)c))
+		lex_error_line_col(l, sym_line, sym_col, "character '%c' is not valid", c);
+	else
+		lex_error_line_col(l, sym_line, sym_col, "character '\\x%02X' is not valid", (unsigned char)c);
+	return make_token(TOK_INVALID, NULL, 0, l->line);
 }
 
 Token get_token (Lexer *l)

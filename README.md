@@ -27,9 +27,9 @@ For now, `--dump-tokens` is the main way to see the compiler do something.
 
 ```bash
 git clone https://github.com/Arturo327/R2-Piler
-cd r2c
+cd R2-Piler
 make
-./build/r2c --dump-tokens path/to/file.r2
+./build/r2p --dump-tokens path/to/file.r2
 ```
 
 Run the test suite:
@@ -44,7 +44,8 @@ make test
 src/
 ├── main.c           # CLI entry point: arg parsing, file reading, orchestration
 ├── compiler.c/h     # Compiler context, wires the lexer (and future stages) together
-├── arena.c/h        # Bump-allocator arena; owns all compiler memory
+├── arena/
+    └── arena.c/h    # Bump-allocator arena; owns all compiler memory
 └── lexer/
     └── lexer.c/h    # Tokenizer: keywords, literals, operators, error reporting
 ```
