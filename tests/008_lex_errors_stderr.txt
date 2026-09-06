@@ -2,7 +2,7 @@ Lexer error at 2:1: character '@' is not valid
 Lexer error at 3:1: character '#' is not valid
 Lexer error at 3:3: character '%' is not valid
 Lexer error at 4:1: literal integer out of range
-Lexer error at 5:6: unknown escape sequence '\q'
+Lexer error at 5:7: unknown escape sequence '\q'
 Lexer error at 6:1: empty char literal
 Lexer error at 7:1: char literal must contain exactly one character
 Lexer error at 8:3: unknown escape sequence '\q'

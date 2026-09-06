@@ -123,11 +123,60 @@ static int decode_escape (Lexer *l, char c, char *out)
 	case '\'': *out = '\''; break;
 	case '"':  *out = '"'; break;
 	default:
-		lex_error(l, "unknown escape sequence '\\%c'", c);
+		if (isprint((unsigned char)c))
+			lex_error(l, "unknown escape sequence '\\%c'", c);
+		else
+			lex_error(l, "unknown escape sequence '\\x%02X'", (unsigned char)c);
 		*out = c;
 		return 0;
 	}
 	return 1;
+}
+
+static char *string_literal_find_end (Lexer *l, char *a)
+{
+	while (*a != '"' && *a != '\0') {
+		if (*a != '\\') {
+			if (*a == '\n') {
+				l->line++;
+				l->line_start = a + 1;
+			}
+			a++;
+			continue;
+		}
+		a++;
+		if (*a == '\n') {
+			l->line++;
+			l->line_start = a + 1;
+		}
+		if (*a != '\0') a++;
+	}
+	return a;
+}
+
+static Token string_literal_decode (Lexer *l, char *end)
+{
+	char *str = arena_alloc(l->arena, (size_t)(end - l->cursor) + 1);
+	size_t str_len = 0;
+
+	while (l->cursor < end) {
+		char c = *l->cursor++;
+		if (c != '\\') {
+			str[str_len++] = c;
+			continue;
+		}
+
+		char escaped = *l->cursor++;
+		if (escaped == '\n') continue;
+
+		char decoded;
+		if (!decode_escape(l, escaped, &decoded))
+			return make_token(TOK_INVALID, NULL, 0, l->line);
+		str[str_len++] = decoded;
+	}
+
+	str[str_len] = '\0';
+	return make_token(TOK_LIT_STR, str, str_len, l->line);
 }
 
 static Token handle_string_literal (Lexer *l)
@@ -136,58 +185,17 @@ static Token handle_string_literal (Lexer *l)
 	int start_line = l->line;
 	int start_col = (int)(start - l->line_start) + 1;
 
-	char *a = l->cursor;
-	while (*a != '"' && *a != '\0') {
-		if (*a == '\\') {
-			a++;
-			if (*a == '\n') {
-				l->line++;
-				l->line_start = a + 1;
-			}
-			if (*a != '\0') a++;
-			continue;
-		}
-		if (*a == '\n') {
-			l->line++;
-			l->line_start = a + 1;
-		}
-		a++;
-	}
-
-	if (*a == '\0') {
+	char *end = string_literal_find_end(l, l->cursor);
+	if (*end == '\0') {
 		lex_error_line_col(l, start_line, start_col, "string literal is not closed");
-		l->cursor = a;
+		l->cursor = end;
 		return make_token(TOK_INVALID, NULL, 0, start_line);
 	}
 
-	int len = a - l->cursor;
-	char *str = arena_alloc(l->arena, (size_t)len + 1);
-
-	int str_len = 0;
-	while (l->cursor < a) {
-		char c = *l->cursor;
-		if (c == '\\') {
-			char decoded;
-			l->cursor++;
-			if (!decode_escape(l, *l->cursor, &decoded)) {
-				l->cursor = a + 1;
-				return make_token(TOK_INVALID, NULL, 0, l->line);
-			}
-			str[str_len++] = decoded;
-		} else {
-			str[str_len++] = c;
-		}
-		l->cursor++;
-	}
-
-	if (*l->cursor == '"') {
-		l->cursor++;
-	} else {
-		lex_error_line_col(l, start_line, start_col, "string literal is not closed");
-		return make_token(TOK_INVALID, NULL, 0, l->line);
-	}
-	str[str_len] = '\0';
-	return make_token(TOK_LIT_STR, str, str_len, l->line);
+	Token token = string_literal_decode(l, end);
+	l->cursor = end + 1;
+	token.line = start_line;
+	return token;
 }
 
 static char handle_char_literal_next_char (Lexer *l, char *chr)
@@ -216,6 +224,29 @@ static char handle_char_literal_next_char (Lexer *l, char *chr)
 	return 1;
 }
 
+static int char_literal_scan_extra (Lexer *l)
+{
+	int multichr = 0;
+	while (*l->cursor != '\0' && *l->cursor != '\'') {
+		multichr = 1;
+		if (*l->cursor == '\\' && *(l->cursor + 1) != '\0' && *(l->cursor + 1) != '\n') {
+			l->cursor += 2;
+			continue;
+		}
+		if (*l->cursor == '\n') {
+			int nl_line = l->line;
+			int nl_col = (int)(l->cursor - l->line_start) + 1;
+			l->cursor++;
+			l->line++;
+			l->line_start = l->cursor;
+			lex_error_line_col(l, nl_line, nl_col, "newline in char literal");
+		} else {
+			l->cursor++;
+		}
+	}
+	return multichr;
+}
+
 static Token handle_char_literal (Lexer *l)
 {
 	char *start = l->cursor++;
@@ -240,24 +271,7 @@ static Token handle_char_literal (Lexer *l)
 		return make_token(TOK_INVALID, NULL, 0, l->line);
 	}
 
-	int multichr = 0;
-	while (*l->cursor != '\0' && *l->cursor != '\'') {
-		multichr = 1;
-		if (*l->cursor == '\\' && *(l->cursor + 1) != '\0' && *(l->cursor + 1) != '\n') {
-			l->cursor += 2;
-			continue;
-		}
-		if (*l->cursor == '\n') {
-			int nl_line = l->line;
-			int nl_col = (int)(l->cursor - l->line_start) + 1;
-			l->cursor++;
-			l->line++;
-			l->line_start = l->cursor;
-			lex_error_line_col(l, nl_line, nl_col, "newline in char literal");
-		} else {
-			l->cursor++;
-		}
-	}
+	int multichr = char_literal_scan_extra(l);
 
 	if (*l->cursor == '\'') {
 		l->cursor++;
@@ -397,7 +411,10 @@ static Token handle_symbols (Lexer *l)
 		return make_token(TOK_OR_A, NULL, 0, l->line);
 	}
 	default:
-		lex_error_line_col(l, sym_line, sym_col, "character '%c' is not valid", c);
+		if (isprint((unsigned char)c))
+			lex_error_line_col(l, sym_line, sym_col, "character '%c' is not valid", c);
+		else
+			lex_error_line_col(l, sym_line, sym_col, "character '\\x%02X' is not valid", (unsigned char)c);
 		return make_token(TOK_INVALID, NULL, 0, l->line);
 	}
 }

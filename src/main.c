@@ -51,7 +51,7 @@ static Args parse_args (int argc, char *argv[])
 		case 'h': print_help(argv[0]); exit(0);
 		case 'v': printf("%s\n", VERSION); exit(0);
 		case 'T': args.dump = 1; break;
-		default: fprintf(stderr, "Unknown option. Execute '%s --help' for more info.\n", argv[0]); exit(0);
+		default: fprintf(stderr, "Unknown option. Execute '%s --help' for more info.\n", argv[0]); exit(1);
 		}
 	}
 
