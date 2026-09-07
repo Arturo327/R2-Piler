@@ -9,6 +9,7 @@ typedef enum {
 typedef struct ErrorLoc {
 	int line;
 	int col;
+	const char *line_start;
 } ErrorLoc;
 
 typedef struct ErrorReporter {

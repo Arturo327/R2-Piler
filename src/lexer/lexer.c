@@ -17,13 +17,17 @@ void init_lexer (Lexer *lexer, char *src, Arena *arena, ErrorReporter *err)
 
 static inline ErrorLoc loc_here (Lexer *l)
 {
-	ErrorLoc loc = { l->line, (int)(l->cursor - l->line_start) + 1 };
+	ErrorLoc loc = {
+		l->line,
+		(int)(l->cursor - l->line_start) + 1,
+		l->line_start
+	};
 	return loc;
 }
 
-static inline ErrorLoc loc_at (int line, int col)
+static inline ErrorLoc loc_at (int line, int col, char *line_start)
 {
-	ErrorLoc loc = { line, col };
+	ErrorLoc loc = { line, col, line_start };
 	return loc;
 }
 
@@ -85,7 +89,8 @@ static Token handle_num_literal (Lexer *l)
 	}
 
 	if (overflow) {
-		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col), "literal integer out of range");
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, l->line_start),
+				"literal integer out of range");
 		return make_token(TOK_INVALID, NULL, 0, start_line);
 	}
 
@@ -171,12 +176,14 @@ static Token string_literal_decode (Lexer *l, char *end)
 static Token handle_string_literal (Lexer *l)
 {
 	char *start = l->cursor++;
+	char *line_start = l->line_start;
 	int start_line = l->line;
 	int start_col = (int)(start - l->line_start) + 1;
 
 	char *end = string_literal_find_end(l->cursor);
 	if (*end == '\0') {
-		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col), "string literal is not closed");
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, line_start),
+				"string literal is not closed");
 		l->cursor = end;
 		return make_token(TOK_INVALID, NULL, 0, start_line);
 	}
@@ -231,7 +238,8 @@ static Token handle_char_literal (Lexer *l)
 	int start_col = (int)(start - l->line_start) + 1;
 
 	if (*l->cursor == '\'') {
-		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col), "empty char literal");
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, l->line_start),
+				"empty char literal");
 		l->cursor++;
 		return make_token(TOK_INVALID, NULL, 0, l->line);
 	}
@@ -251,14 +259,15 @@ static Token handle_char_literal (Lexer *l)
 	int multichr = char_literal_scan_extra(l);
 
 	if (*l->cursor != '\'') {
-		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col), "char literal is not closed");
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, l->line_start),
+				"char literal is not closed");
 		return make_token(TOK_INVALID, NULL, 0, l->line);
 	}
 	l->cursor++;
 
 	if (multichr) {
-		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col),
-			"char literal must contain exactly one character");
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, l->line_start),
+				"char literal must contain exactly one character");
 		return make_token(TOK_INVALID, NULL, 0, l->line);
 	}
 
@@ -391,9 +400,11 @@ static Token handle_symbols (Lexer *l)
 	if (strchr("=!><&|", c)) return handle_compound_op(l, c);
 
 	if (isprint((unsigned char)c))
-		error_report(l->err, ERR_ERROR, loc_at(sym_line, sym_col), "character '%c' is not valid", c);
+		error_report(l->err, ERR_ERROR, loc_at(sym_line, sym_col, l->line_start),
+				"character '%c' is not valid", c);
 	else
-		error_report(l->err, ERR_ERROR, loc_at(sym_line, sym_col), "character '\\x%02X' is not valid", (unsigned char)c);
+		error_report(l->err, ERR_ERROR, loc_at(sym_line, sym_col, l->line_start),
+				"character '\\x%02X' is not valid", (unsigned char)c);
 	return make_token(TOK_INVALID, NULL, 0, l->line);
 }
 

@@ -6,12 +6,6 @@
 
 #define VERSION "R2-Piler 0.1.0"
 
-typedef struct Args {
-	char *out;
-	char *path;
-	int dump;
-} Args;
-
 static void print_help (const char *build)
 {
 	printf("%s\n", VERSION);
@@ -27,6 +21,12 @@ static void print_help (const char *build)
 	printf("    -T|--dump-tokens    Prints your code tokens to stdout\n");
 }
 
+typedef struct Args {
+	char *out;
+	char *path;
+	int dump_tokens;
+} Args;
+
 static Args parse_args (int argc, char *argv[])
 {
 	struct option long_options[] = {
@@ -39,7 +39,7 @@ static Args parse_args (int argc, char *argv[])
 	Args args = {
 		.path = NULL,
 		.out = NULL,
-		.dump = 0
+		.dump_tokens = 0
 	};
 
 	int opt;
@@ -50,7 +50,7 @@ static Args parse_args (int argc, char *argv[])
 		case 'o': args.out = optarg; break;
 		case 'h': print_help(argv[0]); exit(0);
 		case 'v': printf("%s\n", VERSION); exit(0);
-		case 'T': args.dump = 1; break;
+		case 'T': args.dump_tokens = 1; break;
 		default: fprintf(stderr, "Unknown option. Execute '%s --help' for more info.\n", argv[0]); exit(1);
 		}
 	}
@@ -78,9 +78,8 @@ int main (int argc, char *argv[])
 	}
 
 	int status = 0;
-	if (args.dump) {
+	if (args.dump_tokens)
 		status = dump_tokens(&comp.lexer) != 0 ? 1 : 0;
-	}
 
 	compiler_destroy(&comp);
 	return status;
