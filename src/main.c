@@ -43,7 +43,7 @@ static Args parse_args (int argc, char *argv[])
 	};
 
 	int opt;
-	char *short_opts = ":oTo:hv";
+	char *short_opts = ":To:hv";
 	opterr = 0;
 	while ((opt = getopt_long(argc, argv, short_opts, long_options, NULL)) != -1) {
 		switch (opt)

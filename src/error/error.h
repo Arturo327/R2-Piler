@@ -10,6 +10,7 @@ typedef struct ErrorLoc {
 	int line;
 	int col;
 	const char *line_start;
+	int len;
 } ErrorLoc;
 
 typedef struct ErrorReporter {

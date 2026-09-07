@@ -1,4 +1,4 @@
 tests/009_unterminated_src.r2:1:1: [1;31mERROR[0m: string literal is not closed
-      1 | "oops
-        | [1;31m^[0m
+      1 | [1;31m"oops[0m
+        | [1;31m^~~~~[0m
 

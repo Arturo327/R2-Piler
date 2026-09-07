@@ -15,12 +15,12 @@ static long file_size (FILE *f, const char *file)
 {
 	if (fseek(f, 0, SEEK_END) != 0) {
 		fprintf(stderr, "Error: cannot seek in %s\n", file);
-		exit(1);
+		return -1;
 	}
 	long size = ftell(f);
 	if (size < 0) {
 		fprintf(stderr, "Error: cannot determine size of %s\n", file);
-		exit(1);
+		return -1;
 	}
 	rewind(f);
 	return size;
@@ -41,7 +41,12 @@ int compiler_load_file (Compiler *comp, const char *file)
 		fprintf(stderr, "Error: could not read file %s\n", file);
 		return 1;
 	}
-	size_t src_size = (size_t)file_size(f, file);
+	long sz = file_size(f,file);
+	if (sz < 0) {
+		fclose(f);
+		return 1;
+	}
+	size_t src_size = (size_t)sz;
 
 	comp->src = arena_alloc(&comp->arena, src_size + 1);
 	if (fread(comp->src, sizeof(char), src_size, f) != src_size) {
