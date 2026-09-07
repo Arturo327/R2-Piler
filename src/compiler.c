@@ -52,6 +52,12 @@ int compiler_load_file (Compiler *comp, const char *file)
 
 	comp->src[src_size] = '\0';
 	fclose(f);
+
+	if (memchr(comp->src, '\0', src_size) != NULL) {
+		fprintf(stderr, "Error: %s contains embedded NUL bytes\n", file);
+		return 1;
+	}
+
 	init_lexer(&comp->lexer, comp->src, &comp->arena, &comp->err);
 
 	return 0;

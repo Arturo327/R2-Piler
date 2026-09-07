@@ -10,5 +10,5 @@ TOK_LIT_STR backslash\\mark
 TOK_LIT_STR it's
 TOK_LIT_STR say \"hi\"
 TOK_LIT_STR ends\\
-TOK_LIT_STR first\nsecond
+TOK_LIT_STR firstsecond
 TOK_EOF

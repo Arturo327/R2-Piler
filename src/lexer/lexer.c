@@ -126,7 +126,7 @@ static int decode_escape (ErrorReporter *err, char c, char *out, ErrorLoc loc)
 
 static char *string_literal_find_end (char *a)
 {
-	while (*a != '"' && *a != '\0') {
+	while (*a != '"' && *a != '\0' && *a != '\n') {
 		if (*a == '\\' && *(a + 1) != '\0') {
 			a += 2;
 			continue;
@@ -144,12 +144,6 @@ static Token string_literal_decode (Lexer *l, char *end)
 	while (l->cursor < end) {
 		char c = *l->cursor++;
 
-		if (c == '\n') {
-			l->line++;
-			l->line_start = l->cursor;
-			str[str_len++] = c;
-			continue;
-		}
 		if (c != '\\') {
 			str[str_len++] = c;
 			continue;
@@ -181,7 +175,7 @@ static Token handle_string_literal (Lexer *l)
 	int start_col = (int)(start - l->line_start) + 1;
 
 	char *end = string_literal_find_end(l->cursor);
-	if (*end == '\0') {
+	if (*end != '"') {
 		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, line_start),
 				"string literal is not closed");
 		l->cursor = end;
@@ -246,11 +240,7 @@ static Token handle_char_literal (Lexer *l)
 
 	char chr;
 	if (!handle_char_literal_next_char(l, &chr)) {
-		while (*l->cursor != '\0' && *l->cursor != '\'' && *l->cursor != '\n') {
-			if (*l->cursor == '\\' && *(l->cursor + 1) != '\0' && *(l->cursor + 1) != '\n')
-				l->cursor++;
-			l->cursor++;
-		}
+		char_literal_scan_extra(l);
 		if (*l->cursor == '\'')
 			l->cursor++;
 		return make_token(TOK_INVALID, NULL, 0, l->line);

@@ -1,9 +1,36 @@
-tests/008_lex_errors_src.r2:2:1: error: character '@' is not valid
-tests/008_lex_errors_src.r2:3:1: error: character '#' is not valid
-tests/008_lex_errors_src.r2:3:3: error: character '%' is not valid
-tests/008_lex_errors_src.r2:4:1: error: literal integer out of range
-tests/008_lex_errors_src.r2:5:6: error: unknown escape sequence '\q'
-tests/008_lex_errors_src.r2:6:1: error: empty char literal
-tests/008_lex_errors_src.r2:7:1: error: char literal must contain exactly one character
-tests/008_lex_errors_src.r2:8:3: error: unknown escape sequence '\q'
-tests/008_lex_errors_src.r2:9:1: error: char literal is not closed
+tests/008_lex_errors_src.r2:2:1: [1;31mERROR[0m: character '@' is not valid
+      2 | @
+        | [1;31m^[0m
+
+tests/008_lex_errors_src.r2:3:1: [1;31mERROR[0m: character '#' is not valid
+      3 | # %
+        | [1;31m^[0m
+
+tests/008_lex_errors_src.r2:3:3: [1;31mERROR[0m: character '%' is not valid
+      3 | # %
+        |   [1;31m^[0m
+
+tests/008_lex_errors_src.r2:4:1: [1;31mERROR[0m: literal integer out of range
+      4 | 9999999999999999999999999999
+        | [1;31m^[0m
+
+tests/008_lex_errors_src.r2:5:6: [1;31mERROR[0m: unknown escape sequence '\q'
+      5 | "bad\q"
+        |      [1;31m^[0m
+
+tests/008_lex_errors_src.r2:6:1: [1;31mERROR[0m: empty char literal
+      6 | ''
+        | [1;31m^[0m
+
+tests/008_lex_errors_src.r2:7:1: [1;31mERROR[0m: char literal must contain exactly one character
+      7 | 'ab'
+        | [1;31m^[0m
+
+tests/008_lex_errors_src.r2:8:3: [1;31mERROR[0m: unknown escape sequence '\q'
+      8 | '\q'
+        |   [1;31m^[0m
+
+tests/008_lex_errors_src.r2:9:1: [1;31mERROR[0m: char literal is not closed
+      9 | 'a
+        | [1;31m^[0m
+

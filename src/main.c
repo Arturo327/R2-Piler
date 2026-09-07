@@ -43,7 +43,8 @@ static Args parse_args (int argc, char *argv[])
 	};
 
 	int opt;
-	char *short_opts = "To:hv";
+	char *short_opts = ":oTo:hv";
+	opterr = 0;
 	while ((opt = getopt_long(argc, argv, short_opts, long_options, NULL)) != -1) {
 		switch (opt)
 		{
@@ -51,7 +52,12 @@ static Args parse_args (int argc, char *argv[])
 		case 'h': print_help(argv[0]); exit(0);
 		case 'v': printf("%s\n", VERSION); exit(0);
 		case 'T': args.dump_tokens = 1; break;
-		default: fprintf(stderr, "Unknown option. Execute '%s --help' for more info.\n", argv[0]); exit(1);
+		case ':':
+			fprintf(stderr, "Option '-%c' requires an argument.\n", optopt);
+			exit(1);
+		default:
+			fprintf(stderr, "Unknown option. Execute '%s --help' for more info.\n", argv[0]);
+			exit(1);
 		}
 	}
 

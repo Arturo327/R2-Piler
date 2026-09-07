@@ -10,5 +10,5 @@
 "it's"
 "say \"hi\""
 "ends\\"
-"first
+"first\
 second"
