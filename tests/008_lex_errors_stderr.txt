@@ -1,11 +1,9 @@
-Lexer error at 2:1: character '@' is not valid
-Lexer error at 3:1: character '#' is not valid
-Lexer error at 3:3: character '%' is not valid
-Lexer error at 4:1: literal integer out of range
-Lexer error at 5:7: unknown escape sequence '\q'
-Lexer error at 6:1: empty char literal
-Lexer error at 7:1: char literal must contain exactly one character
-Lexer error at 8:3: unknown escape sequence '\q'
-Lexer error at 9:3: newline in char literal
-Lexer error at 9:1: char literal is not closed
-Lexer error at 9:1: char literal must contain exactly one character
+tests/008_lex_errors_src.r2:2:1: error: character '@' is not valid
+tests/008_lex_errors_src.r2:3:1: error: character '#' is not valid
+tests/008_lex_errors_src.r2:3:3: error: character '%' is not valid
+tests/008_lex_errors_src.r2:4:1: error: literal integer out of range
+tests/008_lex_errors_src.r2:5:6: error: unknown escape sequence '\q'
+tests/008_lex_errors_src.r2:6:1: error: empty char literal
+tests/008_lex_errors_src.r2:7:1: error: char literal must contain exactly one character
+tests/008_lex_errors_src.r2:8:3: error: unknown escape sequence '\q'
+tests/008_lex_errors_src.r2:9:1: error: char literal is not closed

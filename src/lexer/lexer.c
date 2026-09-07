@@ -2,43 +2,29 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
-#include <errno.h>
 #include <stdarg.h>
 
 #include "lexer/lexer.h"
 
-void init_lexer (Lexer *lexer, char *src, Arena *arena)
+void init_lexer (Lexer *lexer, char *src, Arena *arena, ErrorReporter *err)
 {
 	lexer->line = 1;
-	lexer->err_count = 0;
 	lexer->cursor = src;
 	lexer->line_start = src;
 	lexer->arena = arena;
+	lexer->err = err;
 }
 
-static void vlex_error_line_col (int line, int col, const char *fmt, va_list ap)
+static inline ErrorLoc loc_here (Lexer *l)
 {
-	fprintf(stderr, "Lexer error at %d:%d: ", line, col);
-	vfprintf(stderr, fmt, ap);
-	fprintf(stderr, "\n");
+	ErrorLoc loc = { l->line, (int)(l->cursor - l->line_start) + 1 };
+	return loc;
 }
 
-static void lex_error_line_col (Lexer *l, int line, int col, const char *fmt, ...)
+static inline ErrorLoc loc_at (int line, int col)
 {
-	va_list ap;
-	va_start(ap, fmt);
-	vlex_error_line_col(line, col, fmt, ap);
-	va_end(ap);
-	l->err_count++;
-}
-
-static void lex_error (Lexer *l, const char *fmt, ...)
-{
-	va_list ap;
-	va_start(ap, fmt);
-	vlex_error_line_col(l->line, (int)(l->cursor - l->line_start) + 1, fmt, ap);
-	va_end(ap);
-	l->err_count++;
+	ErrorLoc loc = { line, col };
+	return loc;
 }
 
 static inline Token make_token (TokenType type, char *text, size_t length, int line)
@@ -99,7 +85,7 @@ static Token handle_num_literal (Lexer *l)
 	}
 
 	if (overflow) {
-		lex_error_line_col(l, start_line, start_col, "literal integer out of range");
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col), "literal integer out of range");
 		return make_token(TOK_INVALID, NULL, 0, start_line);
 	}
 
@@ -111,7 +97,7 @@ static Token handle_num_literal (Lexer *l)
 	return token;
 }
 
-static int decode_escape (Lexer *l, char c, char *out)
+static int decode_escape (ErrorReporter *err, char c, char *out, ErrorLoc loc)
 {
 	switch (c)
 	{
@@ -124,32 +110,23 @@ static int decode_escape (Lexer *l, char c, char *out)
 	case '"':  *out = '"'; break;
 	default:
 		if (isprint((unsigned char)c))
-			lex_error(l, "unknown escape sequence '\\%c'", c);
+			error_report(err, ERR_ERROR, loc, "unknown escape sequence '\\%c'", c);
 		else
-			lex_error(l, "unknown escape sequence '\\x%02X'", (unsigned char)c);
+			error_report(err, ERR_ERROR, loc, "unknown escape sequence '\\x%02X'", (unsigned char)c);
 		*out = c;
 		return 0;
 	}
 	return 1;
 }
 
-static char *string_literal_find_end (Lexer *l, char *a)
+static char *string_literal_find_end (char *a)
 {
 	while (*a != '"' && *a != '\0') {
-		if (*a != '\\') {
-			if (*a == '\n') {
-				l->line++;
-				l->line_start = a + 1;
-			}
-			a++;
+		if (*a == '\\' && *(a + 1) != '\0') {
+			a += 2;
 			continue;
 		}
 		a++;
-		if (*a == '\n') {
-			l->line++;
-			l->line_start = a + 1;
-		}
-		if (*a != '\0') a++;
 	}
 	return a;
 }
@@ -161,16 +138,28 @@ static Token string_literal_decode (Lexer *l, char *end)
 
 	while (l->cursor < end) {
 		char c = *l->cursor++;
+
+		if (c == '\n') {
+			l->line++;
+			l->line_start = l->cursor;
+			str[str_len++] = c;
+			continue;
+		}
 		if (c != '\\') {
 			str[str_len++] = c;
 			continue;
 		}
 
+		ErrorLoc loc = loc_here(l);
 		char escaped = *l->cursor++;
-		if (escaped == '\n') continue;
+		if (escaped == '\n') {
+			l->line++;
+			l->line_start = l->cursor;
+			continue;
+		}
 
 		char decoded;
-		if (!decode_escape(l, escaped, &decoded))
+		if (!decode_escape(l->err, escaped, &decoded, loc))
 			return make_token(TOK_INVALID, NULL, 0, l->line);
 		str[str_len++] = decoded;
 	}
@@ -185,9 +174,9 @@ static Token handle_string_literal (Lexer *l)
 	int start_line = l->line;
 	int start_col = (int)(start - l->line_start) + 1;
 
-	char *end = string_literal_find_end(l, l->cursor);
+	char *end = string_literal_find_end(l->cursor);
 	if (*end == '\0') {
-		lex_error_line_col(l, start_line, start_col, "string literal is not closed");
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col), "string literal is not closed");
 		l->cursor = end;
 		return make_token(TOK_INVALID, NULL, 0, start_line);
 	}
@@ -202,21 +191,20 @@ static char handle_char_literal_next_char (Lexer *l, char *chr)
 {
 	char c = *l->cursor;
 	if (c == '\n') {
-		int newline_line = l->line;
-		int newline_col = (int)(l->cursor - l->line_start) + 1;
+		ErrorLoc loc = loc_here(l);
 		l->cursor++;
 		l->line++;
 		l->line_start = l->cursor;
-		lex_error_line_col(l, newline_line, newline_col, "newline in char literal");
+		error_report(l->err, ERR_ERROR, loc, "newline in char literal");
 		return 0;
 	}
 	if (c == '\\') {
 		l->cursor++;
 		if (*l->cursor == '\0') {
-			lex_error(l, "incomplete escape sequence");
+			error_report(l->err, ERR_ERROR, loc_here(l), "incomplete escape sequence");
 			return 0;
 		}
-		if (!decode_escape(l, *l->cursor, &c))
+		if (!decode_escape(l->err, *l->cursor, &c, loc_here(l)))
 			return 0;
 	}
 	l->cursor++;
@@ -227,22 +215,11 @@ static char handle_char_literal_next_char (Lexer *l, char *chr)
 static int char_literal_scan_extra (Lexer *l)
 {
 	int multichr = 0;
-	while (*l->cursor != '\0' && *l->cursor != '\'') {
+	while (*l->cursor != '\0' && *l->cursor != '\'' && *l->cursor != '\n') {
 		multichr = 1;
-		if (*l->cursor == '\\' && *(l->cursor + 1) != '\0' && *(l->cursor + 1) != '\n') {
+		if (*l->cursor == '\\' && *(l->cursor + 1) != '\0' && *(l->cursor + 1) != '\n')
 			l->cursor += 2;
-			continue;
-		}
-		if (*l->cursor == '\n') {
-			int nl_line = l->line;
-			int nl_col = (int)(l->cursor - l->line_start) + 1;
-			l->cursor++;
-			l->line++;
-			l->line_start = l->cursor;
-			lex_error_line_col(l, nl_line, nl_col, "newline in char literal");
-		} else {
-			l->cursor++;
-		}
+		else l->cursor++;
 	}
 	return multichr;
 }
@@ -254,7 +231,7 @@ static Token handle_char_literal (Lexer *l)
 	int start_col = (int)(start - l->line_start) + 1;
 
 	if (*l->cursor == '\'') {
-		lex_error_line_col(l, l->line, start_col, "empty char literal");
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col), "empty char literal");
 		l->cursor++;
 		return make_token(TOK_INVALID, NULL, 0, l->line);
 	}
@@ -273,16 +250,15 @@ static Token handle_char_literal (Lexer *l)
 
 	int multichr = char_literal_scan_extra(l);
 
-	if (*l->cursor == '\'') {
-		l->cursor++;
-		if (multichr) {
-			lex_error_line_col(l, start_line, start_col, "char literal must contain exactly one character");
-			return make_token(TOK_INVALID, NULL, 0, l->line);
-		}
-	} else {
-		lex_error_line_col(l, start_line, start_col, "char literal is not closed");
-		if (multichr)
-			lex_error_line_col(l, start_line, start_col, "char literal must contain exactly one character");
+	if (*l->cursor != '\'') {
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col), "char literal is not closed");
+		return make_token(TOK_INVALID, NULL, 0, l->line);
+	}
+	l->cursor++;
+
+	if (multichr) {
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col),
+			"char literal must contain exactly one character");
 		return make_token(TOK_INVALID, NULL, 0, l->line);
 	}
 
@@ -415,9 +391,9 @@ static Token handle_symbols (Lexer *l)
 	if (strchr("=!><&|", c)) return handle_compound_op(l, c);
 
 	if (isprint((unsigned char)c))
-		lex_error_line_col(l, sym_line, sym_col, "character '%c' is not valid", c);
+		error_report(l->err, ERR_ERROR, loc_at(sym_line, sym_col), "character '%c' is not valid", c);
 	else
-		lex_error_line_col(l, sym_line, sym_col, "character '\\x%02X' is not valid", (unsigned char)c);
+		error_report(l->err, ERR_ERROR, loc_at(sym_line, sym_col), "character '\\x%02X' is not valid", (unsigned char)c);
 	return make_token(TOK_INVALID, NULL, 0, l->line);
 }
 
@@ -551,5 +527,5 @@ int dump_tokens (Lexer *l)
 		printf("%s\n", str_type);
 	} while (t.type != TOK_EOF);
 
-	return l->err_count;
+	return l->err->err_count;
 }

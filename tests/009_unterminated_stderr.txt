@@ -1,1 +1,1 @@
-Lexer error at 1:1: string literal is not closed
+tests/009_unterminated_src.r2:1:1: error: string literal is not closed

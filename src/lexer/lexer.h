@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "arena/arena.h"
+#include "error/error.h"
 
 typedef enum {
 	TOK_NONE = 0, TOK_INVALID, TOK_EOF,
@@ -35,12 +36,12 @@ typedef struct Lexer {
 	char *cursor;
 	char *line_start;
 	int line;
-	int err_count;
+	ErrorReporter *err;
 	Arena *arena;
 } Lexer;
 
-void init_lexer (Lexer *lexer, char *src, Arena *arena);
-int dump_tokens (Lexer *l);
+void init_lexer (Lexer *lexer, char *src, Arena *arena, ErrorReporter *err);
 Token get_token (Lexer *l);
+int dump_tokens (Lexer *l);
 
 #endif

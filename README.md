@@ -18,7 +18,7 @@ For now, `--dump-tokens` is the main way to see the compiler do something.
 ## Features
 
 - Lexer: identifiers, keywords, integer/char/string literals (with escape sequences), `//` comments, and the full set of operators (arithmetic, bitwise, logical, comparison).
-- Precise error reporting with `line:column` locations.
+- Precise error reporting with `file:line:column` locations.
 - Arena allocator — all compiler memory is freed in a single call at program exit instead of scattered `malloc`/`free` calls.
 - `--dump-tokens` flag to inspect exactly what the lexer produces for a given source file.
 - Fixture-based test runner (`make test`) that checks stdout, stderr, and exit status.

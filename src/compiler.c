@@ -28,6 +28,8 @@ static long file_size (FILE *f, const char *file)
 
 int compiler_load_file (Compiler *comp, const char *file)
 {
+	error_init(&comp->err, file);
+
 	struct stat st;
 	if (stat(file, &st) != 0 || !S_ISREG(st.st_mode)) {
 		fprintf(stderr, "Error: %s is not a regular file\n", file);
@@ -50,7 +52,7 @@ int compiler_load_file (Compiler *comp, const char *file)
 
 	comp->src[src_size] = '\0';
 	fclose(f);
-	init_lexer(&comp->lexer, comp->src, &comp->arena);
+	init_lexer(&comp->lexer, comp->src, &comp->arena, &comp->err);
 
 	return 0;
 }

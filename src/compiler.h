@@ -3,9 +3,11 @@
 
 #include "arena/arena.h"
 #include "lexer/lexer.h"
+#include "error/error.h"
 
 typedef struct Compiler {
 	Arena arena;
+	ErrorReporter err;
 	char *src;
 	Lexer lexer;
 } Compiler;
