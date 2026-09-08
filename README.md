@@ -42,10 +42,12 @@ make test
 
 ```
 src/
-├── main.c           # CLI entry point: arg parsing, file reading, orchestration
+├── main.c           # CLI entry point: arg parsing, orchestration
 ├── compiler.c/h     # Compiler context, wires the lexer (and future stages) together
 ├── arena/
-    └── arena.c/h    # Bump-allocator arena; owns all compiler memory
+|   └── arena.c/h    # Bump-allocator arena; owns all compiler memory
+├── error/
+|   └── error.c/h    # Error reporting: other stages call it to report an error
 └── lexer/
     └── lexer.c/h    # Tokenizer: keywords, literals, operators, error reporting
 ```

@@ -62,7 +62,7 @@ static void skip_comment (Lexer *l)
 	}
 }
 
-static void skip_withespace (Lexer *l)
+static void skip_whitespace (Lexer *l)
 {
 	while (1) {
 		char c = *l->cursor;
@@ -156,7 +156,7 @@ static Token string_literal_decode (Lexer *l, char *end)
 			continue;
 		}
 
-		ErrorLoc loc = loc_here(l);
+		ErrorLoc loc = loc_at(l->line, (int)(l->cursor - l->line_start), l->line_start, 2);
 		char escaped = *l->cursor++;
 		if (escaped == '\n') {
 			l->line++;
@@ -199,11 +199,7 @@ static char handle_char_literal_next_char (Lexer *l, char *chr)
 {
 	char c = *l->cursor;
 	if (c == '\n') {
-		ErrorLoc loc = loc_here(l);
-		l->cursor++;
-		l->line++;
-		l->line_start = l->cursor;
-		error_report(l->err, ERR_ERROR, loc, "newline in char literal");
+		error_report(l->err, ERR_ERROR, loc_here(l), "newline in char literal");
 		return 0;
 	}
 	if (c == '\\') {
@@ -212,7 +208,7 @@ static char handle_char_literal_next_char (Lexer *l, char *chr)
 			error_report(l->err, ERR_ERROR, loc_here(l), "incomplete escape sequence");
 			return 0;
 		}
-		if (!decode_escape(l->err, *l->cursor, &c, loc_here(l)))
+		if (!decode_escape(l->err, *l->cursor, &c, loc_at(l->line, (int)(l->cursor - l->line_start), l->line_start, 2)))
 			return 0;
 	}
 	l->cursor++;
@@ -378,12 +374,14 @@ static Token handle_compound_op (Lexer *l, char c)
 			return make_token(TOK_AND_L, NULL, 0, l->line);
 		}
 		return make_token(TOK_AND_A, NULL, 0, l->line);
-	default:
+	case '|':
 		if (*l->cursor == '|') {
 			l->cursor++;
 			return make_token(TOK_OR_L, NULL, 0, l->line);
 		}
 		return make_token(TOK_OR_A, NULL, 0, l->line);
+	default:
+		return make_token(TOK_INVALID, NULL, 0, l->line);
 	}
 }
 
@@ -408,7 +406,7 @@ static Token handle_symbols (Lexer *l)
 
 Token get_token (Lexer *l)
 {
-	skip_withespace(l);
+	skip_whitespace(l);
 	char c = *l->cursor;
 
 	if (c == '\0')
