@@ -37,13 +37,14 @@ static inline ErrorLoc loc_at (int line, int col, char *line_start, int len)
 	return loc;
 }
 
-static inline Token make_token (TokenType type, char *text, size_t length, int line)
+static inline Token make_token (TokenType type, char *text, size_t len, uint16_t line, uint16_t col)
 {
 	Token token = {
 		.type = type,
 		.line = line,
-		.length = length,
-		.string = text
+		.len = len,
+		.col = col,
+		.str = text
 	};
 	return token;
 }
@@ -98,13 +99,14 @@ static Token handle_num_literal (Lexer *l)
 	if (overflow) {
 		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, l->line_start,
 				(int)(l->cursor - start)), "literal integer out of range");
-		return make_token(TOK_INVALID, NULL, 0, start_line);
+		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
 	}
 
 	Token token = {
 		.type = TOK_LIT_i64,
 		.line = start_line,
 		.i64 = value,
+		.col = start_col
 	};
 	return token;
 }
@@ -143,7 +145,7 @@ static char *string_literal_find_end (char *a)
 	return a;
 }
 
-static Token string_literal_decode (Lexer *l, char *end)
+static Token string_literal_decode (Lexer *l, char *end, int start_line, int start_col)
 {
 	char *str = arena_alloc(l->arena, (size_t)(end - l->cursor) + 1);
 	size_t str_len = 0;
@@ -166,12 +168,12 @@ static Token string_literal_decode (Lexer *l, char *end)
 
 		char decoded;
 		if (!decode_escape(l->err, escaped, &decoded, loc))
-			return make_token(TOK_INVALID, NULL, 0, l->line);
+			return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
 		str[str_len++] = decoded;
 	}
 
 	str[str_len] = '\0';
-	return make_token(TOK_LIT_STR, str, str_len, l->line);
+	return make_token(TOK_LIT_STR, str, str_len, start_line, start_col);
 }
 
 static Token handle_string_literal (Lexer *l)
@@ -186,12 +188,11 @@ static Token handle_string_literal (Lexer *l)
 		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, line_start,
 				(int)(end - start)), "string literal is not closed");
 		l->cursor = end;
-		return make_token(TOK_INVALID, NULL, 0, start_line);
+		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
 	}
 
-	Token token = string_literal_decode(l, end);
+	Token token = string_literal_decode(l, end, start_line, start_col);
 	l->cursor = end + 1;
-	token.line = start_line;
 	return token;
 }
 
@@ -239,7 +240,7 @@ static Token handle_char_literal (Lexer *l)
 		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, line_start, 2),
 				"empty char literal");
 		l->cursor++;
-		return make_token(TOK_INVALID, NULL, 0, start_line);
+		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
 	}
 
 	char chr;
@@ -247,7 +248,7 @@ static Token handle_char_literal (Lexer *l)
 		char_literal_scan_extra(l);
 		if (*l->cursor == '\'')
 			l->cursor++;
-		return make_token(TOK_INVALID, NULL, 0, start_line);
+		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
 	}
 
 	int multichr = char_literal_scan_extra(l);
@@ -255,20 +256,21 @@ static Token handle_char_literal (Lexer *l)
 	if (*l->cursor != '\'') {
 		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, line_start,
 				(int)(l->cursor - start)), "char literal is not closed");
-		return make_token(TOK_INVALID, NULL, 0, start_line);
+		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
 	}
 	l->cursor++;
 
 	if (multichr) {
 		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, line_start,
 				(int)(l->cursor - start)), "char literal must contain exactly one character");
-		return make_token(TOK_INVALID, NULL, 0, start_line);
+		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
 	}
 
 	Token token = {
 		.type = TOK_LIT_CHAR,
 		.line = start_line,
-		.chr = chr
+		.chr = chr,
+		.col = start_col
 	};
 	return token;
 }
@@ -317,7 +319,10 @@ static TokenType id_keyword (char *str, size_t length)
 	return kw ? kw->type : TOK_ID;
 }
 
-typedef struct SimpleOp { char ch; TokenType type; } SimpleOp;
+typedef struct SimpleOp {
+	char ch;
+	TokenType type;
+} SimpleOp;
 
 static const SimpleOp simple_ops[] = {
 	{'+', TOK_ADD}, {'-', TOK_SUB}, {'*', TOK_STAR}, {'/', TOK_SLASH},
@@ -329,59 +334,62 @@ static const SimpleOp simple_ops[] = {
 static int find_simple_op (char c, TokenType *out)
 {
 	for (size_t i = 0; i < sizeof(simple_ops) / sizeof(simple_ops[0]); i++) {
-		if (simple_ops[i].ch == c) { *out = simple_ops[i].type; return 1; }
+		if (simple_ops[i].ch == c) {
+			*out = simple_ops[i].type;
+			return 1;
+		}
 	}
 	return 0;
 }
 
-static Token handle_compound_op (Lexer *l, char c)
+static Token handle_compound_op (Lexer *l, char c, int start_col)
 {
 	switch (c)
 	{
 	case '=':
 		if (*l->cursor == '=') {
 			l->cursor++;
-			return make_token(TOK_EQ, NULL, 0, l->line);
+			return make_token(TOK_EQ, NULL, 0, l->line, start_col);
 		}
-		return make_token(TOK_ASSIGN, NULL, 0, l->line);
+		return make_token(TOK_ASSIGN, NULL, 0, l->line, start_col);
 	case '!':
 		if (*l->cursor == '=') {
 			l->cursor++;
-			return make_token(TOK_NE, NULL, 0, l->line);
+			return make_token(TOK_NE, NULL, 0, l->line, start_col);
 		}
-		return make_token(TOK_NOT_L, NULL, 0, l->line);
+		return make_token(TOK_NOT_L, NULL, 0, l->line, start_col);
 	case '>':
 		if (*l->cursor == '>') {
 			l->cursor++;
-			return make_token(TOK_RS, NULL, 0, l->line);
+			return make_token(TOK_RS, NULL, 0, l->line, start_col);
 		} else if (*l->cursor == '=') {
 			l->cursor++;
-			return make_token(TOK_GE, NULL, 0, l->line);
+			return make_token(TOK_GE, NULL, 0, l->line, start_col);
 		}
-		return make_token(TOK_GT, NULL, 0, l->line);
+		return make_token(TOK_GT, NULL, 0, l->line, start_col);
 	case '<':
 		if (*l->cursor == '<') {
 			l->cursor++;
-			return make_token(TOK_LS, NULL, 0, l->line);
+			return make_token(TOK_LS, NULL, 0, l->line, start_col);
 		} else if (*l->cursor == '=') {
 			l->cursor++;
-			return make_token(TOK_LE, NULL, 0, l->line);
+			return make_token(TOK_LE, NULL, 0, l->line, start_col);
 		}
-		return make_token(TOK_LT, NULL, 0, l->line);
+		return make_token(TOK_LT, NULL, 0, l->line, start_col);
 	case '&':
 		if (*l->cursor == '&') {
 			l->cursor++;
-			return make_token(TOK_AND_L, NULL, 0, l->line);
+			return make_token(TOK_AND_L, NULL, 0, l->line, start_col);
 		}
-		return make_token(TOK_AND_A, NULL, 0, l->line);
+		return make_token(TOK_AND_A, NULL, 0, l->line, start_col);
 	case '|':
 		if (*l->cursor == '|') {
 			l->cursor++;
-			return make_token(TOK_OR_L, NULL, 0, l->line);
+			return make_token(TOK_OR_L, NULL, 0, l->line, start_col);
 		}
-		return make_token(TOK_OR_A, NULL, 0, l->line);
+		return make_token(TOK_OR_A, NULL, 0, l->line, start_col);
 	default:
-		return make_token(TOK_INVALID, NULL, 0, l->line);
+		return make_token(TOK_INVALID, NULL, 0, l->line, start_col);
 	}
 }
 
@@ -392,8 +400,8 @@ static Token handle_symbols (Lexer *l)
 	char c = *l->cursor++;
 	TokenType simple;
 
-	if (find_simple_op(c, &simple)) return make_token(simple, NULL, 0, l->line);
-	if (strchr("=!><&|", c)) return handle_compound_op(l, c);
+	if (find_simple_op(c, &simple)) return make_token(simple, NULL, 0, l->line, sym_col);
+	if (strchr("=!><&|", c)) return handle_compound_op(l, c, sym_col);
 
 	if (isprint((unsigned char)c))
 		error_report(l->err, ERR_ERROR, loc_at(sym_line, sym_col, l->line_start, 1),
@@ -401,7 +409,7 @@ static Token handle_symbols (Lexer *l)
 	else
 		error_report(l->err, ERR_ERROR, loc_at(sym_line, sym_col, l->line_start, 1),
 				"character '\\x%02X' is not valid", (unsigned char)c);
-	return make_token(TOK_INVALID, NULL, 0, l->line);
+	return make_token(TOK_INVALID, NULL, 0, l->line, sym_col);
 }
 
 Token get_token (Lexer *l)
@@ -410,19 +418,20 @@ Token get_token (Lexer *l)
 	char c = *l->cursor;
 
 	if (c == '\0')
-		return make_token(TOK_EOF, l->cursor, 0, l->line);
+		return make_token(TOK_EOF, l->cursor, 0, l->line, l->cursor - l->line_start);
 
 	if (isdigit((unsigned char)c)) return handle_num_literal(l);
 	if (c == '\'') return handle_char_literal(l);
 	if (c == '"') return handle_string_literal(l);
 
 	if (isalpha((unsigned char)c) || c == '_') {
+		int start_col = (int)(l->cursor - l->line_start) + 1;
 		char *start = l->cursor++;
 		while (isalnum((unsigned char)*l->cursor) || *l->cursor == '_') l->cursor++;
 		size_t length = l->cursor - start;
 
 		TokenType type = id_keyword(start, length);
-		return make_token(type, start, length, l->line);
+		return make_token(type, start, length, l->line, start_col);
 	}
 
 	return handle_symbols(l);
@@ -516,7 +525,7 @@ int dump_tokens (Lexer *l)
 
 		if (t.type == TOK_ID || t.type == TOK_LIT_STR) {
 			printf("%s ", str_type);
-			print_escaped(t.string, t.length, '"');
+			print_escaped(t.str, t.len, '"');
 			printf("\n");
 			continue;
 		}
