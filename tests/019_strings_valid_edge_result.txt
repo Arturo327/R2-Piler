@@ -1,0 +1,16 @@
+TOK_LIT_STR 
+TOK_LIT_STR  
+TOK_LIT_STR a
+TOK_LIT_STR // not a comment
+TOK_LIT_STR /* not a comment */
+TOK_LIT_STR 'single' inside
+TOK_LIT_STR a'b'c
+TOK_LIT_STR (a:b;c)
+TOK_LIT_STR a+b==c
+TOK_LIT_STR 123
+TOK_LIT_STR 
+TOK_LIT_STR a
+TOK_LIT_STR b
+TOK_LIT_STR ends\\
+TOK_LIT_STR tab\there
+TOK_EOF

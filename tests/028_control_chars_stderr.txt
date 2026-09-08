@@ -1,0 +1,8 @@
+tests/028_control_chars_src.r2:2:1: [1;31mERROR[0m: character '\x01' is not valid
+      2 | [1;31m[0m
+        | [1;31m^[0m
+
+tests/028_control_chars_src.r2:3:1: [1;31mERROR[0m: character '\x7F' is not valid
+      3 | [1;31m[0m
+        | [1;31m^[0m
+
