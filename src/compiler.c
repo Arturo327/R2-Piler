@@ -9,6 +9,7 @@ void compiler_init (Compiler *comp)
 {
 	memset(comp, 0, sizeof(*comp));
 	arena_init(&comp->arena);
+	arena_init(&comp->ast_arena);
 }
 
 static long file_size (FILE *f, const char *file)
@@ -64,6 +65,7 @@ int compiler_load_file (Compiler *comp, const char *file)
 	}
 
 	init_lexer(&comp->lexer, comp->src, &comp->arena, &comp->err);
+	init_parser(&comp->parser, &comp->lexer, &comp->ast_arena, &comp->err);
 
 	return 0;
 }
@@ -71,5 +73,6 @@ int compiler_load_file (Compiler *comp, const char *file)
 void compiler_destroy (Compiler *comp)
 {
 	arena_destroy(&comp->arena);
+	arena_destroy(&comp->ast_arena);
 	memset(comp, 0, sizeof(*comp));
 }

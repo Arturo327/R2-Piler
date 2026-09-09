@@ -4,12 +4,15 @@
 #include "arena/arena.h"
 #include "lexer/lexer.h"
 #include "error/error.h"
+#include "parser/parser.h"
 
 typedef struct Compiler {
 	Arena arena;
+	Arena ast_arena;
 	ErrorReporter err;
 	char *src;
 	Lexer lexer;
+	Parser parser;
 } Compiler;
 
 void compiler_init (Compiler *comp);

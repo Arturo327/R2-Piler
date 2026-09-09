@@ -2,18 +2,22 @@
 
 A small compiler for the (invented) **R2-Lang** language, written in C.
 
+---
+
 ## Current Status
 
-Currently implements a complete lexer with arena-based memory management. The parser, type checker, and code generator are not built yet.
+Currently implements a complete lexer with arena-based memory management. I am currently working on the parser. The type checker, and code generator are not built yet.
 
 **Early stage / work in progress.**
 
 - Lexer — implemented and tested
-- Parser — not started
+- Parser — working on
 - Type checker — not started
 - Code generation — not started
 
 For now, `--dump-tokens` is the main way to see the compiler do something.
+
+---
 
 ## Features
 
@@ -22,6 +26,8 @@ For now, `--dump-tokens` is the main way to see the compiler do something.
 - Arena allocator — all compiler memory is freed in a single call at program exit instead of scattered `malloc`/`free` calls.
 - `--dump-tokens` flag to inspect exactly what the lexer produces for a given source file.
 - Fixture-based test runner (`make test`) that checks stdout, stderr, and exit status.
+
+---
 
 ## Quick Start
 
@@ -38,6 +44,8 @@ Run the test suite:
 make test
 ```
 
+---
+
 ## Architecture
 
 ```
@@ -48,10 +56,17 @@ src/
 |   └── arena.c/h    # Bump-allocator arena; owns all compiler memory
 ├── error/
 |   └── error.c/h    # Error reporting: other stages call it to report an error
+├── parser/
+|   ├── ast.h        # AST definition: nodes, types, AST tree
+|   └── parser.c/h   # Parser: get the tokens and crate an AST tree
 └── lexer/
-    └── lexer.c/h    # Tokenizer: keywords, literals, operators, error reporting
+    └── lexer.c/h    # Tokenizer: keywords, literals, operators
 ```
+
+---
 
 ## License
 
 MIT
+
+---

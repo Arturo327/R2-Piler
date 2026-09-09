@@ -20,9 +20,6 @@ typedef enum {
 } TokenType;
 
 typedef struct Token {
-	TokenType type;
-	uint16_t line;
-	uint16_t col;
 	union {
 		struct {
 			char *str;
@@ -31,6 +28,9 @@ typedef struct Token {
 		int64_t i64;
 		char chr;
 	};
+	uint16_t line;
+	uint16_t col;
+	uint8_t type;
 } Token;
 
 typedef struct Lexer {
