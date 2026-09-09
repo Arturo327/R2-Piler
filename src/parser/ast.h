@@ -32,6 +32,7 @@ typedef struct ASTNode {
 
 	uint16_t line;
 	uint16_t col;
+	uint16_t len;
 
 	uint8_t type;
 } ASTNode;

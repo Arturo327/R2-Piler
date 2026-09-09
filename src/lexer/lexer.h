@@ -21,15 +21,13 @@ typedef enum {
 
 typedef struct Token {
 	union {
-		struct {
-			char *str;
-			size_t len;
-		};
+		char *str;
 		int64_t i64;
 		char chr;
 	};
 	uint16_t line;
 	uint16_t col;
+	uint16_t len;
 	uint8_t type;
 } Token;
 

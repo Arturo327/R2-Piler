@@ -99,7 +99,7 @@ static Token handle_num_literal (Lexer *l)
 	if (overflow) {
 		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, l->line_start,
 				(int)(l->cursor - start)), "literal integer out of range");
-		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
+		return make_token(TOK_INVALID, NULL, l->cursor - start - 1, start_line, start_col);
 	}
 
 	Token token = {
@@ -349,45 +349,45 @@ static Token handle_compound_op (Lexer *l, char c, int start_col)
 	case '=':
 		if (*l->cursor == '=') {
 			l->cursor++;
-			return make_token(TOK_EQ, NULL, 0, l->line, start_col);
+			return make_token(TOK_EQ, NULL, 2, l->line, start_col);
 		}
-		return make_token(TOK_ASSIGN, NULL, 0, l->line, start_col);
+		return make_token(TOK_ASSIGN, NULL, 1, l->line, start_col);
 	case '!':
 		if (*l->cursor == '=') {
 			l->cursor++;
-			return make_token(TOK_NE, NULL, 0, l->line, start_col);
+			return make_token(TOK_NE, NULL, 2, l->line, start_col);
 		}
-		return make_token(TOK_NOT_L, NULL, 0, l->line, start_col);
+		return make_token(TOK_NOT_L, NULL, 1, l->line, start_col);
 	case '>':
 		if (*l->cursor == '>') {
 			l->cursor++;
-			return make_token(TOK_RS, NULL, 0, l->line, start_col);
+			return make_token(TOK_RS, NULL, 2, l->line, start_col);
 		} else if (*l->cursor == '=') {
 			l->cursor++;
-			return make_token(TOK_GE, NULL, 0, l->line, start_col);
+			return make_token(TOK_GE, NULL, 2, l->line, start_col);
 		}
-		return make_token(TOK_GT, NULL, 0, l->line, start_col);
+		return make_token(TOK_GT, NULL, 1, l->line, start_col);
 	case '<':
 		if (*l->cursor == '<') {
 			l->cursor++;
-			return make_token(TOK_LS, NULL, 0, l->line, start_col);
+			return make_token(TOK_LS, NULL, 2, l->line, start_col);
 		} else if (*l->cursor == '=') {
 			l->cursor++;
-			return make_token(TOK_LE, NULL, 0, l->line, start_col);
+			return make_token(TOK_LE, NULL, 2, l->line, start_col);
 		}
-		return make_token(TOK_LT, NULL, 0, l->line, start_col);
+		return make_token(TOK_LT, NULL, 1, l->line, start_col);
 	case '&':
 		if (*l->cursor == '&') {
 			l->cursor++;
-			return make_token(TOK_AND_L, NULL, 0, l->line, start_col);
+			return make_token(TOK_AND_L, NULL, 2, l->line, start_col);
 		}
-		return make_token(TOK_AND_A, NULL, 0, l->line, start_col);
+		return make_token(TOK_AND_A, NULL, 1, l->line, start_col);
 	case '|':
 		if (*l->cursor == '|') {
 			l->cursor++;
-			return make_token(TOK_OR_L, NULL, 0, l->line, start_col);
+			return make_token(TOK_OR_L, NULL, 2, l->line, start_col);
 		}
-		return make_token(TOK_OR_A, NULL, 0, l->line, start_col);
+		return make_token(TOK_OR_A, NULL, 1, l->line, start_col);
 	default:
 		return make_token(TOK_INVALID, NULL, 0, l->line, start_col);
 	}
@@ -400,7 +400,7 @@ static Token handle_symbols (Lexer *l)
 	char c = *l->cursor++;
 	TokenType simple;
 
-	if (find_simple_op(c, &simple)) return make_token(simple, NULL, 0, l->line, sym_col);
+	if (find_simple_op(c, &simple)) return make_token(simple, NULL, 1, l->line, sym_col);
 	if (strchr("=!><&|", c)) return handle_compound_op(l, c, sym_col);
 
 	if (isprint((unsigned char)c))
