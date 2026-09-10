@@ -1,24 +1,18 @@
 tests/020_strings_errors_src.r2:1:5: [1;31mERROR[0m: unknown escape sequence '\q'
       1 | "bad[1;31m\q[0m"
         |     [1;31m^~[0m
-
 tests/020_strings_errors_src.r2:2:5: [1;31mERROR[0m: unknown escape sequence '\a'
       2 | "bad[1;31m\a[0m"
         |     [1;31m^~[0m
-
 tests/020_strings_errors_src.r2:3:1: [1;31mERROR[0m: string literal is not closed
       3 | [1;31m"oops[0m
         | [1;31m^~~~~[0m
-
 tests/020_strings_errors_src.r2:4:1: [1;31mERROR[0m: string literal is not closed
       4 | [1;31m"hello[0m
         | [1;31m^~~~~~[0m
-
 tests/020_strings_errors_src.r2:5:6: [1;31mERROR[0m: string literal is not closed
       5 | world[1;31m"[0m
         |      [1;31m^[0m
-
 tests/020_strings_errors_src.r2:6:1: [1;31mERROR[0m: string literal is not closed
       6 | [1;31m"[0m
         | [1;31m^[0m
-

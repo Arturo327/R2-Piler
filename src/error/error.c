@@ -12,6 +12,28 @@ void error_init (ErrorReporter *er, const char *file)
 	er->file = file;
 	er->err_count = 0;
 	er->warn_count = 0;
+	er->line_starts = NULL;
+	er->line_count = 0;
+}
+
+void error_index_lines (ErrorReporter *er, char *src, Arena *arena)
+{
+	int count = 1;
+	for (char *c = src; *c != '\0'; c++) {
+		if (*c == '\n') count++;
+	}
+
+	er->line_starts = arena_alloc(arena, sizeof(char *) * (size_t)count);
+	er->line_count = count;
+
+	er->line_starts[0] = src;
+	int line = 1;
+	for (char *c = src; *c != '\0'; c++) {
+		if (*c == '\n') {
+			er->line_starts[line] = c + 1;
+			line++;
+		}
+	}
 }
 
 static const char *level_str (ErrorLevel level, char **col)
@@ -25,11 +47,19 @@ static const char *level_str (ErrorLevel level, char **col)
 	return COL_RED "ERROR" COL_RESET;
 }
 
-static int error_line_len (ErrorLoc loc)
+static char *error_get_line_start (ErrorReporter *er, int line)
 {
-	const char *c = loc.line_start;
+	int idx = line - 1;
+	if (idx < 0) idx = 0;
+	if (idx >= er->line_count) idx = er->line_count - 1;
+	return er->line_starts[idx];
+}
+
+static int error_line_len (const char *line_start)
+{
+	const char *c = line_start;
 	while (*c != '\n' && *c != '\0') c++;
-	return (int)(c - loc.line_start);
+	return (int)(c - line_start);
 }
 
 void error_report (ErrorReporter *er, ErrorLevel level, ErrorLoc loc, const char *fmt, ...)
@@ -43,7 +73,8 @@ void error_report (ErrorReporter *er, ErrorLevel level, ErrorLoc loc, const char
 	va_end(ap);
 	fprintf(stderr, "\n");
 
-	int line_len = error_line_len(loc);
+	char *line_start = error_get_line_start(er, loc.line);
+	int line_len = error_line_len(line_start);
 	int col = loc.col - 1;
 	int span = loc.len;
 	if (col < 0) col = 0;
@@ -52,14 +83,14 @@ void error_report (ErrorReporter *er, ErrorLevel level, ErrorLoc loc, const char
 	if (col + span > line_len) span = line_len - col;
 
 	fprintf(stderr, "   %4d | ", loc.line);
-	fprintf(stderr, "%.*s", col, loc.line_start);
-	fprintf(stderr, "%s%.*s%s", color, span, loc.line_start + col, COL_RESET);
-	fprintf(stderr, "%.*s\n", line_len - col - span, loc.line_start + col + span);
+	fprintf(stderr, "%.*s", col, line_start);
+	fprintf(stderr, "%s%.*s%s", color, span, line_start + col, COL_RESET);
+	fprintf(stderr, "%.*s\n", line_len - col - span, line_start + col + span);
 
 	fprintf(stderr, "        | %*s", col, "");
 	fprintf(stderr, "%s^", color);
 	for (int i = 1; i < span; i++) fprintf(stderr, "~");
-	fprintf(stderr, "%s\n\n", COL_RESET);
+	fprintf(stderr, "%s\n", COL_RESET);
 
 	if (level == ERR_ERROR) er->err_count++;
 	else er->warn_count++;

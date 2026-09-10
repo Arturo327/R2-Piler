@@ -20,19 +20,17 @@ static inline ErrorLoc loc_here (Lexer *l)
 	ErrorLoc loc = {
 		.line = l->line,
 		.col = (int)(l->cursor - l->line_start) + 1,
-		.len = 1,
-		.line_start = l->line_start
+		.len = 1
 	};
 	return loc;
 }
 
-static inline ErrorLoc loc_at (int line, int col, char *line_start, int len)
+static inline ErrorLoc loc_at (int line, int col, int len)
 {
 	ErrorLoc loc = {
 		.line = line,
 		.col = col,
-		.len = len,
-		.line_start = line_start
+		.len = len
 	};
 	return loc;
 }
@@ -97,9 +95,9 @@ static Token handle_num_literal (Lexer *l)
 	}
 
 	if (overflow) {
-		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, l->line_start,
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col,
 				(int)(l->cursor - start)), "literal integer out of range");
-		return make_token(TOK_INVALID, NULL, l->cursor - start - 1, start_line, start_col);
+		return make_token(TOK_INVALID, NULL, l->cursor - start, start_line, start_col);
 	}
 
 	Token token = {
@@ -158,7 +156,7 @@ static Token string_literal_decode (Lexer *l, char *end, int start_line, int sta
 			continue;
 		}
 
-		ErrorLoc loc = loc_at(l->line, (int)(l->cursor - l->line_start), l->line_start, 2);
+		ErrorLoc loc = loc_at(l->line, (int)(l->cursor - l->line_start), 2);
 		char escaped = *l->cursor++;
 		if (escaped == '\n') {
 			l->line++;
@@ -179,13 +177,12 @@ static Token string_literal_decode (Lexer *l, char *end, int start_line, int sta
 static Token handle_string_literal (Lexer *l)
 {
 	char *start = l->cursor++;
-	char *line_start = l->line_start;
 	int start_line = l->line;
 	int start_col = (int)(start - l->line_start) + 1;
 
 	char *end = string_literal_find_end(l->cursor);
 	if (*end != '"') {
-		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, line_start,
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col,
 				(int)(end - start)), "string literal is not closed");
 		l->cursor = end;
 		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
@@ -209,7 +206,7 @@ static char handle_char_literal_next_char (Lexer *l, char *chr)
 			error_report(l->err, ERR_ERROR, loc_here(l), "incomplete escape sequence");
 			return 0;
 		}
-		if (!decode_escape(l->err, *l->cursor, &c, loc_at(l->line, (int)(l->cursor - l->line_start), l->line_start, 2)))
+		if (!decode_escape(l->err, *l->cursor, &c, loc_at(l->line, (int)(l->cursor - l->line_start), 2)))
 			return 0;
 	}
 	l->cursor++;
@@ -237,7 +234,7 @@ static Token handle_char_literal (Lexer *l)
 	int start_col = (int)(start - line_start) + 1;
 
 	if (*l->cursor == '\'') {
-		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, line_start, 2),
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, 2),
 				"empty char literal");
 		l->cursor++;
 		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
@@ -254,14 +251,14 @@ static Token handle_char_literal (Lexer *l)
 	int multichr = char_literal_scan_extra(l);
 
 	if (*l->cursor != '\'') {
-		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, line_start,
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col,
 				(int)(l->cursor - start)), "char literal is not closed");
 		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
 	}
 	l->cursor++;
 
 	if (multichr) {
-		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, line_start,
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col,
 				(int)(l->cursor - start)), "char literal must contain exactly one character");
 		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
 	}
@@ -404,10 +401,10 @@ static Token handle_symbols (Lexer *l)
 	if (strchr("=!><&|", c)) return handle_compound_op(l, c, sym_col);
 
 	if (isprint((unsigned char)c))
-		error_report(l->err, ERR_ERROR, loc_at(sym_line, sym_col, l->line_start, 1),
+		error_report(l->err, ERR_ERROR, loc_at(sym_line, sym_col, 1),
 				"character '%c' is not valid", c);
 	else
-		error_report(l->err, ERR_ERROR, loc_at(sym_line, sym_col, l->line_start, 1),
+		error_report(l->err, ERR_ERROR, loc_at(sym_line, sym_col, 1),
 				"character '\\x%02X' is not valid", (unsigned char)c);
 	return make_token(TOK_INVALID, NULL, 0, l->line, sym_col);
 }
@@ -418,7 +415,7 @@ Token get_token (Lexer *l)
 	char c = *l->cursor;
 
 	if (c == '\0')
-		return make_token(TOK_EOF, l->cursor, 0, l->line, l->cursor - l->line_start);
+		return make_token(TOK_EOF, l->cursor, 0, l->line, (uint16_t)(l->cursor - l->line_start) + 1);
 
 	if (isdigit((unsigned char)c)) return handle_num_literal(l);
 	if (c == '\'') return handle_char_literal(l);

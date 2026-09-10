@@ -8,6 +8,7 @@
 #define NO_NODE 0xFFFFFFFF
 
 typedef enum {
+	NODE_ERROR = 0,
 	NODE_ASSIGN, NODE_EQ, NODE_NE, NODE_GT, NODE_GE,
 	NODE_LT, NODE_LE, NODE_AND_L, NODE_OR_L, NODE_NOT_L,	// Logic
 	NODE_LIT_CHAR, NODE_LIT_STR, NODE_LIT_i64,		// Literals
@@ -24,7 +25,6 @@ typedef struct ASTNode {
 		char *str;
 		int64_t i64;
 		char chr;
-		uint8_t data_type;
 	};
 
 	uint32_t child;
@@ -35,6 +35,7 @@ typedef struct ASTNode {
 	uint16_t len;
 
 	uint8_t type;
+	uint8_t data_type;
 } ASTNode;
 
 typedef struct AST {

@@ -64,6 +64,8 @@ int compiler_load_file (Compiler *comp, const char *file)
 		return 1;
 	}
 
+	error_index_lines(&comp->err, comp->src, &comp->arena);
+
 	init_lexer(&comp->lexer, comp->src, &comp->arena, &comp->err);
 	init_parser(&comp->parser, &comp->lexer, &comp->ast_arena, &comp->err);
 
