@@ -21,6 +21,7 @@ typedef struct Parser {
 } Parser;
 
 void init_parser (Parser *parser, Lexer *lexer, Arena *arena, ErrorReporter *err);
+void dump_ast (AST *ast);
 void parse (Parser *parser);
 
 #endif

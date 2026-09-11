@@ -19,12 +19,14 @@ static void print_help (const char *build)
 	printf("    -h|--help           Shows this message.\n");
 	printf("    -o|--out            Actually nothing.\n");
 	printf("    -T|--dump-tokens    Prints your code tokens to stdout\n");
+	printf("    -A|--dump-ast       Prints the parsed AST to stdout\n");
 }
 
 typedef struct Args {
 	char *out;
 	char *path;
 	int dump_tokens;
+	int dump_ast;
 } Args;
 
 static Args parse_args (int argc, char *argv[])
@@ -34,16 +36,18 @@ static Args parse_args (int argc, char *argv[])
 		{"help", no_argument, 0, 'h'},
 		{"version", no_argument, 0, 'v'},
 		{"dump-tokens", no_argument, 0, 'T'},
+		{"dump-ast", no_argument, 0, 'A'},
 		{0, 0, 0, 0}
 	};
 	Args args = {
 		.path = NULL,
 		.out = NULL,
-		.dump_tokens = 0
+		.dump_tokens = 0,
+		.dump_ast = 0
 	};
 
 	int opt;
-	char *short_opts = ":To:hv";
+	char *short_opts = ":TAo:hv";
 	opterr = 0;
 	while ((opt = getopt_long(argc, argv, short_opts, long_options, NULL)) != -1) {
 		switch (opt)
@@ -52,6 +56,7 @@ static Args parse_args (int argc, char *argv[])
 		case 'h': print_help(argv[0]); exit(0);
 		case 'v': printf("%s\n", VERSION); exit(0);
 		case 'T': args.dump_tokens = 1; break;
+		case 'A': args.dump_ast = 1; break;
 		case ':':
 			fprintf(stderr, "Option '-%c' requires an argument.\n", optopt);
 			exit(1);
@@ -86,6 +91,11 @@ int main (int argc, char *argv[])
 	int status = 0;
 	if (args.dump_tokens)
 		status = dump_tokens(&comp.lexer) != 0 ? 1 : 0;
+	else if (args.dump_ast) {
+		parse(&comp.parser);
+		dump_ast(&comp.parser.ast);
+		status = comp.err.err_count != 0 ? 1 : 0;
+	}
 
 	compiler_destroy(&comp);
 	return status;

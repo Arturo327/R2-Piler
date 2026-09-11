@@ -104,6 +104,7 @@ static Token handle_num_literal (Lexer *l)
 		.type = TOK_LIT_i64,
 		.line = start_line,
 		.i64 = value,
+		.len = (uint16_t)(l->cursor - start),
 		.col = start_col
 	};
 	return token;
@@ -182,6 +183,13 @@ static Token handle_string_literal (Lexer *l)
 
 	char *end = string_literal_find_end(l->cursor);
 	if (*end != '"') {
+		for (char *c = l->cursor; c < end; c++) {
+			if (c[0] == '\\' && c[1] == '\n') {
+				l->line++;
+				l->line_start = c + 2;
+				c++;
+			}
+		}
 		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col,
 				(int)(end - start)), "string literal is not closed");
 		l->cursor = end;
@@ -267,7 +275,8 @@ static Token handle_char_literal (Lexer *l)
 		.type = TOK_LIT_CHAR,
 		.line = start_line,
 		.chr = chr,
-		.col = start_col
+		.col = start_col,
+		.len = (uint16_t)(l->cursor - start)
 	};
 	return token;
 }
@@ -292,6 +301,7 @@ static const Keyword keywords[] = {
 	{"char", TOK_CHAR},
 	{"elif", TOK_ELIF},
 	{"else", TOK_ELSE},
+	{"void", TOK_VOID},
 	{"while", TOK_WHILE},
 	{"return", TOK_RET}
 };
@@ -458,6 +468,7 @@ static const char *token_type_to_string (TokenType type)
 	case TOK_LIT_CHAR: return "TOK_LIT_CHAR";
 	case TOK_LIT_STR: return "TOK_LIT_STR";
 	case TOK_i64:	return "TOK_i64";
+	case TOK_VOID:	return "TOK_VOID";
 	case TOK_CHAR:	return "TOK_CHAR";
 	case TOK_IF:	return "TOK_IF";
 	case TOK_ELSE:	return "TOK_ELSE";

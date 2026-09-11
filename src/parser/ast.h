@@ -8,7 +8,13 @@
 #define NO_NODE 0xFFFFFFFF
 
 typedef enum {
-	NODE_ERROR = 0,
+	TYPE_VOID,
+	TYPE_i64,
+	TYPE_CHAR
+} DataType;
+
+typedef enum {
+	NODE_ERROR = 0, NODE_EMPTY,
 	NODE_ASSIGN, NODE_EQ, NODE_NE, NODE_GT, NODE_GE,
 	NODE_LT, NODE_LE, NODE_AND_L, NODE_OR_L, NODE_NOT_L,	// Logic
 	NODE_LIT_CHAR, NODE_LIT_STR, NODE_LIT_i64,		// Literals
@@ -16,8 +22,9 @@ typedef enum {
 	NODE_AND_A, NODE_OR_A, NODE_XOR, NODE_RS, NODE_LS,	// Bitwise ops
 	NODE_NOT_A, NODE_NEG,					// Unary
 	NODE_IF, NODE_WHILE, NODE_FOR,				// Branching
-	NODE_FN_DEC, NODE_RET, NODE_ARGS_DECL, NODE_FN_CALL,	// Functions
-	NODE_VAR_DEC, NODE_ID, NODE_BLOCK, NODE_ROOT		// misc
+	NODE_FN_DEC, NODE_ARGS_DEC, NODE_RET_DEC, NODE_RET, NODE_FN_CALL,// Functions
+	NODE_VAR_DEC, NODE_ID, NODE_BLOCK, NODE_ROOT,		// misc
+	NODE_COUNT
 } NodeType;
 
 typedef struct ASTNode {
