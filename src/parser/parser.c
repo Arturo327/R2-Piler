@@ -6,7 +6,7 @@ static uint32_t push_ast_node (Parser *p, ASTNode node)
 {
 	if (p->ast.count >= p->ast.cap) {
 		uint32_t old_cap = p->ast.cap;
-		p->ast.cap = old_cap ? old_cap << 1 : 128;
+		p->ast.cap <<= 1;
 		p->ast.nodes = arena_realloc(p->arena, p->ast.nodes,
 				old_cap * sizeof(ASTNode), p->ast.cap * sizeof(ASTNode));
 	}
@@ -21,7 +21,6 @@ void init_parser (Parser *parser, Lexer *lexer, Arena *arena, ErrorReporter *err
 	parser->arena = arena;
 	parser->err = err;
 	parser->lexer = lexer;
-	parser->had_error = 0;
 	parser->panic_mode = 0;
 
 	parser->ast.count = 0;
@@ -46,7 +45,6 @@ static void advance (Parser *p)
 	while (1) {
 		p->curr = get_token(p->lexer);
 		if (p->curr.type != TOK_INVALID) break;
-		p->had_error = 1;
 	}
 }
 
@@ -55,13 +53,15 @@ static void syncro (Parser *p)
 	p->panic_mode = 0;
 
 	while (p->curr.type != TOK_EOF) {
-		if (p->prev.type == TOK_SEMCOL)
-			return;
-
 		switch (p->curr.type)
 		{
+		case TOK_SEMCOL:
+			advance(p);
+			return;
+
 		case TOK_FN: case TOK_VAR: case TOK_IF:
 		case TOK_WHILE: case TOK_FOR: case TOK_RET:
+		case TOK_RKEY:
 			return;
 
 		default: break;
@@ -89,13 +89,13 @@ static int consume (Parser *p, TokenType type, const char *msg)
 {
 	if (p->curr.type == type) {
 		advance(p);
+		p->panic_mode = 0;
 		return 1;
 	}
 
 	if (!p->panic_mode)
 		error_report(p->err, ERR_ERROR, token_loc(p->curr), "%s", msg);
 
-	p->had_error = 1;
 	p->panic_mode = 1;
 	return 0;
 }
@@ -171,7 +171,8 @@ static uint32_t parse_unary (Parser *p)
 
 	advance(p);
 	uint32_t node = new_node(p, type, line, col);
-	p->ast.nodes[node].child = parse_primary(p);
+	uint32_t child = parse_primary(p);
+	p->ast.nodes[node].child = child;
 	return node;
 }
 
@@ -212,7 +213,6 @@ static uint32_t parse_primary (Parser *p)
 	default:
 		if (!p->panic_mode)
 			error_report(p->err, ERR_ERROR, token_loc(p->curr), "expected expresion");
-		p->had_error = 1;
 		p->panic_mode = 1;
 		return new_node(p, NODE_ERROR, line, col);
 	}
@@ -263,7 +263,6 @@ static uint32_t parse_var_dec (Parser *p)
 	if (p->curr.type != TOK_i64 && p->curr.type != TOK_CHAR) {
 		if (!p->panic_mode)
 			error_report(p->err, ERR_ERROR, token_loc(p->curr), "expected type");
-		p->had_error = 1;
 		p->panic_mode = 1;
 		return node;
 	}
@@ -272,7 +271,8 @@ static uint32_t parse_var_dec (Parser *p)
 
 	if (p->curr.type == TOK_ASSIGN) {
 		advance(p);
-		p->ast.nodes[node].child = parse_expr(p, 0);
+		uint32_t value = parse_expr(p, 0);
+		p->ast.nodes[node].child = value;
 	}
 
 	consume(p, TOK_SEMCOL, "expected ';' at the end of the declaration");

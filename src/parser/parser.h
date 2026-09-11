@@ -8,9 +8,6 @@
 #include "error/error.h"
 
 typedef struct Parser {
-	uint8_t had_error;
-	uint8_t panic_mode;
-
 	Token curr;
 	Token prev;
 	AST ast;
@@ -18,6 +15,8 @@ typedef struct Parser {
 	Lexer *lexer;
 	ErrorReporter *err;
 	Arena *arena;
+
+	uint8_t panic_mode;
 } Parser;
 
 void init_parser (Parser *parser, Lexer *lexer, Arena *arena, ErrorReporter *err);
