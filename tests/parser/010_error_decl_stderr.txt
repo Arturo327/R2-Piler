@@ -1,0 +1,9 @@
+tests/parser/010_error_decl_src.r2:1:7: [1;31mERROR[0m: expected ':', followed by the type
+      1 | var x [1;31mi64[0m;
+        |       [1;31m^~~[0m
+tests/parser/010_error_decl_src.r2:2:9: [1;31mERROR[0m: expected type
+      2 | var y : [1;31mvoid[0m;
+        |         [1;31m^~~~[0m
+tests/parser/010_error_decl_src.r2:4:1: [1;31mERROR[0m: expected ';' at the end of the declaration
+      4 | [1;31m[0m
+        | [1;31m^[0m

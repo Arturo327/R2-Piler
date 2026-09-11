@@ -1,0 +1,9 @@
+NODE_ROOT [0:0]
+NODE_VAR_DEC [1:1] name="x"
+NODE_LIT_i64 [1:15] i64=42
+NODE_VAR_DEC [2:1] name="c"
+NODE_LIT_CHAR [2:16] char='z'
+NODE_VAR_DEC [3:1] name="s"
+NODE_LIT_STR [3:15] str="hola"
+NODE_VAR_DEC [4:1] name="y"
+NODE_ID [4:15] str="x"

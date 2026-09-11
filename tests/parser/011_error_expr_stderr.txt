@@ -1,0 +1,9 @@
+tests/parser/011_error_expr_src.r2:1:5: [1;31mERROR[0m: expected expresion
+      1 | 1 + [1;31m;[0m
+        |     [1;31m^[0m
+tests/parser/011_error_expr_src.r2:2:7: [1;31mERROR[0m: expected ')'
+      2 | (1 + 2[1;31m;[0m
+        |       [1;31m^[0m
+tests/parser/011_error_expr_src.r2:4:1: [1;31mERROR[0m: expected ';' at end of expresion
+      4 | [1;31m[0m
+        | [1;31m^[0m

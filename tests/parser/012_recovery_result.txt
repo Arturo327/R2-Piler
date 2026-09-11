@@ -1,0 +1,16 @@
+NODE_ROOT [0:0]
+NODE_ADD [1:3]
+NODE_LIT_i64 [1:1] i64=1
+NODE_ERROR [1:5]
+NODE_VAR_DEC [2:1] name="x"
+NODE_LIT_i64 [2:15] i64=5
+NODE_BLOCK [3:1]
+NODE_ADD [4:3]
+NODE_LIT_i64 [4:1] i64=1
+NODE_ERROR [4:5]
+NODE_VAR_DEC [5:1] name="y"
+NODE_LIT_i64 [5:15] i64=6
+NODE_VAR_DEC [7:1] name="z"
+NODE_ADD [7:17]
+NODE_ID [7:15] str="x"
+NODE_ID [7:19] str="y"

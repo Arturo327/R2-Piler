@@ -1,3 +1,0 @@
-tests/027_char_incomplete_src.r2:1:3: [1;31mERROR[0m: incomplete escape sequence
-      1 | '\[1;31m[0m
-        |   [1;31m^[0m
