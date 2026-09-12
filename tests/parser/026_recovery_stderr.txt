@@ -1,9 +1,9 @@
-tests/parser/026_recovery_src.r2:2:5: [1;31mERROR[0m: expected expresion
+tests/parser/026_recovery_src.r2:2:5: [1;31mERROR[0m: expected expression
       2 | 1 + [1;31m;[0m
         |     [1;31m^[0m
-tests/parser/026_recovery_src.r2:7:7: [1;31mERROR[0m: expected expresion
+tests/parser/026_recovery_src.r2:7:7: [1;31mERROR[0m: expected expression
       7 |   1 + [1;31m;[0m
         |       [1;31m^[0m
-tests/parser/026_recovery_src.r2:11:1: [1;31mERROR[0m: expected expresion
+tests/parser/026_recovery_src.r2:11:1: [1;31mERROR[0m: expected expression
      11 | [1;31m}[0m
         | [1;31m^[0m

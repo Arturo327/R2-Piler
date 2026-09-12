@@ -4,7 +4,7 @@ NODE_ROOT [0:0]
   NODE_ADD [2:3]
     NODE_LIT_i64 [2:1] i64=1
     NODE_ERROR [2:5]
-  NODE_FN_DEC [3:4] name="foo"
+  NODE_FN_DEC [3:1] name="foo"
     NODE_ARGS_DEC [3:7]
     NODE_RET_DEC [3:10] type=i64
     NODE_BLOCK [3:16]

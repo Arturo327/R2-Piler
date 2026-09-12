@@ -25,6 +25,6 @@ tests/parser/023_fn_error_src.r2:22:9: [1;31mERROR[0m: expected type
 tests/parser/023_fn_error_src.r2:25:10: [1;31mERROR[0m: expected type
      25 | fn g() : [1;31m{[0m
         |          [1;31m^[0m
-tests/parser/023_fn_error_src.r2:29:1: [1;31mERROR[0m: expected '{' for block opening
-     29 | [1;31m[0m
-        | [1;31m^[0m
+tests/parser/023_fn_error_src.r2:28:19: [1;31mERROR[0m: expected '{' for block opening
+     28 | fn noblock(a : i64[1;31m)[0m
+        |                   [1;31m^[0m

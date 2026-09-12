@@ -4,10 +4,10 @@ tests/parser/024_call_return_error_src.r2:1:9: [1;31mERROR[0m: expected ')' af
 tests/parser/024_call_return_error_src.r2:2:7: [1;31mERROR[0m: expected ')' after arguments
       2 | foo(1 [1;31m2[0m);
         |       [1;31m^[0m
-tests/parser/024_call_return_error_src.r2:3:5: [1;31mERROR[0m: expected expresion
+tests/parser/024_call_return_error_src.r2:3:5: [1;31mERROR[0m: expected expression
       3 | foo([1;31m,[0m);
         |     [1;31m^[0m
-tests/parser/024_call_return_error_src.r2:5:1: [1;31mERROR[0m: expected ';' at end of expresion
+tests/parser/024_call_return_error_src.r2:5:1: [1;31mERROR[0m: expected ';' at end of expression
       5 | [1;31mfn[0m f() : i64 {
         | [1;31m^~[0m
 tests/parser/024_call_return_error_src.r2:7:1: [1;31mERROR[0m: expected ';' after return statement

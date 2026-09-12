@@ -8,7 +8,7 @@ NODE_ROOT [0:0]
     NODE_ERROR [3:5]
   NODE_FN_CALL [4:1] name="foo"
     NODE_LIT_i64 [4:5] i64=1
-  NODE_FN_DEC [5:4] name="f"
+  NODE_FN_DEC [5:1] name="f"
     NODE_ARGS_DEC [5:5]
     NODE_RET_DEC [5:8] type=i64
     NODE_BLOCK [5:14]

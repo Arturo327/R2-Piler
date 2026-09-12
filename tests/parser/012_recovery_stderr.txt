@@ -1,6 +1,6 @@
-tests/parser/012_recovery_src.r2:1:5: [1;31mERROR[0m: expected expresion
+tests/parser/012_recovery_src.r2:1:5: [1;31mERROR[0m: expected expression
       1 | 1 + [1;31m;[0m
         |     [1;31m^[0m
-tests/parser/012_recovery_src.r2:4:5: [1;31mERROR[0m: expected expresion
+tests/parser/012_recovery_src.r2:4:5: [1;31mERROR[0m: expected expression
       4 | 1 + [1;31m;[0m
         |     [1;31m^[0m

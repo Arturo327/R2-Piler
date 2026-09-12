@@ -1,10 +1,10 @@
 NODE_ROOT [0:0]
-  NODE_FN_DEC [1:4] name="f"
+  NODE_FN_DEC [1:1] name="f"
     NODE_ARGS_DEC [1:5]
     NODE_RET_DEC [1:8] type=void
     NODE_BLOCK [1:8]
       NODE_RET [2:3]
-  NODE_FN_DEC [4:4] name="g"
+  NODE_FN_DEC [4:1] name="g"
     NODE_ARGS_DEC [4:5]
     NODE_RET_DEC [4:8] type=i64
     NODE_BLOCK [4:14]
@@ -12,14 +12,14 @@ NODE_ROOT [0:0]
         NODE_ADD [5:12]
           NODE_LIT_i64 [5:10] i64=1
           NODE_LIT_i64 [5:14] i64=2
-  NODE_FN_DEC [7:4] name="h"
+  NODE_FN_DEC [7:1] name="h"
     NODE_ARGS_DEC [7:5]
     NODE_RET_DEC [7:8] type=i64
     NODE_BLOCK [7:14]
       NODE_RET [8:3]
         NODE_FN_CALL [8:10] name="foo"
           NODE_LIT_i64 [8:14] i64=1
-  NODE_FN_DEC [10:4] name="k"
+  NODE_FN_DEC [10:1] name="k"
     NODE_ARGS_DEC [10:5]
     NODE_RET_DEC [10:8] type=i64
     NODE_BLOCK [10:14]
@@ -29,13 +29,13 @@ NODE_ROOT [0:0]
           NODE_LIT_i64 [11:14] i64=1
   NODE_RET [13:1]
     NODE_LIT_i64 [13:8] i64=5
-  NODE_FN_DEC [14:4] name="novoid"
+  NODE_FN_DEC [14:1] name="novoid"
     NODE_ARGS_DEC [14:10]
     NODE_RET_DEC [14:13] type=void
     NODE_BLOCK [14:13]
       NODE_RET [15:3]
         NODE_LIT_i64 [15:10] i64=1
-  NODE_FN_DEC [17:4] name="noempty"
+  NODE_FN_DEC [17:1] name="noempty"
     NODE_ARGS_DEC [17:11]
     NODE_RET_DEC [17:14] type=i64
     NODE_BLOCK [17:20]

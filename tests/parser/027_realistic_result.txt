@@ -1,5 +1,5 @@
 NODE_ROOT [0:0]
-  NODE_FN_DEC [1:4] name="max"
+  NODE_FN_DEC [1:1] name="max"
     NODE_ARGS_DEC [1:7]
       NODE_VAR_DEC [1:8] name="a" type=i64
       NODE_VAR_DEC [1:17] name="b" type=i64
@@ -16,7 +16,7 @@ NODE_ROOT [0:0]
           NODE_BLOCK [4:10]
             NODE_RET [5:5]
               NODE_ID [5:12] str="b"
-  NODE_FN_DEC [8:4] name="fact"
+  NODE_FN_DEC [8:1] name="fact"
     NODE_ARGS_DEC [8:8]
       NODE_VAR_DEC [8:9] name="n" type=i64
     NODE_RET_DEC [8:18] type=i64

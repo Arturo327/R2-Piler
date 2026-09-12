@@ -110,8 +110,12 @@ static int consume (Parser *p, TokenType type, const char *msg)
 		return 1;
 	}
 
-	if (!p->panic_mode)
-		error_report(p->err, ERR_ERROR, token_loc(p->curr), "%s", msg);
+	if (!p->panic_mode) {
+		Token at = p->curr;
+		if (at.type == TOK_EOF && p->prev.type != TOK_NONE)
+			at = p->prev;
+		error_report(p->err, ERR_ERROR, token_loc(at), "%s", msg);
+	}
 
 	p->panic_mode = 1;
 	return 0;
@@ -264,8 +268,10 @@ static uint32_t parse_primary (Parser *p)
 
 	default:
 		if (!p->panic_mode)
-			error_report(p->err, ERR_ERROR, token_loc(p->curr), "expected expresion");
+			error_report(p->err, ERR_ERROR, token_loc(p->curr), "expected expression");
 		p->panic_mode = 1;
+		if (binop_prec[p->curr.type] > 0)
+			advance(p);
 		return new_node(p, NODE_ERROR, line, col);
 	}
 
@@ -328,15 +334,7 @@ static uint32_t parse_var_dec (Parser *p)
 	}
 
 	consume(p, TOK_COL, "expected ':', followed by the type");
-
-	if (p->curr.type != TOK_i64 && p->curr.type != TOK_CHAR) {
-		if (!p->panic_mode)
-			error_report(p->err, ERR_ERROR, token_loc(p->curr), "expected type");
-		p->panic_mode = 1;
-		return node;
-	}
-	p->ast.nodes[node].data_type = tok_to_datatype(p->curr.type);
-	advance(p);
+	p->ast.nodes[node].data_type = parse_type(p, 0);
 
 	if (p->curr.type == TOK_ASSIGN) {
 		advance(p);
@@ -441,9 +439,11 @@ static uint32_t parse_return (Parser *p)
 
 static uint32_t parse_fn_decl (Parser *p)
 {
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
 	consume(p, TOK_FN, "expected 'fn'");
 
-	uint32_t node = new_node(p, NODE_FN_DEC, p->curr.line, p->curr.col);
+	uint32_t node = new_node(p, NODE_FN_DEC, line, col);
 	if (consume(p, TOK_ID, "expected function name")) {
 		p->ast.nodes[node].str = p->prev.str;
 		p->ast.nodes[node].len = p->prev.len;
@@ -528,7 +528,7 @@ static uint32_t parse_statement (Parser *p)
 	case TOK_IF: return parse_if(p);
 	default: {
 		uint32_t node = parse_expr(p, 0);
-		consume(p, TOK_SEMCOL, "expected ';' at end of expresion");
+		consume(p, TOK_SEMCOL, "expected ';' at end of expression");
 		return node;
 	}
 	}

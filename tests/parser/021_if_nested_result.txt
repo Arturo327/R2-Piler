@@ -36,7 +36,7 @@ NODE_ROOT [0:0]
         NODE_ASSIGN [10:5]
           NODE_ID [10:3] str="z"
           NODE_LIT_i64 [10:7] i64=3
-  NODE_FN_DEC [12:4] name="f"
+  NODE_FN_DEC [12:1] name="f"
     NODE_ARGS_DEC [12:5]
       NODE_VAR_DEC [12:6] name="a" type=i64
     NODE_RET_DEC [12:15] type=i64
