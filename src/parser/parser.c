@@ -253,8 +253,11 @@ static uint32_t parse_unary (Parser *p)
 	return node;
 }
 
-static uint32_t parse_primary_inner (Parser *p)
+static uint32_t parse_primary (Parser *p)
 {
+	if (!enter_depth(p))
+		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
+
 	uint16_t line = p->curr.line;
 	uint16_t col = p->curr.col;
 	uint32_t node;
@@ -294,21 +297,15 @@ static uint32_t parse_primary_inner (Parser *p)
 	}
 
 	advance(p);
-	return node;
-}
-
-static uint32_t parse_primary (Parser *p)
-{
-	if (!enter_depth(p))
-		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
-
-	uint32_t node = parse_primary_inner(p);
 	p->depth--;
 	return node;
 }
 
 static uint32_t parse_expr (Parser *p, int min_prec)
 {
+	if (!enter_depth(p))
+		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
+
 	uint32_t left = parse_primary(p);
 	int prec = binop_prec[p->curr.type];
 
@@ -329,6 +326,8 @@ static uint32_t parse_expr (Parser *p, int min_prec)
 		left = node;
 		prec = binop_prec[p->curr.type];
 	}
+
+	p->depth--;
 	return left;
 }
 
@@ -718,41 +717,39 @@ static const char *datatype_to_name (DataType t)
 	return "unknown";
 }
 
-static void indent (int depth)
+static inline void indent (int depth)
 {
 	while (depth-- > 0) printf("  ");
 }
 
 static void dump_node (AST *ast, uint32_t idx, int depth)
 {
-	ASTNode *n;
-	const char *name;
+	while (idx != NO_NODE) {
+		ASTNode *n = &ast->nodes[idx];
+		uint32_t child = n->child;
+		uint32_t next = n->next_bro;
+		const char *name = n->type < NODE_COUNT ? node_names[n->type] : "UNKNOWN";
 
-	if (idx == NO_NODE)
-		return;
+		indent(depth);
+		printf("%s [%u:%u]", name, n->line, n->col);
 
-	n = &ast->nodes[idx];
-	name = n->type < NODE_COUNT ? node_names[n->type] : "UNKNOWN";
-	indent(depth);
-	printf("%s [%u:%u]", name, n->line, n->col);
+		if (n->type == NODE_LIT_i64)
+			printf(" i64=%lld", (long long)n->i64);
+		else if (n->type == NODE_LIT_CHAR)
+			printf(" char='%c'", n->chr);
+		else if (n->type == NODE_LIT_STR || n->type == NODE_ID)
+			printf(" str=\"%.*s\"", (int)n->len, n->str);
+		else if (n->type == NODE_VAR_DEC || n->type == NODE_FN_DEC || n->type == NODE_FN_CALL) {
+			if (n->str) printf(" name=\"%.*s\"", (int)n->len, n->str);
+		}
 
-	if (n->type == NODE_LIT_i64)
-		printf(" i64=%lld", (long long)n->i64);
-	else if (n->type == NODE_LIT_CHAR)
-		printf(" char='%c'", n->chr);
-	else if (n->type == NODE_LIT_STR || n->type == NODE_ID)
-		printf(" str=\"%.*s\"", (int)n->len, n->str);
-	else if (n->type == NODE_VAR_DEC || n->type == NODE_FN_DEC || n->type == NODE_FN_CALL) {
-		if (n->str) printf(" name=\"%.*s\"", (int)n->len, n->str);
+		if (n->type == NODE_VAR_DEC || n->type == NODE_RET_DEC)
+			printf(" type=%s", datatype_to_name(n->data_type));
+
+		printf("\n");
+		dump_node(ast, child, depth + 1);
+		idx = next;
 	}
-
-	if (n->type == NODE_VAR_DEC || n->type == NODE_RET_DEC)
-		printf(" type=%s", datatype_to_name(n->data_type));
-
-	printf("\n");
-
-	dump_node(ast, n->child, depth + 1);
-	dump_node(ast, n->next_bro, depth);
 }
 
 void dump_ast (AST *ast)

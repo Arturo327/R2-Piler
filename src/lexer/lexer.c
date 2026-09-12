@@ -208,6 +208,11 @@ static char handle_char_literal_next_char (Lexer *l, char *chr)
 		error_report(l->err, ERR_ERROR, loc_here(l), "newline in char literal");
 		return 0;
 	}
+	if (c == '\0') {
+		error_report(l->err, ERR_ERROR, loc_at(l->line, (int)(l->cursor - l->line_start), 1),
+				"char literal is not closed");
+		return 0;
+	}
 	if (c == '\\') {
 		l->cursor++;
 		if (*l->cursor == '\0') {
