@@ -1,4 +1,4 @@
 NODE_ROOT [0:0]
-NODE_VAR_DEC [1:1] name="x" type=i64
-NODE_VAR_DEC [2:1] name="y" type=void
-NODE_VAR_DEC [3:1] name="z" type=i64
+  NODE_VAR_DEC [1:1] name="x" type=i64
+  NODE_VAR_DEC [2:1] name="y" type=void
+  NODE_VAR_DEC [3:1] name="z" type=i64

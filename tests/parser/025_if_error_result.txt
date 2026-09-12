@@ -1,0 +1,33 @@
+NODE_ROOT [0:0]
+  NODE_ERROR [1:1]
+  NODE_ERROR [3:1]
+  NODE_ERROR [4:1]
+  NODE_ERROR [6:1]
+  NODE_IF [7:1]
+    NODE_GT [7:6]
+      NODE_ID [7:4] str="x"
+      NODE_LIT_i64 [7:8] i64=1
+    NODE_BLOCK [7:11]
+      NODE_ASSIGN [8:5]
+        NODE_ID [8:3] str="x"
+        NODE_LIT_i64 [8:7] i64=1
+  NODE_IF [10:1]
+    NODE_GT [10:7]
+      NODE_ID [10:5] str="x"
+      NODE_LIT_i64 [10:9] i64=1
+    NODE_BLOCK [10:11]
+      NODE_ASSIGN [11:5]
+        NODE_ID [11:3] str="x"
+        NODE_LIT_i64 [11:7] i64=1
+  NODE_IF [13:1]
+    NODE_ERROR [13:5]
+    NODE_BLOCK [13:7]
+      NODE_ASSIGN [14:5]
+        NODE_ID [14:3] str="x"
+        NODE_LIT_i64 [14:7] i64=1
+  NODE_IF [16:1]
+    NODE_ID [16:5] str="x"
+    NODE_ERROR [16:7]
+  NODE_IF [17:1]
+    NODE_ID [17:5] str="x"
+    NODE_ERROR [18:1]

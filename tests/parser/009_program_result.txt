@@ -1,24 +1,24 @@
 NODE_ROOT [0:0]
-NODE_VAR_DEC [1:1] name="x" type=i64
-NODE_ADD [1:17]
-NODE_LIT_i64 [1:15] i64=1
-NODE_MUL [1:21]
-NODE_LIT_i64 [1:19] i64=2
-NODE_LIT_i64 [1:23] i64=3
-NODE_VAR_DEC [2:1] name="y" type=char
-NODE_LIT_CHAR [2:16] char='a'
-NODE_VAR_DEC [3:1] name="s" type=i64
-NODE_LIT_STR [3:15] str="hi"
-NODE_ASSIGN [4:3]
-NODE_ID [4:1] str="x"
-NODE_ADD [4:7]
-NODE_ID [4:5] str="x"
-NODE_LIT_i64 [4:9] i64=1
-NODE_BLOCK [5:1]
-NODE_VAR_DEC [6:1] name="z" type=i64
-NODE_MUL [6:17]
-NODE_ID [6:15] str="x"
-NODE_LIT_i64 [6:19] i64=2
-NODE_ADD [7:3]
-NODE_ID [7:1] str="z"
-NODE_ID [7:5] str="y"
+  NODE_VAR_DEC [1:1] name="x" type=i64
+    NODE_ADD [1:17]
+      NODE_LIT_i64 [1:15] i64=1
+      NODE_MUL [1:21]
+        NODE_LIT_i64 [1:19] i64=2
+        NODE_LIT_i64 [1:23] i64=3
+  NODE_VAR_DEC [2:1] name="y" type=char
+    NODE_LIT_CHAR [2:16] char='a'
+  NODE_VAR_DEC [3:1] name="s" type=i64
+    NODE_LIT_STR [3:15] str="hi"
+  NODE_ASSIGN [4:3]
+    NODE_ID [4:1] str="x"
+    NODE_ADD [4:7]
+      NODE_ID [4:5] str="x"
+      NODE_LIT_i64 [4:9] i64=1
+  NODE_BLOCK [5:1]
+    NODE_VAR_DEC [6:1] name="z" type=i64
+      NODE_MUL [6:17]
+        NODE_ID [6:15] str="x"
+        NODE_LIT_i64 [6:19] i64=2
+    NODE_ADD [7:3]
+      NODE_ID [7:1] str="z"
+      NODE_ID [7:5] str="y"

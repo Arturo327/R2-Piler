@@ -1,0 +1,62 @@
+NODE_ROOT [0:0]
+  NODE_FN_DEC [1:4]
+    NODE_ARGS_DEC [1:4]
+      NODE_VAR_DEC [1:5] name="a" type=i64
+    NODE_RET_DEC [1:14] type=void
+    NODE_BLOCK [1:14]
+      NODE_RET [2:3]
+  NODE_FN_DEC [4:4] name="foo"
+    NODE_ARGS_DEC [4:8]
+      NODE_VAR_DEC [4:8] name="a" type=i64
+    NODE_RET_DEC [4:17] type=void
+    NODE_BLOCK [4:17]
+      NODE_RET [5:3]
+  NODE_FN_DEC [7:4] name="foo"
+    NODE_ARGS_DEC [7:7]
+      NODE_VAR_DEC [7:8] name="a" type=i64
+    NODE_RET_DEC [7:16] type=void
+    NODE_BLOCK [7:16]
+      NODE_RET [8:3]
+  NODE_FN_DEC [10:4] name="foo"
+    NODE_ARGS_DEC [10:7]
+      NODE_VAR_DEC [10:8] name="a" type=i64
+    NODE_RET_DEC [10:15] type=i64
+    NODE_BLOCK [10:21]
+      NODE_RET [11:3]
+        NODE_ID [11:10] str="a"
+  NODE_FN_DEC [13:4] name="bar"
+    NODE_ARGS_DEC [13:7]
+      NODE_VAR_DEC [13:8] name="a" type=void
+    NODE_RET_DEC [13:12] type=void
+    NODE_BLOCK [13:12]
+      NODE_ERROR [13:12]
+      NODE_RET [14:3]
+  NODE_FN_DEC [16:4] name="baz"
+    NODE_ARGS_DEC [16:7]
+    NODE_RET_DEC [16:10] type=void
+    NODE_BLOCK [16:12]
+      NODE_ID [16:12] str="foo"
+      NODE_RET [17:3]
+  NODE_FN_DEC [19:4] name="bad"
+    NODE_ARGS_DEC [19:7]
+      NODE_VAR_DEC [19:8] name="a" type=i64
+    NODE_RET_DEC [19:16] type=void
+    NODE_BLOCK [19:16]
+      NODE_ID [19:16] str="b"
+      NODE_RET [20:3]
+  NODE_FN_DEC [22:4] name="f"
+    NODE_ARGS_DEC [22:5]
+      NODE_VAR_DEC [22:6] name="a" type=void
+    NODE_RET_DEC [22:11] type=void
+    NODE_BLOCK [22:11]
+      NODE_RET [23:3]
+  NODE_FN_DEC [25:4] name="g"
+    NODE_ARGS_DEC [25:5]
+    NODE_RET_DEC [25:8] type=void
+    NODE_BLOCK [25:10]
+      NODE_RET [26:3]
+  NODE_FN_DEC [28:4] name="noblock"
+    NODE_ARGS_DEC [28:11]
+      NODE_VAR_DEC [28:12] name="a" type=i64
+    NODE_RET_DEC [29:1] type=void
+    NODE_BLOCK [29:1]

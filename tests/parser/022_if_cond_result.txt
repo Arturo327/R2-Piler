@@ -1,0 +1,49 @@
+NODE_ROOT [0:0]
+  NODE_IF [1:1]
+    NODE_ID [1:5] str="x"
+    NODE_BLOCK [1:8]
+  NODE_IF [3:1]
+    NODE_LT [3:15]
+      NODE_ADD [3:7]
+        NODE_LIT_i64 [3:5] i64=1
+        NODE_MUL [3:11]
+          NODE_LIT_i64 [3:9] i64=2
+          NODE_LIT_i64 [3:13] i64=3
+      NODE_LIT_i64 [3:17] i64=10
+    NODE_BLOCK [3:21]
+  NODE_IF [5:1]
+    NODE_OR_L [5:12]
+      NODE_AND_L [5:7]
+        NODE_ID [5:5] str="a"
+        NODE_ID [5:10] str="b"
+      NODE_ID [5:15] str="c"
+    NODE_BLOCK [5:18]
+  NODE_IF [7:1]
+    NODE_NOT_L [7:5]
+      NODE_ID [7:6] str="flag"
+    NODE_BLOCK [7:12]
+  NODE_IF [9:1]
+    NODE_GT [9:12]
+      NODE_FN_CALL [9:5] name="foo"
+        NODE_LIT_i64 [9:9] i64=1
+      NODE_LIT_i64 [9:14] i64=2
+    NODE_BLOCK [9:17]
+  NODE_IF [11:1]
+    NODE_ASSIGN [11:7]
+      NODE_ID [11:5] str="x"
+      NODE_LIT_i64 [11:9] i64=1
+    NODE_BLOCK [11:12]
+  NODE_IF [13:1]
+    NODE_EQ [13:13]
+      NODE_ADD [13:8]
+        NODE_ID [13:6] str="a"
+        NODE_ID [13:10] str="b"
+      NODE_SUB [13:19]
+        NODE_ID [13:17] str="c"
+        NODE_ID [13:21] str="d"
+    NODE_BLOCK [13:25]
+  NODE_IF [15:1]
+    NODE_EQ [15:9]
+      NODE_LIT_CHAR [15:5] char='a'
+      NODE_ID [15:12] str="c"
+    NODE_BLOCK [15:15]

@@ -1,0 +1,29 @@
+NODE_ROOT [0:0]
+  NODE_FN_CALL [1:1] name="foo"
+  NODE_FN_CALL [2:1] name="add"
+    NODE_LIT_i64 [2:5] i64=1
+    NODE_LIT_i64 [2:8] i64=2
+  NODE_VAR_DEC [3:1] name="x" type=i64
+    NODE_FN_CALL [3:15] name="add"
+      NODE_LIT_i64 [3:19] i64=1
+      NODE_LIT_i64 [3:22] i64=2
+  NODE_VAR_DEC [4:1] name="y" type=i64
+    NODE_ADD [4:22]
+      NODE_FN_CALL [4:15] name="foo"
+        NODE_LIT_i64 [4:19] i64=1
+      NODE_MUL [4:26]
+        NODE_LIT_i64 [4:24] i64=2
+        NODE_FN_CALL [4:28] name="bar"
+          NODE_LIT_i64 [4:32] i64=3
+  NODE_FN_CALL [5:1] name="foo"
+    NODE_FN_CALL [5:5] name="bar"
+      NODE_LIT_i64 [5:9] i64=1
+    NODE_LIT_i64 [5:13] i64=2
+  NODE_FN_CALL [6:1] name="foo"
+    NODE_ID [6:5] str="a"
+  NODE_VAR_DEC [7:1] name="s" type=i64
+    NODE_LIT_STR [7:15] str="hi"
+  NODE_FN_CALL [8:1] name="foo"
+    NODE_ID [8:5] str="s"
+    NODE_LIT_CHAR [8:8] char='a'
+    NODE_LIT_i64 [8:13] i64=42

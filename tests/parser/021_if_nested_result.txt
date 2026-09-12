@@ -1,0 +1,63 @@
+NODE_ROOT [0:0]
+  NODE_IF [1:1]
+    NODE_ID [1:5] str="a"
+    NODE_IF [1:8]
+      NODE_ID [1:12] str="b"
+      NODE_ASSIGN [1:17]
+        NODE_ID [1:15] str="x"
+        NODE_LIT_i64 [1:19] i64=1
+  NODE_IF [2:1]
+    NODE_ID [2:5] str="a"
+    NODE_IF [2:8]
+      NODE_ID [2:12] str="b"
+      NODE_ASSIGN [2:17]
+        NODE_ID [2:15] str="x"
+        NODE_LIT_i64 [2:19] i64=1
+      NODE_ELSE [2:22]
+        NODE_ASSIGN [2:29]
+          NODE_ID [2:27] str="y"
+          NODE_LIT_i64 [2:31] i64=2
+  NODE_IF [3:1]
+    NODE_ID [3:5] str="a"
+    NODE_BLOCK [3:8]
+      NODE_IF [4:3]
+        NODE_ID [4:7] str="b"
+        NODE_BLOCK [4:10]
+          NODE_ASSIGN [5:7]
+            NODE_ID [5:5] str="x"
+            NODE_LIT_i64 [5:9] i64=1
+        NODE_ELSE [6:5]
+          NODE_BLOCK [6:10]
+            NODE_ASSIGN [7:7]
+              NODE_ID [7:5] str="y"
+              NODE_LIT_i64 [7:9] i64=2
+    NODE_ELSE [9:3]
+      NODE_BLOCK [9:8]
+        NODE_ASSIGN [10:5]
+          NODE_ID [10:3] str="z"
+          NODE_LIT_i64 [10:7] i64=3
+  NODE_FN_DEC [12:4] name="f"
+    NODE_ARGS_DEC [12:5]
+      NODE_VAR_DEC [12:6] name="a" type=i64
+    NODE_RET_DEC [12:15] type=i64
+    NODE_BLOCK [12:21]
+      NODE_IF [13:3]
+        NODE_GT [13:9]
+          NODE_ID [13:7] str="a"
+          NODE_LIT_i64 [13:11] i64=0
+        NODE_BLOCK [13:14]
+          NODE_IF [14:5]
+            NODE_GT [14:11]
+              NODE_ID [14:9] str="a"
+              NODE_LIT_i64 [14:13] i64=10
+            NODE_BLOCK [14:17]
+              NODE_RET [15:7]
+                NODE_LIT_i64 [15:14] i64=2
+            NODE_ELSE [16:7]
+              NODE_BLOCK [16:12]
+                NODE_RET [17:7]
+                  NODE_LIT_i64 [17:14] i64=1
+        NODE_ELSE [19:5]
+          NODE_BLOCK [19:10]
+            NODE_RET [20:5]
+              NODE_LIT_i64 [20:12] i64=0

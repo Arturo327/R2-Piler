@@ -1,0 +1,30 @@
+NODE_ROOT [0:0]
+  NODE_IF [1:1]
+    NODE_ID [1:5] str="x"
+    NODE_BLOCK [1:8]
+      NODE_VAR_DEC [2:3] name="y" type=i64
+        NODE_LIT_i64 [2:17] i64=1
+  NODE_IF [4:1]
+    NODE_ID [4:5] str="x"
+    NODE_ASSIGN [4:10]
+      NODE_ID [4:8] str="y"
+      NODE_LIT_i64 [4:12] i64=1
+  NODE_FN_DEC [5:4] name="f"
+    NODE_ARGS_DEC [5:5]
+    NODE_RET_DEC [5:8] type=i64
+    NODE_BLOCK [5:14]
+      NODE_IF [6:3]
+        NODE_ID [6:7] str="x"
+        NODE_RET [6:10]
+          NODE_LIT_i64 [6:17] i64=1
+      NODE_IF [7:3]
+        NODE_ID [7:7] str="x"
+        NODE_BLOCK [7:10]
+          NODE_RET [8:5]
+            NODE_LIT_i64 [8:12] i64=2
+      NODE_RET [10:3]
+        NODE_LIT_i64 [10:10] i64=0
+  NODE_IF [12:1]
+    NODE_ID [12:5] str="x"
+    NODE_VAR_DEC [12:8] name="y" type=i64
+      NODE_LIT_i64 [12:22] i64=2

@@ -1,0 +1,27 @@
+tests/parser/025_if_error_src.r2:1:1: [1;31mERROR[0m: expected expresion
+      1 | [1;31melif[0m (x) {
+        | [1;31m^~~~[0m
+tests/parser/025_if_error_src.r2:3:1: [1;31mERROR[0m: expected expresion
+      3 | [1;31m}[0m
+        | [1;31m^[0m
+tests/parser/025_if_error_src.r2:4:1: [1;31mERROR[0m: expected expresion
+      4 | [1;31melse[0m {
+        | [1;31m^~~~[0m
+tests/parser/025_if_error_src.r2:6:1: [1;31mERROR[0m: expected expresion
+      6 | [1;31m}[0m
+        | [1;31m^[0m
+tests/parser/025_if_error_src.r2:7:4: [1;31mERROR[0m: expected condition after if statement
+      7 | if [1;31mx[0m > 1) {
+        |    [1;31m^[0m
+tests/parser/025_if_error_src.r2:10:11: [1;31mERROR[0m: expected ')'
+     10 | if (x > 1 [1;31m{[0m
+        |           [1;31m^[0m
+tests/parser/025_if_error_src.r2:13:5: [1;31mERROR[0m: expected expresion
+     13 | if ([1;31m)[0m {
+        |     [1;31m^[0m
+tests/parser/025_if_error_src.r2:16:7: [1;31mERROR[0m: expected expresion
+     16 | if (x)[1;31m;[0m
+        |       [1;31m^[0m
+tests/parser/025_if_error_src.r2:18:1: [1;31mERROR[0m: expected expresion
+     18 | [1;31m[0m
+        | [1;31m^[0m

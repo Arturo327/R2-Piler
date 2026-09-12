@@ -1,0 +1,22 @@
+NODE_ROOT [0:0]
+  NODE_FN_DEC [1:4] name="foo"
+    NODE_ARGS_DEC [1:7]
+    NODE_RET_DEC [1:10] type=void
+    NODE_BLOCK [1:10]
+  NODE_FN_DEC [3:4] name="bar"
+    NODE_ARGS_DEC [3:7]
+    NODE_RET_DEC [3:10] type=void
+    NODE_BLOCK [3:17]
+      NODE_RET [4:3]
+  NODE_FN_DEC [6:4] name="baz"
+    NODE_ARGS_DEC [6:7]
+    NODE_RET_DEC [6:10] type=i64
+    NODE_BLOCK [6:16]
+      NODE_RET [7:3]
+        NODE_LIT_i64 [7:10] i64=42
+  NODE_FN_DEC [9:4] name="qux"
+    NODE_ARGS_DEC [9:7]
+    NODE_RET_DEC [9:10] type=char
+    NODE_BLOCK [9:17]
+      NODE_RET [10:3]
+        NODE_LIT_CHAR [10:10] char='a'

@@ -48,7 +48,7 @@ static void advance (Parser *p)
 	}
 }
 
-static void syncro (Parser *p)
+static void syncro_advance (Parser *p)
 {
 	p->panic_mode = 0;
 
@@ -69,6 +69,21 @@ static void syncro (Parser *p)
 
 		advance(p);
 	}
+}
+
+static int same_token_pos (Token a, Token b)
+{
+	if (a.type != b.type) return 0;
+	if (a.line != b.line) return 0;
+	if (a.col != b.col) return 0;
+	return 1;
+}
+
+static void syncro (Parser *p, Token start)
+{
+	syncro_advance(p);
+	if (p->curr.type == TOK_EOF) return;
+	if (same_token_pos(p->curr, start)) advance(p);
 }
 
 static uint32_t parse_expr (Parser *p, int min_prec);
@@ -343,9 +358,10 @@ static uint32_t parse_block (Parser *p)
 	uint32_t last = NO_NODE;
 
 	while (p->curr.type != TOK_RKEY && p->curr.type != TOK_EOF) {
+		Token start = p->curr;
 		uint32_t stmt = parse_statement(p);
 		append_child(p, block, &last, stmt);
-		if (p->panic_mode) syncro(p);
+		if (p->panic_mode) syncro(p, start);
 	}
 
 	consume(p, TOK_RKEY, "expected '}' for block closing");
@@ -425,11 +441,9 @@ static uint32_t parse_return (Parser *p)
 
 static uint32_t parse_fn_decl (Parser *p)
 {
-	uint16_t line = p->curr.line;
-	uint16_t col = p->curr.col;
 	consume(p, TOK_FN, "expected 'fn'");
 
-	uint32_t node = new_node(p, NODE_FN_DEC, line, col);
+	uint32_t node = new_node(p, NODE_FN_DEC, p->curr.line, p->curr.col);
 	if (consume(p, TOK_ID, "expected function name")) {
 		p->ast.nodes[node].str = p->prev.str;
 		p->ast.nodes[node].len = p->prev.len;
@@ -446,6 +460,63 @@ static uint32_t parse_fn_decl (Parser *p)
 	return node;
 }
 
+static inline uint32_t parse_cond (Parser *p)
+{
+	consume(p, TOK_LPAREN, "expected condition after if statement");
+	uint32_t cond = parse_expr(p, 0);
+	consume(p, TOK_RPAREN, "expected ')'");
+	return cond;
+}
+
+static void parse_elif_chain (Parser *p, uint32_t if_node, uint32_t *last)
+{
+	while (p->curr.type == TOK_ELIF) {
+		uint16_t eline = p->curr.line;
+		uint16_t ecol = p->curr.col;
+		consume(p, TOK_ELIF, "expected 'elif'");
+
+		uint32_t elif_node = new_node(p, NODE_ELIF, eline, ecol);
+		uint32_t elif_cond = parse_cond(p);
+		uint32_t elif_body = parse_statement(p);
+
+		uint32_t elif_last = NO_NODE;
+		append_child(p, if_node, last, elif_node);
+		append_child(p, elif_node, &elif_last, elif_cond);
+		append_child(p, elif_node, &elif_last, elif_body);
+	}
+
+	if (p->curr.type != TOK_ELSE) return;
+
+	uint16_t eline = p->curr.line;
+	uint16_t ecol = p->curr.col;
+	consume(p, TOK_ELSE, "expected 'else'");
+
+	uint32_t else_node = new_node(p, NODE_ELSE, eline, ecol);
+	uint32_t else_body = parse_statement(p);
+
+	uint32_t else_last = NO_NODE;
+	append_child(p, if_node, last, else_node);
+	append_child(p, else_node, &else_last, else_body);
+}
+
+static uint32_t parse_if (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	consume(p, TOK_IF, "expected 'if'");
+
+	uint32_t node = new_node(p, NODE_IF, line, col);
+	uint32_t cond = parse_cond(p);
+	uint32_t body = parse_statement(p);
+
+	uint32_t last = NO_NODE;
+	append_child(p, node, &last, cond);
+	append_child(p, node, &last, body);
+	parse_elif_chain(p, node, &last);
+
+	return node;
+}
+
 static uint32_t parse_statement (Parser *p)
 {
 	switch (p->curr.type)
@@ -454,6 +525,7 @@ static uint32_t parse_statement (Parser *p)
 	case TOK_LKEY: return parse_block(p);
 	case TOK_FN: return parse_fn_decl(p);
 	case TOK_RET: return parse_return(p);
+	case TOK_IF: return parse_if(p);
 	default: {
 		uint32_t node = parse_expr(p, 0);
 		consume(p, TOK_SEMCOL, "expected ';' at end of expresion");
@@ -469,9 +541,10 @@ void parse (Parser *p)
 
 	uint32_t last = NO_NODE;
 	while (p->curr.type != TOK_EOF) {
+		Token start = p->curr;
 		uint32_t stmt = parse_statement(p);
 		append_child(p, 0, &last, stmt);
-		if (p->panic_mode) syncro(p);
+		if (p->panic_mode) syncro(p, start);
 	}
 }
 
@@ -505,6 +578,8 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_NOT_A] = "NODE_NOT_A",
 	[NODE_NEG] = "NODE_NEG",
 	[NODE_IF] = "NODE_IF",
+	[NODE_ELIF] = "NODE_ELIF",
+	[NODE_ELSE] = "NODE_ELSE",
 	[NODE_WHILE] = "NODE_WHILE",
 	[NODE_FOR] = "NODE_FOR",
 	[NODE_FN_DEC] = "NODE_FN_DEC",
@@ -529,6 +604,11 @@ static const char *datatype_to_name (DataType t)
 	return "unknown";
 }
 
+static void indent (int depth)
+{
+	while (depth-- > 0) printf("  ");
+}
+
 static void dump_node (AST *ast, uint32_t idx, int depth)
 {
 	ASTNode *n;
@@ -539,9 +619,7 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 
 	n = &ast->nodes[idx];
 	name = n->type < NODE_COUNT ? node_names[n->type] : "UNKNOWN";
-
-	while (depth-- > 0)
-		printf("  ");
+	indent(depth);
 	printf("%s [%u:%u]", name, n->line, n->col);
 
 	if (n->type == NODE_LIT_i64)

@@ -1,0 +1,73 @@
+NODE_ROOT [0:0]
+  NODE_FN_DEC [1:4] name="max"
+    NODE_ARGS_DEC [1:7]
+      NODE_VAR_DEC [1:8] name="a" type=i64
+      NODE_VAR_DEC [1:17] name="b" type=i64
+    NODE_RET_DEC [1:26] type=i64
+    NODE_BLOCK [1:32]
+      NODE_IF [2:3]
+        NODE_GT [2:9]
+          NODE_ID [2:7] str="a"
+          NODE_ID [2:11] str="b"
+        NODE_BLOCK [2:14]
+          NODE_RET [3:5]
+            NODE_ID [3:12] str="a"
+        NODE_ELSE [4:5]
+          NODE_BLOCK [4:10]
+            NODE_RET [5:5]
+              NODE_ID [5:12] str="b"
+  NODE_FN_DEC [8:4] name="fact"
+    NODE_ARGS_DEC [8:8]
+      NODE_VAR_DEC [8:9] name="n" type=i64
+    NODE_RET_DEC [8:18] type=i64
+    NODE_BLOCK [8:24]
+      NODE_IF [9:3]
+        NODE_LE [9:9]
+          NODE_ID [9:7] str="n"
+          NODE_LIT_i64 [9:12] i64=1
+        NODE_BLOCK [9:15]
+          NODE_RET [10:5]
+            NODE_LIT_i64 [10:12] i64=1
+        NODE_ELSE [11:5]
+          NODE_BLOCK [11:10]
+            NODE_RET [12:5]
+              NODE_MUL [12:14]
+                NODE_ID [12:12] str="n"
+                NODE_FN_CALL [12:16] name="fact"
+                  NODE_SUB [12:23]
+                    NODE_ID [12:21] str="n"
+                    NODE_LIT_i64 [12:25] i64=1
+  NODE_VAR_DEC [15:1] name="m" type=i64
+    NODE_FN_CALL [15:15] name="max"
+      NODE_LIT_i64 [15:19] i64=10
+      NODE_LIT_i64 [15:23] i64=20
+  NODE_VAR_DEC [16:1] name="f5" type=i64
+    NODE_FN_CALL [16:16] name="fact"
+      NODE_LIT_i64 [16:21] i64=5
+  NODE_VAR_DEC [17:1] name="flag" type=i64
+    NODE_LIT_i64 [17:18] i64=0
+  NODE_IF [18:1]
+    NODE_AND_L [18:13]
+      NODE_EQ [18:7]
+        NODE_ID [18:5] str="m"
+        NODE_LIT_i64 [18:10] i64=20
+      NODE_EQ [18:19]
+        NODE_ID [18:16] str="f5"
+        NODE_LIT_i64 [18:22] i64=120
+    NODE_BLOCK [18:27]
+      NODE_ASSIGN [19:8]
+        NODE_ID [19:3] str="flag"
+        NODE_LIT_i64 [19:10] i64=1
+    NODE_ELIF [20:3]
+      NODE_GT [20:11]
+        NODE_ID [20:9] str="m"
+        NODE_LIT_i64 [20:13] i64=20
+      NODE_BLOCK [20:17]
+        NODE_ASSIGN [21:8]
+          NODE_ID [21:3] str="flag"
+          NODE_LIT_i64 [21:10] i64=2
+    NODE_ELSE [22:3]
+      NODE_BLOCK [22:8]
+        NODE_ASSIGN [23:8]
+          NODE_ID [23:3] str="flag"
+          NODE_LIT_i64 [23:10] i64=3
