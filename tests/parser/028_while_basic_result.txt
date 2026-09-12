@@ -1,0 +1,38 @@
+NODE_ROOT [0:0]
+  NODE_WHILE [1:1]
+    NODE_ID [1:8] str="x"
+    NODE_BLOCK [1:11]
+      NODE_ASSIGN [2:5]
+        NODE_ID [2:3] str="x"
+        NODE_ADD [2:9]
+          NODE_ID [2:7] str="x"
+          NODE_LIT_i64 [2:11] i64=1
+  NODE_WHILE [4:1]
+    NODE_ID [4:8] str="x"
+    NODE_ASSIGN [4:13]
+      NODE_ID [4:11] str="x"
+      NODE_ADD [4:17]
+        NODE_ID [4:15] str="x"
+        NODE_LIT_i64 [4:19] i64=1
+  NODE_WHILE [5:1]
+    NODE_ID [5:8] str="x"
+    NODE_BLOCK [5:11]
+  NODE_WHILE [7:1]
+    NODE_ID [7:8] str="x"
+    NODE_VAR_DEC [7:11] name="y" type=i64
+      NODE_LIT_i64 [7:25] i64=1
+  NODE_FN_DEC [8:1] name="f"
+    NODE_ARGS_DEC [8:5]
+    NODE_RET_DEC [8:8] type=i64
+    NODE_BLOCK [8:14]
+      NODE_WHILE [9:3]
+        NODE_ID [9:10] str="x"
+        NODE_RET [9:13]
+          NODE_LIT_i64 [9:20] i64=1
+      NODE_WHILE [10:3]
+        NODE_ID [10:10] str="x"
+        NODE_BLOCK [10:13]
+          NODE_RET [11:5]
+            NODE_LIT_i64 [11:12] i64=2
+      NODE_RET [13:3]
+        NODE_LIT_i64 [13:10] i64=0

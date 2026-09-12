@@ -4,9 +4,6 @@ tests/lexer/008_lex_errors_src.r2:2:1: [1;31mERROR[0m: character '@' is not va
 tests/lexer/008_lex_errors_src.r2:3:1: [1;31mERROR[0m: character '#' is not valid
       3 | [1;31m#[0m %
         | [1;31m^[0m
-tests/lexer/008_lex_errors_src.r2:3:3: [1;31mERROR[0m: character '%' is not valid
-      3 | # [1;31m%[0m
-        |   [1;31m^[0m
 tests/lexer/008_lex_errors_src.r2:4:1: [1;31mERROR[0m: literal integer out of range
       4 | [1;31m9999999999999999999999999999[0m
         | [1;31m^~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m

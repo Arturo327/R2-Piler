@@ -1,0 +1,27 @@
+tests/parser/035_for_error_src.r2:1:5: [1;31mERROR[0m: expected '('
+      1 | for [1;31mi[0m = 0; i < 10; i = i + 1) {
+        |     [1;31m^[0m
+tests/parser/035_for_error_src.r2:4:31: [1;31mERROR[0m: expected ')'
+      4 | for (i = 0; i < 10; i = i + 1 [1;31m{[0m
+        |                               [1;31m^[0m
+tests/parser/035_for_error_src.r2:7:6: [1;31mERROR[0m: expected expression
+      7 | for ([1;31m)[0m {
+        |      [1;31m^[0m
+tests/parser/035_for_error_src.r2:10:12: [1;31mERROR[0m: expected ';' between for expressions
+     10 | for (i = 0 [1;31mi[0m < 10 i = i + 1) {
+        |            [1;31m^[0m
+tests/parser/035_for_error_src.r2:13:12: [1;31mERROR[0m: expected ';' between for expressions
+     13 | for (i = 0 [1;31mi[0m < 10; i = i + 1) {
+        |            [1;31m^[0m
+tests/parser/035_for_error_src.r2:16:20: [1;31mERROR[0m: expected ';' between for expressions
+     16 | for (i = 0; i < 10 [1;31mi[0m = i + 1) {
+        |                    [1;31m^[0m
+tests/parser/035_for_error_src.r2:19:22: [1;31mERROR[0m: expected ';' at the end of the declaration
+     19 | for (var i : i64 = 0 [1;31mi[0m < 10; i = i + 1) {
+        |                      [1;31m^[0m
+tests/parser/035_for_error_src.r2:22:31: [1;31mERROR[0m: expected expression
+     22 | for (i = 0; i < 10; i = i + 1)[1;31m;[0m
+        |                               [1;31m^[0m
+tests/parser/035_for_error_src.r2:23:36: [1;31mERROR[0m: expected ';' at end of expression
+     23 | for (i = 0; i < 10; i = i + 1) x = [1;31m1[0m
+        |                                    [1;31m^[0m

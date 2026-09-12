@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+#define MAX_PARSE_DEPTH 200
+
 static uint32_t push_ast_node (Parser *p, ASTNode node)
 {
 	if (p->ast.count >= p->ast.cap) {
@@ -22,6 +24,7 @@ void init_parser (Parser *parser, Lexer *lexer, Arena *arena, ErrorReporter *err
 	parser->err = err;
 	parser->lexer = lexer;
 	parser->panic_mode = 0;
+	parser->depth = 0;
 
 	parser->ast.count = 0;
 	parser->ast.cap = 64;
@@ -84,6 +87,20 @@ static void syncro (Parser *p, Token start)
 	syncro_advance(p);
 	if (p->curr.type == TOK_EOF) return;
 	if (same_token_pos(p->curr, start)) advance(p);
+}
+
+static int enter_depth (Parser *p)
+{
+	p->depth++;
+	if (p->depth <= MAX_PARSE_DEPTH)
+		return 1;
+
+	if (!p->panic_mode) {
+		ErrorLoc loc = { p->curr.line, p->curr.col, 1 };
+		error_report(p->err, ERR_ERROR, loc, "expression or statement nested too deeply");
+	}
+	p->panic_mode = 1;
+	return 0;
 }
 
 static uint32_t parse_expr (Parser *p, int min_prec);
@@ -157,7 +174,7 @@ static const int8_t binop_prec[TOK_COUNT] = {
 	[TOK_GT] = 8, [TOK_LT] = 8,  [TOK_GE] = 8,  [TOK_LE] = 8,
 	[TOK_RS] = 9, [TOK_LS] = 9,
 	[TOK_ADD] = 10, [TOK_SUB] = 10,
-	[TOK_STAR] = 11, [TOK_SLASH] = 11,
+	[TOK_STAR] = 11, [TOK_SLASH] = 11, [TOK_PERCENT] = 11
 };
 
 static const uint8_t binop_node[TOK_COUNT] = {
@@ -166,6 +183,7 @@ static const uint8_t binop_node[TOK_COUNT] = {
 	[TOK_SUB] = NODE_SUB,
 	[TOK_STAR] = NODE_MUL,
 	[TOK_SLASH] = NODE_DIV,
+	[TOK_PERCENT] = NODE_MOD,
 	[TOK_AND_A] = NODE_AND_A,
 	[TOK_OR_A] = NODE_OR_A,
 	[TOK_XOR] = NODE_XOR,
@@ -235,7 +253,7 @@ static uint32_t parse_unary (Parser *p)
 	return node;
 }
 
-static uint32_t parse_primary (Parser *p)
+static uint32_t parse_primary_inner (Parser *p)
 {
 	uint16_t line = p->curr.line;
 	uint16_t col = p->curr.col;
@@ -276,6 +294,16 @@ static uint32_t parse_primary (Parser *p)
 	}
 
 	advance(p);
+	return node;
+}
+
+static uint32_t parse_primary (Parser *p)
+{
+	if (!enter_depth(p))
+		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
+
+	uint32_t node = parse_primary_inner(p);
+	p->depth--;
 	return node;
 }
 
@@ -517,7 +545,80 @@ static uint32_t parse_if (Parser *p)
 	return node;
 }
 
-static uint32_t parse_statement (Parser *p)
+static uint32_t parse_while (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	consume(p, TOK_WHILE, "expected 'while'");
+
+	uint32_t node = new_node(p, NODE_WHILE, line, col);
+	uint32_t cond = parse_cond(p);
+	uint32_t body = parse_statement(p);
+
+	uint32_t last = NO_NODE;
+	append_child(p, node, &last, cond);
+	append_child(p, node, &last, body);
+
+	return node;
+}
+
+static uint32_t parse_for_init (Parser *p)
+{
+	if (p->curr.type == TOK_SEMCOL && !p->panic_mode) {
+		uint32_t e = new_node(p, NODE_EMPTY, p->curr.line, p->curr.col);
+		advance(p);
+		return e;
+	}
+	if (p->curr.type == TOK_VAR && !p->panic_mode)
+		return parse_var_dec(p);
+	uint32_t e = parse_expr(p, 0);
+	consume(p, TOK_SEMCOL, "expected ';' between for expressions");
+	return e;
+}
+
+static uint32_t parse_for_cond (Parser *p)
+{
+	if (p->curr.type == TOK_SEMCOL && !p->panic_mode) {
+		uint32_t e = new_node(p, NODE_EMPTY, p->curr.line, p->curr.col);
+		advance(p);
+		return e;
+	}
+	uint32_t c = parse_expr(p, 0);
+	consume(p, TOK_SEMCOL, "expected ';' between for expressions");
+	return c;
+}
+
+static uint32_t parse_for_updt (Parser *p)
+{
+	if (p->curr.type == TOK_RPAREN && !p->panic_mode)
+		return new_node(p, NODE_EMPTY, p->curr.line, p->curr.col);
+	uint32_t c = parse_expr(p, 0);
+	consume(p, TOK_RPAREN, "expected ')'");
+	return c;
+}
+
+static uint32_t parse_for (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	consume(p, TOK_FOR, "expected 'for'");
+	uint32_t node = new_node(p, NODE_FOR, line, col);
+
+	consume(p, TOK_LPAREN, "expected '('");
+	uint32_t beg = parse_for_init(p);
+	uint32_t cond = parse_for_cond(p);
+	uint32_t updt = parse_for_updt(p);
+	uint32_t body = parse_statement(p);
+
+	uint32_t last = NO_NODE;
+	append_child(p, node, &last, beg);
+	append_child(p, node, &last, cond);
+	append_child(p, node, &last, updt);
+	append_child(p, node, &last, body);
+	return node;
+}
+
+static uint32_t parse_statement_inner (Parser *p)
 {
 	switch (p->curr.type)
 	{
@@ -526,12 +627,24 @@ static uint32_t parse_statement (Parser *p)
 	case TOK_FN: return parse_fn_decl(p);
 	case TOK_RET: return parse_return(p);
 	case TOK_IF: return parse_if(p);
+	case TOK_WHILE: return parse_while(p);
+	case TOK_FOR: return parse_for(p);
 	default: {
 		uint32_t node = parse_expr(p, 0);
 		consume(p, TOK_SEMCOL, "expected ';' at end of expression");
 		return node;
 	}
 	}
+}
+
+static uint32_t parse_statement (Parser *p)
+{
+	if (!enter_depth(p))
+		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
+
+	uint32_t node = parse_statement_inner(p);
+	p->depth--;
+	return node;
 }
 
 void parse (Parser *p)
@@ -570,6 +683,7 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_SUB] = "NODE_SUB",
 	[NODE_MUL] = "NODE_MUL",
 	[NODE_DIV] = "NODE_DIV",
+	[NODE_MOD] = "NODE_MOD",
 	[NODE_AND_A] = "NODE_AND_A",
 	[NODE_OR_A] = "NODE_OR_A",
 	[NODE_XOR] = "NODE_XOR",

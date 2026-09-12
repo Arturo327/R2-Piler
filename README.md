@@ -6,12 +6,12 @@ A small compiler for the (invented) **R2-Lang** language, written in C.
 
 ## Current Status
 
-Currently implements a complete lexer with arena-based memory management. I am currently working on the parser. The type checker, and code generator are not built yet.
+Currently implements a complete lexer and parser with arena-based memory management. The type checker, and code generator are not built yet.
 
 **Early stage / work in progress.**
 
 - Lexer — implemented and tested
-- Parser — working on
+- Parser — implemented and tested
 - Type checker — not started
 - Code generation — not started
 
@@ -22,7 +22,7 @@ For now, `--dump-tokens` and `--dump-ast` are the main ways to see the compiler 
 ## Features
 
 - Lexer: identifiers, keywords, integer/char/string literals (with escape sequences), `//` comments, and the full set of operators (arithmetic, bitwise, logical, comparison).
-- Parser: expresions, variable declarations, blocks, if statements, functions.
+- Parser: expresions, variable declarations, blocks, if statements, functions, for and while loops.
 - Precise error reporting with `file:line:column` locations.
 - Arena allocator — all compiler memory is freed in a single call at program exit instead of scattered `malloc`/`free` calls.
 - `--dump-tokens` flag to inspect exactly what the lexer produces for a given source file.

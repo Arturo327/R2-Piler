@@ -1,0 +1,71 @@
+NODE_ROOT [0:0]
+  NODE_WHILE [1:1]
+    NODE_ID [1:8] str="a"
+    NODE_WHILE [1:11]
+      NODE_ID [1:18] str="b"
+      NODE_ASSIGN [1:23]
+        NODE_ID [1:21] str="x"
+        NODE_LIT_i64 [1:25] i64=1
+  NODE_WHILE [2:1]
+    NODE_ID [2:8] str="a"
+    NODE_BLOCK [2:11]
+      NODE_WHILE [3:3]
+        NODE_ID [3:10] str="b"
+        NODE_BLOCK [3:13]
+          NODE_ASSIGN [4:7]
+            NODE_ID [4:5] str="x"
+            NODE_LIT_i64 [4:9] i64=1
+  NODE_WHILE [7:1]
+    NODE_ID [7:8] str="a"
+    NODE_BLOCK [7:11]
+      NODE_IF [8:3]
+        NODE_ID [8:7] str="b"
+        NODE_BLOCK [8:10]
+          NODE_ASSIGN [9:7]
+            NODE_ID [9:5] str="x"
+            NODE_LIT_i64 [9:9] i64=1
+        NODE_ELSE [10:5]
+          NODE_BLOCK [10:10]
+            NODE_ASSIGN [11:7]
+              NODE_ID [11:5] str="y"
+              NODE_LIT_i64 [11:9] i64=2
+  NODE_IF [14:1]
+    NODE_ID [14:5] str="a"
+    NODE_BLOCK [14:8]
+      NODE_WHILE [15:3]
+        NODE_ID [15:10] str="b"
+        NODE_BLOCK [15:13]
+          NODE_ASSIGN [16:7]
+            NODE_ID [16:5] str="x"
+            NODE_LIT_i64 [16:9] i64=1
+    NODE_ELSE [18:3]
+      NODE_BLOCK [18:8]
+        NODE_WHILE [19:3]
+          NODE_ID [19:10] str="c"
+          NODE_BLOCK [19:13]
+            NODE_ASSIGN [20:7]
+              NODE_ID [20:5] str="y"
+              NODE_LIT_i64 [20:9] i64=2
+  NODE_FN_DEC [23:1] name="f"
+    NODE_ARGS_DEC [23:5]
+      NODE_VAR_DEC [23:6] name="a" type=i64
+    NODE_RET_DEC [23:15] type=i64
+    NODE_BLOCK [23:21]
+      NODE_WHILE [24:3]
+        NODE_GT [24:12]
+          NODE_ID [24:10] str="a"
+          NODE_LIT_i64 [24:14] i64=0
+        NODE_BLOCK [24:17]
+          NODE_IF [25:5]
+            NODE_GT [25:11]
+              NODE_ID [25:9] str="a"
+              NODE_LIT_i64 [25:13] i64=10
+            NODE_BLOCK [25:17]
+              NODE_RET [26:7]
+                NODE_LIT_i64 [26:14] i64=2
+            NODE_ELSE [27:7]
+              NODE_BLOCK [27:12]
+                NODE_RET [28:7]
+                  NODE_LIT_i64 [28:14] i64=1
+      NODE_RET [31:3]
+        NODE_LIT_i64 [31:10] i64=0

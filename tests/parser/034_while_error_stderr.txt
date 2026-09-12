@@ -1,0 +1,18 @@
+tests/parser/034_while_error_src.r2:1:7: [1;31mERROR[0m: expected condition after if statement
+      1 | while [1;31mx[0m) {
+        |       [1;31m^[0m
+tests/parser/034_while_error_src.r2:4:10: [1;31mERROR[0m: expected ')'
+      4 | while (x [1;31m{[0m
+        |          [1;31m^[0m
+tests/parser/034_while_error_src.r2:7:8: [1;31mERROR[0m: expected expression
+      7 | while ([1;31m)[0m {
+        |        [1;31m^[0m
+tests/parser/034_while_error_src.r2:10:10: [1;31mERROR[0m: expected expression
+     10 | while (x)[1;31m;[0m
+        |          [1;31m^[0m
+tests/parser/034_while_error_src.r2:12:1: [1;31mERROR[0m: expected ';' at end of expression
+     12 | [1;31mwhile[0m (x) {
+        | [1;31m^~~~~[0m
+tests/parser/034_while_error_src.r2:13:18: [1;31mERROR[0m: expected '}' for block closing
+     13 |   var x : i64 = 1[1;31m;[0m
+        |                  [1;31m^[0m

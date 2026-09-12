@@ -332,7 +332,7 @@ typedef struct SimpleOp {
 } SimpleOp;
 
 static const SimpleOp simple_ops[] = {
-	{'+', TOK_ADD}, {'-', TOK_SUB}, {'*', TOK_STAR}, {'/', TOK_SLASH},
+	{'+', TOK_ADD}, {'-', TOK_SUB}, {'*', TOK_STAR}, {'/', TOK_SLASH}, {'%', TOK_PERCENT},
 	{'^', TOK_XOR}, {';', TOK_SEMCOL}, {':', TOK_COL}, {',', TOK_COMMA},
 	{'~', TOK_NOT_A}, {'(', TOK_LPAREN}, {')', TOK_RPAREN},
 	{'[', TOK_LBRACE}, {']', TOK_RBRACE}, {'{', TOK_LKEY}, {'}', TOK_RKEY},
@@ -480,6 +480,7 @@ static const char *token_type_to_string (TokenType type)
 	case TOK_SUB:	return "TOK_SUB";
 	case TOK_STAR:	return "TOK_STAR";
 	case TOK_SLASH: return "TOK_SLASH";
+	case TOK_PERCENT: return "TOK_PERCENT";
 	case TOK_AND_A: return "TOK_AND_A";
 	case TOK_OR_A:	return "TOK_OR_A";
 	case TOK_XOR:	return "TOK_XOR";

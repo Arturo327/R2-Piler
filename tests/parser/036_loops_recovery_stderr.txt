@@ -1,0 +1,12 @@
+tests/parser/036_loops_recovery_src.r2:2:5: [1;31mERROR[0m: expected expression
+      2 | 1 + [1;31m;[0m
+        |     [1;31m^[0m
+tests/parser/036_loops_recovery_src.r2:4:7: [1;31mERROR[0m: expected expression
+      4 |   1 + [1;31m;[0m
+        |       [1;31m^[0m
+tests/parser/036_loops_recovery_src.r2:8:7: [1;31mERROR[0m: expected expression
+      8 |   1 + [1;31m;[0m
+        |       [1;31m^[0m
+tests/parser/036_loops_recovery_src.r2:12:1: [1;31mERROR[0m: expected expression
+     12 | [1;31m}[0m
+        | [1;31m^[0m
