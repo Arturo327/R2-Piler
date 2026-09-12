@@ -74,6 +74,8 @@ static void syncro (Parser *p)
 static uint32_t parse_expr (Parser *p, int min_prec);
 static uint32_t parse_primary (Parser *p);
 static uint32_t parse_statement (Parser *p);
+static uint32_t parse_fn_decl (Parser *p);
+static uint32_t parse_return (Parser *p);
 
 static ErrorLoc token_loc (Token t)
 {
@@ -160,6 +162,44 @@ static const uint8_t binop_node[TOK_COUNT] = {
 	[TOK_LE] = NODE_LE,
 };
 
+static uint32_t parse_call_args (Parser *p, uint32_t call)
+{
+	uint32_t last = NO_NODE;
+	consume(p, TOK_LPAREN, "expected '('");
+
+	while (p->curr.type != TOK_RPAREN && p->curr.type != TOK_EOF) {
+		uint32_t arg = parse_expr(p, 0);
+		append_child(p, call, &last, arg);
+
+		if (p->curr.type != TOK_COMMA) break;
+		advance(p);
+	}
+
+	consume(p, TOK_RPAREN, "expected ')' after arguments");
+	return call;
+}
+
+static uint32_t parse_id_or_call (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	char *name = p->curr.str;
+	uint16_t len = p->curr.len;
+	advance(p);
+
+	if (p->curr.type != TOK_LPAREN) {
+		uint32_t node = new_node(p, NODE_ID, line, col);
+		p->ast.nodes[node].str = name;
+		p->ast.nodes[node].len = len;
+		return node;
+	}
+
+	uint32_t node = new_node(p, NODE_FN_CALL, line, col);
+	p->ast.nodes[node].str = name;
+	p->ast.nodes[node].len = len;
+	return parse_call_args(p, node);
+}
+
 static uint32_t parse_unary (Parser *p)
 {
 	uint16_t line = p->curr.line;
@@ -205,10 +245,7 @@ static uint32_t parse_primary (Parser *p)
 		p->ast.nodes[node].len = p->curr.len;
 		break;
 	case TOK_ID:
-		node = new_node(p, NODE_ID, line, col);
-		p->ast.nodes[node].str = p->curr.str;
-		p->ast.nodes[node].len = p->curr.len;
-		break;
+		return parse_id_or_call(p);
 
 	default:
 		if (!p->panic_mode)
@@ -244,6 +281,23 @@ static uint32_t parse_expr (Parser *p, int min_prec)
 		prec = binop_prec[p->curr.type];
 	}
 	return left;
+}
+
+static uint8_t parse_type (Parser *p, int allow_void)
+{
+	TokenType t = p->curr.type;
+	int valid = (t == TOK_i64 || t == TOK_CHAR || (allow_void && t == TOK_VOID));
+
+	if (!valid) {
+		if (!p->panic_mode)
+			error_report(p->err, ERR_ERROR, token_loc(p->curr), "expected type");
+		p->panic_mode = 1;
+		return TYPE_VOID;
+	}
+
+	uint8_t data_type = tok_to_datatype(t);
+	advance(p);
+	return data_type;
 }
 
 static uint32_t parse_var_dec (Parser *p)
@@ -298,12 +352,108 @@ static uint32_t parse_block (Parser *p)
 	return block;
 }
 
+static uint32_t parse_param (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	uint32_t node = new_node(p, NODE_VAR_DEC, line, col);
+
+	if (consume(p, TOK_ID, "expected parameter name")) {
+		p->ast.nodes[node].str = p->prev.str;
+		p->ast.nodes[node].len = p->prev.len;
+	}
+
+	consume(p, TOK_COL, "expected ':' followed by the parameter type");
+	uint8_t type = parse_type(p, 0);
+	p->ast.nodes[node].data_type = type;
+	return node;
+}
+
+static uint32_t parse_args_dec (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	uint32_t args = new_node(p, NODE_ARGS_DEC, line, col);
+	uint32_t last = NO_NODE;
+
+	consume(p, TOK_LPAREN, "expected '(' after function name");
+
+	while (p->curr.type == TOK_ID) {
+		uint32_t param = parse_param(p);
+		append_child(p, args, &last, param);
+
+		if (p->curr.type != TOK_COMMA) break;
+		advance(p);
+	}
+
+	consume(p, TOK_RPAREN, "expected ')' after parameters");
+	return args;
+}
+
+static uint32_t parse_ret_dec (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	uint32_t node = new_node(p, NODE_RET_DEC, line, col);
+
+	if (p->curr.type != TOK_COL) {
+		p->ast.nodes[node].data_type = TYPE_VOID;
+		return node;
+	}
+
+	advance(p);
+	uint8_t type = parse_type(p, 1);
+	p->ast.nodes[node].data_type = type;
+	return node;
+}
+
+static uint32_t parse_return (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	consume(p, TOK_RET, "expected 'return'");
+
+	uint32_t node = new_node(p, NODE_RET, line, col);
+	if (p->curr.type != TOK_SEMCOL) {
+		uint32_t value = parse_expr(p, 0);
+		p->ast.nodes[node].child = value;
+	}
+
+	consume(p, TOK_SEMCOL, "expected ';' after return statement");
+	return node;
+}
+
+static uint32_t parse_fn_decl (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	consume(p, TOK_FN, "expected 'fn'");
+
+	uint32_t node = new_node(p, NODE_FN_DEC, line, col);
+	if (consume(p, TOK_ID, "expected function name")) {
+		p->ast.nodes[node].str = p->prev.str;
+		p->ast.nodes[node].len = p->prev.len;
+	}
+
+	uint32_t args = parse_args_dec(p);
+	uint32_t ret = parse_ret_dec(p);
+	uint32_t body = parse_block(p);
+
+	uint32_t last = NO_NODE;
+	append_child(p, node, &last, args);
+	append_child(p, node, &last, ret);
+	append_child(p, node, &last, body);
+	return node;
+}
+
 static uint32_t parse_statement (Parser *p)
 {
 	switch (p->curr.type)
 	{
 	case TOK_VAR: return parse_var_dec(p);
 	case TOK_LKEY: return parse_block(p);
+	case TOK_FN: return parse_fn_decl(p);
+	case TOK_RET: return parse_return(p);
 	default: {
 		uint32_t node = parse_expr(p, 0);
 		consume(p, TOK_SEMCOL, "expected ';' at end of expresion");
@@ -368,6 +518,17 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_ROOT] = "NODE_ROOT",
 };
 
+static const char *datatype_to_name (DataType t)
+{
+	switch (t)
+	{
+	case TYPE_VOID: return "void";
+	case TYPE_i64: return "i64";
+	case TYPE_CHAR: return "char";
+	}
+	return "unknown";
+}
+
 static void dump_node (AST *ast, uint32_t idx, int depth)
 {
 	ASTNode *n;
@@ -389,8 +550,12 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 		printf(" char='%c'", n->chr);
 	else if (n->type == NODE_LIT_STR || n->type == NODE_ID)
 		printf(" str=\"%.*s\"", (int)n->len, n->str);
-	else if (n->type == NODE_VAR_DEC && n->str)
-		printf(" name=\"%.*s\"", (int)n->len, n->str);
+	else if (n->type == NODE_VAR_DEC || n->type == NODE_FN_DEC || n->type == NODE_FN_CALL) {
+		if (n->str) printf(" name=\"%.*s\"", (int)n->len, n->str);
+	}
+
+	if (n->type == NODE_VAR_DEC || n->type == NODE_RET_DEC)
+		printf(" type=%s", datatype_to_name(n->data_type));
 
 	printf("\n");
 

@@ -1,13 +1,13 @@
 NODE_ROOT [0:0]
-NODE_VAR_DEC [1:1] name="a"
+NODE_VAR_DEC [1:1] name="a" type=i64
 NODE_AND_A [1:17]
 NODE_LIT_i64 [1:15] i64=1
 NODE_LIT_i64 [1:19] i64=2
-NODE_VAR_DEC [2:1] name="b"
+NODE_VAR_DEC [2:1] name="b" type=i64
 NODE_XOR [2:17]
 NODE_LIT_i64 [2:15] i64=1
 NODE_LIT_i64 [2:19] i64=2
-NODE_VAR_DEC [3:1] name="c"
+NODE_VAR_DEC [3:1] name="c" type=i64
 NODE_OR_A [3:17]
 NODE_LIT_i64 [3:15] i64=1
 NODE_LIT_i64 [3:19] i64=2

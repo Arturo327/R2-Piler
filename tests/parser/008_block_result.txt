@@ -1,14 +1,14 @@
 NODE_ROOT [0:0]
 NODE_BLOCK [1:1]
-NODE_VAR_DEC [2:1] name="x"
+NODE_VAR_DEC [2:1] name="x" type=i64
 NODE_LIT_i64 [2:15] i64=1
 NODE_ADD [3:3]
 NODE_ID [3:1] str="x"
 NODE_LIT_i64 [3:5] i64=2
 NODE_BLOCK [5:1]
 NODE_BLOCK [7:1]
-NODE_VAR_DEC [8:1] name="a"
+NODE_VAR_DEC [8:1] name="a" type=i64
 NODE_LIT_i64 [8:15] i64=1
 NODE_BLOCK [9:1]
-NODE_VAR_DEC [10:1] name="b"
+NODE_VAR_DEC [10:1] name="b" type=i64
 NODE_LIT_i64 [10:15] i64=2

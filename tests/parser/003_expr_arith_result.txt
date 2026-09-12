@@ -1,5 +1,5 @@
 NODE_ROOT [0:0]
-NODE_VAR_DEC [1:1] name="x"
+NODE_VAR_DEC [1:1] name="x" type=i64
 NODE_SUB [1:25]
 NODE_ADD [1:17]
 NODE_LIT_i64 [1:15] i64=1
