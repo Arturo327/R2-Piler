@@ -1,0 +1,30 @@
+tests/lexer/034_bases_overflow_src.r2:1:1: [1;31mERROR[0m: literal integer out of range for a signed value; append 'u' for unsigned
+      1 | [1;31m9223372036854775808[0m
+        | [1;31m^~~~~~~~~~~~~~~~~~~[0m
+tests/lexer/034_bases_overflow_src.r2:2:1: [1;31mERROR[0m: literal integer out of range
+      2 | [1;31m18446744073709551616u[0m
+        | [1;31m^~~~~~~~~~~~~~~~~~~~~[0m
+tests/lexer/034_bases_overflow_src.r2:3:1: [1;31mERROR[0m: literal integer out of range for a signed value; append 'u' for unsigned
+      3 | [1;31m0x8000000000000000[0m
+        | [1;31m^~~~~~~~~~~~~~~~~~[0m
+tests/lexer/034_bases_overflow_src.r2:4:1: [1;31mERROR[0m: literal integer out of range
+      4 | [1;31m0xFFFFFFFFFFFFFFFFFFu[0m
+        | [1;31m^~~~~~~~~~~~~~~~~~~~~[0m
+tests/lexer/034_bases_overflow_src.r2:5:1: [1;31mERROR[0m: literal integer out of range for a signed value; append 'u' for unsigned
+      5 | [1;31m0o1000000000000000000000[0m
+        | [1;31m^~~~~~~~~~~~~~~~~~~~~~~~[0m
+tests/lexer/034_bases_overflow_src.r2:6:1: [1;31mERROR[0m: literal integer out of range
+      6 | [1;31m0o7777777777777777777777u[0m
+        | [1;31m^~~~~~~~~~~~~~~~~~~~~~~~~[0m
+tests/lexer/034_bases_overflow_src.r2:7:1: [1;31mERROR[0m: literal integer out of range for a signed value; append 'u' for unsigned
+      7 | [1;31m0b1000000000000000000000000000000000000000000000000000000000000000[0m
+        | [1;31m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+tests/lexer/034_bases_overflow_src.r2:8:1: [1;31mERROR[0m: literal integer out of range
+      8 | [1;31m0b11111111111111111111111111111111111111111111111111111111111111111u[0m
+        | [1;31m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+tests/lexer/034_bases_overflow_src.r2:9:1: [1;31mERROR[0m: literal integer out of range
+      9 | [1;31m9999999999999999999999999999u[0m
+        | [1;31m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+tests/lexer/034_bases_overflow_src.r2:10:1: [1;31mERROR[0m: literal integer out of range for a signed value; append 'u' for unsigned
+     10 | [1;31m0xFFFFFFFFFFFFFFFF[0m
+        | [1;31m^~~~~~~~~~~~~~~~~~[0m

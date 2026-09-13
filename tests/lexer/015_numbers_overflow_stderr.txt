@@ -1,9 +1,9 @@
-tests/lexer/015_numbers_overflow_src.r2:1:1: [1;31mERROR[0m: literal integer out of range
+tests/lexer/015_numbers_overflow_src.r2:1:1: [1;31mERROR[0m: literal integer out of range for a signed value; append 'u' for unsigned
       1 | [1;31m9223372036854775808[0m
         | [1;31m^~~~~~~~~~~~~~~~~~~[0m
 tests/lexer/015_numbers_overflow_src.r2:2:1: [1;31mERROR[0m: literal integer out of range
       2 | [1;31m9999999999999999999999999999[0m
         | [1;31m^~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-tests/lexer/015_numbers_overflow_src.r2:3:1: [1;31mERROR[0m: literal integer out of range
+tests/lexer/015_numbers_overflow_src.r2:3:1: [1;31mERROR[0m: literal integer out of range for a signed value; append 'u' for unsigned
       3 | [1;31m18446744073709551615[0m
         | [1;31m^~~~~~~~~~~~~~~~~~~~[0m

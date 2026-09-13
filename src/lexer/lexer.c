@@ -77,35 +77,108 @@ static void skip_whitespace (Lexer *l)
 	}
 }
 
+static int digit_value (char c)
+{
+	if (c >= '0' && c <= '9') return c - '0';
+	if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+	if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+	return -1;
+}
+
+static int numeric_prefix_base (Lexer *l)
+{
+	if (l->cursor[0] != '0')
+		return 10;
+
+	char c = l->cursor[1];
+	if (c == 'x' || c == 'X') { l->cursor += 2; return 16; }
+	if (c == 'o' || c == 'O') { l->cursor += 2; return 8; }
+	if (c == 'b' || c == 'B') { l->cursor += 2; return 2; }
+	return 10;
+}
+
+static int scan_digits (Lexer *l, int base, uint64_t *value, int *overflow)
+{
+	int consumed = 0;
+
+	while (1) {
+		int digit = digit_value(*l->cursor);
+		if (digit < 0 || digit >= base) break;
+
+		if (*value > (UINT64_MAX - (uint64_t)digit) / (uint64_t)base)
+			*overflow = 1;
+		else
+			*value = *value * (uint64_t)base + (uint64_t)digit;
+
+		l->cursor++;
+		consumed = 1;
+	}
+
+	return consumed;
+}
+
+static int consume_unsigned_suffix (Lexer *l)
+{
+	if (*l->cursor == 'u' || *l->cursor == 'U') {
+		l->cursor++;
+		return 1;
+	}
+	return 0;
+}
+
+static int check_invalid_trailing (Lexer *l, char *start, int start_line, int start_col)
+{
+	if (!isalnum((unsigned char)*l->cursor) && *l->cursor != '_')
+		return 0;
+
+	while (isalnum((unsigned char)*l->cursor) || *l->cursor == '_')
+		l->cursor++;
+
+	error_report(l->err, ERR_ERROR, loc_at(start_line, start_col,
+			(int)(l->cursor - start)), "invalid digit in numeric literal");
+	return 1;
+}
+
 static Token handle_num_literal (Lexer *l)
 {
 	char *start = l->cursor;
 	int start_line = l->line;
 	int start_col = (int)(start - l->line_start) + 1;
-	int64_t value = 0;
-	int overflow = 0;
+	int base = numeric_prefix_base(l);
 
-	while (isdigit((unsigned char)*l->cursor)) {
-		int digit = *l->cursor - '0';
-		if (!overflow) {
-			if (value > (INT64_MAX - digit) / 10) overflow = 1;
-			else value = value * 10 + digit;
-		}
-		l->cursor++;
+	uint64_t value = 0;
+	int overflow = 0;
+	int had_digits = scan_digits(l, base, &value, &overflow);
+
+	if (base != 10 && !had_digits) {
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col,
+				(int)(l->cursor - start)), "expected digits after numeric literal prefix");
+		return make_token(TOK_INVALID, NULL, (uint16_t)(l->cursor - start), start_line, start_col);
 	}
+
+	uint8_t is_unsigned = consume_unsigned_suffix(l);
+
+	if (check_invalid_trailing(l, start, start_line, start_col))
+		return make_token(TOK_INVALID, NULL, (uint16_t)(l->cursor - start), start_line, start_col);
 
 	if (overflow) {
 		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col,
 				(int)(l->cursor - start)), "literal integer out of range");
-		return make_token(TOK_INVALID, NULL, l->cursor - start, start_line, start_col);
+		return make_token(TOK_INVALID, NULL, (uint16_t)(l->cursor - start), start_line, start_col);
+	}
+
+	if (!is_unsigned && value > (uint64_t)INT64_MAX) {
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, (int)(l->cursor - start)),
+				"literal integer out of range for a signed value; append 'u' for unsigned");
+		return make_token(TOK_INVALID, NULL, (uint16_t)(l->cursor - start), start_line, start_col);
 	}
 
 	Token token = {
-		.type = TOK_LIT_i64,
+		.type = is_unsigned ? TOK_LIT_u64 : TOK_LIT_i64,
 		.line = start_line,
-		.i64 = value,
+		.u64 = value,
 		.len = (uint16_t)(l->cursor - start),
-		.col = start_col
+		.col = start_col,
 	};
 	return token;
 }
@@ -302,6 +375,7 @@ static const Keyword keywords[] = {
 	{"if", TOK_IF},
 	{"for", TOK_FOR},
 	{"i64", TOK_i64},
+	{"u64", TOK_u64},
 	{"var", TOK_VAR},
 	{"char", TOK_CHAR},
 	{"elif", TOK_ELIF},
@@ -470,9 +544,11 @@ static const char *token_type_to_string (TokenType type)
 	case TOK_LBRACE:return "TOK_LBRACE";
 	case TOK_RBRACE:return "TOK_RBRACE";
 	case TOK_LIT_i64: return "TOK_LIT_i64";
+	case TOK_LIT_u64: return "TOK_LIT_u64";
 	case TOK_LIT_CHAR: return "TOK_LIT_CHAR";
 	case TOK_LIT_STR: return "TOK_LIT_STR";
 	case TOK_i64:	return "TOK_i64";
+	case TOK_u64:	return "TOK_u64";
 	case TOK_VOID:	return "TOK_VOID";
 	case TOK_CHAR:	return "TOK_CHAR";
 	case TOK_IF:	return "TOK_IF";
@@ -541,20 +617,15 @@ int dump_tokens (Lexer *l)
 			printf("%s ", str_type);
 			print_escaped(t.str, t.len, '"');
 			printf("\n");
-			continue;
-		}
-		if (t.type == TOK_LIT_CHAR) {
+		} else if (t.type == TOK_LIT_CHAR) {
 			printf("%s ", str_type);
 			print_escaped(&t.chr, 1, '\'');
 			printf("\n");
-			continue;
-		}
-
-		if (t.type == TOK_LIT_i64) {
-			printf("%s %ld\n", str_type, t.i64);
-			continue;
-		}
-		printf("%s\n", str_type);
+		} else if (t.type == TOK_LIT_i64) {
+			printf("%s %lld\n", str_type, (long long)t.i64);
+		} else if (t.type == TOK_LIT_u64) {
+			printf("%s %llu\n", str_type, (unsigned long long)t.u64);
+		} else printf("%s\n", str_type);
 	} while (t.type != TOK_EOF);
 
 	return l->err->err_count;

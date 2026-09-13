@@ -1,0 +1,27 @@
+NODE_ROOT [0:0]
+  NODE_VAR_DEC [1:1] name="a" type=u64
+    NODE_LIT_u64 [1:15] u64=42
+  NODE_VAR_DEC [2:1] name="b" type=i64
+    NODE_LIT_i64 [2:15] i64=16
+  NODE_VAR_DEC [3:1] name="c" type=u64
+    NODE_LIT_u64 [3:15] u64=255
+  NODE_VAR_DEC [4:1] name="d" type=i64
+    NODE_LIT_i64 [4:15] i64=15
+  NODE_VAR_DEC [5:1] name="e" type=u64
+    NODE_LIT_u64 [5:15] u64=493
+  NODE_VAR_DEC [6:1] name="f" type=i64
+    NODE_LIT_i64 [6:15] i64=5
+  NODE_VAR_DEC [7:1] name="g" type=u64
+    NODE_LIT_u64 [7:15] u64=5
+  NODE_VAR_DEC [8:1] name="h" type=u64
+    NODE_LIT_u64 [8:15] u64=18446744073709551615
+  NODE_FN_DEC [9:1] name="add"
+    NODE_ARGS_DEC [9:7]
+      NODE_VAR_DEC [9:8] name="a" type=u64
+      NODE_VAR_DEC [9:17] name="b" type=u64
+    NODE_RET_DEC [9:26] type=u64
+    NODE_BLOCK [9:32]
+      NODE_RET [10:3]
+        NODE_ADD [10:12]
+          NODE_ID [10:10] str="a"
+          NODE_ID [10:14] str="b"

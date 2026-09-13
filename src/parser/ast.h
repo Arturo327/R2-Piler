@@ -10,6 +10,7 @@
 typedef enum {
 	TYPE_VOID,
 	TYPE_i64,
+	TYPE_u64,
 	TYPE_CHAR
 } DataType;
 
@@ -17,7 +18,7 @@ typedef enum {
 	NODE_ERROR = 0, NODE_EMPTY,
 	NODE_ASSIGN, NODE_EQ, NODE_NE, NODE_GT, NODE_GE,
 	NODE_LT, NODE_LE, NODE_AND_L, NODE_OR_L, NODE_NOT_L,	// Logic
-	NODE_LIT_CHAR, NODE_LIT_STR, NODE_LIT_i64,		// Literals
+	NODE_LIT_CHAR, NODE_LIT_STR, NODE_LIT_i64, NODE_LIT_u64,// Literals
 	NODE_ADD, NODE_SUB, NODE_MUL, NODE_DIV,	NODE_MOD,	// Arithmetic ops
 	NODE_AND_A, NODE_OR_A, NODE_XOR, NODE_RS, NODE_LS,	// Bitwise ops
 	NODE_NOT_A, NODE_NEG,					// Unary
@@ -31,6 +32,7 @@ typedef struct ASTNode {
 	union {
 		char *str;
 		int64_t i64;
+		uint64_t u64;
 		char chr;
 	};
 

@@ -1,0 +1,54 @@
+tests/lexer/033_bases_errors_src.r2:1:1: [1;31mERROR[0m: expected digits after numeric literal prefix
+      1 | [1;31m0x[0m
+        | [1;31m^~[0m
+tests/lexer/033_bases_errors_src.r2:2:1: [1;31mERROR[0m: expected digits after numeric literal prefix
+      2 | [1;31m0X[0m
+        | [1;31m^~[0m
+tests/lexer/033_bases_errors_src.r2:3:1: [1;31mERROR[0m: expected digits after numeric literal prefix
+      3 | [1;31m0o[0m
+        | [1;31m^~[0m
+tests/lexer/033_bases_errors_src.r2:4:1: [1;31mERROR[0m: expected digits after numeric literal prefix
+      4 | [1;31m0b[0m
+        | [1;31m^~[0m
+tests/lexer/033_bases_errors_src.r2:5:1: [1;31mERROR[0m: expected digits after numeric literal prefix
+      5 | [1;31m0x[0mG
+        | [1;31m^~[0m
+tests/lexer/033_bases_errors_src.r2:6:1: [1;31mERROR[0m: expected digits after numeric literal prefix
+      6 | [1;31m0o[0m8
+        | [1;31m^~[0m
+tests/lexer/033_bases_errors_src.r2:7:1: [1;31mERROR[0m: expected digits after numeric literal prefix
+      7 | [1;31m0b[0m2
+        | [1;31m^~[0m
+tests/lexer/033_bases_errors_src.r2:8:1: [1;31mERROR[0m: invalid digit in numeric literal
+      8 | [1;31m0b102[0m
+        | [1;31m^~~~~[0m
+tests/lexer/033_bases_errors_src.r2:9:1: [1;31mERROR[0m: invalid digit in numeric literal
+      9 | [1;31m0o78[0m
+        | [1;31m^~~~[0m
+tests/lexer/033_bases_errors_src.r2:10:1: [1;31mERROR[0m: invalid digit in numeric literal
+     10 | [1;31m0x1g[0m
+        | [1;31m^~~~[0m
+tests/lexer/033_bases_errors_src.r2:11:1: [1;31mERROR[0m: invalid digit in numeric literal
+     11 | [1;31m123abc[0m
+        | [1;31m^~~~~~[0m
+tests/lexer/033_bases_errors_src.r2:12:1: [1;31mERROR[0m: invalid digit in numeric literal
+     12 | [1;31m123uabc[0m
+        | [1;31m^~~~~~~[0m
+tests/lexer/033_bases_errors_src.r2:13:1: [1;31mERROR[0m: invalid digit in numeric literal
+     13 | [1;31m0x10uU[0m
+        | [1;31m^~~~~~[0m
+tests/lexer/033_bases_errors_src.r2:14:1: [1;31mERROR[0m: invalid digit in numeric literal
+     14 | [1;31m42uu[0m
+        | [1;31m^~~~[0m
+tests/lexer/033_bases_errors_src.r2:15:1: [1;31mERROR[0m: invalid digit in numeric literal
+     15 | [1;31m0b101uu[0m
+        | [1;31m^~~~~~~[0m
+tests/lexer/033_bases_errors_src.r2:16:1: [1;31mERROR[0m: invalid digit in numeric literal
+     16 | [1;31m123_[0m
+        | [1;31m^~~~[0m
+tests/lexer/033_bases_errors_src.r2:17:1: [1;31mERROR[0m: invalid digit in numeric literal
+     17 | [1;31m0u_[0m
+        | [1;31m^~~[0m
+tests/lexer/033_bases_errors_src.r2:18:1: [1;31mERROR[0m: invalid digit in numeric literal
+     18 | [1;31m0x10_[0m
+        | [1;31m^~~~~[0m

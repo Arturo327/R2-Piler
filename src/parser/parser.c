@@ -91,16 +91,17 @@ static void syncro (Parser *p, Token start)
 
 static int enter_depth (Parser *p)
 {
-	p->depth++;
-	if (p->depth <= MAX_PARSE_DEPTH)
-		return 1;
-
-	if (!p->panic_mode) {
-		ErrorLoc loc = { p->curr.line, p->curr.col, 1 };
-		error_report(p->err, ERR_ERROR, loc, "expression or statement nested too deeply");
+	if (p->depth >= MAX_PARSE_DEPTH) {
+		if (!p->panic_mode) {
+			ErrorLoc loc = { p->curr.line, p->curr.col, 1 };
+			error_report(p->err, ERR_ERROR, loc, "expression or statement nested too deeply");
+		}
+		p->panic_mode = 1;
+		return 0;
 	}
-	p->panic_mode = 1;
-	return 0;
+
+	p->depth++;
+	return 1;
 }
 
 static uint32_t parse_expr (Parser *p, int min_prec);
@@ -158,9 +159,13 @@ static void append_child (Parser *p, uint32_t parent, uint32_t *last, uint32_t c
 
 static uint8_t tok_to_datatype (TokenType t)
 {
-	if (t == TOK_i64) return TYPE_i64;
-	if (t == TOK_CHAR) return TYPE_CHAR;
-	return TYPE_VOID;
+	switch (t)
+	{
+	case TOK_i64: return TYPE_i64;
+	case TOK_u64: return TYPE_u64;
+	case TOK_CHAR: return TYPE_CHAR;
+	default: return TYPE_VOID;
+	}
 }
 
 static const int8_t binop_prec[TOK_COUNT] = {
@@ -253,11 +258,8 @@ static uint32_t parse_unary (Parser *p)
 	return node;
 }
 
-static uint32_t parse_primary (Parser *p)
+static uint32_t parse_primary_inner (Parser *p)
 {
-	if (!enter_depth(p))
-		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
-
 	uint16_t line = p->curr.line;
 	uint16_t col = p->curr.col;
 	uint32_t node;
@@ -274,6 +276,10 @@ static uint32_t parse_primary (Parser *p)
 	case TOK_LIT_i64:
 		node = new_node(p, NODE_LIT_i64, line, col);
 		p->ast.nodes[node].i64 = p->curr.i64;
+		break;
+	case TOK_LIT_u64:
+		node = new_node(p, NODE_LIT_u64, line, col);
+		p->ast.nodes[node].u64 = p->curr.u64;
 		break;
 	case TOK_LIT_CHAR:
 		node = new_node(p, NODE_LIT_CHAR, line, col);
@@ -297,6 +303,15 @@ static uint32_t parse_primary (Parser *p)
 	}
 
 	advance(p);
+	return node;
+}
+
+static uint32_t parse_primary (Parser *p)
+{
+	if (!enter_depth(p))
+		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
+
+	uint32_t node = parse_primary_inner(p);
 	p->depth--;
 	return node;
 }
@@ -334,7 +349,7 @@ static uint32_t parse_expr (Parser *p, int min_prec)
 static uint8_t parse_type (Parser *p, int allow_void)
 {
 	TokenType t = p->curr.type;
-	int valid = (t == TOK_i64 || t == TOK_CHAR || (allow_void && t == TOK_VOID));
+	int valid = (t == TOK_i64 || t == TOK_u64 || t == TOK_CHAR || (allow_void && t == TOK_VOID));
 
 	if (!valid) {
 		if (!p->panic_mode)
@@ -589,8 +604,11 @@ static uint32_t parse_for_cond (Parser *p)
 
 static uint32_t parse_for_updt (Parser *p)
 {
-	if (p->curr.type == TOK_RPAREN && !p->panic_mode)
-		return new_node(p, NODE_EMPTY, p->curr.line, p->curr.col);
+	if (p->curr.type == TOK_RPAREN && !p->panic_mode) {
+		uint32_t e = new_node(p, NODE_EMPTY, p->curr.line, p->curr.col);
+		advance(p);
+		return e;
+	}
 	uint32_t c = parse_expr(p, 0);
 	consume(p, TOK_RPAREN, "expected ')'");
 	return c;
@@ -678,6 +696,7 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_LIT_CHAR] = "NODE_LIT_CHAR",
 	[NODE_LIT_STR] = "NODE_LIT_STR",
 	[NODE_LIT_i64] = "NODE_LIT_i64",
+	[NODE_LIT_u64] = "NODE_LIT_u64",
 	[NODE_ADD] = "NODE_ADD",
 	[NODE_SUB] = "NODE_SUB",
 	[NODE_MUL] = "NODE_MUL",
@@ -712,6 +731,7 @@ static const char *datatype_to_name (DataType t)
 	{
 	case TYPE_VOID: return "void";
 	case TYPE_i64: return "i64";
+	case TYPE_u64: return "u64";
 	case TYPE_CHAR: return "char";
 	}
 	return "unknown";
@@ -735,6 +755,8 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 
 		if (n->type == NODE_LIT_i64)
 			printf(" i64=%lld", (long long)n->i64);
+		else if (n->type == NODE_LIT_u64)
+			printf(" u64=%llu", (unsigned long long)n->u64);
 		else if (n->type == NODE_LIT_CHAR)
 			printf(" char='%c'", n->chr);
 		else if (n->type == NODE_LIT_STR || n->type == NODE_ID)
