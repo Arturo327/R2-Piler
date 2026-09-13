@@ -5,21 +5,27 @@
 #include "lexer/lexer.h"
 #include "error/error.h"
 #include "parser/parser.h"
+#include "sema/sema.h"
 
 typedef struct CompilerOpts {
-	const char *path;
-	const char *out;
+	char *path;
+	char *out;
 	int dump_tokens;
 	int dump_ast;
+	int dump_symbols;
 } CompilerOpts;
 
 typedef struct Compiler {
 	Arena arena;
 	Arena ast_arena;
+	Arena sym_arena;
 	ErrorReporter err;
-	char *src;
+
 	Lexer lexer;
 	Parser parser;
+	Sema sema;
+
+	char *src;
 } Compiler;
 
 void compiler_init (Compiler *comp);

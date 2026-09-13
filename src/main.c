@@ -20,16 +20,10 @@ static void print_help (const char *build)
 	printf("    -o|--out            Actually nothing.\n");
 	printf("    -T|--dump-tokens    Prints your code tokens to stdout\n");
 	printf("    -A|--dump-ast       Prints the parsed AST to stdout\n");
+	printf("    -S|--dump-symbols   Prints the resolved symbol table to stdout\n");
 }
 
-typedef struct Args {
-	char *out;
-	char *path;
-	int dump_tokens;
-	int dump_ast;
-} Args;
-
-static Args parse_args (int argc, char *argv[])
+static CompilerOpts parse_args (int argc, char *argv[])
 {
 	struct option long_options[] = {
 		{"out", required_argument, 0, 'o'},
@@ -37,17 +31,19 @@ static Args parse_args (int argc, char *argv[])
 		{"version", no_argument, 0, 'v'},
 		{"dump-tokens", no_argument, 0, 'T'},
 		{"dump-ast", no_argument, 0, 'A'},
+		{"dump-symbols", no_argument, 0, 'S'},
 		{0, 0, 0, 0}
 	};
-	Args args = {
+	CompilerOpts args = {
 		.path = NULL,
 		.out = NULL,
 		.dump_tokens = 0,
-		.dump_ast = 0
+		.dump_ast = 0,
+		.dump_symbols = 0
 	};
 
 	int opt;
-	char *short_opts = ":TAo:hv";
+	char *short_opts = ":TASo:hv";
 	opterr = 0;
 	while ((opt = getopt_long(argc, argv, short_opts, long_options, NULL)) != -1) {
 		switch (opt)
@@ -57,6 +53,7 @@ static Args parse_args (int argc, char *argv[])
 		case 'v': printf("%s\n", VERSION); exit(0);
 		case 'T': args.dump_tokens = 1; break;
 		case 'A': args.dump_ast = 1; break;
+		case 'S': args.dump_symbols = 1; break;
 		case ':':
 			fprintf(stderr, "Option '-%c' requires an argument.\n", optopt);
 			exit(1);
@@ -78,13 +75,7 @@ static Args parse_args (int argc, char *argv[])
 
 int main (int argc, char *argv[])
 {
-	Args args = parse_args(argc, argv);
-	CompilerOpts opts = {
-		.path = args.path,
-		.out = args.out,
-		.dump_tokens = args.dump_tokens,
-		.dump_ast = args.dump_ast
-	};
+	CompilerOpts opts = parse_args(argc, argv);
 
 	Compiler comp;
 	compiler_init(&comp);

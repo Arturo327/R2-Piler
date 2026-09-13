@@ -6,6 +6,7 @@
 #include "arena/arena.h"
 #include "parser/ast.h"
 #include "error/error.h"
+#include "lexer/lexer.h"
 
 typedef struct Parser {
 	Token curr;

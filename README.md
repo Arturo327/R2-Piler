@@ -12,7 +12,7 @@ Currently implements a complete lexer and parser with arena-based memory managem
 
 - Lexer — implemented and tested
 - Parser — implemented and tested
-- Type checker — not started
+- Type checker — working on
 - Code generation — not started
 
 For now, `--dump-tokens` and `--dump-ast` are the main ways to see the compiler do something.
@@ -62,6 +62,9 @@ src/
 ├── parser/
 |   ├── ast.h        # AST definition: nodes, types, AST tree
 |   └── parser.c/h   # Parser: get the tokens and crate an AST tree
+├── sema/
+|   ├── symbol.c/h   # Symbol and Symbol table definition
+|   └── sema.c/h     # Semantic analyzer: analyze the AST, reports remainig errors and generate symbol table
 └── lexer/
     └── lexer.c/h    # Tokenizer: keywords, literals, operators
 ```

@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-#include "lexer/lexer.h"
-
 #define NO_NODE 0xFFFFFFFF
 
 typedef enum {
@@ -38,6 +36,7 @@ typedef struct ASTNode {
 
 	uint32_t child;
 	uint32_t next_bro;
+	uint32_t sym;
 
 	uint16_t line;
 	uint16_t col;

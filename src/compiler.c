@@ -10,6 +10,7 @@ void compiler_init (Compiler *comp)
 	memset(comp, 0, sizeof(*comp));
 	arena_init(&comp->arena);
 	arena_init(&comp->ast_arena);
+	arena_init(&comp->sym_arena);
 }
 
 static long file_size (FILE *f, const char *file)
@@ -72,6 +73,7 @@ static int compiler_load_file (Compiler *comp, const char *file)
 
 	init_lexer(&comp->lexer, comp->src, &comp->arena, &comp->err);
 	init_parser(&comp->parser, &comp->lexer, &comp->ast_arena, &comp->err);
+	sema_init(&comp->sema, &comp->sym_arena, &comp->parser.ast, &comp->err);
 
 	return 0;
 }
@@ -89,7 +91,14 @@ int compile (Compiler *c, CompilerOpts *opts)
 	}
 	if (c->err.err_count) return 1;
 
-	// TODO: type_checker, IR, codegen
+	sema_run(&c->sema);
+	if (opts->dump_symbols) {
+		dump_symbols(&c->sema.table);
+		return c->err.err_count ? 1 : 0;
+	}
+	if (c->err.err_count) return 1;
+
+	// TODO: IR, codegen
 
 	return 0;
 }
@@ -98,5 +107,6 @@ void compiler_destroy (Compiler *comp)
 {
 	arena_destroy(&comp->arena);
 	arena_destroy(&comp->ast_arena);
+	arena_destroy(&comp->sym_arena);
 	memset(comp, 0, sizeof(*comp));
 }
