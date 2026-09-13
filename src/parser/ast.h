@@ -6,10 +6,11 @@
 #define NO_NODE 0xFFFFFFFF
 
 typedef enum {
-	TYPE_VOID,
+	TYPE_VOID = 0,
 	TYPE_i64,
 	TYPE_u64,
-	TYPE_CHAR
+	TYPE_CHAR,
+	TYPE_COUNT
 } DataType;
 
 typedef enum {

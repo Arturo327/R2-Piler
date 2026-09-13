@@ -7,7 +7,7 @@
 #define NO_SYMBOL 0xFFFFFFFF
 
 typedef enum {
-	SYMBOL_FN,
+	SYMBOL_FN = 0,
 	SYMBOL_VAR,
 	SYMBOL_CONST,
 	SYMBOL_PARAM
