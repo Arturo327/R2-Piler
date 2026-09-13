@@ -88,7 +88,7 @@ NODE_ROOT [0:0]
         NODE_ID [17:3] str="x"
         NODE_LIT_i64 [17:7] i64=1
   NODE_FOR [19:1]
-    NODE_VAR_DEC [19:6] name="i" type=i64
+    NODE_VAR_DEC [19:10] name="i" type=i64
       NODE_LIT_i64 [19:20] i64=0
     NODE_LT [19:24]
       NODE_ID [19:22] str="i"

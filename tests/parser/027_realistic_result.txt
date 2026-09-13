@@ -1,5 +1,5 @@
 NODE_ROOT [0:0]
-  NODE_FN_DEC [1:1] name="max"
+  NODE_FN_DEC [1:4] name="max"
     NODE_ARGS_DEC [1:7]
       NODE_VAR_DEC [1:8] name="a" type=i64
       NODE_VAR_DEC [1:17] name="b" type=i64
@@ -16,7 +16,7 @@ NODE_ROOT [0:0]
           NODE_BLOCK [4:10]
             NODE_RET [5:5]
               NODE_ID [5:12] str="b"
-  NODE_FN_DEC [8:1] name="fact"
+  NODE_FN_DEC [8:4] name="fact"
     NODE_ARGS_DEC [8:8]
       NODE_VAR_DEC [8:9] name="n" type=i64
     NODE_RET_DEC [8:18] type=i64
@@ -37,14 +37,14 @@ NODE_ROOT [0:0]
                   NODE_SUB [12:23]
                     NODE_ID [12:21] str="n"
                     NODE_LIT_i64 [12:25] i64=1
-  NODE_VAR_DEC [15:1] name="m" type=i64
+  NODE_VAR_DEC [15:5] name="m" type=i64
     NODE_FN_CALL [15:15] name="max"
       NODE_LIT_i64 [15:19] i64=10
       NODE_LIT_i64 [15:23] i64=20
-  NODE_VAR_DEC [16:1] name="f5" type=i64
+  NODE_VAR_DEC [16:5] name="f5" type=i64
     NODE_FN_CALL [16:16] name="fact"
       NODE_LIT_i64 [16:21] i64=5
-  NODE_VAR_DEC [17:1] name="flag" type=i64
+  NODE_VAR_DEC [17:5] name="flag" type=i64
     NODE_LIT_i64 [17:18] i64=0
   NODE_IF [18:1]
     NODE_AND_L [18:13]

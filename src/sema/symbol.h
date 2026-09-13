@@ -9,7 +9,6 @@
 typedef enum {
 	SYMBOL_FN = 0,
 	SYMBOL_VAR,
-	SYMBOL_CONST,
 	SYMBOL_PARAM
 } SymKind;
 

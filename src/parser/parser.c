@@ -365,11 +365,12 @@ static uint8_t parse_type (Parser *p, int allow_void)
 
 static uint32_t parse_var_dec (Parser *p)
 {
-	uint16_t line = p->curr.line;
-	uint16_t col = p->curr.col;
 	consume(p, TOK_VAR, "expected 'var'");
 
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
 	uint32_t node = new_node(p, NODE_VAR_DEC, line, col);
+
 	if (consume(p, TOK_ID, "expected variable name")) {
 		p->ast.nodes[node].str = p->prev.str;
 		p->ast.nodes[node].len = p->prev.len;
@@ -481,11 +482,12 @@ static uint32_t parse_return (Parser *p)
 
 static uint32_t parse_fn_decl (Parser *p)
 {
-	uint16_t line = p->curr.line;
-	uint16_t col = p->curr.col;
 	consume(p, TOK_FN, "expected 'fn'");
 
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
 	uint32_t node = new_node(p, NODE_FN_DEC, line, col);
+
 	if (consume(p, TOK_ID, "expected function name")) {
 		p->ast.nodes[node].str = p->prev.str;
 		p->ast.nodes[node].len = p->prev.len;

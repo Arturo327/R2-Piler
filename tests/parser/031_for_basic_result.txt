@@ -18,7 +18,7 @@ NODE_ROOT [0:0]
           NODE_ID [2:7] str="x"
           NODE_ID [2:11] str="i"
   NODE_FOR [4:1]
-    NODE_VAR_DEC [4:6] name="i" type=i64
+    NODE_VAR_DEC [4:10] name="i" type=i64
       NODE_LIT_i64 [4:20] i64=0
     NODE_LT [4:25]
       NODE_ID [4:23] str="i"
@@ -52,7 +52,7 @@ NODE_ROOT [0:0]
         NODE_ID [7:36] str="x"
         NODE_LIT_i64 [7:40] i64=1
   NODE_FOR [8:1]
-    NODE_VAR_DEC [8:6] name="i" type=i64
+    NODE_VAR_DEC [8:10] name="i" type=i64
       NODE_LIT_i64 [8:20] i64=0
     NODE_LT [8:25]
       NODE_ID [8:23] str="i"
@@ -79,7 +79,7 @@ NODE_ROOT [0:0]
         NODE_LIT_i64 [9:29] i64=1
     NODE_BLOCK [9:32]
   NODE_FOR [11:1]
-    NODE_VAR_DEC [11:6] name="i" type=i64
+    NODE_VAR_DEC [11:10] name="i" type=i64
     NODE_LT [11:21]
       NODE_ID [11:19] str="i"
       NODE_LIT_i64 [11:23] i64=10
@@ -92,15 +92,15 @@ NODE_ROOT [0:0]
       NODE_ASSIGN [12:5]
         NODE_ID [12:3] str="x"
         NODE_LIT_i64 [12:7] i64=1
-  NODE_FN_DEC [14:1] name="sum"
+  NODE_FN_DEC [14:4] name="sum"
     NODE_ARGS_DEC [14:7]
       NODE_VAR_DEC [14:8] name="n" type=i64
     NODE_RET_DEC [14:17] type=i64
     NODE_BLOCK [14:23]
-      NODE_VAR_DEC [15:3] name="s" type=i64
+      NODE_VAR_DEC [15:7] name="s" type=i64
         NODE_LIT_i64 [15:17] i64=0
       NODE_FOR [16:3]
-        NODE_VAR_DEC [16:8] name="i" type=i64
+        NODE_VAR_DEC [16:12] name="i" type=i64
           NODE_LIT_i64 [16:22] i64=0
         NODE_LT [16:27]
           NODE_ID [16:25] str="i"

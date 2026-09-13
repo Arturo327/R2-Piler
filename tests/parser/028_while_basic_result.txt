@@ -19,9 +19,9 @@ NODE_ROOT [0:0]
     NODE_BLOCK [5:11]
   NODE_WHILE [7:1]
     NODE_ID [7:8] str="x"
-    NODE_VAR_DEC [7:11] name="y" type=i64
+    NODE_VAR_DEC [7:15] name="y" type=i64
       NODE_LIT_i64 [7:25] i64=1
-  NODE_FN_DEC [8:1] name="f"
+  NODE_FN_DEC [8:4] name="f"
     NODE_ARGS_DEC [8:5]
     NODE_RET_DEC [8:8] type=i64
     NODE_BLOCK [8:14]

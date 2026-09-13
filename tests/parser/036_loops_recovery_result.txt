@@ -1,5 +1,5 @@
 NODE_ROOT [0:0]
-  NODE_VAR_DEC [1:1] name="x" type=i64
+  NODE_VAR_DEC [1:5] name="x" type=i64
     NODE_LIT_i64 [1:15] i64=5
   NODE_ADD [2:3]
     NODE_LIT_i64 [2:1] i64=1
@@ -10,7 +10,7 @@ NODE_ROOT [0:0]
       NODE_ADD [4:5]
         NODE_LIT_i64 [4:3] i64=1
         NODE_ERROR [4:7]
-      NODE_VAR_DEC [5:3] name="y" type=i64
+      NODE_VAR_DEC [5:7] name="y" type=i64
         NODE_LIT_i64 [5:17] i64=2
   NODE_FOR [7:1]
     NODE_ASSIGN [7:8]
@@ -28,14 +28,14 @@ NODE_ROOT [0:0]
       NODE_ADD [8:5]
         NODE_LIT_i64 [8:3] i64=1
         NODE_ERROR [8:7]
-      NODE_VAR_DEC [9:3] name="z" type=i64
+      NODE_VAR_DEC [9:7] name="z" type=i64
         NODE_LIT_i64 [9:17] i64=4
-  NODE_VAR_DEC [11:1] name="w" type=i64
+  NODE_VAR_DEC [11:5] name="w" type=i64
     NODE_ADD [11:17]
       NODE_ID [11:15] str="x"
       NODE_ID [11:19] str="y"
   NODE_ERROR [12:1]
-  NODE_VAR_DEC [13:1] name="v" type=i64
+  NODE_VAR_DEC [13:5] name="v" type=i64
     NODE_LIT_i64 [13:15] i64=10
   NODE_WHILE [14:1]
     NODE_GT [14:10]
