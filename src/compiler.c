@@ -27,10 +27,8 @@ static long file_size (FILE *f, const char *file)
 	return size;
 }
 
-int compiler_load_file (Compiler *comp, const char *file)
+static int get_file (Compiler *comp, const char *file)
 {
-	error_init(&comp->err, file);
-
 	struct stat st;
 	if (stat(file, &st) != 0 || !S_ISREG(st.st_mode)) {
 		fprintf(stderr, "Error: %s is not a regular file\n", file);
@@ -55,7 +53,6 @@ int compiler_load_file (Compiler *comp, const char *file)
 		fclose(f);
 		return 1;
 	}
-
 	comp->src[src_size] = '\0';
 	fclose(f);
 
@@ -63,11 +60,36 @@ int compiler_load_file (Compiler *comp, const char *file)
 		fprintf(stderr, "Error: %s contains embedded NUL bytes\n", file);
 		return 1;
 	}
+	return 0;
+}
+
+static int compiler_load_file (Compiler *comp, const char *file)
+{
+	error_init(&comp->err, file);
+	if (get_file(comp, file)) return 1;
 
 	error_index_lines(&comp->err, comp->src, &comp->arena);
 
 	init_lexer(&comp->lexer, comp->src, &comp->arena, &comp->err);
 	init_parser(&comp->parser, &comp->lexer, &comp->ast_arena, &comp->err);
+
+	return 0;
+}
+
+int compile (Compiler *c, CompilerOpts *opts)
+{
+	if (compiler_load_file(c, opts->path)) return 1;
+	if (opts->dump_tokens)
+		return dump_tokens(&c->lexer) ? 1 : 0;
+
+	parse(&c->parser);
+	if (opts->dump_ast) {
+		dump_ast(&c->parser.ast);
+		return c->err.err_count ? 1 : 0;
+	}
+	if (c->err.err_count) return 1;
+
+	// TODO: type_checker, IR, codegen
 
 	return 0;
 }

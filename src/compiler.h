@@ -6,6 +6,13 @@
 #include "error/error.h"
 #include "parser/parser.h"
 
+typedef struct CompilerOpts {
+	const char *path;
+	const char *out;
+	int dump_tokens;
+	int dump_ast;
+} CompilerOpts;
+
 typedef struct Compiler {
 	Arena arena;
 	Arena ast_arena;
@@ -16,7 +23,7 @@ typedef struct Compiler {
 } Compiler;
 
 void compiler_init (Compiler *comp);
-int compiler_load_file (Compiler *comp, const char *path);
+int compile (Compiler *c, CompilerOpts *opts);
 void compiler_destroy (Compiler *comp);
 
 #endif

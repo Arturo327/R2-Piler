@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
-#include <stdarg.h>
 
 #include "lexer/lexer.h"
 

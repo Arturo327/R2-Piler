@@ -79,24 +79,17 @@ static Args parse_args (int argc, char *argv[])
 int main (int argc, char *argv[])
 {
 	Args args = parse_args(argc, argv);
+	CompilerOpts opts = {
+		.path = args.path,
+		.out = args.out,
+		.dump_tokens = args.dump_tokens,
+		.dump_ast = args.dump_ast
+	};
 
 	Compiler comp;
 	compiler_init(&comp);
 
-	if (compiler_load_file(&comp, args.path) != 0) {
-		compiler_destroy(&comp);
-		return 1;
-	}
-
-	int status = 0;
-	if (args.dump_tokens)
-		status = dump_tokens(&comp.lexer) != 0 ? 1 : 0;
-	else if (args.dump_ast) {
-		parse(&comp.parser);
-		dump_ast(&comp.parser.ast);
-		status = comp.err.err_count != 0 ? 1 : 0;
-	}
-
+	int status = compile(&comp, &opts);
 	compiler_destroy(&comp);
 	return status;
 }
