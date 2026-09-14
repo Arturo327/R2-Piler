@@ -37,7 +37,8 @@ void init_parser (Parser *parser, Lexer *lexer, Arena *arena, ErrorReporter *err
 		.type = NODE_ROOT,
 		.line = 0, .col = 0,
 		.child = NO_NODE,
-		.next_bro = NO_NODE
+		.next_bro = NO_NODE,
+		.sym = NO_NODE
 	};
 	(void)push_ast_node(parser, root);
 }
@@ -147,6 +148,7 @@ static uint32_t new_node (Parser *p, NodeType type, uint16_t line, uint16_t col)
 	node.col = col;
 	node.child = NO_NODE;
 	node.next_bro = NO_NODE;
+	node.sym = NO_NODE;
 	return push_ast_node(p, node);
 }
 
@@ -355,7 +357,7 @@ static uint8_t parse_type (Parser *p, int allow_void)
 		if (!p->panic_mode)
 			error_report(p->err, ERR_ERROR, token_loc(p->curr), "expected type");
 		p->panic_mode = 1;
-		return TYPE_VOID;
+		return TYPE_ERROR;
 	}
 
 	uint8_t data_type = tok_to_datatype(t);
@@ -727,17 +729,13 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_ROOT] = "NODE_ROOT",
 };
 
-static const char *datatype_to_name (DataType t)
-{
-	switch (t)
-	{
-	case TYPE_VOID: return "void";
-	case TYPE_i64: return "i64";
-	case TYPE_u64: return "u64";
-	case TYPE_CHAR: return "char";
-	}
-	return "unknown";
-}
+static const char *type_name[TYPE_COUNT] = {
+	[TYPE_VOID] = "void",
+	[TYPE_i64] = "i64",
+	[TYPE_u64] = "u64",
+	[TYPE_CHAR] = "char",
+	[TYPE_ERROR] = "error"
+};
 
 static inline void indent (int depth)
 {
@@ -768,7 +766,7 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 		}
 
 		if (n->type == NODE_VAR_DEC || n->type == NODE_RET_DEC)
-			printf(" type=%s", datatype_to_name(n->data_type));
+			printf(" type=%s", type_name[n->data_type]);
 
 		printf("\n");
 		dump_node(ast, child, depth + 1);

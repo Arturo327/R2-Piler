@@ -10,6 +10,7 @@ typedef enum {
 	TYPE_i64,
 	TYPE_u64,
 	TYPE_CHAR,
+	TYPE_ERROR,
 	TYPE_COUNT
 } DataType;
 

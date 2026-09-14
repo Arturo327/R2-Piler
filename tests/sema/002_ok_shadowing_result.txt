@@ -1,0 +1,4 @@
+var x [1:5] depth=0 type=i64
+fn f [2:4] depth=0 type=i64
+var x [3:7] depth=1 type=i64
+var x [5:9] depth=2 type=i64

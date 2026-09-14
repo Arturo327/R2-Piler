@@ -1,0 +1,7 @@
+var x [1:5] depth=0 type=i64
+var y [2:5] depth=0 type=i64
+var w [3:5] depth=0 type=i64
+fn later [4:4] depth=0 type=i64
+fn fact [7:4] depth=0 type=i64
+param a [4:10] depth=1 type=i64
+param n [7:9] depth=1 type=i64

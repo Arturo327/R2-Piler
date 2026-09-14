@@ -1,0 +1,6 @@
+tests/sema/019_err_assign_src.r2:4:5: [1;31mERROR[0m: cannot assign char to a variable of type i64
+      4 |   x [1;31m=[0m y;
+        |     [1;31m^[0m
+tests/sema/019_err_assign_src.r2:5:3: [1;31mERROR[0m: 'nosuch' is not declared
+      5 |   [1;31mnosuch[0m = 1;
+        |   [1;31m^~~~~~[0m

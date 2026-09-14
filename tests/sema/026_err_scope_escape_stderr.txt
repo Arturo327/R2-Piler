@@ -1,0 +1,6 @@
+tests/sema/026_err_scope_escape_src.r2:3:3: [1;31mERROR[0m: 'y' is not declared
+      3 |   [1;31my[0m = 2;
+        |   [1;31m^[0m
+tests/sema/026_err_scope_escape_src.r2:7:3: [1;31mERROR[0m: 'i' is not declared
+      7 |   [1;31mi[0m = 1;
+        |   [1;31m^[0m

@@ -16,7 +16,8 @@ static const char *type_name[TYPE_COUNT] = {
 	[TYPE_VOID] = "void",
 	[TYPE_i64] = "i64",
 	[TYPE_u64] = "u64",
-	[TYPE_CHAR] = "char"
+	[TYPE_CHAR] = "char",
+	[TYPE_ERROR] = "error"
 };
 
 void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
@@ -78,11 +79,20 @@ static uint8_t check_id (Sema *s, uint32_t idx)
 	ASTNode *n = &s->ast->nodes[idx];
 	uint32_t sym_idx = symtab_find(&s->table, n->str, n->len);
 
-	if (sym_idx == NO_SYMBOL || s->table.symbols[sym_idx].kind == SYMBOL_FN) {
+	if (sym_idx == NO_SYMBOL) {
 		error_report(s->err, ERR_ERROR, node_loc(n), "'%.*s' is not declared",
 				(int)n->len, n->str);
-		return TYPE_VOID;
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
 	}
+
+	if (s->table.symbols[sym_idx].kind == SYMBOL_FN) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'%.*s' is a function, not a variable", (int)n->len, n->str);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
 
 	n->sym = sym_idx;
 	n->data_type = s->table.symbols[sym_idx].type;
@@ -100,13 +110,16 @@ static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 
 	while (arg != NO_NODE) {
 		uint8_t arg_type = check_expr(s, arg);
+		uint8_t param_type = param != NO_NODE ? s->ast->nodes[param].data_type : TYPE_VOID;
+		int types_ok = arg_type == TYPE_ERROR || param_type == TYPE_ERROR
+				|| arg_type == param_type;
 
 		if (param == NO_NODE) {
 			count_ok = 0;
-		} else if (arg_type != s->ast->nodes[param].data_type) {
+		} else if (!types_ok) {
 			error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[arg]),
 					"argument type %s does not match parameter type %s",
-					type_name[arg_type], type_name[s->ast->nodes[param].data_type]);
+					type_name[arg_type], type_name[param_type]);
 		}
 
 		if (param != NO_NODE) param = s->ast->nodes[param].next_bro;
@@ -125,11 +138,18 @@ static uint8_t check_fn_call (Sema *s, uint32_t idx)
 	ASTNode *n = &s->ast->nodes[idx];
 	uint32_t sym_idx = symtab_find(&s->table, n->str, n->len);
 
-	if (sym_idx == NO_SYMBOL || s->table.symbols[sym_idx].kind != SYMBOL_FN) {
+	if (sym_idx == NO_SYMBOL) {
 		error_report(s->err, ERR_ERROR, node_loc(n), "'%.*s' is not a known function",
 				(int)n->len, n->str);
-		n->data_type = TYPE_VOID;
-		return TYPE_VOID;
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	if (s->table.symbols[sym_idx].kind != SYMBOL_FN) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'%.*s' is a variable, not a function", (int)n->len, n->str);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
 	}
 
 	n->sym = sym_idx;
@@ -147,19 +167,29 @@ static uint8_t check_assign (Sema *s, uint32_t idx)
 	uint32_t right = left_node->next_bro;
 
 	if (left_node->type != NODE_ID) {
-		error_report(s->err, ERR_ERROR, node_loc(assign), "left side of '=' must be a variable");
+		error_report(s->err, ERR_ERROR, node_loc(assign),
+				"left side of '=' must be a variable");
 		check_expr(s, right);
-		return TYPE_VOID;
+		assign->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
 	}
 
 	uint8_t l = check_id(s, left);
 	uint8_t r = check_expr(s, right);
 
+	if (l == TYPE_ERROR || r == TYPE_ERROR) {
+		assign->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
 	if (l != r) {
 		error_report(s->err, ERR_ERROR, node_loc(assign),
 				"cannot assign %s to a variable of type %s",
 				type_name[r], type_name[l]);
+		assign->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
 	}
+
 	assign->data_type = l;
 	return l;
 }
@@ -168,6 +198,19 @@ static uint8_t check_unary (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
 	uint8_t operand_type = check_expr(s, n->child);
+
+	if (operand_type == TYPE_ERROR) {
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	if (operand_type == TYPE_VOID) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"operator cannot be applied to a value of type %s",
+				type_name[operand_type]);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
 
 	n->data_type = (n->type == NODE_NOT_L) ? TYPE_i64 : operand_type;
 	return n->data_type;
@@ -194,11 +237,24 @@ static uint8_t check_binary (Sema *s, uint32_t idx)
 	uint8_t l = check_expr(s, left);
 	uint8_t r = check_expr(s, right);
 
+	if (l == TYPE_ERROR || r == TYPE_ERROR) {
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	if (l == TYPE_VOID || r == TYPE_VOID) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"operator cannot be applied to a value of type void");
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
 	if (l != r) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
-				"type mismatch: %s vs %s", type_name[l], type_name[r]);
-		n->data_type = TYPE_VOID;
-		return TYPE_VOID;
+				"type mismatch: %s vs %s",
+				type_name[l], type_name[r]);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
 	}
 
 	n->data_type = binop_result_type(n->type, l);
@@ -224,32 +280,44 @@ static uint8_t check_expr (Sema *s, uint32_t idx)
 	}
 }
 
-static void check_block (Sema *s, uint32_t idx)
+static void check_block_body (Sema *s, uint32_t idx)
 {
-	uint32_t mark = s->table.act_count;
-	s->depth++;
-
 	uint32_t stmt = s->ast->nodes[idx].child;
 	while (stmt != NO_NODE) {
 		check_statement(s, stmt);
 		stmt = s->ast->nodes[stmt].next_bro;
 	}
+}
+
+static void check_block (Sema *s, uint32_t idx)
+{
+	uint32_t mark = s->table.act_count;
+	s->depth++;
+
+	check_block_body(s, idx);
 
 	s->depth--;
 	s->table.act_count = mark;
+}
+
+static void check_var_init_type (Sema *s, ASTNode *n, uint8_t init_type)
+{
+	if (init_type == TYPE_ERROR || n->data_type == TYPE_ERROR)
+		return;
+	if (init_type == n->data_type)
+		return;
+
+	error_report(s->err, ERR_ERROR, node_loc(n),
+			"cannot initialize '%.*s' (%s) with a value of type %s",
+			(int)n->len, n->str, type_name[n->data_type], type_name[init_type]);
 }
 
 static void check_var_dec (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
 
-	if (n->child != NO_NODE) {
-		uint8_t init_type = check_expr(s, n->child);
-		if (init_type != n->data_type)
-			error_report(s->err, ERR_ERROR, node_loc(n),
-					"cannot initialize '%.*s' (%s) with a value of type %s",
-					(int)n->len, n->str, type_name[n->data_type], type_name[init_type]);
-	}
+	if (n->child != NO_NODE)
+		check_var_init_type(s, n, check_expr(s, n->child));
 
 	sema_declare(s, n->str, n->len, SYMBOL_VAR, n->data_type, idx);
 }
@@ -271,7 +339,7 @@ static void check_fn_dec (Sema *s, uint32_t idx)
 		param = p->next_bro;
 	}
 
-	check_block(s, body);
+	check_block_body(s, body);
 
 	s->depth--;
 	s->table.act_count = mark;
@@ -362,7 +430,7 @@ static void check_return (Sema *s, uint32_t idx)
 	ASTNode *n = &s->ast->nodes[idx];
 
 	if (n->child == NO_NODE) {
-		if (s->curr_ret != TYPE_VOID)
+		if (s->curr_ret != TYPE_VOID && s->curr_ret != TYPE_ERROR)
 			error_report(s->err, ERR_ERROR, node_loc(n),
 					"missing return value of type %s",
 					type_name[s->curr_ret]);
@@ -370,7 +438,7 @@ static void check_return (Sema *s, uint32_t idx)
 	}
 
 	uint8_t val_type = check_expr(s, n->child);
-	if (val_type != s->curr_ret)
+	if (val_type != TYPE_ERROR && s->curr_ret != TYPE_ERROR && val_type != s->curr_ret)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"returning %s but function returns %s",
 				type_name[val_type], type_name[s->curr_ret]);
@@ -399,13 +467,21 @@ static void check_statement (Sema *s, uint32_t idx)
 	}
 }
 
+static void check_global_var_init (Sema *s, uint32_t idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+
+	if (n->child != NO_NODE)
+		check_var_init_type(s, n, check_expr(s, n->child));
+}
+
 static void check_root (Sema *s)
 {
 	uint32_t idx = s->ast->nodes[0].child;
 
 	while (idx != NO_NODE) {
 		ASTNode *n = &s->ast->nodes[idx];
-		if (n->type == NODE_VAR_DEC) check_var_dec(s, idx);
+		if (n->type == NODE_VAR_DEC) check_global_var_init(s, idx);
 		else if (n->type == NODE_FN_DEC) check_fn_dec(s, idx);
 		else error_report(s->err, ERR_ERROR, node_loc(n),
 				"only variable and function declarations are allowed at the top level");
@@ -413,25 +489,29 @@ static void check_root (Sema *s)
 	}
 }
 
-static void decl_fns (Sema *s)
+static void decl_globals (Sema *s)
 {
 	uint32_t idx = s->ast->nodes[0].child;
 
 	while (idx != NO_NODE) {
 		ASTNode *n = &s->ast->nodes[idx];
+
 		if (n->type == NODE_FN_DEC) {
 			uint32_t args = n->child;
 			uint32_t ret = s->ast->nodes[args].next_bro;
 			uint8_t data_type = s->ast->nodes[ret].data_type;
 			sema_declare(s, n->str, n->len, SYMBOL_FN, data_type, idx);
+		} else if (n->type == NODE_VAR_DEC) {
+			sema_declare(s, n->str, n->len, SYMBOL_VAR, n->data_type, idx);
 		}
+
 		idx = n->next_bro;
 	}
 }
 
 void sema_run (Sema *s)
 {
-	decl_fns(s);
+	decl_globals(s);
 	check_root(s);
 }
 

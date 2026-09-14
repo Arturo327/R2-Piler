@@ -1,0 +1,6 @@
+fn v [1:4] depth=0 type=void
+fn f [4:4] depth=0 type=i64
+var a [5:7] depth=1 type=i64
+var b [6:7] depth=1 type=i64
+var c [7:7] depth=1 type=i64
+var d [8:7] depth=1 type=i64

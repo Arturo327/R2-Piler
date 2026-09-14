@@ -1,0 +1,6 @@
+tests/sema/009_err_dup_fn_src.r2:4:4: [1;31mERROR[0m: 'f' already declared in this scope
+      4 | fn [1;31mf[0m() : void {
+        |    [1;31m^[0m
+tests/sema/009_err_dup_fn_src.r2:8:4: [1;31mERROR[0m: 'g' already declared in this scope
+      8 | fn [1;31mg[0m() : void {
+        |    [1;31m^[0m

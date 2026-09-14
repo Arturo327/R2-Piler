@@ -1,0 +1,3 @@
+tests/sema/013_err_undeclared_src.r2:2:17: [1;31mERROR[0m: 'nosuch' is not declared
+      2 |   var x : i64 = [1;31mnosuch[0m + 1;
+        |                 [1;31m^~~~~~[0m

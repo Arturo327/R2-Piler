@@ -26,14 +26,14 @@ NODE_ROOT [0:0]
         NODE_ID [11:10] str="a"
   NODE_FN_DEC [13:4] name="bar"
     NODE_ARGS_DEC [13:7]
-      NODE_VAR_DEC [13:8] name="a" type=void
+      NODE_VAR_DEC [13:8] name="a" type=error
     NODE_RET_DEC [13:12] type=void
     NODE_BLOCK [13:12]
       NODE_ERROR [13:12]
       NODE_RET [14:3]
   NODE_FN_DEC [16:4] name="baz"
     NODE_ARGS_DEC [16:7]
-    NODE_RET_DEC [16:10] type=void
+    NODE_RET_DEC [16:10] type=error
     NODE_BLOCK [16:12]
       NODE_ID [16:12] str="foo"
       NODE_RET [17:3]
@@ -46,13 +46,13 @@ NODE_ROOT [0:0]
       NODE_RET [20:3]
   NODE_FN_DEC [22:4] name="f"
     NODE_ARGS_DEC [22:5]
-      NODE_VAR_DEC [22:6] name="a" type=void
+      NODE_VAR_DEC [22:6] name="a" type=error
     NODE_RET_DEC [22:11] type=void
     NODE_BLOCK [22:11]
       NODE_RET [23:3]
   NODE_FN_DEC [25:4] name="g"
     NODE_ARGS_DEC [25:5]
-    NODE_RET_DEC [25:8] type=void
+    NODE_RET_DEC [25:8] type=error
     NODE_BLOCK [25:10]
       NODE_RET [26:3]
   NODE_FN_DEC [28:4] name="noblock"

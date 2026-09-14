@@ -1,0 +1,6 @@
+tests/sema/018_err_arg_type_src.r2:5:24: [1;31mERROR[0m: argument type char does not match parameter type i64
+      5 |   var x : i64 = add(1, [1;31m'[0ma');
+        |                        [1;31m^[0m
+tests/sema/018_err_arg_type_src.r2:6:21: [1;31mERROR[0m: argument type u64 does not match parameter type i64
+      6 |   var y : i64 = add([1;31m1[0mu, 2);
+        |                     [1;31m^[0m

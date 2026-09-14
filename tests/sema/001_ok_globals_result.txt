@@ -1,0 +1,7 @@
+var x [1:5] depth=0 type=i64
+var c [2:5] depth=0 type=char
+var u [3:5] depth=0 type=u64
+fn add [4:4] depth=0 type=i64
+var y [7:5] depth=0 type=i64
+param a [4:8] depth=1 type=i64
+param b [4:17] depth=1 type=i64

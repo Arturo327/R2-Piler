@@ -1,0 +1,9 @@
+fn max [1:4] depth=0 type=i64
+fn fact [8:4] depth=0 type=i64
+var m [15:5] depth=0 type=i64
+var f5 [16:5] depth=0 type=i64
+var flag [17:5] depth=0 type=i64
+fn check [18:4] depth=0 type=void
+param a [1:8] depth=1 type=i64
+param b [1:17] depth=1 type=i64
+param n [8:9] depth=1 type=i64
