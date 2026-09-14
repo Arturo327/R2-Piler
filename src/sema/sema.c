@@ -54,6 +54,10 @@ static uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 		.type = data_type
 	};
 
+	if (kind == SYMBOL_PARAM || (kind == SYMBOL_VAR
+				&& s->ast->nodes[decl_node].child != NO_NODE))
+		sym.assigned = 1;
+
 	uint32_t sym_idx = symtab_declare(&s->table, s->arena, sym);
 	s->ast->nodes[decl_node].sym = sym_idx;
 	return sym_idx;
@@ -61,6 +65,7 @@ static uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 
 static uint8_t check_expr (Sema *s, uint32_t idx);
 static void check_statement (Sema *s, uint32_t idx);
+static int stmt_returns (Sema *s, uint32_t idx);
 
 static uint8_t check_literal (Sema *s, uint32_t idx)
 {
@@ -102,6 +107,11 @@ static uint8_t check_id (Sema *s, uint32_t idx)
 	}
 
 	n->sym = sym_idx;
+
+	if (!s->table.symbols[sym_idx].assigned)
+		error_report(s->err, ERR_WARNING, node_loc(n),
+				"'%.*s' is used without being assigned", (int)n->len, n->str);
+
 	n->data_type = s->table.symbols[sym_idx].type;
 	return n->data_type;
 }
@@ -180,6 +190,10 @@ static uint8_t check_assign (Sema *s, uint32_t idx)
 		assign->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+
+	uint32_t lhs_sym = symtab_find(&s->table, left_node->str, left_node->len);
+	if (lhs_sym != NO_SYMBOL && s->table.symbols[lhs_sym].kind != SYMBOL_FN)
+		s->table.symbols[lhs_sym].assigned = 1;
 
 	uint8_t l = check_id(s, left);
 	uint8_t r = check_expr(s, right);
@@ -349,6 +363,11 @@ static void check_fn_dec (Sema *s, uint32_t idx)
 
 	check_block_body(s, body);
 
+	if (s->curr_ret != TYPE_VOID && s->curr_ret != TYPE_ERROR
+			&& !stmt_returns(s, body))
+		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[idx]),
+				"function may reach the end without returning");
+
 	s->depth--;
 	s->table.act_count = mark;
 }
@@ -462,6 +481,45 @@ static void check_return (Sema *s, uint32_t idx)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"returning %s but function returns %s",
 				type_name[val_type], type_name[s->curr_ret]);
+}
+
+static int block_returns (Sema *s, uint32_t idx)
+{
+	uint32_t stmt = s->ast->nodes[idx].child;
+	while (stmt != NO_NODE) {
+		if (stmt_returns(s, stmt)) return 1;
+		stmt = s->ast->nodes[stmt].next_bro;
+	}
+	return 0;
+}
+
+static int if_returns (Sema *s, uint32_t idx)
+{
+	uint32_t branch = s->ast->nodes[s->ast->nodes[idx].child].next_bro;
+	int has_else = 0;
+
+	while (branch != NO_NODE) {
+		ASTNode *b = &s->ast->nodes[branch];
+		uint32_t body = (b->type == NODE_ELIF)
+				? s->ast->nodes[b->child].next_bro : b->child;
+		if (!stmt_returns(s, body)) return 0;
+		if (b->type == NODE_ELSE) has_else = 1;
+		branch = b->next_bro;
+	}
+	return has_else;
+}
+
+static int stmt_returns (Sema *s, uint32_t idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+
+	switch (n->type)
+	{
+	case NODE_RET: return 1;
+	case NODE_BLOCK: return block_returns(s, idx);
+	case NODE_IF: return if_returns(s, idx);
+	default: return 0;
+	}
 }
 
 static void check_statement (Sema *s, uint32_t idx)

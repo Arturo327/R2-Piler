@@ -22,6 +22,7 @@ typedef struct Symbol {
 	uint16_t col;
 	uint16_t len;
 
+	uint8_t assigned;
 	uint8_t kind;
 	uint8_t type;
 } Symbol;
