@@ -26,6 +26,7 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->err = err;
 	s->arena = arena;
 	s->depth = 0;
+	s->init_node = NO_NODE;
 	s->curr_ret = TYPE_VOID;
 
 	symtab_init(&s->table, arena);
@@ -93,6 +94,12 @@ static uint8_t check_id (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
+	if (s->init_node != NO_NODE && s->table.symbols[sym_idx].decl == s->init_node) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'%.*s' cannot be used in its own initializer", (int)n->len, n->str);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
 
 	n->sym = sym_idx;
 	n->data_type = s->table.symbols[sym_idx].type;
@@ -275,7 +282,8 @@ static uint8_t check_expr (Sema *s, uint32_t idx)
 	case NODE_ASSIGN: return check_assign(s, idx);
 	case NODE_NEG: case NODE_NOT_L: case NODE_NOT_A:
 		return check_unary(s, idx);
-	case NODE_EMPTY: return TYPE_VOID;
+	case NODE_EMPTY: n->data_type = TYPE_VOID; return TYPE_VOID;
+	case NODE_ERROR: n->data_type=TYPE_ERROR; return TYPE_ERROR;
 	default: return check_binary(s, idx);
 	}
 }
@@ -374,7 +382,10 @@ static void check_elif_chain (Sema *s, uint32_t idx)
 		if (n->type == NODE_ELIF) {
 			uint32_t cond = n->child;
 			uint32_t body = s->ast->nodes[cond].next_bro;
-			check_expr(s, cond);
+			uint8_t type = check_expr(s, cond);
+			if (type == TYPE_VOID)
+				error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[cond]),
+						"expression with resulting type void is not valid as a condition");
 			check_body(s, body);
 		} else {
 			check_body(s, n->child);
@@ -390,7 +401,10 @@ static void check_if (Sema *s, uint32_t idx)
 	uint32_t cond = n->child;
 	uint32_t body = s->ast->nodes[cond].next_bro;
 
-	check_expr(s, cond);
+	uint8_t type = check_expr(s, cond);
+	if (type == TYPE_VOID)
+		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[cond]),
+				"expression with resulting type void is not valid as a condition");
 	check_body(s, body);
 	check_elif_chain(s, s->ast->nodes[body].next_bro);
 }
@@ -401,7 +415,10 @@ static void check_while (Sema *s, uint32_t idx)
 	uint32_t cond = n->child;
 	uint32_t body = s->ast->nodes[cond].next_bro;
 
-	check_expr(s, cond);
+	uint8_t type = check_expr(s, cond);
+	if (type == TYPE_VOID)
+		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[cond]),
+				"expression with resulting type void is not valid as a condition");
 	check_body(s, body);
 }
 
@@ -417,7 +434,10 @@ static void check_for (Sema *s, uint32_t idx)
 	s->depth++;
 
 	check_statement(s, init);
-	check_expr(s, cond);
+	uint8_t cond_type = check_expr(s, cond);
+	if (cond_type == TYPE_VOID && s->ast->nodes[cond].type != NODE_EMPTY)
+		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[cond]),
+				"expression with resulting type void is not valid as a condition");
 	check_expr(s, updt);
 	check_statement(s, body);
 
@@ -456,7 +476,7 @@ static void check_statement (Sema *s, uint32_t idx)
 	case NODE_WHILE: check_while(s, idx); return;
 	case NODE_FOR: check_for(s, idx); return;
 	case NODE_IF: check_if(s, idx); return;
-	case NODE_EMPTY: return;
+	case NODE_EMPTY: n->data_type = TYPE_VOID; return;
 	case NODE_FN_DEC:
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"functions can only be declared at the top level");
@@ -471,8 +491,11 @@ static void check_global_var_init (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
 
-	if (n->child != NO_NODE)
-		check_var_init_type(s, n, check_expr(s, n->child));
+	if (n->child == NO_NODE) return;
+
+	s->init_node = idx;
+	check_var_init_type(s, n, check_expr(s, n->child));
+	s->init_node = NO_NODE;
 }
 
 static void check_root (Sema *s)

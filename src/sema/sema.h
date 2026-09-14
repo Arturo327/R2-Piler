@@ -16,6 +16,7 @@ typedef struct Sema {
 	Arena *arena;
 
 	uint32_t depth;
+	uint32_t init_node;
 	uint8_t curr_ret;
 } Sema;
 
