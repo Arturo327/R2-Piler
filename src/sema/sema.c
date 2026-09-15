@@ -66,6 +66,7 @@ static uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 static uint8_t check_expr (Sema *s, uint32_t idx);
 static void check_statement (Sema *s, uint32_t idx);
 static int stmt_returns (Sema *s, uint32_t idx);
+static void check_global_var_init (Sema *s, uint32_t idx);
 
 static uint8_t check_literal (Sema *s, uint32_t idx)
 {
@@ -78,6 +79,31 @@ static uint8_t check_literal (Sema *s, uint32_t idx)
 	default: n->data_type = TYPE_VOID;  break;
 	}
 	return n->data_type;
+}
+
+static uint8_t check_init_ref (Sema *s, uint32_t idx, uint32_t sym_idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+	Symbol *sym = &s->table.symbols[sym_idx];
+
+	if (sym->decl == s->init_node) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'%.*s' cannot be used in its own initializer", (int)n->len, n->str);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	if (sym->depth != 0) return sym->type;
+
+	if (sym->state == INIT_PENDING)
+		check_global_var_init(s, sym->decl);
+
+	if (sym->state != INIT_CHECKING) return sym->type;
+
+	error_report(s->err, ERR_ERROR, node_loc(n),
+			"'%.*s' cannot be used in a circular initialization", (int)n->len, n->str);
+	n->data_type = TYPE_ERROR;
+	return TYPE_ERROR;
 }
 
 static uint8_t check_id (Sema *s, uint32_t idx)
@@ -99,14 +125,12 @@ static uint8_t check_id (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
-	if (s->init_node != NO_NODE && s->table.symbols[sym_idx].decl == s->init_node) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"'%.*s' cannot be used in its own initializer", (int)n->len, n->str);
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
-
 	n->sym = sym_idx;
+
+	if (s->init_node != NO_NODE
+			&& s->table.symbols[sym_idx].kind == SYMBOL_VAR) {
+		if (check_init_ref(s, idx, sym_idx) == TYPE_ERROR) return TYPE_ERROR;
+	}
 
 	if (!s->table.symbols[sym_idx].assigned)
 		error_report(s->err, ERR_WARNING, node_loc(n),
@@ -548,12 +572,17 @@ static void check_statement (Sema *s, uint32_t idx)
 static void check_global_var_init (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
+	Symbol *sym = &s->table.symbols[n->sym];
+	uint32_t saved = s->init_node;
 
 	if (n->child == NO_NODE) return;
+	if (sym->state != INIT_PENDING) return;
 
+	sym->state = INIT_CHECKING;
 	s->init_node = idx;
 	check_var_init_type(s, n, check_expr(s, n->child));
-	s->init_node = NO_NODE;
+	s->init_node = saved;
+	sym->state = INIT_DONE;
 }
 
 static void check_root (Sema *s)

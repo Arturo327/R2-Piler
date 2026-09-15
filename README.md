@@ -12,10 +12,11 @@ Currently implements a complete lexer and parser with arena-based memory managem
 
 - Lexer — implemented and tested
 - Parser — implemented and tested
-- Type checker — working on
+- Type checker — implemented and tested
+- IR — not started
 - Code generation — not started
 
-For now, `--dump-tokens` and `--dump-ast` are the main ways to see the compiler do something.
+For now, `--dump-tokens`, `--dump-ast` and `--dump-symbols` are the main ways to see the compiler do something.
 
 ---
 
@@ -23,6 +24,7 @@ For now, `--dump-tokens` and `--dump-ast` are the main ways to see the compiler 
 
 - Lexer: identifiers, keywords, integer/char/string literals (with escape sequences), `//` comments, and the full set of operators (arithmetic, bitwise, logical, comparison).
 - Parser: expresions, variable declarations, blocks, if statements, functions, for and while loops.
+- Sema: strict type checking, unitialized and undeclared variable detector, symbol table, allow foward-calls
 - Precise error reporting with `file:line:column` locations.
 - Arena allocator — all compiler memory is freed in a single call at program exit instead of scattered `malloc`/`free` calls.
 - `--dump-tokens` flag to inspect exactly what the lexer produces for a given source file.
@@ -38,14 +40,21 @@ git clone https://github.com/Arturo327/R2-Piler
 cd R2-Piler
 make
 ./build/r2p --dump-tokens path/to/file.r2
+./build/r2p --dump-ast path/to/file.r2
+./build/r2p --dump-symbols path/to/file.r2
 ```
 
 Run the test suite:
 
 ```bash
-make test_lexer
-make test_parser
+make test
 ```
+
+---
+
+## Language
+
+R2-Lang is an invented language, see LANGUAGE.md for more info.
 
 ---
 

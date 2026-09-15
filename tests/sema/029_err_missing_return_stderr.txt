@@ -1,0 +1,9 @@
+tests/sema/029_err_missing_return_src.r2:1:4: [1;31mERROR[0m: function may reach the end without returning
+      1 | fn [1;31mg[0m() : i64 {
+        |    [1;31m^[0m
+tests/sema/029_err_missing_return_src.r2:4:4: [1;31mERROR[0m: function may reach the end without returning
+      4 | fn [1;31mm[0m() : i64 {
+        |    [1;31m^[0m
+tests/sema/029_err_missing_return_src.r2:9:4: [1;31mERROR[0m: function may reach the end without returning
+      9 | fn [1;31mb[0m() : i64 {
+        |    [1;31m^[0m

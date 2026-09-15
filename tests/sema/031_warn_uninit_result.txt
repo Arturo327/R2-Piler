@@ -1,0 +1,4 @@
+fn f [1:4] depth=0 type=i64
+param a [1:6] depth=1 type=i64
+var x [2:7] depth=1 type=i64
+var y [3:7] depth=1 type=i64

@@ -12,6 +12,12 @@ typedef enum {
 	SYMBOL_PARAM
 } SymKind;
 
+typedef enum {
+	INIT_PENDING = 0,
+	INIT_CHECKING = 1,
+	INIT_DONE = 2
+} InitState;
+
 typedef struct Symbol {
 	char *name;
 	
@@ -22,9 +28,11 @@ typedef struct Symbol {
 	uint16_t col;
 	uint16_t len;
 
-	uint8_t assigned;
 	uint8_t kind;
 	uint8_t type;
+
+	uint8_t assigned : 1;
+	uint8_t state : 2;
 } Symbol;
 
 typedef struct SymbolTable {

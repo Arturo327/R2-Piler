@@ -1,0 +1,9 @@
+tests/sema/028_err_void_cond_src.r2:5:7: [1;31mERROR[0m: expression with resulting type void is not valid as a condition
+      5 |   if ([1;31mv[0m()) {
+        |       [1;31m^[0m
+tests/sema/028_err_void_cond_src.r2:11:10: [1;31mERROR[0m: expression with resulting type void is not valid as a condition
+     11 |   while ([1;31mv[0m()) {
+        |          [1;31m^[0m
+tests/sema/028_err_void_cond_src.r2:17:10: [1;31mERROR[0m: expression with resulting type void is not valid as a condition
+     17 |   for (; [1;31mv[0m();) {
+        |          [1;31m^[0m

@@ -1,0 +1,3 @@
+var a : i64 = b;
+var b : i64 = c;
+var c : i64 = 1;

@@ -1,0 +1,2 @@
+fn k [1:4] depth=0 type=i64
+fn loop [10:4] depth=0 type=void

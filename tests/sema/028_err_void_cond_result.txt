@@ -1,0 +1,4 @@
+fn v [1:4] depth=0 type=void
+fn f [4:4] depth=0 type=i64
+fn g [10:4] depth=0 type=void
+fn h [16:4] depth=0 type=void

@@ -1,4 +1,2 @@
 fn v [1:4] depth=0 type=void
-fn g [4:4] depth=0 type=i64
-fn h [7:4] depth=0 type=void
-var x [5:7] depth=1 type=i64
+fn h [4:4] depth=0 type=void

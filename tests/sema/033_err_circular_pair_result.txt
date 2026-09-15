@@ -1,0 +1,2 @@
+var y [1:5] depth=0 type=i64
+var x [2:5] depth=0 type=i64

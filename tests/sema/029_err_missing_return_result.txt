@@ -1,0 +1,4 @@
+fn g [1:4] depth=0 type=i64
+fn m [4:4] depth=0 type=i64
+fn b [9:4] depth=0 type=i64
+var x [2:7] depth=1 type=i64
