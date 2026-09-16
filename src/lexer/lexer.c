@@ -166,7 +166,7 @@ static Token handle_num_literal (Lexer *l)
 		return make_token(TOK_INVALID, NULL, (uint16_t)(l->cursor - start), start_line, start_col);
 	}
 
-	if (!is_unsigned && value > (uint64_t)INT64_MAX) {
+	if (!is_unsigned && value > (uint64_t)INT64_MAX + 1) {
 		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, (int)(l->cursor - start)),
 				"literal integer out of range for a signed value; append 'u' for unsigned");
 		return make_token(TOK_INVALID, NULL, (uint16_t)(l->cursor - start), start_line, start_col);
@@ -216,6 +216,17 @@ static char *string_literal_find_end (char *a)
 	return a;
 }
 
+static void track_continuation_lines (Lexer *l, char *from, char *to)
+{
+	for (char *c = from; c < to; c++) {
+		if (c[0] == '\\' && c[1] == '\n') {
+			l->line++;
+			l->line_start = c + 2;
+			c++;
+		}
+	}
+}
+
 static Token string_literal_decode (Lexer *l, char *end, int start_line, int start_col)
 {
 	char *str = arena_alloc(l->arena, (size_t)(end - l->cursor) + 1);
@@ -238,8 +249,10 @@ static Token string_literal_decode (Lexer *l, char *end, int start_line, int sta
 		}
 
 		char decoded;
-		if (!decode_escape(l->err, escaped, &decoded, loc))
+		if (!decode_escape(l->err, escaped, &decoded, loc)) {
+			track_continuation_lines(l, l->cursor, end);
 			return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
+		}
 		str[str_len++] = decoded;
 	}
 
@@ -255,13 +268,7 @@ static Token handle_string_literal (Lexer *l)
 
 	char *end = string_literal_find_end(l->cursor);
 	if (*end != '"') {
-		for (char *c = l->cursor; c < end; c++) {
-			if (c[0] == '\\' && c[1] == '\n') {
-				l->line++;
-				l->line_start = c + 2;
-				c++;
-			}
-		}
+		track_continuation_lines(l, l->cursor, end);
 		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col,
 				(int)(end - start)), "string literal is not closed");
 		l->cursor = end;

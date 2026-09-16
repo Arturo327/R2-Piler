@@ -254,6 +254,14 @@ static uint32_t parse_unary (Parser *p)
 	else if (p->curr.type == TOK_NOT_A) type = NODE_NOT_A;
 
 	advance(p);
+
+	if (type == NODE_NEG && p->curr.type == TOK_LIT_i64 && p->curr.i64 == INT64_MIN) {
+		uint32_t lit = new_node(p, NODE_LIT_i64, line, col);
+		p->ast.nodes[lit].i64 = INT64_MIN;
+		advance(p);
+		return lit;
+	}
+
 	uint32_t node = new_node(p, type, line, col);
 	uint32_t child = parse_primary(p);
 	p->ast.nodes[node].child = child;
@@ -278,6 +286,9 @@ static uint32_t parse_primary_inner (Parser *p)
 	case TOK_LIT_i64:
 		node = new_node(p, NODE_LIT_i64, line, col);
 		p->ast.nodes[node].i64 = p->curr.i64;
+		if (p->curr.i64 == INT64_MIN)
+			error_report(p->err, ERR_ERROR, token_loc(p->curr),
+					"literal integer out of range for a signed value; append 'u' for unsigned");
 		break;
 	case TOK_LIT_u64:
 		node = new_node(p, NODE_LIT_u64, line, col);

@@ -482,7 +482,7 @@ static void check_for (Sema *s, uint32_t idx)
 		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[cond]),
 				"expression with resulting type void is not valid as a condition");
 	check_expr(s, updt);
-	check_statement(s, body);
+	check_body(s, body);
 
 	s->depth--;
 	s->table.act_count = mark;
@@ -519,8 +519,11 @@ static int block_returns (Sema *s, uint32_t idx)
 
 static int if_returns (Sema *s, uint32_t idx)
 {
-	uint32_t branch = s->ast->nodes[s->ast->nodes[idx].child].next_bro;
+	uint32_t then_body = s->ast->nodes[s->ast->nodes[idx].child].next_bro;
+	uint32_t branch = s->ast->nodes[then_body].next_bro;
 	int has_else = 0;
+
+	if (!stmt_returns(s, then_body)) return 0;
 
 	while (branch != NO_NODE) {
 		ASTNode *b = &s->ast->nodes[branch];

@@ -158,8 +158,7 @@ El unario tiene la precedencia más alta y se aplica sobre un primario: `-x + y`
 
 - `var ID : type (= expr)? ;` a nivel top-level. Otra cosa a nivel top-level es error.
 - Todas se declaran antes de chequear los inits: las **forward references están permitidas**.
-- El almacenamiento de globals es **zero-init**.
-- Los inits se **evalúan en orden fuente** al arrancar el programa, antes de `main`. Una referencia hacia adelante no circular lee el valor que tenga la global en ese momento (0 si aún no se inicializó).
+- Referencias a variables globales futuras permitido, ej: `var x:i64 = y; var y:i64 = 73` es válido
 - **Auto-referencia** (`var x : i64 = x;`): error.
 - **Cadenas circulares** entre inits (`var y : i64 = x; var x : i64 = y;`): error. Al chequear el init de una global, si el init referencia a otra global cuyo init aún no se chequeó, ese init se chequea en ese momento (recursivamente); referenciar una global cuyo init está a medio chequear es el ciclo, y se reporta en el ref que lo cierra (un error por ciclo).
 - Solo se siguen **referencias directas** a globals en los inits. Los ciclos a través de llamadas a funciones dentro de inits no se detectan.
@@ -178,7 +177,7 @@ El unario tiene la precedencia más alta y se aplica sobre un primario: `-x + y`
 ## 11. Entry point y salida
 
 - El entry point es exactamente `fn main() : i64`, sin parámetros. Su valor de retorno es el exit code del programa.
-- Si el programa no define `main`: **warning** y se genera assembly igualmente. *(Chequeo pendiente: se implementa junto con IR.)*
+- Si el programa no define `main`: se genera assembly igualmente. *(Chequeo pendiente: se implementa junto con IR.)*
 - La salida del compilador es **assembly x86-64**, no un binario. El binario final se produce ensamblando (p. ej. `gcc out.s`).
 
 ---
