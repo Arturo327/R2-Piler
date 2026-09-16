@@ -28,6 +28,9 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->depth = 0;
 	s->init_node = NO_NODE;
 	s->curr_ret = TYPE_VOID;
+	s->init_order_count = 0;
+	s->init_order_cap = 16;
+	s->init_order = arena_alloc(arena, sizeof(uint32_t) * s->init_order_cap);
 
 	symtab_init(&s->table, arena);
 }
@@ -572,6 +575,17 @@ static void check_statement (Sema *s, uint32_t idx)
 	}
 }
 
+static void record_init_order (Sema *s, uint32_t idx)
+{
+	if (s->init_order_count >= s->init_order_cap) {
+		uint32_t old_cap = s->init_order_cap;
+		s->init_order_cap <<= 1;
+		s->init_order = arena_realloc(s->arena, s->init_order,
+				old_cap * sizeof(uint32_t), s->init_order_cap * sizeof(uint32_t));
+	}
+	s->init_order[s->init_order_count++] = idx;
+}
+
 static void check_global_var_init (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
@@ -586,6 +600,7 @@ static void check_global_var_init (Sema *s, uint32_t idx)
 	check_var_init_type(s, n, check_expr(s, n->child));
 	s->init_node = saved;
 	sym->state = INIT_DONE;
+	record_init_order(s, idx);
 }
 
 static void check_root (Sema *s)

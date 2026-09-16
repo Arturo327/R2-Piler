@@ -15,6 +15,10 @@ typedef struct Sema {
 	ErrorReporter *err;
 	Arena *arena;
 
+	uint32_t *init_order;
+	uint32_t init_order_count;
+	uint32_t init_order_cap;
+
 	uint32_t depth;
 	uint32_t init_node;
 	uint8_t curr_ret;
