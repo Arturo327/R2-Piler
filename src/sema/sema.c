@@ -375,7 +375,7 @@ static void check_block (Sema *s, uint32_t idx)
 	check_block_body(s, idx);
 
 	s->depth--;
-	s->table.act_count = mark;
+	symtab_pop_scope(&s->table, mark);
 }
 
 static void check_var_init_type (Sema *s, ASTNode *n, uint8_t init_type)
@@ -425,7 +425,7 @@ static void check_fn_dec (Sema *s, uint32_t idx)
 				"function may reach the end without returning");
 
 	s->depth--;
-	s->table.act_count = mark;
+	symtab_pop_scope(&s->table, mark);
 }
 
 static void check_scoped_statement (Sema *s, uint32_t idx)
@@ -436,7 +436,7 @@ static void check_scoped_statement (Sema *s, uint32_t idx)
 	check_statement(s, idx);
 
 	s->depth--;
-	s->table.act_count = mark;
+	symtab_pop_scope(&s->table, mark);
 }
 
 static void check_body (Sema *s, uint32_t idx)
@@ -517,7 +517,7 @@ static void check_for (Sema *s, uint32_t idx)
 	check_body(s, body);
 
 	s->depth--;
-	s->table.act_count = mark;
+	symtab_pop_scope(&s->table, mark);
 }
 
 static void check_return (Sema *s, uint32_t idx)

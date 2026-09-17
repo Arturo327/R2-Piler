@@ -23,6 +23,7 @@ typedef struct Symbol {
 	
 	uint32_t depth;
 	uint32_t decl;
+	uint32_t next;
 
 	uint16_t line;
 	uint16_t col;
@@ -36,6 +37,7 @@ typedef struct Symbol {
 } Symbol;
 
 typedef struct SymbolTable {
+	uint32_t *buckets;
 	Symbol *symbols;
 	uint32_t count;
 	uint32_t cap;
@@ -48,5 +50,6 @@ typedef struct SymbolTable {
 void symtab_init (SymbolTable *t, Arena *arena);
 uint32_t symtab_declare (SymbolTable *t, Arena *arena, Symbol sym);
 uint32_t symtab_find (SymbolTable *t, char *name, uint16_t len);
+void symtab_pop_scope (SymbolTable *t, uint32_t mark);
 
 #endif
