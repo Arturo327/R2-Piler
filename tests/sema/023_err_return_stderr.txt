@@ -1,7 +1,7 @@
 tests/sema/023_err_return_src.r2:2:3: [1;31mERROR[0m: missing return value of type i64
       2 |   [1;31mr[0meturn;
         |   [1;31m^[0m
-tests/sema/023_err_return_src.r2:5:3: [1;31mERROR[0m: returning i64 but function returns void
+tests/sema/023_err_return_src.r2:5:3: [1;31mERROR[0m: function returning void cannot return a value
       5 |   [1;31mr[0meturn 1;
         |   [1;31m^[0m
 tests/sema/023_err_return_src.r2:8:3: [1;31mERROR[0m: returning char but function returns i64

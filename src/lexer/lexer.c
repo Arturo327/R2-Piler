@@ -416,22 +416,24 @@ typedef struct SimpleOp {
 	TokenType type;
 } SimpleOp;
 
-static const SimpleOp simple_ops[] = {
-	{'+', TOK_ADD}, {'-', TOK_SUB}, {'*', TOK_STAR}, {'/', TOK_SLASH}, {'%', TOK_PERCENT},
-	{'^', TOK_XOR}, {';', TOK_SEMCOL}, {':', TOK_COL}, {',', TOK_COMMA},
-	{'~', TOK_NOT_A}, {'(', TOK_LPAREN}, {')', TOK_RPAREN},
-	{'[', TOK_LBRACE}, {']', TOK_RBRACE}, {'{', TOK_LKEY}, {'}', TOK_RKEY},
+static const uint8_t simple_op_table[256] = {
+	['+'] = TOK_ADD, ['-'] = TOK_SUB, ['*'] = TOK_STAR,
+	['/'] = TOK_SLASH, ['%'] = TOK_PERCENT, ['^'] = TOK_XOR,
+	[';'] = TOK_SEMCOL, [':'] = TOK_COL, [','] = TOK_COMMA,
+	['~'] = TOK_NOT_A, ['('] = TOK_LPAREN, [')'] = TOK_RPAREN,
+	['['] = TOK_LBRACE, [']'] = TOK_RBRACE,
+	['{'] = TOK_LKEY, ['}'] = TOK_RKEY,
 };
 
 static int find_simple_op (char c, TokenType *out)
 {
-	for (size_t i = 0; i < sizeof(simple_ops) / sizeof(simple_ops[0]); i++) {
-		if (simple_ops[i].ch == c) {
-			*out = simple_ops[i].type;
-			return 1;
-		}
-	}
-	return 0;
+	uint8_t type = simple_op_table[(unsigned char)c];
+
+	if (type == TOK_NONE)
+		return 0;
+
+	*out = (TokenType)type;
+	return 1;
 }
 
 static Token handle_compound_op (Lexer *l, char c, int start_col)

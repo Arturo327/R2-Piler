@@ -203,6 +203,36 @@ static uint8_t check_fn_call (Sema *s, uint32_t idx)
 	return n->data_type;
 }
 
+static uint8_t check_assign_target (Sema *s, uint32_t idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+	uint32_t sym_idx = symtab_find(&s->table, n->str, n->len);
+
+	if (sym_idx == NO_SYMBOL) {
+		error_report(s->err, ERR_ERROR, node_loc(n), "'%.*s' is not declared",
+				(int)n->len, n->str);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	if (s->table.symbols[sym_idx].kind == SYMBOL_FN) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'%.*s' is a function, not a variable", (int)n->len, n->str);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	n->sym = sym_idx;
+
+	if (s->init_node != NO_NODE
+			&& s->table.symbols[sym_idx].kind == SYMBOL_VAR) {
+		if (check_init_ref(s, idx, sym_idx) == TYPE_ERROR) return TYPE_ERROR;
+	}
+
+	n->data_type = s->table.symbols[sym_idx].type;
+	return n->data_type;
+}
+
 static uint8_t check_assign (Sema *s, uint32_t idx)
 {
 	ASTNode *assign = &s->ast->nodes[idx];
@@ -218,12 +248,11 @@ static uint8_t check_assign (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
-	uint32_t lhs_sym = symtab_find(&s->table, left_node->str, left_node->len);
-	if (lhs_sym != NO_SYMBOL && s->table.symbols[lhs_sym].kind != SYMBOL_FN)
-		s->table.symbols[lhs_sym].assigned = 1;
-
-	uint8_t l = check_id(s, left);
+	uint8_t l = check_assign_target(s, left);
 	uint8_t r = check_expr(s, right);
+
+	if (left_node->sym != NO_SYMBOL)
+		s->table.symbols[left_node->sym].assigned = 1;
 
 	if (l == TYPE_ERROR || r == TYPE_ERROR) {
 		assign->data_type = TYPE_ERROR;
@@ -500,6 +529,13 @@ static void check_return (Sema *s, uint32_t idx)
 			error_report(s->err, ERR_ERROR, node_loc(n),
 					"missing return value of type %s",
 					type_name[s->curr_ret]);
+		return;
+	}
+
+	if (s->curr_ret == TYPE_VOID) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"function returning void cannot return a value");
+		check_expr(s, n->child);
 		return;
 	}
 

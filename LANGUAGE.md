@@ -177,7 +177,7 @@ El unario tiene la precedencia más alta y se aplica sobre un primario: `-x + y`
 ## 11. Entry point y salida
 
 - El entry point es exactamente `fn main() : i64`, sin parámetros. Su valor de retorno es el exit code del programa.
-- Si el programa no define `main`: se genera assembly igualmente. *(Chequeo pendiente: se implementa junto con IR.)*
+- Si el programa no define `main`: se genera assembly igualmente.
 - La salida del compilador es **assembly x86-64**, no un binario. El binario final se produce ensamblando (p. ej. `gcc out.s`).
 
 ---
