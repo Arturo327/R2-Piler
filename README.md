@@ -6,14 +6,14 @@ A small compiler for the (invented) **R2-Lang** language, written in C.
 
 ## Current Status
 
-Currently implements a complete lexer and parser with arena-based memory management. The type checker, and code generator are not built yet.
+Currently implements a complete lexer, parser and type-checker with arena-based memory management. The code generator are not built yet.
 
 **Early stage / work in progress.**
 
 - Lexer — implemented and tested
 - Parser — implemented and tested
 - Type checker — implemented and tested
-- IR — not started
+- IR — working on
 - Code generation — not started
 
 For now, `--dump-tokens`, `--dump-ast` and `--dump-symbols` are the main ways to see the compiler do something.
@@ -68,6 +68,8 @@ src/
 |   └── arena.c/h    # Bump-allocator arena; owns all compiler memory
 ├── error/
 |   └── error.c/h    # Error reporting: other stages call it to report an error
+├── ir/
+|   └── error.c/h    # Intermediate Representation: defines and generate de IR
 ├── parser/
 |   ├── ast.h        # AST definition: nodes, types, AST tree
 |   └── parser.c/h   # Parser: get the tokens and crate an AST tree

@@ -23,6 +23,7 @@ typedef struct Symbol {
 	
 	uint32_t depth;
 	uint32_t decl;
+	uint32_t ir_id;
 	uint32_t next;
 
 	uint16_t line;
