@@ -48,6 +48,8 @@ void ir_init (IR *ir, Arena *arena, AST *ast, SymbolTable *symtab)
 	ir->ast = ast;
 	ir->symtab = symtab;
 	ir->init_fn = 0;
+	ir->reg_count = 0;
+	ir->label_count = 0;
 
 	ir->instr_count = 0;
 	ir->instr_cap = 256;
@@ -112,56 +114,181 @@ static void declare_globals (IR *ir)
 
 static void make_arg_dec (IR *ir, uint32_t dst, uint8_t type)
 {
-	IRInstr instr = {0};
-	instr.op = IR_PARAM;
-	instr.dst = dst;
-	instr.data_type = type;
-	push_instr(ir, instr);
+	IRInstr i = {0};
+	i.op = IR_PARAM;
+	i.dst = dst;
+	i.data_type = type;
+	push_instr(ir, i);
 }
 
-static void gen_stmt (IR *ir, uint32_t *reg_count, uint32_t *label_count, ASTNode *n);
-static void gen_block (IR *ir, uint32_t *reg_count, uint32_t *label_count, ASTNode *parent);
-
-static void gen_expr (IR *ir, uint32_t *reg_count, uint32_t *label_count, ASTNode *n)
+static void make_arg (IR *ir, uint32_t val)
 {
-	// TODO
+	IRInstr i = {0};
+	i.op = IR_ARG;
+	i.dst = NO_REG;
+	i.src1 = val;
+	push_instr(ir, i);
+}
+
+static void make_const_into (IR *ir, uint32_t dst, int64_t val, uint8_t type)
+{
+	IRInstr i = {0};
+	i.op = IR_CONST;
+	i.dst = dst;
+	i.imm64 = val;
+	i.data_type = type;
+	push_instr(ir, i);
+}
+
+static uint32_t make_const (IR *ir, int64_t val, uint8_t type)
+{
+	uint32_t dst = ir->reg_count++;
+	make_const_into(ir, dst, val, type);
+	return dst;
+}
+
+static uint32_t make_ld_global (IR *ir, uint32_t idx, uint8_t type)
+{
+	IRInstr i = {0};
+	i.op = IR_LD_GLOBAL;
+	i.dst = ir->reg_count++;
+	i.target = idx;
+	i.data_type = type;
+	push_instr(ir, i);
+	return i.dst;
+}
+
+static void make_str_global (IR *ir, uint32_t idx, uint32_t value, uint8_t type)
+{
+	IRInstr i = {0};
+	i.op = IR_STR_GLOBAL;
+	i.dst = NO_REG;
+	i.src1 = value;
+	i.target = idx;
+	i.data_type = type;
+	push_instr(ir, i);
+}
+
+static uint32_t make_call (IR *ir, uint32_t idx, uint16_t argc, uint8_t ret_type)
+{
+	IRInstr i = {0};
+	i.op = IR_CALL;
+	i.dst = ir->reg_count++;
+	i.target = idx;
+	i.argc = argc;
+	i.data_type = ret_type;
+	push_instr(ir, i);
+	return i.dst;
+}
+
+static void make_move (IR *ir, uint32_t dst, uint32_t src)
+{
+	IRInstr i = {0};
+	i.op = IR_MOVE;
+	i.dst = dst;
+	i.src1 = src;
+	push_instr(ir, i);
+}
+
+static void gen_stmt (IR *ir, ASTNode *n);
+static void gen_block (IR *ir, ASTNode *parent);
+static uint32_t gen_expr (IR *ir, ASTNode *n);
+
+static uint32_t gen_id (IR *ir, ASTNode *n)
+{
+	Symbol *s = ir->symtab->symbols + n->sym;
+
+	if (!s->depth)
+		return make_ld_global(ir, s->ir_id, s->type);
+
+	return s->ir_id;
+}
+
+static uint32_t gen_call (IR *ir, ASTNode *n)
+{
+	Symbol *fn = ir->symtab->symbols + n->sym;
+	uint32_t arg = n->child;
+	uint16_t argc = 0;
+
+	while (arg != NO_NODE) {
+		uint32_t reg = gen_expr(ir, ir->ast->nodes + arg);
+		make_arg(ir, reg);
+		arg = ir->ast->nodes[arg].next_bro;
+		argc++;
+	}
+
+	return make_call(ir, fn->ir_id, argc, fn->type);
+}
+
+static uint32_t gen_assign (IR *ir, ASTNode *n)
+{
+	ASTNode *lhs = ir->ast->nodes + n->child;
+	Symbol *s = ir->symtab->symbols + lhs->sym;
+	uint32_t val = gen_expr(ir, ir->ast->nodes + lhs->next_bro);
+
+	if (!s->depth) make_str_global(ir, s->ir_id, val, s->type);
+	else make_move(ir, s->ir_id, val);
+
+	return val;
+}
+
+// TODO: Some functions called by gen_expr
+
+static uint32_t gen_expr (IR *ir, ASTNode *n)
+{
+	switch (n->type)
+	{
+	case NODE_LIT_i64: return make_const(ir, n->i64, TYPE_i64);
+	case NODE_LIT_u64: return make_const(ir, n->u64, TYPE_u64);
+	case NODE_LIT_CHAR: return make_const(ir, n->chr, TYPE_CHAR);
+
+	case NODE_ID: return gen_id(ir, n);
+	case NODE_FN_CALL: return gen_call(ir, n);
+	case NODE_ASSIGN: return gen_assign(ir, n);
+
+	case NODE_NEG: case NODE_NOT_A: case NODE_NOT_L: return gen_unary(ir, n);
+	case NODE_AND_L: return gen_and(ir, n);
+	case NODE_OR_L: return gen_or(ir, n);
+
+	default: return gen_binary(ir, n);
+	}
 }
 
 // TODO: All functions called by gen_stmt
 
-static void gen_stmt (IR *ir, uint32_t *reg_count, uint32_t *label_count, ASTNode *n)
+static void gen_stmt (IR *ir, ASTNode *n)
 {
 	switch (n->type)
 	{
-	case NODE_VAR_DEC: gen_var_dec(ir, reg_count, label_count, n); return;
-	case NODE_BLOCK: gen_block(ir, reg_count, label_count, n); return;
-	case NODE_RET: gen_return(ir, reg_count, label_count, n); return;
-	case NODE_WHILE: gen_while(ir, reg_count, label_count, n); return;
-	case NODE_FOR: gen_for(ir, reg_count, label_count, n); return;
-	case NODE_IF: gen_if(ir, reg_count, label_count, n); return;
+	case NODE_VAR_DEC: gen_var_dec(ir, n); return;
+	case NODE_BLOCK: gen_block(ir, n); return;
+	case NODE_RET: gen_return(ir, n); return;
+	case NODE_WHILE: gen_while(ir, n); return;
+	case NODE_FOR: gen_for(ir, n); return;
+	case NODE_IF: gen_if(ir, n); return;
 	case NODE_EMPTY: return;
-	default: gen_expr(ir, reg_count, label_count, n); return;
+	default: gen_expr(ir, n); return;
 	}
 }
 
-static void gen_block (IR *ir, uint32_t *reg_count, uint32_t *label_count, ASTNode *parent)
+static void gen_block (IR *ir, ASTNode *parent)
 {
 	uint32_t stmt = parent->child;
 	while (stmt != NO_NODE) {
 		ASTNode *n = ir->ast->nodes + stmt;
-		gen_stmt(ir, reg_count, label_count, n);
+		gen_stmt(ir, n);
 		stmt = n->next_bro;
 	}
 }
 
-static void gen_args_dec (IR *ir, uint32_t *reg_count, uint32_t idx)
+static void gen_args_dec (IR *ir, uint32_t idx)
 {
 	uint32_t arg = ir->ast->nodes[idx].child;
 	while (arg != NO_NODE) {
 		ASTNode *n = ir->ast->nodes + idx;
 		Symbol *s = ir->symtab->symbols + n->sym;
 
-		s->ir_id = *reg_count++;
+		s->ir_id = ir->reg_count++;
 		make_arg_dec(ir, s->ir_id, s->type);
 		idx = n->next_bro;
 	}
@@ -173,15 +300,15 @@ static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
 	uint32_t ret = ir->ast->nodes[args].next_bro;
 	uint32_t body = ir->ast->nodes[ret].next_bro;
 
-	uint32_t reg_count = 0;
-	uint32_t label_count = 0;
+	ir->reg_count = 0;
+	ir->label_count = 0;
 
 	ir->fns[fn_idx].start = ir->instr_count;
-	gen_args_dec(ir, &reg_count, args);
-	gen_block(ir, &reg_count, &label_count, ir->ast->nodes + body);
+	gen_args_dec(ir, args);
+	gen_block(ir, ir->ast->nodes + body);
 
 	ir->fns[fn_idx].count = ir->instr_count - ir->fns[fn_idx].start;
-	ir->fns[fn_idx].reg_count = reg_count;
+	ir->fns[fn_idx].reg_count = ir->reg_count;
 }
 
 static void gen_fns (IR *ir)

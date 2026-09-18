@@ -24,27 +24,29 @@ typedef enum {
 } IROp;
 
 typedef struct IRInstr {
-	union {
-		int64_t imm_i64;
-		uint64_t imm_u64;
-	};
+	int64_t imm64;
+
 	uint32_t dst;
 	uint32_t src1;
 	union {
 		uint32_t src2;
 		uint32_t target;
-		uint16_t argc;
 	};
+	uint16_t argc;
+
 	uint8_t op;
 	uint8_t data_type;
 } IRInstr;
 
 typedef struct IRFn {
 	char *name;
+
 	uint32_t start;
 	uint32_t count;
+
 	uint32_t reg_count;
 	uint32_t param_count;
+
 	uint16_t len;
 	uint8_t ret_type;
 } IRFn;
@@ -69,6 +71,9 @@ typedef struct IR {
 	uint32_t global_cap;
 
 	uint32_t init_fn;
+
+	uint32_t reg_count;
+	uint32_t label_count;
 
 	Arena *arena;
 	AST *ast;
