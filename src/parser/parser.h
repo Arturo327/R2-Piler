@@ -17,8 +17,8 @@ typedef struct Parser {
 	ErrorReporter *err;
 	Arena *arena;
 
+	uint16_t depth;
 	uint8_t panic_mode;
-	uint8_t depth;
 } Parser;
 
 void init_parser (Parser *parser, Lexer *lexer, Arena *arena, ErrorReporter *err);

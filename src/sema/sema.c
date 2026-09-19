@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#define RESERVED_PREFIX "__r2_"
+#define RESERVED_PREFIX_LEN (sizeof(RESERVED_PREFIX) - 1)
+
 static ErrorLoc node_loc (ASTNode *n)
 {
 	ErrorLoc loc = {
@@ -28,9 +31,21 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	symtab_init(&s->table, arena);
 }
 
+static void check_reserved_name (Sema *s, char *name, uint16_t len, uint32_t decl_node)
+{
+	if (s->depth != 0 || len < RESERVED_PREFIX_LEN)
+		return;
+	if (memcmp(name, RESERVED_PREFIX, RESERVED_PREFIX_LEN) != 0)
+		return;
+
+	error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[decl_node]),
+			"identifiers starting with '%s' are reserved", RESERVED_PREFIX);
+}
+
 static uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 		uint8_t data_type, uint32_t decl_node)
 {
+	check_reserved_name(s, name, len, decl_node);
 	uint32_t prev = symtab_find(&s->table, name, len);
 
 	if (prev != NO_SYMBOL && s->table.symbols[prev].depth == s->depth) {

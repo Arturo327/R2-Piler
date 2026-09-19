@@ -420,99 +420,52 @@ static TokenType id_keyword (char *str, size_t length)
 	return kw ? kw->type : TOK_ID;
 }
 
-typedef struct SimpleOp {
-	char ch;
+typedef struct TwoCharOp {
+	char first;
+	char second;
 	TokenType type;
-} SimpleOp;
+} TwoCharOp;
 
-static const uint8_t simple_op_table[256] = {
+static const TwoCharOp two_char_ops[] = {
+	{'=', '=', TOK_EQ}, {'!', '=', TOK_NE},
+	{'>', '>', TOK_RS}, {'>', '=', TOK_GE},
+	{'<', '<', TOK_LS}, {'<', '=', TOK_LE},
+	{'&', '&', TOK_AND_L}, {'|', '|', TOK_OR_L}
+};
+
+static const uint8_t one_char_ops[256] = {
 	['+'] = TOK_ADD, ['-'] = TOK_SUB, ['*'] = TOK_STAR,
 	['/'] = TOK_SLASH, ['%'] = TOK_PERCENT, ['^'] = TOK_XOR,
 	[';'] = TOK_SEMCOL, [':'] = TOK_COL, [','] = TOK_COMMA,
 	['~'] = TOK_NOT_A, ['('] = TOK_LPAREN, [')'] = TOK_RPAREN,
 	['['] = TOK_LBRACE, [']'] = TOK_RBRACE,
 	['{'] = TOK_LKEY, ['}'] = TOK_RKEY,
+	['='] = TOK_ASSIGN, ['!'] = TOK_NOT_L,
+	['>'] = TOK_GT, ['<'] = TOK_LT,
+	['&'] = TOK_AND_A, ['|'] = TOK_OR_A
 };
-
-static int find_simple_op (char c, TokenType *out)
-{
-	uint8_t type = simple_op_table[(unsigned char)c];
-
-	if (type == TOK_NONE)
-		return 0;
-
-	*out = (TokenType)type;
-	return 1;
-}
-
-static Token handle_compound_op (Lexer *l, char c, int start_col)
-{
-	switch (c)
-	{
-	case '=':
-		if (*l->cursor == '=') {
-			l->cursor++;
-			return make_token(TOK_EQ, NULL, 2, l->line, start_col);
-		}
-		return make_token(TOK_ASSIGN, NULL, 1, l->line, start_col);
-	case '!':
-		if (*l->cursor == '=') {
-			l->cursor++;
-			return make_token(TOK_NE, NULL, 2, l->line, start_col);
-		}
-		return make_token(TOK_NOT_L, NULL, 1, l->line, start_col);
-	case '>':
-		if (*l->cursor == '>') {
-			l->cursor++;
-			return make_token(TOK_RS, NULL, 2, l->line, start_col);
-		} else if (*l->cursor == '=') {
-			l->cursor++;
-			return make_token(TOK_GE, NULL, 2, l->line, start_col);
-		}
-		return make_token(TOK_GT, NULL, 1, l->line, start_col);
-	case '<':
-		if (*l->cursor == '<') {
-			l->cursor++;
-			return make_token(TOK_LS, NULL, 2, l->line, start_col);
-		} else if (*l->cursor == '=') {
-			l->cursor++;
-			return make_token(TOK_LE, NULL, 2, l->line, start_col);
-		}
-		return make_token(TOK_LT, NULL, 1, l->line, start_col);
-	case '&':
-		if (*l->cursor == '&') {
-			l->cursor++;
-			return make_token(TOK_AND_L, NULL, 2, l->line, start_col);
-		}
-		return make_token(TOK_AND_A, NULL, 1, l->line, start_col);
-	case '|':
-		if (*l->cursor == '|') {
-			l->cursor++;
-			return make_token(TOK_OR_L, NULL, 2, l->line, start_col);
-		}
-		return make_token(TOK_OR_A, NULL, 1, l->line, start_col);
-	default:
-		return make_token(TOK_INVALID, NULL, 0, l->line, start_col);
-	}
-}
 
 static Token handle_symbols (Lexer *l)
 {
-	int sym_line = l->line;
-	int sym_col = (int)(l->cursor - l->line_start) + 1;
+	int col = (int)(l->cursor - l->line_start) + 1;
 	char c = *l->cursor++;
-	TokenType simple;
+	size_t count = sizeof(two_char_ops) / sizeof(two_char_ops[0]);
 
-	if (find_simple_op(c, &simple)) return make_token(simple, NULL, 1, l->line, sym_col);
-	if (strchr("=!><&|", c)) return handle_compound_op(l, c, sym_col);
+	for (size_t i = 0; i < count; i++) {
+		if (two_char_ops[i].first != c || two_char_ops[i].second != *l->cursor)
+			continue;
+		l->cursor++;
+		return make_token(two_char_ops[i].type, NULL, 2, l->line, col);
+	}
+	if (one_char_ops[(unsigned char)c] != TOK_NONE)
+		return make_token(one_char_ops[(unsigned char)c], NULL, 1, l->line, col);
 
 	if (isprint((unsigned char)c))
-		error_report(l->err, ERR_ERROR, loc_at(sym_line, sym_col, 1),
+		error_report(l->err, ERR_ERROR, loc_at(l->line, col, 1),
 				"character '%c' is not valid", c);
-	else
-		error_report(l->err, ERR_ERROR, loc_at(sym_line, sym_col, 1),
-				"character '\\x%02X' is not valid", (unsigned char)c);
-	return make_token(TOK_INVALID, NULL, 0, l->line, sym_col);
+	else error_report(l->err, ERR_ERROR, loc_at(l->line, col, 1),
+			"character '\\x%02X' is not valid", (unsigned char)c);
+	return make_token(TOK_INVALID, NULL, 0, l->line, col);
 }
 
 Token get_token (Lexer *l)
@@ -533,6 +486,12 @@ Token get_token (Lexer *l)
 		while (isalnum((unsigned char)*l->cursor) || *l->cursor == '_') l->cursor++;
 		size_t length = l->cursor - start;
 
+		if (length > UINT16_MAX) {
+			error_report(l->err, ERR_ERROR, loc_at(l->line, start_col, 1),
+					"identifier is too long");
+			return make_token(TOK_INVALID, NULL, 0, l->line, start_col);
+		}
+
 		TokenType type = id_keyword(start, length);
 		return make_token(type, start, length, l->line, start_col);
 	}
@@ -541,62 +500,27 @@ Token get_token (Lexer *l)
 }
 
 // Debug shit
+
+#define TN(t) [t] = #t
+static const char *const token_names[TOK_COUNT] = {
+	TN(TOK_NONE), TN(TOK_INVALID), TN(TOK_EOF), TN(TOK_VAR), TN(TOK_ID),
+	TN(TOK_FN), TN(TOK_SEMCOL), TN(TOK_COMMA), TN(TOK_COL), TN(TOK_LPAREN),
+	TN(TOK_RPAREN), TN(TOK_LKEY), TN(TOK_RKEY), TN(TOK_LBRACE), TN(TOK_RBRACE),
+	TN(TOK_LIT_i64), TN(TOK_LIT_u64), TN(TOK_LIT_CHAR), TN(TOK_LIT_STR),
+	TN(TOK_i64), TN(TOK_u64), TN(TOK_CHAR), TN(TOK_VOID), TN(TOK_IF),
+	TN(TOK_ELSE), TN(TOK_ELIF), TN(TOK_WHILE), TN(TOK_FOR), TN(TOK_RET),
+	TN(TOK_ADD), TN(TOK_SUB), TN(TOK_STAR), TN(TOK_SLASH), TN(TOK_PERCENT),
+	TN(TOK_AND_A), TN(TOK_OR_A), TN(TOK_XOR), TN(TOK_RS), TN(TOK_LS),
+	TN(TOK_NOT_A), TN(TOK_AND_L), TN(TOK_OR_L), TN(TOK_NOT_L),
+	TN(TOK_ASSIGN), TN(TOK_EQ), TN(TOK_NE), TN(TOK_GT), TN(TOK_LT),
+	TN(TOK_GE), TN(TOK_LE)
+};
+
 static const char *token_type_to_string (TokenType type)
 {
-	switch (type)
-	{
-	case TOK_NONE:	return "TOK_NONE";
-	case TOK_INVALID:return "TOK_INVALID";
-	case TOK_EOF:	return "TOK_EOF";
-	case TOK_VAR:	return "TOK_VAR";
-	case TOK_ID:	return "TOK_ID";
-	case TOK_FN:	return "TOK_FN";
-	case TOK_SEMCOL:return "TOK_SEMCOL";
-	case TOK_COMMA:	return "TOK_COMMA";
-	case TOK_COL:	return "TOK_COL";
-	case TOK_LPAREN:return "TOK_LPAREN";
-	case TOK_RPAREN:return "TOK_RPAREN";
-	case TOK_LKEY:	return "TOK_LKEY";
-	case TOK_RKEY:	return "TOK_RKEY";
-	case TOK_LBRACE:return "TOK_LBRACE";
-	case TOK_RBRACE:return "TOK_RBRACE";
-	case TOK_LIT_i64: return "TOK_LIT_i64";
-	case TOK_LIT_u64: return "TOK_LIT_u64";
-	case TOK_LIT_CHAR: return "TOK_LIT_CHAR";
-	case TOK_LIT_STR: return "TOK_LIT_STR";
-	case TOK_i64:	return "TOK_i64";
-	case TOK_u64:	return "TOK_u64";
-	case TOK_VOID:	return "TOK_VOID";
-	case TOK_CHAR:	return "TOK_CHAR";
-	case TOK_IF:	return "TOK_IF";
-	case TOK_ELSE:	return "TOK_ELSE";
-	case TOK_ELIF:	return "TOK_ELIF";
-	case TOK_WHILE: return "TOK_WHILE";
-	case TOK_FOR:	return "TOK_FOR";
-	case TOK_RET:	return "TOK_RET";
-	case TOK_ADD:	return "TOK_ADD";
-	case TOK_SUB:	return "TOK_SUB";
-	case TOK_STAR:	return "TOK_STAR";
-	case TOK_SLASH: return "TOK_SLASH";
-	case TOK_PERCENT: return "TOK_PERCENT";
-	case TOK_AND_A: return "TOK_AND_A";
-	case TOK_OR_A:	return "TOK_OR_A";
-	case TOK_XOR:	return "TOK_XOR";
-	case TOK_RS:	return "TOK_RS";
-	case TOK_LS:	return "TOK_LS";
-	case TOK_NOT_A: return "TOK_NOT_A";
-	case TOK_AND_L: return "TOK_AND_L";
-	case TOK_OR_L:	return "TOK_OR_L";
-	case TOK_NOT_L: return "TOK_NOT_L";
-	case TOK_ASSIGN:return "TOK_ASSIGN";
-	case TOK_EQ:	return "TOK_EQ";
-	case TOK_NE:	return "TOK_NE";
-	case TOK_GT:	return "TOK_GT";
-	case TOK_LT:	return "TOK_LT";
-	case TOK_GE:	return "TOK_GE";
-	case TOK_LE:	return "TOK_LE";
-	default:	return "UNKNOWN_TOKEN";
-	}
+	if (type >= TOK_COUNT || !token_names[type])
+		return "UNKNOWN_TOKEN";
+	return token_names[type];
 }
 
 static void print_escaped (const char *s, size_t len, char quote)

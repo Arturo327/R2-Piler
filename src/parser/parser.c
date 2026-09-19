@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-#define MAX_PARSE_DEPTH 200
+#define MAX_PARSE_DEPTH 1000
 
 static uint32_t push_ast_node (Parser *p, ASTNode node)
 {
@@ -331,16 +331,19 @@ static uint32_t parse_primary (Parser *p)
 
 static uint32_t parse_expr (Parser *p, int min_prec)
 {
+	uint16_t extra = 0;
+
 	if (!enter_depth(p))
 		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
 
 	uint32_t left = parse_primary(p);
 	int prec = binop_prec[p->curr.type];
 
-	while (prec > 0 && prec >= min_prec) {
+	while (prec > 0 && prec >= min_prec && enter_depth(p)) {
 		TokenType op_type = p->curr.type;
 		uint16_t line = p->curr.line;
 		uint16_t col = p->curr.col;
+		extra++;
 		advance(p);
 
 		int next_min = (op_type == TOK_ASSIGN) ? prec : prec + 1;
@@ -355,7 +358,7 @@ static uint32_t parse_expr (Parser *p, int min_prec)
 		prec = binop_prec[p->curr.type];
 	}
 
-	p->depth--;
+	p->depth = (uint16_t)(p->depth - extra - 1);
 	return left;
 }
 
