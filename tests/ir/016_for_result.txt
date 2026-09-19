@@ -1,0 +1,64 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn main(0 params, 31 regs) : i64
+    r0 = const.i64 0
+    r1 = const.i64 0
+  L0:
+    r2 = move.i64 r1
+    r3 = const.i64 5
+    r4 = lt.i64 r2, r3
+    jz r4 -> L1
+    r5 = move.i64 r0
+    r6 = move.i64 r1
+    r7 = add.i64 r5, r6
+    r0 = move.i64 r7
+    r8 = move.i64 r1
+    r9 = const.i64 1
+    r10 = add.i64 r8, r9
+    r1 = move.i64 r10
+    jmp -> L0
+  L1:
+  L2:
+    r11 = move.i64 r0
+    r12 = const.i64 10
+    r13 = lt.i64 r11, r12
+    jz r13 -> L3
+    r14 = move.i64 r0
+    r15 = const.i64 1
+    r16 = add.i64 r14, r15
+    r0 = move.i64 r16
+    r17 = move.i64 r0
+    r18 = const.i64 1
+    r19 = add.i64 r17, r18
+    r0 = move.i64 r19
+    jmp -> L2
+  L3:
+    r20 = const.i64 0
+  L4:
+    r21 = move.i64 r20
+    r22 = const.i64 3
+    r23 = lt.i64 r21, r22
+    jz r23 -> L5
+    r24 = move.i64 r20
+    r25 = const.i64 1
+    r26 = add.i64 r24, r25
+    r20 = move.i64 r26
+    r27 = move.i64 r0
+    r28 = move.i64 r20
+    r29 = add.i64 r27, r28
+    r0 = move.i64 r29
+    jmp -> L4
+  L5:
+    r30 = move.i64 r0
+    ret.i64 r30
+    ret
+
+fn empty(0 params, 0 regs) : void
+  L6:
+    ret
+    jmp -> L6
+  L7:
+    ret
+    ret
+

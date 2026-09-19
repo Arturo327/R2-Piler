@@ -1,0 +1,15 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn main(0 params, 8 regs) : i64
+    r0 = const.i64 42
+    r1 = const.i64 16
+    r2 = const.i64 15
+    r3 = const.i64 5
+    r4 = const.u64 42
+    r5 = const.u64 18446744073709551615
+    r6 = const.char 97
+    r7 = move.i64 r0
+    ret.i64 r7
+    ret
+

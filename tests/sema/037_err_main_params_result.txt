@@ -1,0 +1,2 @@
+fn main [1:4] depth=0 type=i64
+param x [1:9] depth=1 type=i64

@@ -1,0 +1,25 @@
+global g : i64
+
+fn __r2_init(0 params, 1 regs) : void
+    r0 = const.i64 0
+    str_global.i64 r0 @g
+    ret
+
+fn main(0 params, 10 regs) : i64
+    r0 = const.i64 1
+    r1 = const.i64 2
+    r2 = const.i64 5
+    r1 = move.i64 r2
+    r0 = move.i64 r2
+    r3 = move.i64 r0
+    r4 = move.i64 r1
+    r5 = add.i64 r3, r4
+    str_global.i64 r5 @g
+    r6 = move.i64 r1
+    r0 = move.i64 r6
+    r7 = ld_global.i64 @g
+    r8 = move.i64 r6
+    r9 = add.i64 r7, r8
+    ret.i64 r9
+    ret
+

@@ -171,7 +171,8 @@ static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 
 	if (!count_ok)
 		error_report(s->err, ERR_ERROR, node_loc(call),
-				"wrong number of arguments in call to '%.*s'", (int)call->len, call->str);
+				"wrong number of arguments in call to '%.*s'",
+				(int)call->len, call->str);
 }
 
 static uint8_t check_fn_call (Sema *s, uint32_t idx)
@@ -290,6 +291,17 @@ static uint8_t check_unary (Sema *s, uint32_t idx)
 	return n->data_type;
 }
 
+static int is_arith (uint8_t node_type)
+{
+	switch (node_type)
+	{
+	case NODE_EQ: case NODE_NE: case NODE_GT: case NODE_GE:
+	case NODE_LT: case NODE_LE: case NODE_AND_L: case NODE_OR_L:
+		return 0;
+	default: return 1;
+	}
+}
+
 static uint8_t binop_result_type (uint8_t node_type, uint8_t operand_type)
 {
 	switch (node_type)
@@ -323,7 +335,7 @@ static uint8_t check_binary (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
-	if (l != r) {
+	if (l != r && is_arith(n->type)) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"type mismatch: %s vs %s",
 				type_name[l], type_name[r]);

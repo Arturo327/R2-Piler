@@ -2,7 +2,7 @@
 
 Especificación completa de R2-Lang, el lenguaje que compila R2-Piler.
 
-Estado: lexer, parser y sema implementados y testeados. IR, `optimize_ir` y codegen pendientes.
+Estado: lexer, parser, sema e IR implementados y testeados. `optimize_ir` y codegen pendientes.
 
 ---
 
@@ -30,7 +30,7 @@ Un error en cualquier fase aborta la compilación antes de la siguiente. Los war
 
 ### 2.1 Comentarios
 
-`//` hasta el fin de línea. No existen comentarios de bloque.
+`//` hasta el fin de línea. No existen comentarios de bloque. Solo `\n` termina un comentario: un `\r` solitario no es fin de línea y el comentario lo consume como un carácter más.
 
 ### 2.2 Identificadores y keywords
 
@@ -48,7 +48,7 @@ char  elif  else  void  while  return
 - Decimal: `42`. Hexadecimal: `0x10` / `0X10`. Octal: `0o17` / `0O17`. Binario: `0b101` / `0B101`.
 - Los decimales con ceros a la izquierda (`007`) son decimales, no octales. `0` solo es decimal.
 - Sufijo `u` / `U` → `u64`; sin sufijo → `i64`.
-- Un literal sin sufijo mayor que `INT64_MAX` es error (se sugiere añadir `u`).
+- Un literal sin sufijo mayor que `INT64_MAX` es error (se sugiere añadir `u`), con una sola excepción en dos fases: el lexer acepta `2^63` (`9223372036854775808`, `0x8000000000000000`, `0o1000000000000000000000`, `0b1` + 63 ceros) como `TOK_LIT_i64` con valor `INT64_MIN`, y es el parser quien lo rechaza si aparece como operando positivo (`literal integer out of range… append 'u'`), mientras que `-9223372036854775808` se pliega a un único literal `INT64_MIN` válido.
 - Overflow en cualquier base o dígito inválido para la base: error.
 
 ### 2.4 Literales char
@@ -77,8 +77,8 @@ char  elif  else  void  while  return
 Reglas de tipos (estrictas, sin coerciones):
 
 - Operadores aritméticos y bitwise (`+ - * / % & | ^ << >>`): ambos operandos del **mismo tipo**, resultado del tipo de los operandos.
-- Comparaciones (`< > <= >= == !=`) y lógicos (`&& || !`): resultado siempre `i64` (0 o 1).
-- `-` y `~` unarios: preservan el tipo del operando. `!` unario: resultado `i64`.
+- Comparaciones (`< > <= >= == !=`) y lógicos binarios (`&& ||`): aceptan operandos de tipos **distintos** (pero nunca `void`); resultado siempre `i64` (0 o 1).
+- `-` y `~` unarios: preservan el tipo del operando. `!` unario: acepta cualquier tipo no-`void`, resultado `i64`.
 - `void` no puede aparecer en expresiones (ni en condiciones, ni como operando, ni como init).
 
 ---
@@ -156,7 +156,7 @@ El unario tiene la precedencia más alta y se aplica sobre un primario: `-x + y`
 
 ## 9. Globals
 
-- `var ID : type (= expr)? ;` a nivel top-level. Otra cosa a nivel top-level es error.
+- `var ID : type (= expr)? ;` a nivel top-level. Otra cosa a nivel top-level es error (el parser acepta cualquier statement suelto como test de parser puro, pero sema lo rechaza: `only variable and function declarations are allowed at the top level`).
 - Todas se declaran antes de chequear los inits: las **forward references están permitidas**.
 - Referencias a variables globales futuras permitido, ej: `var x:i64 = y; var y:i64 = 73` es válido
 - **Auto-referencia** (`var x : i64 = x;`): error.
@@ -196,8 +196,9 @@ El **wrap** aritmético NO es indefinido: está definido como complemento a 2 (y
 
 ## 13. IR y optimizaciones
 
-- Toda la AST válida se baja a IR, incluido el código inalcanzable tras un `return`.
-- `optimize_ir` es una pasada posterior que hace poda de código muerto, eliminación de código inalcanzable y optimizaciones.
+- La IR está implementada y testeada (`--dump-ir`, suite `tests/ir/`). Toda la AST válida se baja a IR, incluido el código inalcanzable tras un `return`.
+- La IR se genera solo si no hay errores en las fases anteriores; los warnings no la bloquean.
+- `optimize_ir` es una pasada posterior (pendiente) que hará poda de código muerto, eliminación de código inalcanzable y optimizaciones.
 
 ---
 
@@ -242,40 +243,70 @@ primary        = INT_LIT | CHAR_LIT | STRING_LIT
 args           = expr { "," expr } ;
 ```
 
-Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se definen en la sección 2.
+Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se definen en la sección 2. Por leniencia el parser acepta una coma final en parámetros (`fn f(a : i64,)`) y argumentos (`f(a,)`), aunque la EBNF no la muestra.
 
 ---
 
 ## Uso de la IR
 
-- Un stream lineal por función (`IRFn.start`/`count`). Registros virtuales de 64 bits.
+La IR se vuelca con `--dump-ir` (`-I`). Solo se genera si lexer, parser y sema no reportan errores; con errores el compilador aborta antes (stdout vacío, exit distinto de cero). Los warnings no la bloquean: la IR se emite igual y el exit sigue siendo `0`.
+
+Modelo:
+
+- Un stream lineal por función (`IRFn.start`/`count`). Registros virtuales de 64 bits, numerados desde `0` en cada función (`reg_count` se reinicia por función; `label_count` es único en todo el módulo).
 - No es SSA: un reg puede tener varias definiciones (variables, resultado de `&&` y `||`).
 - Campos no usados = `NO_REG`. `imm64`/`target` comparten unión y nunca son registros.
-- `data_type` = tipo de los OPERANDOS (decide signed/unsigned en `DIV`, `MOD`, `RS` y comparaciones). Resultado de comparaciones, `NOT_L`, `&&` y `||` es siempre `i64`.
-- Un `char` vive siempre en su reg extendido con signo (-128..127): `ADD`, `SUB`, `MUL`, `DIV`, `LS`, `NEG` sobre `char` van seguidos de `SEXT8`.
-- `gen_expr` nunca devuelve el reg de una variable: leer una local copia con `MOVE`.
-- Los `ARG` 0..`argc`-1 van contiguos justo antes de su `CALL`.
-- Etiquetas con id único en todo el módulo. `JZ`/`JNZ` saltan si `src1 == 0` / `!= 0`.
-- Toda función acaba en `RET`. El código tras un `RET` se conserva (inalcanzable).
+- `data_type` = tipo de los OPERANDOS (mismo tipo en todos los casos salvo comparaciones/`&&`/`||` con tipos mixtos, donde es el del operando izquierdo; decide signed/unsigned en `DIV`, `MOD`, `RSHIFT` y comparaciones). El resultado de comparaciones (`EQ..LE`), `NOT_L` (`lnot`), `&&` y `||` es siempre `i64`.
+- Un `char` vive siempre en su reg extendido con signo (-128..127): `ADD`, `SUB`, `MUL`, `DIV`, `LSHIFT` y `NEG` sobre `char` van seguidos de `SEXT8`. `MOD`, `RSHIFT`, `AND`/`OR`/`XOR` y `NOT` sobre `char` no llevan `SEXT8` (el resultado ya queda bien extendido).
+- `gen_expr` nunca devuelve el reg de una variable: leer una global emite `LD_GLOBAL` a un temporal; leer una local copia con `MOVE` a un temporal. Declarar una local con init reutiliza el reg del resultado; sin init reserva un reg sin emitir nada.
+- La asignación (`=`) evalúa primero el RHS, luego emite `MOVE` (local) o `STR_GLOBAL` (global), y devuelve el reg del RHS, por lo que `x = y = 5` comparte el mismo reg.
+- Llamadas: los args se evalúan de izquierda a derecha a temporales, luego se emiten los `ARG` `0..argc-1` contiguos justo antes de su `CALL`. `CALL` a función `void` no tiene `dst` (se imprime sin `rN =`); con retorno, `dst` es un reg fresco.
+- `&&` y `||` como valores se materializan a `0`/`1` (`i64`) con dos etiquetas (`l_false`/`l_end`); como condiciones (en `if`/`while`/`for`) compilan solo a saltos (`JZ`/`JNZ` + etiquetas auxiliares), sin materializar. `!` como condición invierte el sentido del salto.
+- `if`/`elif`/`else`: cada condición salta a su `next` si es falsa; cada rama con más ramas detrás salta al `end` común. Un `if` sin `else` emite igualmente `next` y `end` (adyacentes si no hay `else`).
+- `while (cond) body`: `L_cond:`, salta a `L_end` si `cond` es falsa, cuerpo, `jmp L_cond`, `L_end:`.
+- `for (init; cond; updt) body`: `init`, `L_cond:`, si `cond` no es vacía salta a `L_end` si es falsa, cuerpo, `updt`, `jmp L_cond`, `L_end:`. Un slot vacío no emite nada (`for(;;)` no emite ningún salto de condición).
+- Etiquetas con id único en todo el módulo. `JZ`/`JNZ` saltan si `src1 == 0` / `!= 0` (cualquier valor distinto de cero es verdadero).
+- Toda función acaba en `RET` implícito `void` (aunque ya tenga `return` explícito). El código tras un `RET` se conserva (inalcanzable).
+- Globals: se declaran en orden fuente pero sus inits se emiten en `init_order` (orden de resolución: una forward-ref fuerza el init referenciado antes). La función sintética `__r2_init` (siempre la primera, `: void`, `0 params`) contiene todos los inits (`gen_expr` + `STR_GLOBAL`) en ese orden. Sin globals, solo contiene `ret`.
 
-| op | dst | src1 | src2 | target/imm | type |
+Nombres en el volcado (`dump_ir`): `const`, `param`, `ld_global`, `str_global`, `move`, `sext8`, `add`, `sub`, `mul`, `div`, `mod`, `and`, `or`, `xor`, `rshift`, `lshift`, `neg`, `not`, `lnot`, `eq`, `ne`, `gt`, `ge`, `lt`, `le`, `jmp`, `jz`, `jnz`, `arg`, `call`, `ret` (las etiquetas se imprimen como `Lx:`). El sufijo `.tipo` es el `data_type` (`ARG`, `JMP`/`JZ`/`JNZ` y `LABEL` no llevan sufijo; `CALL`/`RET` llevan el tipo de retorno). Formato:
+
+```
+global <nombre> : <tipo>
+...
+fn <nombre>(<n> params, <m> regs) : <ret>
+    rN = const.<tipo> <imm>
+    rN = param.<tipo> #indice
+    rN = move.<tipo> rM
+    rN = sext8.char rM
+    rN = ld_global.<tipo> @global
+    str_global.<tipo> rM @global
+    rN = <op>.<tipo> rA, rB
+    rN = <op-un>.<tipo> rA
+    arg rM #indice
+    [rN = ]call[.<ret>] <fn>
+    [ret[.<tipo>] [rM]]
+    jmp -> Lx / jz|jnz rC -> Lx / Lx:
+```
+
+| op (dump) | dst | src1 | src2 | target/imm | type |
 | --- | --- | --- | --- | --- | --- |
-| `CONST` | r | - | - | imm64 | tipo |
-| `PARAM` | r | - | - | target=indice | tipo |
-| `MOVE` | r | r | - | - | tipo |
-| `SEXT8` | r | r | - | - | char |
-| `LD_GLOBAL` | r | - | - | target=global | tipo |
-| `ST_GLOBAL` | - | r | - | target=global | tipo |
-| `ADD..LS` | r | a | b | - | tipo operandos |
-| `NEG NOT_A` | r | a | - | - | tipo operando |
-| `NOT_L` | r | a | - | - | tipo operando (res i64) |
-| `EQ..LE` | r | a | b | - | tipo operandos (res i64) |
-| `LABEL` | - | - | - | target=label | - |
-| `JMP` | - | - | - | target=label | - |
-| `JZ JNZ` | - | cond | - | target=label | - |
-| `ARG` | - | r | - | target=indice | - |
-| `CALL` | r|NO | - | - | target=fn, argc | ret |
-| `RET` | - | r|NO | - | - | ret |
+| `const` | r | - | - | imm64 | tipo del literal |
+| `param` | r | - | - | target=índice | tipo del parámetro |
+| `move` | r | r | - | - | tipo del valor |
+| `sext8` | r | r | - | - | `char` |
+| `ld_global` | r | - | - | target=global | tipo de la global |
+| `str_global` | - | r | - | target=global | tipo de la global |
+| `add` `sub` `mul` `div` `mod` `and` `or` `xor` `rshift` `lshift` | r | a | b | - | tipo de los operandos |
+| `neg` `not` | r | a | - | - | tipo del operando |
+| `lnot` | r | a | - | - | tipo del operando (resultado `i64`) |
+| `eq` `ne` `gt` `ge` `lt` `le` | r | a | b | - | tipo de los operandos (resultado `i64`) |
+| `label` | - | - | - | target=label | - |
+| `jmp` | - | - | - | target=label | - |
+| `jz` `jnz` | - | cond | - | target=label | - |
+| `arg` | - | r | - | target=índice | - |
+| `call` | r si ret `!= void`, si no `NO_REG` | - | - | target=fn, más `argc` | tipo de retorno |
+| `ret` | - | r si hay valor, si no `NO_REG` | - | - | tipo del valor (`void` si no hay) |
 
 ---
 
@@ -291,9 +322,10 @@ make
 | `-T` / `--dump-tokens` | Vuelca los tokens a stdout |
 | `-A` / `--dump-ast` | Vuelca el AST a stdout |
 | `-S` / `--dump-symbols` | Vuelca la tabla de símbolos resuelta a stdout |
+| `-I` / `--dump-ir` | Vuelca la IR generada a stdout |
 | `-o` / `--out` | Ruta del assembly de salida |
 
-`make test` ejecuta las tres suites de fixtures (lexer, parser, sema), cada una contra `build/r2p`.
+`make test` ejecuta las cuatro suites de fixtures (lexer, parser, sema, ir), cada una contra `build/r2p`.
 
 Ejemplo de programa completo:
 

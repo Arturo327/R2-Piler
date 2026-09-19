@@ -1,0 +1,46 @@
+global start : i64
+
+fn __r2_init(0 params, 1 regs) : void
+    r0 = const.i64 5
+    str_global.i64 r0 @start
+    ret
+
+fn fact(1 params, 13 regs) : i64
+    r0 = param.i64 #0
+    r1 = const.i64 1
+    r2 = const.i64 2
+  L0:
+    r3 = move.i64 r2
+    r4 = move.i64 r0
+    r5 = le.i64 r3, r4
+    jz r5 -> L1
+    r6 = move.i64 r1
+    r7 = move.i64 r2
+    r8 = mul.i64 r6, r7
+    r1 = move.i64 r8
+    r9 = move.i64 r2
+    r10 = const.i64 1
+    r11 = add.i64 r9, r10
+    r2 = move.i64 r11
+    jmp -> L0
+  L1:
+    r12 = move.i64 r1
+    ret.i64 r12
+    ret
+
+fn main(0 params, 7 regs) : i64
+    r0 = ld_global.i64 @start
+    arg r0 #0
+    r1 = call.i64 fact
+    r2 = move.i64 r1
+    r3 = const.i64 120
+    r4 = eq.i64 r2, r3
+    jz r4 -> L3
+    r5 = const.i64 0
+    ret.i64 r5
+  L3:
+  L2:
+    r6 = const.i64 1
+    ret.i64 r6
+    ret
+

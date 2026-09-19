@@ -1,0 +1,26 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn main(0 params, 10 regs) : i64
+    r0 = const.i64 1
+    r1 = move.i64 r0
+    r2 = const.i64 1
+    r3 = eq.i64 r1, r2
+    jz r3 -> L1
+    r4 = const.i64 2
+    r0 = move.i64 r4
+  L1:
+  L0:
+    r5 = move.i64 r0
+    r6 = const.i64 2
+    r7 = eq.i64 r5, r6
+    jz r7 -> L3
+    r8 = const.i64 10
+    ret.i64 r8
+    jmp -> L2
+  L3:
+    r9 = const.i64 20
+    ret.i64 r9
+  L2:
+    ret
+

@@ -1,0 +1,2 @@
+fn w [1:4] depth=0 type=i64
+fn f [6:4] depth=0 type=i64

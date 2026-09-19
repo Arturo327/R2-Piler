@@ -1,0 +1,65 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn chars(2 params, 48 regs) : char
+    r0 = param.char #0
+    r1 = param.char #1
+    r2 = move.char r0
+    r3 = move.char r1
+    r4 = add.char r2, r3
+    r5 = sext8.char r4
+    r6 = move.char r0
+    r7 = move.char r1
+    r8 = sub.char r6, r7
+    r9 = sext8.char r8
+    r10 = move.char r0
+    r11 = move.char r1
+    r12 = mul.char r10, r11
+    r13 = sext8.char r12
+    r14 = move.char r0
+    r15 = move.char r1
+    r16 = div.char r14, r15
+    r17 = sext8.char r16
+    r18 = move.char r0
+    r19 = move.char r1
+    r20 = mod.char r18, r19
+    r21 = move.char r0
+    r22 = move.char r1
+    r23 = and.char r21, r22
+    r24 = move.char r0
+    r25 = move.char r1
+    r26 = or.char r24, r25
+    r27 = move.char r0
+    r28 = move.char r1
+    r29 = xor.char r27, r28
+    r30 = move.char r0
+    r31 = move.char r1
+    r32 = lshift.char r30, r31
+    r33 = sext8.char r32
+    r34 = move.char r0
+    r35 = move.char r1
+    r36 = rshift.char r34, r35
+    r37 = move.char r0
+    r38 = neg.char r37
+    r39 = sext8.char r38
+    r40 = move.char r0
+    r41 = not.char r40
+    r42 = move.char r0
+    r43 = move.char r1
+    r44 = lt.char r42, r43
+    r45 = move.char r0
+    r46 = lnot.char r45
+    r47 = move.char r5
+    ret.char r47
+    ret
+
+fn main(0 params, 4 regs) : i64
+    r0 = const.char 97
+    r1 = const.char 98
+    arg r0 #0
+    arg r1 #1
+    r2 = call.char chars
+    r3 = const.i64 0
+    ret.i64 r3
+    ret
+

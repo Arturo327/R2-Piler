@@ -1,0 +1,3 @@
+TOK_LIT_STR firstsecond
+TOK_LIT_STR a\x01b
+TOK_EOF

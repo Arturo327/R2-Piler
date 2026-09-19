@@ -1,0 +1,20 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn v(0 params, 0 regs) : void
+    ret
+    ret
+
+fn f(0 params, 3 regs) : i64
+    r0 = const.i64 1
+    ret.i64 r0
+    r1 = const.i64 2
+    r2 = move.i64 r1
+    ret.i64 r2
+    ret
+
+fn main(0 params, 1 regs) : i64
+    r0 = const.i64 0
+    ret.i64 r0
+    ret
+

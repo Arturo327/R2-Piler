@@ -90,9 +90,18 @@ static int numeric_prefix_base (Lexer *l)
 		return 10;
 
 	char c = l->cursor[1];
-	if (c == 'x' || c == 'X') { l->cursor += 2; return 16; }
-	if (c == 'o' || c == 'O') { l->cursor += 2; return 8; }
-	if (c == 'b' || c == 'B') { l->cursor += 2; return 2; }
+	if (c == 'x' || c == 'X') {
+		l->cursor += 2;
+		return 16;
+	}
+	if (c == 'o' || c == 'O') {
+		l->cursor += 2;
+		return 8;
+	}
+	if (c == 'b' || c == 'B') {
+		l->cursor += 2;
+		return 2;
+	}
 	return 10;
 }
 
