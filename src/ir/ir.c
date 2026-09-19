@@ -267,6 +267,7 @@ static void make_ret (IR *ir, uint32_t val, uint8_t type)
 static void gen_stmt (IR *ir, ASTNode *n);
 static void gen_block (IR *ir, ASTNode *parent);
 static uint32_t gen_expr (IR *ir, ASTNode *n);
+static void gen_jump_if (IR *ir, ASTNode *n, uint32_t label, int when);
 
 static uint32_t gen_id (IR *ir, ASTNode *n)
 {
@@ -309,7 +310,68 @@ static uint32_t gen_assign (IR *ir, ASTNode *n)
 	return val;
 }
 
-// TODO: Some functions called by gen_expr
+static uint32_t gen_unary (IR *ir, ASTNode *n)
+{
+	ASTNode *operand = ir->ast->nodes + n->child;
+	uint32_t a = gen_expr(ir, operand);
+
+	return make_op(ir, node_to_ir[n->type], a, NO_REG, operand->data_type);
+}
+
+static uint32_t gen_binary (IR *ir, ASTNode *n)
+{
+	ASTNode *l = ir->ast->nodes + n->child;
+	ASTNode *r = ir->ast->nodes + l->next_bro;
+	uint32_t a = gen_expr(ir, l);
+	uint32_t b = gen_expr(ir, r);
+
+	return make_op(ir, node_to_ir[n->type], a, b, l->data_type);
+}
+
+static void gen_jump_logic (IR *ir, ASTNode *n, uint32_t label, int when)
+{
+	ASTNode *lhs = ir->ast->nodes + n->child;
+	ASTNode *rhs = ir->ast->nodes + lhs->next_bro;
+	int stop = n->type == NODE_OR_L;
+	uint32_t skip;
+
+	if (when == stop) {
+		gen_jump_if(ir, lhs, label, stop);
+		gen_jump_if(ir, rhs, label, when);
+		return;
+	}
+	skip = ir->label_count++;
+	gen_jump_if(ir, lhs, skip, stop);
+	gen_jump_if(ir, rhs, label, when);
+	make_label(ir, skip);
+}
+
+static void gen_jump_if (IR *ir, ASTNode *n, uint32_t label, int when)
+{
+	if (n->type == NODE_NOT_L) {
+		gen_jump_if(ir, ir->ast->nodes + n->child, label, !when);
+	} else if (n->type == NODE_AND_L || n->type == NODE_OR_L) {
+		gen_jump_logic(ir, n, label, when);
+	} else {
+		uint32_t reg = gen_expr(ir, n);
+		make_jump(ir, when ? IR_JNZ : IR_JZ, reg, label);
+	}
+}
+
+static uint32_t gen_logic (IR *ir, ASTNode *n)
+{
+	uint32_t res = ir->reg_count++;
+	uint32_t l_false = ir->label_count++;
+	uint32_t l_end = ir->label_count++;
+
+	gen_jump_if(ir, n, l_false, 0);
+	make_const_into(ir, res, 1, TYPE_i64);
+	make_jump(ir, IR_JMP, NO_REG, l_end);
+	make_label(ir, l_false);
+	make_const_into(ir, res, 0, TYPE_i64);
+	make_label(ir, l_end);
+	return res;
+}
 
 static uint32_t gen_expr (IR *ir, ASTNode *n)
 {
@@ -324,7 +386,7 @@ static uint32_t gen_expr (IR *ir, ASTNode *n)
 	case NODE_ASSIGN: return gen_assign(ir, n);
 
 	case NODE_NEG: case NODE_NOT_A: case NODE_NOT_L: return gen_unary(ir, n);
-	case NODE_AND_L: case NODE_OR_L: return gen_logic_value(ir, n);
+	case NODE_AND_L: case NODE_OR_L: return gen_logic(ir, n);
 
 	default:
 		assert(node_to_ir[n->type] != IR_NOP);
