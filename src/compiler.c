@@ -79,6 +79,23 @@ static int compiler_load_file (Compiler *comp, const char *file)
 	return 0;
 }
 
+static void release_frontend (Compiler *c)
+{
+	arena_destroy(&c->ast_arena);
+	arena_destroy(&c->sym_arena);
+
+	memset(&c->parser.ast, 0, sizeof(c->parser.ast));
+	memset(&c->sema.table, 0, sizeof(c->sema.table));
+	c->sema.ast = NULL;
+	c->sema.init_order = NULL;
+	c->sema.init_order_count = 0;
+
+	c->ir.ast = NULL;
+	c->ir.symtab = NULL;
+	c->ir.init_order = NULL;
+	c->ir.init_order_count = 0;
+}
+
 int compile (Compiler *c, CompilerOpts *opts)
 {
 	if (compiler_load_file(c, opts->path)) return 1;
@@ -105,6 +122,7 @@ int compile (Compiler *c, CompilerOpts *opts)
 		dump_ir(&c->ir);
 		return 0;
 	}
+	release_frontend(c);
 
 	// TODO: codegen
 

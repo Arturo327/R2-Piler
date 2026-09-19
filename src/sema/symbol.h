@@ -39,6 +39,8 @@ typedef struct Symbol {
 
 typedef struct SymbolTable {
 	uint32_t *buckets;
+	uint32_t bucket_count;
+
 	Symbol *symbols;
 	uint32_t count;
 	uint32_t cap;

@@ -60,6 +60,50 @@ void *arena_alloc (Arena *a, size_t size)
 	return ptr;
 }
 
+static void *regrow_block (Arena *a, size_t grown)
+{
+	ArenaBlock *old = a->tail;
+	ArenaBlock *prev = a->head;
+	ArenaBlock *blk;
+
+	while (prev != old && prev->next != old)
+		prev = prev->next;
+
+	blk = realloc(old, sizeof(ArenaBlock) + grown);
+	if (!blk) {
+		fprintf(stderr, "Not enough memory for arena block\n");
+		exit(1);
+	}
+	if (prev == old) a->head = blk;
+	else prev->next = blk;
+
+	blk->used = grown;
+	a->tail = blk;
+	a->cap = grown;
+	a->last_ptr = blk->data;
+	a->last_size = grown;
+	return blk->data;
+}
+
+static void *grow_last (Arena *a, size_t new_size)
+{
+	size_t grown = align_up(new_size);
+	size_t extra;
+
+	if (grown <= a->last_size)
+		return a->last_ptr;
+
+	extra = grown - a->last_size;
+	if (extra <= a->cap - a->tail->used) {
+		a->tail->used += extra;
+		a->last_size = grown;
+		return a->last_ptr;
+	}
+	if (a->last_ptr == (void *)a->tail->data)
+		return regrow_block(a, grown);
+	return NULL;
+}
+
 void *arena_realloc (Arena *a, void *ptr, size_t old_size, size_t new_size)
 {
 	if (new_size <= old_size)
@@ -69,16 +113,8 @@ void *arena_realloc (Arena *a, void *ptr, size_t old_size, size_t new_size)
 		return arena_alloc(a, new_size);
 
 	if (ptr == a->last_ptr) {
-		size_t grown = align_up(new_size);
-		if (grown <= a->last_size)
-			return ptr;
-
-		size_t extra = grown - a->last_size;
-		if (extra <= a->cap - a->tail->used) {
-			a->tail->used += extra;
-			a->last_size = grown;
-			return ptr;
-		}
+		void *grown = grow_last(a, new_size);
+		if (grown) return grown;
 	}
 
 	void *new_ptr = arena_alloc(a, new_size);

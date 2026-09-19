@@ -31,6 +31,7 @@ void symtab_init (SymbolTable *t, Arena *a)
 	t->buckets = arena_alloc(a, sizeof(uint32_t) * SYMTAB_BUCKET_COUNT);
 	for (uint32_t i = 0; i < SYMTAB_BUCKET_COUNT; i++)
 		t->buckets[i] = NO_SYMBOL;
+	t->bucket_count = SYMTAB_BUCKET_COUNT;
 }
 
 static void symtab_grow_storage (SymbolTable *t, Arena *arena)
@@ -49,15 +50,37 @@ static void symtab_grow_active (SymbolTable *t, Arena *a)
 			old_cap * sizeof(uint32_t), t->act_cap * sizeof(uint32_t));
 }
 
+static void symtab_rehash (SymbolTable *t, Arena *a)
+{
+	uint32_t count = t->bucket_count << 1;
+	uint32_t *b = arena_alloc(a, sizeof(uint32_t) * count);
+
+	for (uint32_t i = 0; i < count; i++)
+		b[i] = NO_SYMBOL;
+
+	for (uint32_t i = 0; i < t->act_count; i++) {
+		Symbol *s = &t->symbols[t->active[i]];
+		uint32_t h = hash_name(s->name, s->len) & (count - 1);
+
+		s->next = b[h];
+		b[h] = t->active[i];
+	}
+	t->buckets = b;
+	t->bucket_count = count;
+}
+
 uint32_t symtab_declare (SymbolTable *t, Arena *a, Symbol sym)
 {
+	if (t->act_count >= t->bucket_count * 2)
+		symtab_rehash(t, a);
+
 	if (t->count >= t->cap)
 		symtab_grow_storage(t, a);
 	if (t->act_count >= t->act_cap)
 		symtab_grow_active(t, a);
 
 	uint32_t idx = t->count++;
-	uint32_t bucket = hash_name(sym.name, sym.len) & SYMTAB_BUCKET_MASK;
+	uint32_t bucket = hash_name(sym.name, sym.len) & (t->bucket_count - 1);
 
 	sym.next = t->buckets[bucket];
 	t->symbols[idx] = sym;
@@ -69,7 +92,7 @@ uint32_t symtab_declare (SymbolTable *t, Arena *a, Symbol sym)
 
 uint32_t symtab_find (SymbolTable *t, char *name, uint16_t len)
 {
-	uint32_t bucket = hash_name(name, len) & SYMTAB_BUCKET_MASK;
+	uint32_t bucket = hash_name(name, len) & (t->bucket_count - 1);
 	uint32_t idx = t->buckets[bucket];
 
 	while (idx != NO_SYMBOL) {
@@ -90,7 +113,7 @@ void symtab_pop_scope (SymbolTable *t, uint32_t mark)
 		i--;
 		uint32_t idx = t->active[i];
 		Symbol *s = &t->symbols[idx];
-		uint32_t bucket = hash_name(s->name, s->len) & SYMTAB_BUCKET_MASK;
+		uint32_t bucket = hash_name(s->name, s->len) & (t->bucket_count - 1);
 
 		t->buckets[bucket] = s->next;
 	}
