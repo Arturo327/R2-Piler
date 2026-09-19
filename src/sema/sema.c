@@ -1,6 +1,7 @@
 #include "sema/sema.h"
 
 #include <stdio.h>
+#include <string.h>
 
 static ErrorLoc node_loc (ASTNode *n)
 {
@@ -11,14 +12,6 @@ static ErrorLoc node_loc (ASTNode *n)
 	};
 	return loc;
 }
-
-static const char *type_name[TYPE_COUNT] = {
-	[TYPE_VOID] = "void",
-	[TYPE_i64] = "i64",
-	[TYPE_u64] = "u64",
-	[TYPE_CHAR] = "char",
-	[TYPE_ERROR] = "error"
-};
 
 void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 {
@@ -57,8 +50,8 @@ static uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 		.type = data_type
 	};
 
-	if (kind == SYMBOL_PARAM || (kind == SYMBOL_VAR
-				&& s->ast->nodes[decl_node].child != NO_NODE))
+	if (kind == SYMBOL_PARAM || (kind == SYMBOL_VAR && (s->depth == 0
+					|| s->ast->nodes[decl_node].child != NO_NODE)))
 		sym.assigned = 1;
 
 	uint32_t sym_idx = symtab_declare(&s->table, s->arena, sym);
@@ -76,10 +69,14 @@ static uint8_t check_literal (Sema *s, uint32_t idx)
 	ASTNode *n = &s->ast->nodes[idx];
 	switch (n->type)
 	{
-	case NODE_LIT_i64: n->data_type = TYPE_i64;  break;
-	case NODE_LIT_u64: n->data_type = TYPE_u64;  break;
+	case NODE_LIT_i64: n->data_type = TYPE_i64; break;
+	case NODE_LIT_u64: n->data_type = TYPE_u64; break;
 	case NODE_LIT_CHAR: n->data_type = TYPE_CHAR; break;
-	default: n->data_type = TYPE_VOID;  break;
+	default:
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"string literals are not supported yet");
+		n->data_type = TYPE_VOID;
+		break;
 	}
 	return n->data_type;
 }
@@ -400,8 +397,24 @@ static void check_var_dec (Sema *s, uint32_t idx)
 	sema_declare(s, n->str, n->len, SYMBOL_VAR, n->data_type, idx);
 }
 
+static void check_main_signature (Sema *s, uint32_t idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+	uint32_t args = n->child;
+	uint32_t ret = s->ast->nodes[args].next_bro;
+	int bad_params = s->ast->nodes[args].child != NO_NODE;
+	int bad_ret = s->ast->nodes[ret].data_type != TYPE_i64;
+
+	if (n->len != 4 || memcmp(n->str, "main", 4) != 0)
+		return;
+	if (bad_params || bad_ret)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'main' must be declared as 'fn main() : i64'");
+}
+
 static void check_fn_dec (Sema *s, uint32_t idx)
 {
+	check_main_signature(s, idx);
 	uint32_t args = s->ast->nodes[idx].child;
 	uint32_t ret = s->ast->nodes[args].next_bro;
 	uint32_t body = s->ast->nodes[ret].next_bro;

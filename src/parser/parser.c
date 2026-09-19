@@ -740,14 +740,6 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_ROOT] = "NODE_ROOT",
 };
 
-static const char *type_name[TYPE_COUNT] = {
-	[TYPE_VOID] = "void",
-	[TYPE_i64] = "i64",
-	[TYPE_u64] = "u64",
-	[TYPE_CHAR] = "char",
-	[TYPE_ERROR] = "error"
-};
-
 static inline void indent (int depth)
 {
 	while (depth-- > 0) printf("  ");

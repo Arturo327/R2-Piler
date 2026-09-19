@@ -21,6 +21,7 @@ static void print_help (const char *build)
 	printf("    -T|--dump-tokens    Prints your code tokens to stdout\n");
 	printf("    -A|--dump-ast       Prints the parsed AST to stdout\n");
 	printf("    -S|--dump-symbols   Prints the resolved symbol table to stdout\n");
+	printf("    -I|--dump-ir        Prints the generated IR to stdout\n");
 }
 
 static CompilerOpts parse_args (int argc, char *argv[])
@@ -32,6 +33,7 @@ static CompilerOpts parse_args (int argc, char *argv[])
 		{"dump-tokens", no_argument, 0, 'T'},
 		{"dump-ast", no_argument, 0, 'A'},
 		{"dump-symbols", no_argument, 0, 'S'},
+		{"dump-ir", no_argument, 0, 'I'},
 		{0, 0, 0, 0}
 	};
 	CompilerOpts args = {
@@ -39,11 +41,12 @@ static CompilerOpts parse_args (int argc, char *argv[])
 		.out = NULL,
 		.dump_tokens = 0,
 		.dump_ast = 0,
+		.dump_ir = 0,
 		.dump_symbols = 0
 	};
 
 	int opt;
-	char *short_opts = ":TASo:hv";
+	char *short_opts = ":TIASo:hv";
 	opterr = 0;
 	while ((opt = getopt_long(argc, argv, short_opts, long_options, NULL)) != -1) {
 		switch (opt)
@@ -54,6 +57,7 @@ static CompilerOpts parse_args (int argc, char *argv[])
 		case 'T': args.dump_tokens = 1; break;
 		case 'A': args.dump_ast = 1; break;
 		case 'S': args.dump_symbols = 1; break;
+		case 'I': args.dump_ir = 1; break;
 		case ':':
 			fprintf(stderr, "Option '-%c' requires an argument.\n", optopt);
 			exit(1);

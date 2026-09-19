@@ -1,9 +1,21 @@
+tests/sema/022_err_void_src.r2:5:17: [1;31mERROR[0m: string literals are not supported yet
+      5 |   var a : i64 = [1;31m"h[0mi";
+        |                 [1;31m^~[0m
 tests/sema/022_err_void_src.r2:5:7: [1;31mERROR[0m: cannot initialize 'a' (i64) with a value of type void
       5 |   var [1;31ma[0m : i64 = "hi";
         |       [1;31m^[0m
+tests/sema/022_err_void_src.r2:6:17: [1;31mERROR[0m: string literals are not supported yet
+      6 |   var b : i64 = [1;31m"[0ma" + "b";
+        |                 [1;31m^[0m
+tests/sema/022_err_void_src.r2:6:23: [1;31mERROR[0m: string literals are not supported yet
+      6 |   var b : i64 = "a" + [1;31m"[0mb";
+        |                       [1;31m^[0m
 tests/sema/022_err_void_src.r2:6:21: [1;31mERROR[0m: operator cannot be applied to a value of type void
       6 |   var b : i64 = "a" [1;31m+[0m "b";
         |                     [1;31m^[0m
+tests/sema/022_err_void_src.r2:7:18: [1;31mERROR[0m: string literals are not supported yet
+      7 |   var c : i64 = -[1;31m"h[0mi";
+        |                  [1;31m^~[0m
 tests/sema/022_err_void_src.r2:7:17: [1;31mERROR[0m: operator cannot be applied to a value of type void
       7 |   var c : i64 = [1;31m-[0m"hi";
         |                 [1;31m^[0m

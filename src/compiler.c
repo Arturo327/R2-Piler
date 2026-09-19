@@ -11,6 +11,7 @@ void compiler_init (Compiler *comp)
 	arena_init(&comp->arena);
 	arena_init(&comp->ast_arena);
 	arena_init(&comp->sym_arena);
+	arena_init(&comp->ir_arena);
 }
 
 static long file_size (FILE *f, const char *file)
@@ -98,7 +99,14 @@ int compile (Compiler *c, CompilerOpts *opts)
 	}
 	if (c->err.err_count) return 1;
 
-	// TODO: IR, codegen
+	ir_init(&c->ir, &c->ir_arena, &c->sema);
+	ir_gen(&c->ir);
+	if (opts->dump_ir) {
+		dump_ir(&c->ir);
+		return 0;
+	}
+
+	// TODO: codegen
 
 	return 0;
 }
@@ -108,5 +116,6 @@ void compiler_destroy (Compiler *comp)
 	arena_destroy(&comp->arena);
 	arena_destroy(&comp->ast_arena);
 	arena_destroy(&comp->sym_arena);
+	arena_destroy(&comp->ir_arena);
 	memset(comp, 0, sizeof(*comp));
 }

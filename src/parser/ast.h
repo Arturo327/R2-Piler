@@ -28,6 +28,14 @@ typedef enum {
 	NODE_COUNT
 } NodeType;
 
+static const char *const type_name[TYPE_COUNT] = {
+	[TYPE_VOID] = "void",
+	[TYPE_i64] = "i64",
+	[TYPE_u64] = "u64",
+	[TYPE_CHAR] = "char",
+	[TYPE_ERROR] = "error"
+};
+
 typedef struct ASTNode {
 	union {
 		char *str;

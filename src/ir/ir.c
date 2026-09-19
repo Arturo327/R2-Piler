@@ -394,7 +394,91 @@ static uint32_t gen_expr (IR *ir, ASTNode *n)
 	}
 }
 
-// TODO: All functions called by gen_stmt
+static void gen_var_dec (IR *ir, ASTNode *n)
+{
+	Symbol *s = ir->symtab->symbols + n->sym;
+
+	if (n->child == NO_NODE) s->ir_id = ir->reg_count++;
+	else s->ir_id = gen_expr(ir, ir->ast->nodes + n->child);
+}
+
+static void gen_return (IR *ir, ASTNode *n)
+{
+	uint32_t reg = NO_REG;
+	uint8_t type = TYPE_VOID;
+
+	if (n->child != NO_NODE) {
+		ASTNode *val = ir->ast->nodes + n->child;
+		reg = gen_expr(ir, val);
+		type = val->data_type;
+	}
+	make_ret(ir, reg, type);
+}
+
+static void gen_branch (IR *ir, uint32_t cond, uint32_t body, uint32_t end, int more)
+{
+	ASTNode *nodes = ir->ast->nodes;
+	uint32_t next = ir->label_count++;
+
+	gen_jump_if(ir, nodes + cond, next, 0);
+	gen_stmt(ir, nodes + body);
+	if (more) make_jump(ir, IR_JMP, NO_REG, end);
+	make_label(ir, next);
+}
+
+static void gen_if (IR *ir, ASTNode *n)
+{
+	ASTNode *nodes = ir->ast->nodes;
+	uint32_t cond = n->child;
+	uint32_t body = nodes[cond].next_bro;
+	uint32_t branch = nodes[body].next_bro;
+	uint32_t end = ir->label_count++;
+
+	gen_branch(ir, cond, body, end, branch != NO_NODE);
+	while (branch != NO_NODE) {
+		ASTNode *b = nodes + branch;
+		int more = b->next_bro != NO_NODE;
+
+		if (b->type == NODE_ELSE) gen_stmt(ir, nodes + b->child);
+		else gen_branch(ir, b->child, nodes[b->child].next_bro, end, more);
+		branch = b->next_bro;
+	}
+	make_label(ir, end);
+}
+
+static void gen_while (IR *ir, ASTNode *n)
+{
+	ASTNode *nodes = ir->ast->nodes;
+	uint32_t body = nodes[n->child].next_bro;
+	uint32_t l_cond = ir->label_count++;
+	uint32_t l_end = ir->label_count++;
+
+	make_label(ir, l_cond);
+	gen_jump_if(ir, nodes + n->child, l_end, 0);
+	gen_stmt(ir, nodes + body);
+	make_jump(ir, IR_JMP, NO_REG, l_cond);
+	make_label(ir, l_end);
+}
+
+static void gen_for (IR *ir, ASTNode *n)
+{
+	ASTNode *nodes = ir->ast->nodes;
+	ASTNode *cond = nodes + nodes[n->child].next_bro;
+	ASTNode *updt = nodes + cond->next_bro;
+	ASTNode *body = nodes + updt->next_bro;
+	uint32_t l_cond = ir->label_count++;
+	uint32_t l_end = ir->label_count++;
+
+	gen_stmt(ir, nodes + n->child);
+	make_label(ir, l_cond);
+	if (cond->type != NODE_EMPTY)
+		gen_jump_if(ir, cond, l_end, 0);
+
+	gen_stmt(ir, body);
+	gen_stmt(ir, updt);
+	make_jump(ir, IR_JMP, NO_REG, l_cond);
+	make_label(ir, l_end);
+}
 
 static void gen_stmt (IR *ir, ASTNode *n)
 {
@@ -496,4 +580,90 @@ void ir_gen (IR *ir)
 	declare_globals(ir);
 	gen_init_fn(ir);
 	gen_fns(ir);
+}
+
+// debug shit
+
+static const char *const op_names[IR_COUNT] = {
+	[IR_NOP] = "nop", [IR_CONST] = "const", [IR_PARAM] = "param",
+	[IR_LD_GLOBAL] = "ld_global", [IR_STR_GLOBAL] = "str_global",
+	[IR_MOVE] = "move", [IR_SEXT8] = "sext8",
+	[IR_ADD] = "add", [IR_SUB] = "sub", [IR_MUL] = "mul",
+	[IR_DIV] = "div", [IR_MOD] = "mod",
+	[IR_AND_A] = "and", [IR_OR_A] = "or", [IR_XOR] = "xor",
+	[IR_RS] = "rshift", [IR_LS] = "lshift",
+	[IR_NEG] = "neg", [IR_NOT_A] = "not", [IR_NOT_L] = "lnot",
+	[IR_EQ] = "eq", [IR_NE] = "ne", [IR_GT] = "gt", [IR_GE] = "ge",
+	[IR_LT] = "lt", [IR_LE] = "le",
+	[IR_LABEL] = "label", [IR_JMP] = "jmp", [IR_JZ] = "jz", [IR_JNZ] = "jnz",
+	[IR_ARG] = "arg", [IR_CALL] = "call", [IR_RET] = "ret"
+};
+
+static void dump_extra (IR *ir, IRInstr *i)
+{
+	switch (i->op)
+	{
+	case IR_CONST:
+		if (i->data_type == TYPE_u64) printf(" %llu", (unsigned long long)i->imm64);
+		else printf(" %lld", (long long)i->imm64);
+		break;
+	case IR_JMP: case IR_JZ: case IR_JNZ:
+		printf(" -> L%u", i->target);
+		break;
+	case IR_PARAM: case IR_ARG:
+		printf(" #%u", i->target);
+		break;
+	case IR_CALL:
+		printf(" %.*s", (int)ir->fns[i->target].len, ir->fns[i->target].name);
+		break;
+	case IR_LD_GLOBAL: case IR_STR_GLOBAL:
+		printf(" @%.*s", (int)ir->globals[i->target].len, ir->globals[i->target].name);
+		break;
+	default:
+		break;
+	}
+}
+
+static void dump_instr (IR *ir, IRInstr *i)
+{
+	if (i->op == IR_LABEL) {
+		printf("  L%u:\n", i->target);
+		return;
+	}
+
+	printf("    ");
+	if (i->dst != NO_REG)
+		printf("r%u = ", i->dst);
+	printf("%s", op_names[i->op]);
+	if (i->data_type != TYPE_VOID)
+		printf(".%s", type_name[i->data_type]);
+	if (i->src1 != NO_REG)
+		printf(" r%u", i->src1);
+	if (i->src2 != NO_REG)
+		printf(", r%u", i->src2);
+	dump_extra(ir, i);
+	printf("\n");
+}
+
+static void dump_fn (IR *ir, uint32_t idx)
+{
+	IRFn *fn = ir->fns + idx;
+
+	printf("fn %.*s(%u params, %u regs) : %s\n", (int)fn->len, fn->name,
+			fn->param_count, fn->reg_count, type_name[fn->ret_type]);
+	for (uint32_t k = 0; k < fn->count; k++)
+		dump_instr(ir, ir->instrs + fn->start + k);
+	printf("\n");
+}
+
+void dump_ir (IR *ir)
+{
+	for (uint32_t i = 0; i < ir->global_count; i++)
+		printf("global %.*s : %s\n", (int)ir->globals[i].len, ir->globals[i].name,
+				type_name[ir->globals[i].type]);
+	if (ir->global_count)
+		printf("\n");
+
+	for (uint32_t i = 0; i < ir->fn_count; i++)
+		dump_fn(ir, i);
 }
