@@ -246,6 +246,39 @@ Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se d
 
 ---
 
+## Uso de la IR
+
+- Un stream lineal por función (`IRFn.start`/`count`). Registros virtuales de 64 bits.
+- No es SSA: un reg puede tener varias definiciones (variables, resultado de `&&` y `||`).
+- Campos no usados = `NO_REG`. `imm64`/`target` comparten unión y nunca son registros.
+- `data_type` = tipo de los OPERANDOS (decide signed/unsigned en `DIV`, `MOD`, `RS` y comparaciones). Resultado de comparaciones, `NOT_L`, `&&` y `||` es siempre `i64`.
+- Un `char` vive siempre en su reg extendido con signo (-128..127): `ADD`, `SUB`, `MUL`, `DIV`, `LS`, `NEG` sobre `char` van seguidos de `SEXT8`.
+- `gen_expr` nunca devuelve el reg de una variable: leer una local copia con `MOVE`.
+- Los `ARG` 0..`argc`-1 van contiguos justo antes de su `CALL`.
+- Etiquetas con id único en todo el módulo. `JZ`/`JNZ` saltan si `src1 == 0` / `!= 0`.
+- Toda función acaba en `RET`. El código tras un `RET` se conserva (inalcanzable).
+
+| op | dst | src1 | src2 | target/imm | type |
+| --- | --- | --- | --- | --- | --- |
+| `CONST` | r | - | - | imm64 | tipo |
+| `PARAM` | r | - | - | target=indice | tipo |
+| `MOVE` | r | r | - | - | tipo |
+| `SEXT8` | r | r | - | - | char |
+| `LD_GLOBAL` | r | - | - | target=global | tipo |
+| `ST_GLOBAL` | - | r | - | target=global | tipo |
+| `ADD..LS` | r | a | b | - | tipo operandos |
+| `NEG NOT_A` | r | a | - | - | tipo operando |
+| `NOT_L` | r | a | - | - | tipo operando (res i64) |
+| `EQ..LE` | r | a | b | - | tipo operandos (res i64) |
+| `LABEL` | - | - | - | target=label | - |
+| `JMP` | - | - | - | target=label | - |
+| `JZ JNZ` | - | cond | - | target=label | - |
+| `ARG` | - | r | - | target=indice | - |
+| `CALL` | r|NO | - | - | target=fn, argc | ret |
+| `RET` | - | r|NO | - | - | ret |
+
+---
+
 ## 15. Uso del compilador
 
 ```bash

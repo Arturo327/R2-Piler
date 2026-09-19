@@ -5,15 +5,16 @@
 
 #include "arena/arena.h"
 #include "parser/ast.h"
-#include "sema/symbol.h"
+#include "sema/sema.h"
 
+#define INIT_FN_NAME "__r2_init"
 #define NO_REG 0xFFFFFFFF
 
 typedef enum {
 	IR_NOP = 0,
 	IR_CONST, IR_PARAM,
 	IR_LD_GLOBAL, IR_STR_GLOBAL,
-	IR_MOVE,
+	IR_MOVE, IR_SEXT8,
 	IR_ADD, IR_SUB, IR_MUL, IR_DIV, IR_MOD,
 	IR_AND_A, IR_OR_A, IR_XOR, IR_RS, IR_LS,
 	IR_NEG, IR_NOT_A, IR_NOT_L,
@@ -24,14 +25,14 @@ typedef enum {
 } IROp;
 
 typedef struct IRInstr {
-	int64_t imm64;
+	union {
+		int64_t imm64;
+		uint32_t target;
+	};
 
 	uint32_t dst;
 	uint32_t src1;
-	union {
-		uint32_t src2;
-		uint32_t target;
-	};
+	uint32_t src2;
 	uint16_t argc;
 
 	uint8_t op;
@@ -72,6 +73,9 @@ typedef struct IR {
 
 	uint32_t init_fn;
 
+	uint32_t *init_order;
+	uint32_t init_order_count;
+
 	uint32_t reg_count;
 	uint32_t label_count;
 
@@ -80,7 +84,7 @@ typedef struct IR {
 	SymbolTable *symtab;
 } IR;
 
-void init_ir (IR *ir, Arena *arena, AST *ast, SymbolTable *symtab);
+void ir_init (IR *ir, Arena *arena, Sema *sema);
 void ir_gen (IR *ir);
 void dump_ir (IR *ir);
 
