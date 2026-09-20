@@ -5,6 +5,7 @@
 
 #define RESERVED_PREFIX "__r2_"
 #define RESERVED_PREFIX_LEN (sizeof(RESERVED_PREFIX) - 1)
+#define MAX_PARAMS 255
 
 static ErrorLoc node_loc (ASTNode *n)
 {
@@ -451,11 +452,16 @@ static void check_fn_dec (Sema *s, uint32_t idx)
 	s->curr_ret = s->ast->nodes[ret].data_type;
 
 	uint32_t param = s->ast->nodes[args].child;
+	uint32_t count = 0;
 	while (param != NO_NODE) {
 		ASTNode *p = &s->ast->nodes[param];
 		sema_declare(s, p->str, p->len, SYMBOL_PARAM, p->data_type, param);
+		count++;
 		param = p->next_bro;
 	}
+	if (count > MAX_PARAMS)
+		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[idx]),
+				"too many parameters (max %d)", MAX_PARAMS);
 
 	check_block_body(s, body);
 

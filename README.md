@@ -6,15 +6,15 @@ A small compiler for the (invented) **R2-Lang** language, written in C.
 
 ## Current Status
 
-Currently implements a complete lexer, parser, type-checker and IR with arena-based memory management. The code generator is not built yet.
+The code generator is not built yet, the rest is correctly implemented.
 
-**Early stage / work in progress.**
+**Work in progress.**
 
 - Lexer — implemented and tested
 - Parser — implemented and tested
 - Type checker — implemented and tested
 - IR — implemented and tested
-- Code generation — not started
+- Code generation — working on
 
 For now, `--dump-tokens`, `--dump-ast`, `--dump-symbols` and `--dump-ir` are the main ways to see the compiler do something.
 
@@ -79,6 +79,9 @@ src/
 ├── parser/
 |   ├── ast.h        # AST definition: nodes, types, AST tree
 |   └── parser.c/h   # Parser: get the tokens and crate an AST tree
+├── codegen/
+|   ├── x86_64.c/h   # x86_64: translates the IR to x86-64 assembly
+|   └── codegen.c/h  # Codegen: wires the different architectures and interpreter mode and manage opening/closing files.
 ├── sema/
 |   ├── symbol.c/h   # Symbol and Symbol table definition
 |   └── sema.c/h     # Semantic analyzer: analyze the AST, reports remainig errors and generate symbol table
@@ -86,7 +89,7 @@ src/
     └── lexer.c/h    # Tokenizer: keywords, literals, operators
 ```
 
-Tests live under `tests/lexer/`, `tests/parser/`, `tests/sema/` and `tests/ir/`, each fixture as `<name>_src.r2` plus expected `<name>_result.txt` (and optional `<name>_stderr.txt` / `<name>_status.txt`), checked by `tests/run_suite.sh`.
+Tests live under `tests/`, each fixture as `<name>_src.r2` plus expected `<name>_result.txt` (and optional `<name>_stderr.txt` / `<name>_status.txt`), checked by `tests/run_suite.sh`.
 
 ---
 

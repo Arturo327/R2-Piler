@@ -1,9 +1,9 @@
 CC = gcc
 
-INC_FLAGS = -Isrc
+CPP_FLAGS = -Isrc
 WARN_FLAGS = -Wall -Wextra
 ARCH_FLAGS ?= -march=native
-CFLAGS ?= $(INC_FLAGS) $(WARN_FLAGS) -O2 $(ARCH_FLAGS)
+CFLAGS ?= $(WARN_FLAGS) -O2 $(ARCH_FLAGS)
 LDLIBS ?=
 
 BUILD_DIR ?= build
@@ -23,7 +23,7 @@ $(TARGET): $(OBJ)
 
 $(BUILD_DIR)/%.o: src/%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+	$(CC) $(CPP_FLAGS) $(CFLAGS) -MMD -MP -c $< -o $@
 
 test: test_lexer test_parser test_sema test_ir
 

@@ -324,6 +324,8 @@ make
 | `-S` / `--dump-symbols` | Vuelca la tabla de símbolos resuelta a stdout |
 | `-I` / `--dump-ir` | Vuelca la IR generada a stdout |
 | `-o` / `--out` | Ruta del assembly de salida |
+| `-a` / `--arch` | Arquitectura del assembly generado|
+| `-e` / `--execute` | Modo intérprete |
 
 `make test` ejecuta las cuatro suites de fixtures (lexer, parser, sema, ir), cada una contra `build/r2p`.
 

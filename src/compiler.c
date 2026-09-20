@@ -73,6 +73,11 @@ static int compiler_load_file (Compiler *comp, const char *file)
 
 	error_index_lines(&comp->err, comp->src, &comp->arena);
 
+	if (comp->err.line_count > UINT16_MAX) {
+		fprintf(stderr, "Error: %s has more than %u lines\nPlease, for your own good and your co-workers, I strongly recomend you to divide this enourmous file", file, UINT16_MAX);
+		return 1;
+	}
+
 	init_lexer(&comp->lexer, comp->src, &comp->arena, &comp->err);
 	init_parser(&comp->parser, &comp->lexer, &comp->ast_arena, &comp->err);
 	sema_init(&comp->sema, &comp->sym_arena, &comp->parser.ast, &comp->err);

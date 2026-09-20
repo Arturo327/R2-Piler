@@ -18,7 +18,7 @@ static void print_help (const char *build)
 	printf("OPTIONS\n");
 	printf("    -v|--version        Shows running version.\n");
 	printf("    -h|--help           Shows this message.\n");
-	printf("    -o|--out            Indicates the output file. Default: <file>.s\n");
+	printf("    -o|--out FILE       Output assembly path (default: out.s)\n");
 	printf("    -a|--arch           Indicates the architecture. Default: x86-64.\n");
 	printf("    -e|--execute        Executes the program as an interpreter inestead generating assembly.\n");
 	printf("    -T|--dump-tokens    Prints your code tokens to stdout\n");
