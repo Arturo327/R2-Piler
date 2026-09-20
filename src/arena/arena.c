@@ -8,11 +8,11 @@
 #define ARENA_ALIGN 16
 #define ARENA_DEFAULT_BLOCK (64 * 1024)
 
-typedef struct ArenaBlock {
+struct ArenaBlock {
 	struct ArenaBlock *next;
 	size_t used;
 	uint8_t data[];
-} ArenaBlock;
+};
 
 static size_t align_up (size_t n)
 {

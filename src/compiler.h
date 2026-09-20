@@ -6,11 +6,14 @@
 #include "error/error.h"
 #include "parser/parser.h"
 #include "sema/sema.h"
+#include "codegen/codegen.h"
 #include "ir/ir.h"
 
 typedef struct CompilerOpts {
 	char *path;
 	char *out;
+	Arch arch;
+
 	int dump_tokens;
 	int dump_ast;
 	int dump_symbols;
@@ -22,12 +25,15 @@ typedef struct Compiler {
 	Arena ast_arena;
 	Arena sym_arena;
 	Arena ir_arena;
+	Arena gen_arena;
+
 	ErrorReporter err;
 
 	Lexer lexer;
 	Parser parser;
 	Sema sema;
 	IR ir;
+	CodeGen codegen;
 
 	char *src;
 } Compiler;
