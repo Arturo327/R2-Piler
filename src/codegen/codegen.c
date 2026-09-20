@@ -2,7 +2,7 @@
 #include "codegen/x86_64.h"
 
 #include <stdio.h>
-#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <stdarg.h>
@@ -80,6 +80,11 @@ void cg_printf (CodeGen *c, const char *fmt, ...)
 	va_start(ap, fmt);
 	n = vsnprintf(c->code + c->len, CG_LINE_MAX, fmt, ap);
 	va_end(ap);
+
+	if (n < 0 || (size_t)n >= CG_LINE_MAX) {
+		fprintf(stderr, "Error: codegen line too long\n");
+		exit(1);
+	}
 
 	c->len += (size_t)n;
 }

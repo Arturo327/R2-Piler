@@ -74,7 +74,7 @@ static int compiler_load_file (Compiler *comp, const char *file)
 	error_index_lines(&comp->err, comp->src, &comp->arena);
 
 	if (comp->err.line_count > UINT16_MAX) {
-		fprintf(stderr, "Error: %s has more than %u lines\nPlease, for your own good and your co-workers, I strongly recomend you to divide this enourmous file", file, UINT16_MAX);
+		fprintf(stderr, "Error: %s has more than %u lines\nPlease, for your own good and your co-workers, I strongly recomend you to divide this enormous file\n", file, UINT16_MAX);
 		return 1;
 	}
 
