@@ -78,6 +78,12 @@ static int compiler_load_file (Compiler *comp, const char *file)
 		return 1;
 	}
 
+	if (error_longest_line(&comp->err) >= UINT16_MAX) {
+		fprintf(stderr, "Error: %s has a line longer than %u characters. I don't know if you use an IMAX screen to code, but I think your co-workers don't\n",
+				file, (unsigned)(UINT16_MAX - 1));
+		return 1;
+	}
+
 	init_lexer(&comp->lexer, comp->src, &comp->arena, &comp->err);
 	init_parser(&comp->parser, &comp->lexer, &comp->ast_arena, &comp->err);
 	sema_init(&comp->sema, &comp->sym_arena, &comp->parser.ast, &comp->err);
@@ -104,7 +110,13 @@ static void release_frontend (Compiler *c)
 
 int compile (Compiler *c, CompilerOpts *opts)
 {
+	int dumping = opts->dump_tokens || opts->dump_ast
+			|| opts->dump_symbols || opts->dump_ir;
+
 	if (compiler_load_file(c, opts->path)) return 1;
+	if (!dumping && init_codegen(&c->codegen, opts->arch, &c->gen_arena,
+			&c->ir, opts->out))
+		return 1;
 	if (opts->dump_tokens)
 		return dump_tokens(&c->lexer) ? 1 : 0;
 
@@ -129,9 +141,6 @@ int compile (Compiler *c, CompilerOpts *opts)
 		return 0;
 	}
 	release_frontend(c);
-
-	if (init_codegen(&c->codegen, opts->arch, &c->gen_arena, &c->ir, opts->out))
-		return 1;
 	return codegen_run(&c->codegen);
 }
 

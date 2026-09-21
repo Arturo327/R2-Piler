@@ -6,6 +6,7 @@
 #define RESERVED_PREFIX "__r2_"
 #define RESERVED_PREFIX_LEN (sizeof(RESERVED_PREFIX) - 1)
 #define MAX_PARAMS 255
+#define MAX_EXPR_DEPTH 5000
 
 static ErrorLoc node_loc (ASTNode *n)
 {
@@ -28,6 +29,8 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->init_order_count = 0;
 	s->init_order_cap = 16;
 	s->init_order = arena_alloc(arena, sizeof(uint32_t) * s->init_order_cap);
+	s->expr_depth = 0;
+	s->too_deep = 0;
 
 	symtab_init(&s->table, arena);
 }
@@ -363,7 +366,7 @@ static uint8_t check_binary (Sema *s, uint32_t idx)
 	return n->data_type;
 }
 
-static uint8_t check_expr (Sema *s, uint32_t idx)
+static uint8_t check_expr_node (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
 
@@ -381,6 +384,25 @@ static uint8_t check_expr (Sema *s, uint32_t idx)
 	case NODE_ERROR: n->data_type=TYPE_ERROR; return TYPE_ERROR;
 	default: return check_binary(s, idx);
 	}
+}
+
+static uint8_t check_expr (Sema *s, uint32_t idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+	uint8_t type;
+
+	if (s->expr_depth >= MAX_EXPR_DEPTH) {
+		if (!s->too_deep)
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"expression or initializer chain nested too deeply");
+		s->too_deep = 1;
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	s->expr_depth++;
+	type = check_expr_node(s, idx);
+	s->expr_depth--;
+	return type;
 }
 
 static void check_block_body (Sema *s, uint32_t idx)
@@ -712,6 +734,9 @@ static void decl_globals (Sema *s)
 			uint8_t data_type = s->ast->nodes[ret].data_type;
 			sema_declare(s, n->str, n->len, SYMBOL_FN, data_type, idx);
 		} else if (n->type == NODE_VAR_DEC) {
+			if (n->len == 4 && memcmp(n->str, "main", 4) == 0)
+				error_report(s->err, ERR_ERROR, node_loc(n),
+						"'main' must be a function");
 			sema_declare(s, n->str, n->len, SYMBOL_VAR, n->data_type, idx);
 		}
 

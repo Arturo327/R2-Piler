@@ -42,6 +42,7 @@ typedef struct Lexer {
 } Lexer;
 
 void init_lexer (Lexer *lexer, char *src, Arena *arena, ErrorReporter *err);
+void print_escaped (const char *s, size_t len, char quote);
 Token get_token (Lexer *l);
 int dump_tokens (Lexer *l);
 

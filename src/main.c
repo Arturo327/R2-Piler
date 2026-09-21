@@ -19,7 +19,7 @@ static void print_help (const char *build)
 	printf("OPTIONS\n");
 	printf("    -v|--version        Shows running version.\n");
 	printf("    -h|--help           Shows this message.\n");
-	printf("    -o|--out FILE       Output assembly path (default: out.s)\n");
+	printf("    -o|--out FILE       Output assembly path (default: out.s). '-' for stdout\n");
 	printf("    -a|--arch ARCH      Indicates the architecture. Default: x86-64.\n");
 	printf("    -e|--execute        Executes the program as an interpreter inestead generating assembly.\n");
 	printf("    -T|--dump-tokens    Prints your code tokens to stdout\n");
@@ -88,9 +88,8 @@ static char *default_out (const char *path)
 static int same_file (const char *a, const char *b)
 {
 	struct stat sa, sb;
-
-	if (stat(a, &sa) != 0 || stat(b, &sb) != 0)
-		return 0;
+	if (strcmp(a, b) == 0) return 1;
+	if (stat(a, &sa) != 0 || stat(b, &sb) != 0) return 0;
 	return sa.st_dev == sb.st_dev && sa.st_ino == sb.st_ino;
 }
 
@@ -106,7 +105,7 @@ static void resolve_paths (CompilerOpts *args, int argc, char *argv[])
 		fprintf(stderr, "Warning: only '%s' will be compiled\n", args->path);
 
 	if (args->out == NULL) args->out = default_out(args->path);
-	if (strcmp(args->out, args->path) == 0 || same_file(args->out, args->path)) {
+	if (same_file(args->out, args->path)) {
 		fprintf(stderr, "Error: output file would overwrite the source file\n");
 		exit(1);
 	}
@@ -116,6 +115,7 @@ static CompilerOpts parse_args (int argc, char *argv[])
 {
 	CompilerOpts args = { .arch = ARCH_X86_64 };
 	int opt;
+	int interp = 0;
 
 	opterr = 0;
 	while ((opt = getopt_long(argc, argv, ":TIASo:a:ehv", long_options, NULL)) != -1) {
@@ -123,7 +123,7 @@ static CompilerOpts parse_args (int argc, char *argv[])
 		{
 		case 'o': args.out = optarg; break;
 		case 'a': args.arch = get_arch(optarg); break;
-		case 'e': args.arch = ARCH_INTERP; break;
+		case 'e': interp = 1; break;
 		case 'h': print_help(argv[0]); exit(0);
 		case 'v': printf("%s\n", VERSION); exit(0);
 		case 'T': args.dump_tokens = 1; break;
@@ -139,6 +139,7 @@ static CompilerOpts parse_args (int argc, char *argv[])
 		}
 	}
 	resolve_paths(&args, argc, argv);
+	if (interp) args.arch = ARCH_INTERP;
 	return args;
 }
 

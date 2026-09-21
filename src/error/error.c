@@ -152,3 +152,14 @@ void error_report (ErrorReporter *er, ErrorLevel level, ErrorLoc loc, const char
 	if (level == ERR_ERROR) er->err_count++;
 	else er->warn_count++;
 }
+
+int error_longest_line (ErrorReporter *er)
+{
+	int longest = 0;
+
+	for (int i = 0; i < er->line_count; i++) {
+		int len = error_line_len(er->line_starts[i]);
+		if (len > longest) longest = len;
+	}
+	return longest;
+}

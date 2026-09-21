@@ -81,10 +81,7 @@ void cg_printf (CodeGen *c, const char *fmt, ...)
 	n = vsnprintf(c->code + c->len, CG_LINE_MAX, fmt, ap);
 	va_end(ap);
 
-	if (n < 0 || (size_t)n >= CG_LINE_MAX) {
-		fprintf(stderr, "Error: codegen line too long\n");
-		exit(1);
-	}
-
+	if (n < 0) n = 0;
+	if (n >= CG_LINE_MAX) n = CG_LINE_MAX - 1;
 	c->len += (size_t)n;
 }

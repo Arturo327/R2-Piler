@@ -748,6 +748,34 @@ static inline void indent (int depth)
 	while (depth-- > 0) printf("  ");
 }
 
+static void dump_node_value (ASTNode *n)
+{
+	switch (n->type)
+	{
+	case NODE_LIT_i64:
+		printf(" i64=%lld", (long long)n->i64);
+		break;
+	case NODE_LIT_u64:
+		printf(" u64=%llu", (unsigned long long)n->u64);
+		break;
+	case NODE_LIT_CHAR:
+		printf(" char='");
+		print_escaped(&n->chr, 1, '\'');
+		printf("'");
+		break;
+	case NODE_LIT_STR: case NODE_ID:
+		printf(" str=\"");
+		print_escaped(n->str, n->len, '"');
+		printf("\"");
+		break;
+	case NODE_VAR_DEC: case NODE_FN_DEC: case NODE_FN_CALL:
+		if (n->str) printf(" name=\"%.*s\"", (int)n->len, n->str);
+		break;
+	default:
+		break;
+	}
+}
+
 static void dump_node (AST *ast, uint32_t idx, int depth)
 {
 	while (idx != NO_NODE) {
@@ -759,17 +787,7 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 		indent(depth);
 		printf("%s [%u:%u]", name, n->line, n->col);
 
-		if (n->type == NODE_LIT_i64)
-			printf(" i64=%lld", (long long)n->i64);
-		else if (n->type == NODE_LIT_u64)
-			printf(" u64=%llu", (unsigned long long)n->u64);
-		else if (n->type == NODE_LIT_CHAR)
-			printf(" char='%c'", n->chr);
-		else if (n->type == NODE_LIT_STR || n->type == NODE_ID)
-			printf(" str=\"%.*s\"", (int)n->len, n->str);
-		else if (n->type == NODE_VAR_DEC || n->type == NODE_FN_DEC || n->type == NODE_FN_CALL) {
-			if (n->str) printf(" name=\"%.*s\"", (int)n->len, n->str);
-		}
+		dump_node_value(n);
 
 		if (n->type == NODE_VAR_DEC || n->type == NODE_RET_DEC)
 			printf(" type=%s", type_name[n->data_type]);

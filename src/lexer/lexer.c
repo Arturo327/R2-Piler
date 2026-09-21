@@ -228,11 +228,13 @@ static char *string_literal_find_end (char *a)
 static void track_continuation_lines (Lexer *l, char *from, char *to)
 {
 	for (char *c = from; c < to; c++) {
-		if (c[0] == '\\' && c[1] == '\n') {
+		if (c[0] != '\\')
+			continue;
+		if (c[1] == '\n') {
 			l->line++;
 			l->line_start = c + 2;
-			c++;
 		}
+		c++;
 	}
 }
 
@@ -523,7 +525,7 @@ static const char *token_type_to_string (TokenType type)
 	return token_names[type];
 }
 
-static void print_escaped (const char *s, size_t len, char quote)
+void print_escaped (const char *s, size_t len, char quote)
 {
 	for (size_t i = 0; i < len; i++) {
 		unsigned char c = (unsigned char)s[i];

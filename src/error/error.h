@@ -24,6 +24,7 @@ typedef struct ErrorReporter {
 
 void error_init (ErrorReporter *er, const char *file);
 void error_index_lines (ErrorReporter *er, char *src, Arena *arena);
+int error_longest_line (ErrorReporter *er);
 void error_report (ErrorReporter *er, ErrorLevel level, ErrorLoc loc, const char *fmt, ...);
 
 #endif
