@@ -581,8 +581,9 @@ static void check_for (Sema *s, uint32_t idx)
 	if (cond_type == TYPE_VOID && s->ast->nodes[cond].type != NODE_EMPTY)
 		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[cond]),
 				"expression with resulting type void is not valid as a condition");
-	check_expr(s, updt);
+
 	check_body(s, body);
+	check_expr(s, updt);
 
 	s->depth--;
 	symtab_pop_scope(&s->table, mark);

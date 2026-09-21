@@ -95,6 +95,9 @@ static int same_file (const char *a, const char *b)
 
 static void resolve_paths (CompilerOpts *args, int argc, char *argv[])
 {
+	int dumping = args->dump_tokens || args->dump_ast
+			|| args->dump_symbols || args->dump_ir;
+
 	if (optind >= argc) {
 		fprintf(stderr, "No source file found\n");
 		fprintf(stderr, "Execute '%s --help' for more info\n", argv[0]);
@@ -105,7 +108,7 @@ static void resolve_paths (CompilerOpts *args, int argc, char *argv[])
 		fprintf(stderr, "Warning: only '%s' will be compiled\n", args->path);
 
 	if (args->out == NULL) args->out = default_out(args->path);
-	if (same_file(args->out, args->path)) {
+	if (!dumping && same_file(args->out, args->path)) {
 		fprintf(stderr, "Error: output file would overwrite the source file\n");
 		exit(1);
 	}
@@ -134,7 +137,8 @@ static CompilerOpts parse_args (int argc, char *argv[])
 			fprintf(stderr, "Option '-%c' requires an argument.\n", optopt);
 			exit(1);
 		default:
-			fprintf(stderr, "Unknown option. Execute '%s --help' for more info.\n", argv[0]);
+			fprintf(stderr, "Unknown option '%s'. Execute '%s --help' for more info.\n",
+					argv[optind - 1], argv[0]);
 			exit(1);
 		}
 	}

@@ -520,9 +520,9 @@ static uint32_t parse_fn_decl (Parser *p)
 	return node;
 }
 
-static inline uint32_t parse_cond (Parser *p)
+static inline uint32_t parse_cond (Parser *p, const char *msg)
 {
-	consume(p, TOK_LPAREN, "expected condition after if statement");
+	consume(p, TOK_LPAREN, msg);
 	uint32_t cond = parse_expr(p, 0);
 	consume(p, TOK_RPAREN, "expected ')'");
 	return cond;
@@ -536,7 +536,7 @@ static void parse_elif_chain (Parser *p, uint32_t if_node, uint32_t *last)
 		consume(p, TOK_ELIF, "expected 'elif'");
 
 		uint32_t elif_node = new_node(p, NODE_ELIF, eline, ecol);
-		uint32_t elif_cond = parse_cond(p);
+		uint32_t elif_cond = parse_cond(p, "expected condition after elif statement");
 		uint32_t elif_body = parse_statement(p);
 
 		uint32_t elif_last = NO_NODE;
@@ -566,7 +566,7 @@ static uint32_t parse_if (Parser *p)
 	consume(p, TOK_IF, "expected 'if'");
 
 	uint32_t node = new_node(p, NODE_IF, line, col);
-	uint32_t cond = parse_cond(p);
+	uint32_t cond = parse_cond(p, "expected condition after if statement");
 	uint32_t body = parse_statement(p);
 
 	uint32_t last = NO_NODE;
@@ -584,7 +584,7 @@ static uint32_t parse_while (Parser *p)
 	consume(p, TOK_WHILE, "expected 'while'");
 
 	uint32_t node = new_node(p, NODE_WHILE, line, col);
-	uint32_t cond = parse_cond(p);
+	uint32_t cond = parse_cond(p, "expected condition after while statement");
 	uint32_t body = parse_statement(p);
 
 	uint32_t last = NO_NODE;
