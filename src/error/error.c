@@ -8,33 +8,49 @@
 #define COL_RESET "\033[0m"
 #define TAB_WIDTH 8
 
-void error_init (ErrorReporter *er, const char *file)
+void error_init (ErrorReporter *er, const char *file, char *src, Arena *arena)
 {
 	er->file = file;
+	er->src = src;
+	er->arena = arena;
 	er->err_count = 0;
 	er->warn_count = 0;
 	er->line_starts = NULL;
 	er->line_count = 0;
 }
 
-void error_index_lines (ErrorReporter *er, char *src, Arena *arena)
+void error_source_stats (const char *src, size_t *lines, size_t *longest)
+{
+	size_t len = 0;
+
+	*lines = 1;
+	*longest = 0;
+	for (const char *c = src; *c != '\0'; c++) {
+		if (*c != '\n') {
+			len++;
+			continue;
+		}
+		if (len > *longest) *longest = len;
+		len = 0;
+		(*lines)++;
+	}
+	if (len > *longest) *longest = len;
+}
+
+static void index_lines (ErrorReporter *er)
 {
 	int count = 1;
-	for (char *c = src; *c != '\0'; c++) {
-		if (*c == '\n') count++;
-	}
-
-	er->line_starts = arena_alloc(arena, sizeof(char *) * (size_t)count);
-	er->line_count = count;
-
-	er->line_starts[0] = src;
 	int line = 1;
-	for (char *c = src; *c != '\0'; c++) {
-		if (*c == '\n') {
-			er->line_starts[line] = c + 1;
-			line++;
-		}
-	}
+
+	for (const char *c = er->src; *c != '\0'; c++)
+		if (*c == '\n') count++;
+
+	er->line_starts = arena_alloc(er->arena, sizeof(char *) * (size_t)count);
+	er->line_count = count;
+	er->line_starts[0] = er->src;
+
+	for (char *c = er->src; *c != '\0'; c++)
+		if (*c == '\n') er->line_starts[line++] = c + 1;
 }
 
 static const char *level_str (ErrorLevel level, char **col)
@@ -118,19 +134,15 @@ static void print_caret (int vis_start, int vis_width, const char *color)
 	fprintf(stderr, "%s\n", COL_RESET);
 }
 
-void error_report (ErrorReporter *er, ErrorLevel level, ErrorLoc loc, const char *fmt, ...)
+static void print_context (ErrorReporter *er, ErrorLoc loc, const char *color)
 {
-	char *color;
 	char *line_start;
 	int line_len, col, span, vis_start, vis_end;
 
-	fprintf(stderr, "%s:%d:%d: %s: ", er->file, loc.line, loc.col, level_str(level, &color));
-
-	va_list ap;
-	va_start(ap, fmt);
-	vfprintf(stderr, fmt, ap);
-	va_end(ap);
-	fprintf(stderr, "\n");
+	if (er->src == NULL)
+		return;
+	if (er->line_starts == NULL)
+		index_lines(er);
 
 	line_start = error_get_line_start(er, loc.line);
 	line_len = error_line_len(line_start);
@@ -148,18 +160,22 @@ void error_report (ErrorReporter *er, ErrorLevel level, ErrorLoc loc, const char
 
 	print_snippet(line_start, line_len, col, span, loc.line, color);
 	print_caret(vis_start, vis_end - vis_start, color);
+}
+
+void error_report (ErrorReporter *er, ErrorLevel level, ErrorLoc loc, const char *fmt, ...)
+{
+	char *color;
+	va_list ap;
+
+	fprintf(stderr, "%s:%d:%d: %s: ", er->file, loc.line, loc.col, level_str(level, &color));
+
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	fprintf(stderr, "\n");
+
+	print_context(er, loc, color);
 
 	if (level == ERR_ERROR) er->err_count++;
 	else er->warn_count++;
-}
-
-int error_longest_line (ErrorReporter *er)
-{
-	int longest = 0;
-
-	for (int i = 0; i < er->line_count; i++) {
-		int len = error_line_len(er->line_starts[i]);
-		if (len > longest) longest = len;
-	}
-	return longest;
 }

@@ -66,28 +66,34 @@ static int get_file (Compiler *comp, const char *file)
 	return 0;
 }
 
-static int compiler_load_file (Compiler *comp, const char *file)
+static int check_source_limits (const char *file, const char *src)
 {
-	error_init(&comp->err, file);
-	if (get_file(comp, file)) return 1;
+	size_t lines;
+	size_t longest;
 
-	error_index_lines(&comp->err, comp->src, &comp->arena);
-
-	if (comp->err.line_count > UINT16_MAX) {
-		fprintf(stderr, "Error: %s has more than %u lines\nPlease, for your own good and your co-workers, I strongly recomend you to divide this enormous file\n", file, UINT16_MAX);
+	error_source_stats(src, &lines, &longest);
+	if (lines > UINT16_MAX) {
+		fprintf(stderr, "Error: %s has more than %u lines\nPlease, for your own good and your co-workers, I strongly recomend you to divide this enormous file\n",
+				file, (unsigned)UINT16_MAX);
 		return 1;
 	}
-
-	if (error_longest_line(&comp->err) >= UINT16_MAX) {
+	if (longest >= UINT16_MAX) {
 		fprintf(stderr, "Error: %s has a line longer than %u characters. I don't know if you use an IMAX screen to code, but I think your co-workers don't\n",
 				file, (unsigned)(UINT16_MAX - 1));
 		return 1;
 	}
+	return 0;
+}
 
+static int compiler_load_file (Compiler *comp, const char *file)
+{
+	if (get_file(comp, file)) return 1;
+	if (check_source_limits(file, comp->src)) return 1;
+
+	error_init(&comp->err, file, comp->src, &comp->arena);
 	init_lexer(&comp->lexer, comp->src, &comp->arena, &comp->err);
 	init_parser(&comp->parser, &comp->lexer, &comp->ast_arena, &comp->err);
 	sema_init(&comp->sema, &comp->sym_arena, &comp->parser.ast, &comp->err);
-
 	return 0;
 }
 
