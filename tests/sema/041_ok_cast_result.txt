@@ -1,0 +1,13 @@
+var g [1:5] depth=0 type=i64
+var h [2:5] depth=0 type=u64
+fn id_u64 [3:4] depth=0 type=u64
+fn main [6:4] depth=0 type=i64
+param x [3:11] depth=1 type=u64
+var a [7:7] depth=1 type=i64
+var b [8:7] depth=1 type=u64
+var c [9:7] depth=1 type=i64
+var ch [10:7] depth=1 type=char
+var d [11:7] depth=1 type=i64
+var e [12:7] depth=1 type=char
+var f [13:7] depth=1 type=u64
+var h2 [14:7] depth=1 type=u64

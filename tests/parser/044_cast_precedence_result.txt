@@ -1,0 +1,40 @@
+NODE_ROOT [0:0]
+  NODE_VAR_DEC [1:5] name="a" type=i64
+    NODE_ADD [1:24]
+      NODE_CAST [1:17] type=i64
+        NODE_LIT_i64 [1:15] i64=1
+      NODE_LIT_i64 [1:26] i64=2
+  NODE_VAR_DEC [2:5] name="b" type=i64
+    NODE_CAST [2:23] type=i64
+      NODE_ADD [2:18]
+        NODE_LIT_i64 [2:16] i64=1
+        NODE_LIT_i64 [2:20] i64=2
+  NODE_VAR_DEC [3:5] name="c" type=i64
+    NODE_CAST [3:18] type=i64
+      NODE_NEG [3:15]
+        NODE_LIT_i64 [3:16] i64=1
+  NODE_VAR_DEC [4:5] name="d" type=u64
+    NODE_CAST [4:24] type=u64
+      NODE_CAST [4:17] type=i64
+        NODE_LIT_i64 [4:15] i64=1
+  NODE_VAR_DEC [5:5] name="e" type=u64
+    NODE_FN_CALL [5:15] name="f"
+      NODE_CAST [5:19] type=u64
+        NODE_LIT_i64 [5:17] i64=1
+  NODE_ASSIGN [6:3]
+    NODE_ID [6:1] str="x"
+    NODE_CAST [6:7] type=i64
+      NODE_ID [6:5] str="y"
+  NODE_FN_DEC [7:4] name="f"
+    NODE_ARGS_DEC [7:5]
+      NODE_VAR_DEC [7:6] name="x" type=u64
+    NODE_RET_DEC [7:15] type=u64
+    NODE_BLOCK [7:21]
+      NODE_RET [8:3]
+        NODE_CAST [8:12] type=u64
+          NODE_ID [8:10] str="x"
+  NODE_VAR_DEC [10:5] name="h" type=i64
+    NODE_CAST [10:28] type=i64
+      NODE_CAST [10:20] type=char
+        NODE_NOT_L [10:15]
+          NODE_LIT_i64 [10:16] i64=256

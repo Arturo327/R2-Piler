@@ -388,6 +388,7 @@ typedef struct KeywordKey {
 
 // WARNING: order must be: first length, then alphabetically.
 static const Keyword keywords[] = {
+	{"as", TOK_AS},
 	{"fn", TOK_FN},
 	{"if", TOK_IF},
 	{"for", TOK_FOR},
@@ -510,7 +511,7 @@ static const char *const token_names[TOK_COUNT] = {
 	TN(TOK_RPAREN), TN(TOK_LKEY), TN(TOK_RKEY), TN(TOK_LBRACE), TN(TOK_RBRACE),
 	TN(TOK_LIT_i64), TN(TOK_LIT_u64), TN(TOK_LIT_CHAR), TN(TOK_LIT_STR),
 	TN(TOK_i64), TN(TOK_u64), TN(TOK_CHAR), TN(TOK_VOID), TN(TOK_IF),
-	TN(TOK_ELSE), TN(TOK_ELIF), TN(TOK_WHILE), TN(TOK_FOR), TN(TOK_RET),
+	TN(TOK_ELSE), TN(TOK_ELIF), TN(TOK_WHILE), TN(TOK_FOR), TN(TOK_RET), TN(TOK_AS),
 	TN(TOK_ADD), TN(TOK_SUB), TN(TOK_STAR), TN(TOK_SLASH), TN(TOK_PERCENT),
 	TN(TOK_AND_A), TN(TOK_OR_A), TN(TOK_XOR), TN(TOK_RS), TN(TOK_LS),
 	TN(TOK_NOT_A), TN(TOK_AND_L), TN(TOK_OR_L), TN(TOK_NOT_L),

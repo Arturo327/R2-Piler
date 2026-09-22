@@ -8,7 +8,8 @@ Estado: lexer, parser, sema e IR implementados y testeados. `optimize_ir` y code
 
 ## 1. Panorama
 
-R2-Lang es un lenguaje imperativo, estática y fuertemente tipado, sin conversiones implícitas.
+R2-Lang es un lenguaje imperativo, estática y fuertemente tipado, sin conversiones implícitas
+(solo casts explícitos con `expr as type`).
 
 - Tipos primitivos: `i64`, `u64`, `char` (1 byte con signo), `void`.
 - Funciones solo a nivel top-level, con parámetros por valor.
@@ -41,7 +42,11 @@ Keywords (una palabra clave nunca puede usarse como identificador):
 ```
 fn  if    for    i64  u64    var
 char  elif  else  void  while  return
+as
 ```
+
+`as` es keyword desde los casts explícitos: no puede usarse como identificador
+(`as_`, `asdf` siguen siendo identificadores válidos).
 
 ### 2.3 Literales enteros
 
@@ -74,12 +79,13 @@ char  elif  else  void  while  return
 | `char` | 1 byte | Con signo, -128..127. Sign-extend al operar a 64 bits. |
 | `void` | — | Solo como tipo de retorno de función. |
 
-Reglas de tipos (estrictas, sin coerciones):
+Reglas de tipos (estrictas, sin coerciones implícitas; solo `as` explícito):
 
 - Operadores aritméticos y bitwise (`+ - * / % & | ^ << >>`): ambos operandos del **mismo tipo**, resultado del tipo de los operandos.
 - Comparaciones (`< > <= >= == !=`) y lógicos binarios (`&& ||`): aceptan operandos de tipos **distintos** (pero nunca `void`); resultado siempre `i64` (0 o 1).
 - `-` y `~` unarios: preservan el tipo del operando. `!` unario: acepta cualquier tipo no-`void`, resultado `i64`.
-- `void` no puede aparecer en expresiones (ni en condiciones, ni como operando, ni como init).
+- **Cast explícito `expr as type`** (`type = i64 | u64 | char`): acepta cualquier operando no-`void` (incluido el resultado de otro cast) y devuelve exactamente el tipo escrito. `as void` no existe (error de parser: `expected type`). Castear un `void` (p. ej. `f() as i64` con `f : void`) es error de sema (`cannot cast a value of type void`). Castear un operando con error (no declarado, string, etc.) no añade un segundo error: el cast propaga `error`.
+- `void` no puede aparecer en expresiones (ni en condiciones, ni como operando, ni como init, ni como origen/destino de cast).
 
 ---
 
@@ -90,6 +96,7 @@ De mayor a menor precedencia. Todos los binarios son asociativos por la izquierd
 | Prec | Operadores | Resultado |
 |------|-----------|-----------|
 | unario | `-` `!` `~` (prefijo) | `-`/`~` preservan tipo, `!` → `i64` |
+| cast | `expr as type` (postfijo, asociativo por la izquierda) | el `type` escrito (`i64`/`u64`/`char`) |
 | 11 | `*` `/` `%` | tipo de los operandos |
 | 10 | `+` `-` | tipo de los operandos |
 | 9 | `>>` `<<` | tipo de los operandos |
@@ -103,12 +110,16 @@ De mayor a menor precedencia. Todos los binarios son asociativos por la izquierd
 | 1 | `=` | tipo del LHS |
 
 El unario tiene la precedencia más alta y se aplica sobre un primario: `-x + y` es `(-x) + y`. `- -x` está permitido.
+El cast está justo debajo del unario y por encima de todos los binarios (como en Rust: `unary > as > *`):
+`-x as i64` es `(-x) as i64`, `1 as i64 + 2` es `(1 as i64) + 2`, `1 + 2 as u64` es `1 + (2 as u64)`.
+Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los paréntesis fuerzan otro agrupamiento: `(1 + 2) as i64`.
 
 ---
 
 ## 5. Expresiones
 
 - Literales enteros, char y string; identificadores; llamadas `f(a, b)`; expresiones entre paréntesis.
+- **Cast `expr as i64|u64|char`**: conversión explícita entre tipos numéricos. Todas las combinaciones están permitidas (`i64<->u64<->char`, incluido el cast identidad `x as i64` con `x : i64`). `i64<->u64` es reinterpretación de bits (wrap/módulo 2^64); `char` es con signo, así que `char -> i64/u64` es sign-extend (no emite código) y `i64/u64 -> char` es truncado a 8 bits + sign-extend. El cast no es asignable: `(x as i64) = 1` es error (`left side of '=' must be a variable`). Como cualquier expresión, puede aparecer en inits, args, `return` y condiciones.
 - **Asignación `=`**: es una expresión. El lado izquierdo debe ser una variable; el derecho debe tener exactamente el mismo tipo. Devuelve **el valor asignado**, por lo que puede encadenarse (`x = y = 1`) y usarse como expresión, incluso como condición.
 - **`&&` y `||`**: short-circuit. Si el resultado queda decidido por el operando izquierdo, el derecho no se evalúa. Compilan a una serie de saltos, no a operaciones aritméticas.
 
@@ -162,13 +173,14 @@ El unario tiene la precedencia más alta y se aplica sobre un primario: `-x + y`
 - **Auto-referencia** (`var x : i64 = x;`): error.
 - **Cadenas circulares** entre inits (`var y : i64 = x; var x : i64 = y;`): error. Al chequear el init de una global, si el init referencia a otra global cuyo init aún no se chequeó, ese init se chequea en ese momento (recursivamente); referenciar una global cuyo init está a medio chequear es el ciclo, y se reporta en el ref que lo cierra (un error por ciclo).
 - Solo se siguen **referencias directas** a globals en los inits. Los ciclos a través de llamadas a funciones dentro de inits no se detectan.
+- Las referencias a través de casts cuentan igual que las directas: `var y : u64 = x as u64;` fuerza el init de `x` antes que el de `y`, y `var x : i64 = y as i64; var y : i64 = x as i64;` es circular. Lo mismo para escrituras (`var y : i64 = (x = 1 as i64);` cuenta como referencia a `x`).
 - Los inits pueden llamar funciones; esas llamadas se ejecutan en orden fuente durante el arranque.
 
 ---
 
 ## 10. Condiciones
 
-- Toda condición (`if`, `elif`, `while`, `for`) es una expresión de tipo no-`void`.
+- Toda condición (`if`, `elif`, `while`, `for`) es una expresión de tipo no-`void` (un cast vale como condición: `if (x as i64)` es válido si `x` no es `void`).
 - Cualquier valor **distinto de cero es verdadero**; cero es falso.
 - La cond vacía de `for` cuenta como verdadera.
 
@@ -235,7 +247,8 @@ equality       = relational { ( "==" | "!=" ) relational } ;
 relational     = shift { ( "<" | ">" | "<=" | ">=" ) shift } ;
 shift          = additive { ( "<<" | ">>" ) additive } ;
 additive       = multiplicative { ( "+" | "-" ) multiplicative } ;
-multiplicative = unary { ( "*" | "/" | "%" ) unary } ;
+multiplicative = cast { ( "*" | "/" | "%" ) cast } ;
+cast           = unary { "as" type } ;
 unary          = ( "-" | "!" | "~" ) unary | primary ;
 primary        = INT_LIT | CHAR_LIT | STRING_LIT
                | IDENT | IDENT "(" [ args ] ")"
@@ -243,7 +256,7 @@ primary        = INT_LIT | CHAR_LIT | STRING_LIT
 args           = expr { "," expr } ;
 ```
 
-Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se definen en la sección 2. Por leniencia el parser acepta una coma final en parámetros (`fn f(a : i64,)`) y argumentos (`f(a,)`), aunque la EBNF no la muestra.
+Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se definen en la sección 2. Por leniencia el parser acepta una coma final en parámetros (`fn f(a : i64,)`) y argumentos (`f(a,)`), aunque la EBNF no la muestra. El cast es postfijo y asociativo por la izquierda (`x as i64 as u64` = `(x as i64) as u64`); el tipo tras `as` nunca puede ser `void`.
 
 ---
 
@@ -258,6 +271,7 @@ Modelo:
 - Campos no usados = `NO_REG`. `imm64`/`target` comparten unión y nunca son registros.
 - `data_type` = tipo de los OPERANDOS (mismo tipo en todos los casos salvo comparaciones/`&&`/`||` con tipos mixtos, donde es el del operando izquierdo; decide signed/unsigned en `DIV`, `MOD`, `RSHIFT` y comparaciones). El resultado de comparaciones (`EQ..LE`), `NOT_L` (`lnot`), `&&` y `||` es siempre `i64`.
 - Un `char` vive siempre en su reg extendido con signo (-128..127): `ADD`, `SUB`, `MUL`, `DIV`, `LSHIFT` y `NEG` sobre `char` van seguidos de `SEXT8`. `MOD`, `RSHIFT`, `AND`/`OR`/`XOR` y `NOT` sobre `char` no llevan `SEXT8` (el resultado ya queda bien extendido).
+- Cast (`NODE_CAST`, `expr as type`): solo emite código cuando el destino es `char` con origen no-`char` (un `sext8.char` que trunca a 8 bits + sign-extend). Todo lo demás (`i64<->u64`, `char->i64/u64`, identidad) es no-op a nivel de IR porque todos los regs son de 64 bits y el `char` ya vive extendido: se reutiliza el reg del operando. Como condición (`if`/`while`/`for`), el cast se evalúa a un reg y se salta con `JZ`/`JNZ` como cualquier otro valor.
 - `gen_expr` nunca devuelve el reg de una variable: leer una global emite `LD_GLOBAL` a un temporal; leer una local copia con `MOVE` a un temporal. Declarar una local con init reutiliza el reg del resultado; sin init reserva un reg sin emitir nada.
 - La asignación (`=`) evalúa primero el RHS, luego emite `MOVE` (local) o `STR_GLOBAL` (global), y devuelve el reg del RHS, por lo que `x = y = 5` comparte el mismo reg.
 - Llamadas: los args se evalúan de izquierda a derecha a temporales, luego se emiten los `ARG` `0..argc-1` contiguos justo antes de su `CALL`. `CALL` a función `void` no tiene `dst` (se imprime sin `rN =`); con retorno, `dst` es un reg fresco.

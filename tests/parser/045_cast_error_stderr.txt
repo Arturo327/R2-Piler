@@ -1,0 +1,9 @@
+tests/parser/045_cast_error_src.r2:1:19: [1;31mERROR[0m: expected type
+      1 | var a : i64 = 1 as[1;31m;[0m
+        |                   [1;31m^[0m
+tests/parser/045_cast_error_src.r2:2:20: [1;31mERROR[0m: expected type
+      2 | var b : i64 = 1 as [1;31mvoid[0m;
+        |                    [1;31m^~~~[0m
+tests/parser/045_cast_error_src.r2:3:20: [1;31mERROR[0m: expected type
+      3 | var c : i64 = 1 as [1;31mfoo[0m;
+        |                    [1;31m^~~[0m

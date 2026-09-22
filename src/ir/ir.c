@@ -373,6 +373,16 @@ static uint32_t gen_logic (IR *ir, ASTNode *n)
 	return res;
 }
 
+static uint32_t gen_cast (IR *ir, ASTNode *n)
+{
+	ASTNode *operand = ir->ast->nodes + n->child;
+	uint32_t src = gen_expr(ir, operand);
+
+	if (n->data_type != TYPE_CHAR || operand->data_type == TYPE_CHAR)
+		return src;
+	return make_op(ir, IR_SEXT8, src, NO_REG, TYPE_CHAR);
+}
+
 static uint32_t gen_expr (IR *ir, ASTNode *n)
 {
 	switch (n->type)
@@ -387,6 +397,7 @@ static uint32_t gen_expr (IR *ir, ASTNode *n)
 
 	case NODE_NEG: case NODE_NOT_A: case NODE_NOT_L: return gen_unary(ir, n);
 	case NODE_AND_L: case NODE_OR_L: return gen_logic(ir, n);
+	case NODE_CAST: return gen_cast(ir, n);
 
 	default:
 		assert(node_to_ir[n->type] != IR_NOP);

@@ -94,7 +94,7 @@ static uint8_t check_literal (Sema *s, uint32_t idx)
 	default:
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"string literals are not supported yet");
-		n->data_type = TYPE_VOID;
+		n->data_type = TYPE_ERROR;
 		break;
 	}
 	return n->data_type;
@@ -366,6 +366,24 @@ static uint8_t check_binary (Sema *s, uint32_t idx)
 	return n->data_type;
 }
 
+static uint8_t check_cast (Sema *s, uint32_t idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+	uint8_t from = check_expr(s, n->child);
+
+	if (from == TYPE_ERROR) {
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	if (from == TYPE_VOID) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot cast a value of type void");
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	return n->data_type;
+}
+
 static uint8_t check_expr_node (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
@@ -380,6 +398,7 @@ static uint8_t check_expr_node (Sema *s, uint32_t idx)
 	case NODE_ASSIGN: return check_assign(s, idx);
 	case NODE_NEG: case NODE_NOT_L: case NODE_NOT_A:
 		return check_unary(s, idx);
+	case NODE_CAST: return check_cast(s, idx);
 	case NODE_EMPTY: n->data_type = TYPE_VOID; return TYPE_VOID;
 	case NODE_ERROR: n->data_type=TYPE_ERROR; return TYPE_ERROR;
 	default: return check_binary(s, idx);

@@ -110,6 +110,7 @@ static uint32_t parse_primary (Parser *p);
 static uint32_t parse_statement (Parser *p);
 static uint32_t parse_fn_decl (Parser *p);
 static uint32_t parse_return (Parser *p);
+static uint32_t parse_cast (Parser *p);
 
 static ErrorLoc token_loc (Token t)
 {
@@ -336,7 +337,7 @@ static uint32_t parse_expr (Parser *p, int min_prec)
 	if (!enter_depth(p))
 		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
 
-	uint32_t left = parse_primary(p);
+	uint32_t left = parse_cast(p);
 	int prec = binop_prec[p->curr.type];
 
 	while (prec > 0 && prec >= min_prec && enter_depth(p)) {
@@ -377,6 +378,28 @@ static uint8_t parse_type (Parser *p, int allow_void)
 	uint8_t data_type = tok_to_datatype(t);
 	advance(p);
 	return data_type;
+}
+
+static uint32_t parse_cast (Parser *p)
+{
+	uint32_t node = parse_primary(p);
+	uint16_t extra = 0;
+
+	while (p->curr.type == TOK_AS && enter_depth(p)) {
+		uint16_t line = p->curr.line;
+		uint16_t col = p->curr.col;
+		uint32_t cast;
+
+		extra++;
+		advance(p);
+		cast = new_node(p, NODE_CAST, line, col);
+		p->ast.nodes[cast].len = 2;
+		p->ast.nodes[cast].data_type = parse_type(p, 0);
+		p->ast.nodes[cast].child = node;
+		node = cast;
+	}
+	p->depth = (uint16_t)(p->depth - extra);
+	return node;
 }
 
 static uint32_t parse_var_dec (Parser *p)
@@ -727,6 +750,7 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_LS] = "NODE_LS",
 	[NODE_NOT_A] = "NODE_NOT_A",
 	[NODE_NEG] = "NODE_NEG",
+	[NODE_CAST] = "NODE_CAST",
 	[NODE_IF] = "NODE_IF",
 	[NODE_ELIF] = "NODE_ELIF",
 	[NODE_ELSE] = "NODE_ELSE",
@@ -789,7 +813,7 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 
 		dump_node_value(n);
 
-		if (n->type == NODE_VAR_DEC || n->type == NODE_RET_DEC)
+		if (n->type == NODE_VAR_DEC || n->type == NODE_RET_DEC || n->type == NODE_CAST)
 			printf(" type=%s", type_name[n->data_type]);
 
 		printf("\n");

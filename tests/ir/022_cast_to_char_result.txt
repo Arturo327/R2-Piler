@@ -1,0 +1,29 @@
+global y : u64
+global x : i64
+
+fn __r2_init(0 params, 2 regs) : void
+    r0 = const.i64 300
+    str_global.i64 r0 @x
+    r1 = ld_global.i64 @x
+    str_global.u64 r1 @y
+    ret
+
+fn main(0 params, 11 regs) : i64
+    r0 = const.i64 300
+    r1 = move.i64 r0
+    r2 = sext8.char r1
+    r3 = const.u64 200
+    r4 = move.u64 r3
+    r5 = sext8.char r4
+    r6 = move.char r2
+    r7 = move.char r2
+    r8 = move.i64 r0
+    jz r8 -> L1
+    r9 = move.i64 r7
+    ret.i64 r9
+  L1:
+  L0:
+    r10 = const.i64 0
+    ret.i64 r10
+    ret
+
