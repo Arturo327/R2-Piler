@@ -164,6 +164,12 @@ static uint8_t tok_to_datatype (TokenType t)
 {
 	switch (t)
 	{
+	case TOK_i8: return TYPE_i8;
+	case TOK_u8: return TYPE_u8;
+	case TOK_i16: return TYPE_i16;
+	case TOK_u16: return TYPE_u16;
+	case TOK_i32: return TYPE_i32;
+	case TOK_u32: return TYPE_u32;
 	case TOK_i64: return TYPE_i64;
 	case TOK_u64: return TYPE_u64;
 	case TOK_CHAR: return TYPE_CHAR;
@@ -366,7 +372,9 @@ static uint32_t parse_expr (Parser *p, int min_prec)
 static uint8_t parse_type (Parser *p, int allow_void)
 {
 	TokenType t = p->curr.type;
-	int valid = (t == TOK_i64 || t == TOK_u64 || t == TOK_CHAR || (allow_void && t == TOK_VOID));
+	int valid = (t == TOK_i8 || t == TOK_u8 || t == TOK_i16 || t == TOK_u16
+		|| t == TOK_i32 || t == TOK_u32 || t == TOK_i64 || t == TOK_u64
+		|| t == TOK_CHAR || (allow_void && t == TOK_VOID));
 
 	if (!valid) {
 		if (!p->panic_mode)
@@ -814,7 +822,7 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 		dump_node_value(n);
 
 		if (n->type == NODE_VAR_DEC || n->type == NODE_RET_DEC || n->type == NODE_CAST)
-			printf(" type=%s", type_name[n->data_type]);
+			printf(" type=%s", types[n->data_type].name); 
 
 		printf("\n");
 		dump_node(ast, child, depth + 1);

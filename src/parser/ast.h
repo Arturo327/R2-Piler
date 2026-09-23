@@ -7,12 +7,38 @@
 
 typedef enum {
 	TYPE_VOID = 0,
+	TYPE_i8,
+	TYPE_u8,
+	TYPE_i16,
+	TYPE_u16,
+	TYPE_i32,
+	TYPE_u32,
 	TYPE_i64,
 	TYPE_u64,
 	TYPE_CHAR,
 	TYPE_ERROR,
 	TYPE_COUNT
 } DataType;
+
+typedef struct Type {
+	const char *name;
+	uint8_t size;
+	uint8_t sign;
+} Type;
+
+static const Type types[TYPE_COUNT] = {
+	[TYPE_VOID] = { "void", 0, 0 },
+	[TYPE_i8] = { "i8", 1, 1 },
+	[TYPE_u8] = { "u8", 1, 0 },
+	[TYPE_i16] = { "i16", 2, 1 },
+	[TYPE_u16] = { "u16", 2, 0 },
+	[TYPE_i32] = { "i32", 4, 1 },
+	[TYPE_u32] = { "u32", 4, 0 },
+	[TYPE_i64] = { "i64", 8, 1 },
+	[TYPE_u64] = { "u64", 8, 0 },
+	[TYPE_CHAR] = { "char", 1, 1 },
+	[TYPE_ERROR] = { "error", 0, 0 }
+};
 
 typedef enum {
 	NODE_ERROR = 0, NODE_EMPTY,
@@ -27,14 +53,6 @@ typedef enum {
 	NODE_VAR_DEC, NODE_ID, NODE_BLOCK, NODE_ROOT,		// misc
 	NODE_COUNT
 } NodeType;
-
-static const char *const type_name[TYPE_COUNT] = {
-	[TYPE_VOID] = "void",
-	[TYPE_i64] = "i64",
-	[TYPE_u64] = "u64",
-	[TYPE_CHAR] = "char",
-	[TYPE_ERROR] = "error"
-};
 
 typedef struct ASTNode {
 	union {

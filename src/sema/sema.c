@@ -78,6 +78,72 @@ static uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 	return sym_idx;
 }
 
+static int implicit_cast_ok (uint8_t from, uint8_t to)
+{
+	const Type *f, *t;
+
+	if (from == to) return 1;
+	if (from == TYPE_ERROR || to == TYPE_ERROR) return 0;
+	if (from == TYPE_VOID || to == TYPE_VOID) return 0;
+
+	f = &types[from];
+	t = &types[to];
+
+	if (f->sign && !t->sign) return 0;
+	return t->size > f->size;
+}
+
+static uint32_t sema_new_node (Sema *s, ASTNode node)
+{
+	uint32_t idx = s->ast->count++;
+	s->ast->nodes[idx] = node;
+	return idx;
+}
+
+static uint32_t sema_wrap_cast (Sema *s, uint32_t child, uint8_t to_type)
+{
+	ASTNode *c = &s->ast->nodes[child];
+	ASTNode cast = {0};
+
+	cast.type = NODE_CAST;
+	cast.data_type = to_type;
+	cast.line = c->line;
+	cast.col = c->col;
+	cast.len = 2;
+	cast.child = child;
+	cast.next_bro = c->next_bro;
+	cast.sym = NO_NODE;
+
+	c->next_bro = NO_NODE;
+	return sema_new_node(s, cast);
+}
+
+static uint32_t force_cast (Sema *s, uint32_t child, uint8_t child_type, uint8_t target, int *ok)
+{
+	if (child_type == target || child_type == TYPE_ERROR || target == TYPE_ERROR) {
+		*ok = 1;
+		return child;
+	}
+	if (!implicit_cast_ok(child_type, target)) {
+		*ok = 0;
+		return child;
+	}
+	*ok = 1;
+	return sema_wrap_cast(s, child, target);
+}
+
+static void reserve_cast_nodes (Sema *s)
+{
+	uint32_t old_cap = s->ast->cap;
+	uint32_t new_cap = s->ast->count * 2 + 64;
+
+	if (new_cap <= old_cap) return;
+
+	s->ast->nodes = arena_realloc(s->arena, s->ast->nodes,
+			(size_t)old_cap * sizeof(ASTNode), (size_t)new_cap * sizeof(ASTNode));
+	s->ast->cap = new_cap;
+}
+
 static uint8_t check_expr (Sema *s, uint32_t idx);
 static void check_statement (Sema *s, uint32_t idx);
 static int stmt_returns (Sema *s, uint32_t idx);
@@ -165,33 +231,37 @@ static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 	uint32_t params_node = s->ast->nodes[fn_idx].child;
 	uint32_t param = s->ast->nodes[params_node].child;
 	uint32_t arg = call->child;
-
+	uint32_t prev = NO_NODE;
 	int count_ok = 1;
 
 	while (arg != NO_NODE) {
 		uint8_t arg_type = check_expr(s, arg);
 		uint8_t param_type = param != NO_NODE ? s->ast->nodes[param].data_type : TYPE_VOID;
-		int types_ok = arg_type == TYPE_ERROR || param_type == TYPE_ERROR
-				|| arg_type == param_type;
+		uint32_t next = s->ast->nodes[arg].next_bro;
+		int ok = 1;
 
 		if (param == NO_NODE) {
 			count_ok = 0;
-		} else if (!types_ok) {
-			error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[arg]),
+		} else if (arg_type != TYPE_ERROR && param_type != TYPE_ERROR
+				&& arg_type != param_type) {
+			arg = force_cast(s, arg, arg_type, param_type, &ok);
+			if (prev == NO_NODE) call->child = arg;
+			else s->ast->nodes[prev].next_bro = arg;
+			if (!ok) error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[arg]),
 					"argument type %s does not match parameter type %s",
-					type_name[arg_type], type_name[param_type]);
+					types[arg_type].name, types[param_type].name);
 		}
 
+		prev = arg;
 		if (param != NO_NODE) param = s->ast->nodes[param].next_bro;
-		arg = s->ast->nodes[arg].next_bro;
+		arg = next;
 	}
 
 	if (param != NO_NODE) count_ok = 0;
 
-	if (!count_ok)
-		error_report(s->err, ERR_ERROR, node_loc(call),
-				"wrong number of arguments in call to '%.*s'",
-				(int)call->len, call->str);
+	if (!count_ok) error_report(s->err, ERR_ERROR, node_loc(call),
+			"wrong number of arguments in call to '%.*s'",
+			(int)call->len, call->str);
 }
 
 static uint8_t check_fn_call (Sema *s, uint32_t idx)
@@ -277,11 +347,18 @@ static uint8_t check_assign (Sema *s, uint32_t idx)
 	}
 
 	if (l != r) {
-		error_report(s->err, ERR_ERROR, node_loc(assign),
-				"cannot assign %s to a variable of type %s",
-				type_name[r], type_name[l]);
-		assign->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
+		int ok;
+
+		right = force_cast(s, right, r, l, &ok);
+		left_node->next_bro = right;
+
+		if (!ok) {
+			error_report(s->err, ERR_ERROR, node_loc(assign),
+					"cannot assign %s to a variable of type %s",
+					types[r].name, types[l].name);
+			assign->data_type = TYPE_ERROR;
+			return TYPE_ERROR;
+		}
 	}
 
 	assign->data_type = l;
@@ -301,24 +378,13 @@ static uint8_t check_unary (Sema *s, uint32_t idx)
 	if (operand_type == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"operator cannot be applied to a value of type %s",
-				type_name[operand_type]);
+				types[operand_type].name);
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
 
 	n->data_type = (n->type == NODE_NOT_L) ? TYPE_i64 : operand_type;
 	return n->data_type;
-}
-
-static int is_arith (uint8_t node_type)
-{
-	switch (node_type)
-	{
-	case NODE_EQ: case NODE_NE: case NODE_GT: case NODE_GE:
-	case NODE_LT: case NODE_LE: case NODE_AND_L: case NODE_OR_L:
-		return 0;
-	default: return 1;
-	}
 }
 
 static uint8_t binop_result_type (uint8_t node_type, uint8_t operand_type)
@@ -354,12 +420,22 @@ static uint8_t check_binary (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
-	if (l != r && is_arith(n->type)) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"type mismatch: %s vs %s",
-				type_name[l], type_name[r]);
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
+	int need_common = (n->type != NODE_AND_L && n->type != NODE_OR_L && n->type != NODE_LS && n->type != NODE_RS);
+	if (l != r && need_common) {
+		if (implicit_cast_ok(r, l)) {
+			right = sema_wrap_cast(s, right, l);
+			r = l;
+		} else if (implicit_cast_ok(l, r)) {
+			left = sema_wrap_cast(s, left, r);
+			l = r;
+		} else {
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"type mismatch: %s vs %s", types[l].name, types[r].name);
+			n->data_type = TYPE_ERROR;
+			return TYPE_ERROR;
+		}
+		n->child = left;
+		s->ast->nodes[left].next_bro = right;
 	}
 
 	n->data_type = binop_result_type(n->type, l);
@@ -446,14 +522,19 @@ static void check_block (Sema *s, uint32_t idx)
 
 static void check_var_init_type (Sema *s, ASTNode *n, uint8_t init_type)
 {
+	int ok;
+
 	if (init_type == TYPE_ERROR || n->data_type == TYPE_ERROR)
 		return;
 	if (init_type == n->data_type)
 		return;
 
+	n->child = force_cast(s, n->child, init_type, n->data_type, &ok);
+	if (ok) return;
+
 	error_report(s->err, ERR_ERROR, node_loc(n),
-			"cannot initialize '%.*s' (%s) with a value of type %s",
-			(int)n->len, n->str, type_name[n->data_type], type_name[init_type]);
+			"can't initialize '%.*s' (%s) with a value of type %s",
+			(int)n->len, n->str, types[n->data_type].name, types[init_type].name);
 }
 
 static void check_var_dec (Sema *s, uint32_t idx)
@@ -611,12 +692,14 @@ static void check_for (Sema *s, uint32_t idx)
 static void check_return (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
+	uint8_t val_type;
+	int ok;
 
 	if (n->child == NO_NODE) {
 		if (s->curr_ret != TYPE_VOID && s->curr_ret != TYPE_ERROR)
 			error_report(s->err, ERR_ERROR, node_loc(n),
 					"missing return value of type %s",
-					type_name[s->curr_ret]);
+					types[s->curr_ret].name);
 		return;
 	}
 
@@ -627,11 +710,16 @@ static void check_return (Sema *s, uint32_t idx)
 		return;
 	}
 
-	uint8_t val_type = check_expr(s, n->child);
-	if (val_type != TYPE_ERROR && s->curr_ret != TYPE_ERROR && val_type != s->curr_ret)
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"returning %s but function returns %s",
-				type_name[val_type], type_name[s->curr_ret]);
+	val_type = check_expr(s, n->child);
+	if (val_type == TYPE_ERROR || s->curr_ret == TYPE_ERROR || val_type == s->curr_ret)
+		return;
+
+	n->child = force_cast(s, n->child, val_type, s->curr_ret, &ok);
+	if (ok) return;
+
+	error_report(s->err, ERR_ERROR, node_loc(n),
+			"returning %s but function returns %s",
+			types[val_type].name, types[s->curr_ret].name);
 }
 
 static int block_returns (Sema *s, uint32_t idx)
@@ -766,6 +854,7 @@ static void decl_globals (Sema *s)
 
 void sema_run (Sema *s)
 {
+	reserve_cast_nodes(s);
 	decl_globals(s);
 	check_root(s);
 }
@@ -787,6 +876,6 @@ void dump_symbols (SymbolTable *t)
 		Symbol *sym = &t->symbols[i];
 		printf("%s %.*s [%u:%u] depth=%u type=%s\n",
 				kind_name(sym->kind), (int)sym->len, sym->name,
-				sym->line, sym->col, sym->depth, type_name[sym->type]);
+				sym->line, sym->col, sym->depth, types[sym->type].name);
 	}
 }

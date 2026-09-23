@@ -226,14 +226,14 @@ static uint32_t make_op (IR *ir, uint8_t op, uint32_t a, uint32_t b, uint8_t typ
 	i.data_type = type;
 	push_instr(ir, i);
 
-	if (type != TYPE_CHAR || !char_wraps[op])
+	if (types[type].size >= 8 || !char_wraps[op])
 		return i.dst;
 
 	IRInstr fix = blank_instr;
-	fix.op = IR_SEXT8;
+	fix.op = IR_EXTEND;
 	fix.dst = ir->reg_count++;
 	fix.src1 = i.dst;
-	fix.data_type = TYPE_CHAR;
+	fix.data_type = type;
 	push_instr(ir, fix);
 	return fix.dst;
 }
@@ -378,9 +378,9 @@ static uint32_t gen_cast (IR *ir, ASTNode *n)
 	ASTNode *operand = ir->ast->nodes + n->child;
 	uint32_t src = gen_expr(ir, operand);
 
-	if (n->data_type != TYPE_CHAR || operand->data_type == TYPE_CHAR)
+	if (types[n->data_type].size == 8 || n->data_type == operand->data_type)
 		return src;
-	return make_op(ir, IR_SEXT8, src, NO_REG, TYPE_CHAR);
+	return make_op(ir, IR_EXTEND, src, NO_REG, n->data_type);
 }
 
 static uint32_t gen_expr (IR *ir, ASTNode *n)
@@ -598,7 +598,7 @@ void ir_gen (IR *ir)
 static const char *const op_names[IR_COUNT] = {
 	[IR_NOP] = "nop", [IR_CONST] = "const", [IR_PARAM] = "param",
 	[IR_LD_GLOBAL] = "ld_global", [IR_STR_GLOBAL] = "str_global",
-	[IR_MOVE] = "move", [IR_SEXT8] = "sext8",
+	[IR_MOVE] = "move", [IR_EXTEND] = "extend",
 	[IR_ADD] = "add", [IR_SUB] = "sub", [IR_MUL] = "mul",
 	[IR_DIV] = "div", [IR_MOD] = "mod",
 	[IR_AND_A] = "and", [IR_OR_A] = "or", [IR_XOR] = "xor",
@@ -615,8 +615,8 @@ static void dump_extra (IR *ir, IRInstr *i)
 	switch (i->op)
 	{
 	case IR_CONST:
-		if (i->data_type == TYPE_u64) printf(" %llu", (unsigned long long)i->imm64);
-		else printf(" %lld", (long long)i->imm64);
+		if (types[i->data_type].sign) printf(" %lld", (long long)i->imm64);
+		else printf(" %llu", (unsigned long long)i->imm64);
 		break;
 	case IR_JMP: case IR_JZ: case IR_JNZ:
 		printf(" -> L%u", i->target);
@@ -647,7 +647,7 @@ static void dump_instr (IR *ir, IRInstr *i)
 		printf("r%u = ", i->dst);
 	printf("%s", op_names[i->op]);
 	if (i->data_type != TYPE_VOID)
-		printf(".%s", type_name[i->data_type]);
+		printf(".%s", types[i->data_type].name);
 	if (i->src1 != NO_REG)
 		printf(" r%u", i->src1);
 	if (i->src2 != NO_REG)
@@ -661,7 +661,7 @@ static void dump_fn (IR *ir, uint32_t idx)
 	IRFn *fn = ir->fns + idx;
 
 	printf("fn %.*s(%u params, %u regs) : %s\n", (int)fn->len, fn->name,
-			fn->param_count, fn->reg_count, type_name[fn->ret_type]);
+			fn->param_count, fn->reg_count, types[fn->ret_type].name);
 	for (uint32_t k = 0; k < fn->count; k++)
 		dump_instr(ir, ir->instrs + fn->start + k);
 	printf("\n");
@@ -671,7 +671,7 @@ void dump_ir (IR *ir)
 {
 	for (uint32_t i = 0; i < ir->global_count; i++)
 		printf("global %.*s : %s\n", (int)ir->globals[i].len, ir->globals[i].name,
-				type_name[ir->globals[i].type]);
+				types[ir->globals[i].type].name);
 	if (ir->global_count)
 		printf("\n");
 
