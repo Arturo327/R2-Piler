@@ -156,6 +156,159 @@ static uint64_t lit_bits (LitVal v, uint8_t type)
 	return raw;
 }
 
+static int lit_node_bits (ASTNode *n, uint64_t *out)
+{
+	switch (n->type)
+	{
+	case NODE_LIT_i64:
+	case NODE_LIT_u64:
+		*out = n->u64;
+		return 1;
+	case NODE_LIT_CHAR:
+		*out = (uint64_t)(int64_t)n->chr;
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+static uint64_t trunc_sext (uint64_t raw, uint8_t t)
+{
+	LitVal v = { 0 };
+
+	v.mag = raw;
+	return lit_bits(v, t);
+}
+
+static void make_fold_lit (ASTNode *n, uint64_t bits, uint8_t t)
+{
+	n->type = types[t].sign ? NODE_LIT_i64 : NODE_LIT_u64;
+	n->u64 = bits;
+	n->data_type = t;
+	n->child = NO_NODE;
+}
+
+static int fold_divmod (uint8_t op, uint64_t a, uint64_t b, uint8_t t, uint64_t *out)
+{
+	if (b == 0) return 0;
+	if (types[t].sign) {
+		if ((int64_t)a == INT64_MIN && (int64_t)b == -1) return 0;
+		if (op == NODE_DIV) *out = (uint64_t)((int64_t)a / (int64_t)b);
+		else *out = (uint64_t)((int64_t)a % (int64_t)b);
+		return 1;
+	}
+	*out = op == NODE_DIV ? a / b : a % b;
+	return 1;
+}
+
+static int fold_value (uint8_t op, uint64_t a, uint64_t b, uint8_t t, uint64_t *out)
+{
+	switch (op)
+	{
+	case NODE_ADD: *out = a + b; return 1;
+	case NODE_SUB: *out = a - b; return 1;
+	case NODE_MUL: *out = a * b; return 1;
+	case NODE_AND_A: *out = a & b; return 1;
+	case NODE_OR_A: *out = a | b; return 1;
+	case NODE_XOR: *out = a ^ b; return 1;
+	case NODE_LS:
+		if (b >= 64) return 0;
+		*out = a << b;
+		return 1;
+	case NODE_RS:
+		if (b >= 64) return 0;
+		*out = types[t].sign ? (uint64_t)((int64_t)a >> b) : a >> b;
+		return 1;
+	case NODE_DIV: case NODE_MOD:
+		return fold_divmod(op, a, b, t, out);
+	default:
+		return 0;
+	}
+}
+
+static int fold_compare (uint8_t op, uint64_t a, uint64_t b, uint8_t t, uint64_t *out)
+{
+	int sign = types[t].sign;
+	int res;
+
+	switch (op)
+	{
+	case NODE_EQ: res = a == b; break;
+	case NODE_NE: res = a != b; break;
+	case NODE_GT: res = sign ? (int64_t)a > (int64_t)b : a > b; break;
+	case NODE_GE: res = sign ? (int64_t)a >= (int64_t)b : a >= b; break;
+	case NODE_LT: res = sign ? (int64_t)a < (int64_t)b : a < b; break;
+	case NODE_LE: res = sign ? (int64_t)a <= (int64_t)b : a <= b; break;
+	default: return 0;
+	}
+	*out = res ? 1 : 0;
+	return 1;
+}
+
+static uint8_t neg_result_type (ASTNode *c)
+{
+	if (c->type == NODE_LIT_u64) return TYPE_u64;
+	if (c->type == NODE_LIT_i64 && c->data_type == TYPE_u64) return TYPE_i64;
+	return c->data_type;
+}
+
+static uint8_t try_fold_unary (Sema *s, uint32_t idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *c;
+	uint64_t a, v;
+	uint8_t t;
+
+	if (n->child == NO_NODE) return n->data_type;
+	c = &s->ast->nodes[n->child];
+	if (!lit_node_bits(c, &a)) return n->data_type;
+
+	if (n->type == NODE_NOT_L) {
+		make_fold_lit(n, a == 0, TYPE_i64);
+		return TYPE_i64;
+	}
+
+	t = n->data_type;
+	if (n->type == NODE_NEG) {
+		t = neg_result_type(c);
+		v = 0 - a;
+	} else if (n->type == NODE_NOT_A) {
+		v = ~a;
+	} else return n->data_type;
+
+	make_fold_lit(n, trunc_sext(v, t), t);
+	return t;
+}
+
+static void try_fold_binary (Sema *s, uint32_t idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *l;
+	ASTNode *r;
+	uint64_t a, b, v;
+	uint8_t t;
+
+	if (n->child == NO_NODE) return;
+	l = &s->ast->nodes[n->child];
+	if (l->next_bro == NO_NODE) return;
+	r = &s->ast->nodes[l->next_bro];
+	if (!lit_node_bits(l, &a) || !lit_node_bits(r, &b)) return;
+
+	if (n->type == NODE_AND_L || n->type == NODE_OR_L) {
+		v = n->type == NODE_AND_L ? (a != 0 && b != 0) : (a != 0 || b != 0);
+		make_fold_lit(n, v, TYPE_i64);
+		return;
+	}
+
+	t = l->data_type;
+	if (fold_compare(n->type, a, b, t, &v)) {
+		make_fold_lit(n, v, TYPE_i64);
+		return;
+	}
+	if (fold_value(n->type, a, b, t, &v))
+		make_fold_lit(n, trunc_sext(v, t), t);
+}
+
 static int lit_magnitude (ASTNode *lit, LitVal *v)
 {
 	v->neg = 0;
@@ -163,8 +316,11 @@ static int lit_magnitude (ASTNode *lit, LitVal *v)
 	switch (lit->type)
 	{
 	case NODE_LIT_i64:
-		if (lit->i64 < 0 && lit->data_type != TYPE_u64) return 0;
 		v->mag = lit->u64;
+		if (lit->i64 < 0 && lit->data_type != TYPE_u64) {
+			v->neg = 1;
+			v->mag = 0 - lit->u64;
+		}
 		return 1;
 	case NODE_LIT_u64:
 		v->mag = lit->u64;
@@ -191,20 +347,20 @@ static int flex_literal (Sema *s, uint32_t idx, LitVal *v)
 	return 1;
 }
 
-static void warn_lit_truncated (Sema *s, ASTNode *n, LitVal v, uint8_t to, uint64_t raw)
+static void err_lit_out_of_range (Sema *s, ASTNode *n, LitVal v, uint8_t to)
 {
-	const char *hint = "";
-	char shown[32];
+	const char *hint;
 
-	if (types[to].sign) snprintf(shown, sizeof(shown), "%lld", (long long)raw);
-	else snprintf(shown, sizeof(shown), "%llu", (unsigned long long)raw);
+	if (v.neg) hint = "; a negative value cannot fit there;"
+		" use an explicit cast with 'as' to reinterpret the bits";
+	else if (types[to].sign && v.mag > INT64_MAX)
+		hint = "; it is too large for i64"
+			" (the 'u' suffix makes it a u64 literal)";
+	else hint = "; use an explicit cast with 'as' to reinterpret the bits";
 
-	if (types[to].sign && !v.neg && v.mag > INT64_MAX)
-		hint = " (use 'as' to reinterpret the bits explicitly)";
-
-	error_report(s->err, ERR_WARNING, node_loc(n),
-			"literal %s%llu does not fit in type %s, truncated to %s%s",
-			v.neg ? "-" : "", (unsigned long long)v.mag, types[to].name, shown, hint);
+	error_report(s->err, ERR_ERROR, node_loc(n),
+			"literal %s%llu does not fit in type %s%s",
+			v.neg ? "-" : "", (unsigned long long)v.mag, types[to].name, hint);
 }
 
 static int retag_literal (Sema *s, uint32_t idx, uint8_t to)
@@ -216,12 +372,14 @@ static int retag_literal (Sema *s, uint32_t idx, uint8_t to)
 	if (!flex_literal(s, idx, &v)) return 0;
 
 	raw = lit_bits(v, to);
-	if (!lit_fits(v, to))
-		warn_lit_truncated(s, n, v, to, raw);
-	else if (n->type == NODE_LIT_u64 && !types[n->data_type].sign && types[to].sign)
+	if (!lit_fits(v, to)) {
+		err_lit_out_of_range(s, n, v, to);
+	} else if (n->type == NODE_LIT_u64 && !types[n->data_type].sign
+			&& types[to].sign) {
 		error_report(s->err, ERR_WARNING, node_loc(n),
 				"unsigned literal used as signed type %s; remove the 'u' suffix",
 				types[to].name);
+	}
 
 	n->u64 = raw;
 	if (n->type != NODE_LIT_u64) n->type = NODE_LIT_i64;
@@ -250,9 +408,13 @@ static int is_flex_expr (Sema *s, uint32_t idx)
 
 static void retag_expr (Sema *s, uint32_t idx, uint8_t to)
 {
-	ASTNode *n = &s->ast->nodes[idx];
-	uint32_t child = n->child;
+	ASTNode *n;
+	uint32_t child;
 
+	if (idx == NO_NODE) return;
+
+	n = &s->ast->nodes[idx];
+	child = n->child;
 	if (retag_literal(s, idx, to)) return;
 
 	n->data_type = to;
@@ -393,7 +555,7 @@ static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 			if (prev == NO_NODE) call->child = arg;
 			else s->ast->nodes[prev].next_bro = arg;
 			if (!ok) error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[arg]),
-					"argument type %s does not match parameter type %s",
+					"argument type %s does not match parameter type %s; use an explicit cast with 'as'",
 					types[arg_type].name, types[param_type].name);
 		}
 
@@ -499,7 +661,7 @@ static uint8_t check_assign (Sema *s, uint32_t idx)
 
 		if (!ok) {
 			error_report(s->err, ERR_ERROR, node_loc(assign),
-					"cannot assign %s to a variable of type %s",
+					"cannot assign %s to a variable of type %s; use an explicit cast with 'as'",
 					types[r].name, types[l].name);
 			assign->data_type = TYPE_ERROR;
 			return TYPE_ERROR;
@@ -513,7 +675,9 @@ static uint8_t check_assign (Sema *s, uint32_t idx)
 static uint8_t check_unary (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
+	uint8_t op = n->type;
 	uint8_t operand_type = check_expr(s, n->child);
+	uint8_t result_type;
 
 	if (operand_type == TYPE_ERROR) {
 		n->data_type = TYPE_ERROR;
@@ -529,7 +693,14 @@ static uint8_t check_unary (Sema *s, uint32_t idx)
 	}
 
 	n->data_type = (n->type == NODE_NOT_L) ? TYPE_i64 : operand_type;
-	return n->data_type;
+	result_type = try_fold_unary(s, idx);
+
+	if (op == NODE_NEG && !types[result_type].sign)
+		error_report(s->err, ERR_WARNING, node_loc(n),
+				"negating an unsigned value; the result wraps");
+
+	n->data_type = result_type;
+	return result_type;
 }
 
 static uint8_t binop_result_type (uint8_t node_type, uint8_t operand_type)
@@ -597,15 +768,11 @@ static uint8_t common_type (Sema *s, ASTNode *n, uint32_t left, uint32_t right,
 	return TYPE_ERROR;
 }
 
-static void convert_operand (Sema *s, ASTNode *n, uint32_t *idx, uint8_t *type, uint8_t to)
+static void convert_operand (Sema *s, uint32_t *idx, uint8_t *type, uint8_t to)
 {
 	if (is_flex_expr(s, *idx)) {
 		retag_expr(s, *idx, to);
 	} else {
-		if (cmp_op[n->type])
-			error_report(s->err, ERR_WARNING, node_loc(n),
-					"comparison between different types: %s is implicitly converted to %s",
-					types[*type].name, types[to].name);
 		*idx = sema_wrap_cast(s, *idx, to);
 	}
 	*type = to;
@@ -622,8 +789,8 @@ static int unify_operands (Sema *s, ASTNode *n, uint32_t *left, uint32_t *right,
 				types[*l].name, types[*r].name);
 		return 0;
 	}
-	if (*l != to) convert_operand(s, n, left, l, to);
-	if (*r != to) convert_operand(s, n, right, r, to);
+	if (*l != to) convert_operand(s, left, l, to);
+	if (*r != to) convert_operand(s, right, r, to);
 	return 1;
 }
 
@@ -661,6 +828,7 @@ static uint8_t check_binary (Sema *s, uint32_t idx)
 	n->child = left;
 	s->ast->nodes[left].next_bro = right;
 	n->data_type = binop_result_type(n->type, l);
+	try_fold_binary(s, idx);
 	return n->data_type;
 }
 
@@ -755,7 +923,7 @@ static void check_var_init_type (Sema *s, ASTNode *n, uint8_t init_type)
 	if (ok) return;
 
 	error_report(s->err, ERR_ERROR, node_loc(n),
-			"can't initialize '%.*s' (%s) with a value of type %s",
+			"can't initialize '%.*s' (%s) with a value of type %s; use an explicit cast with 'as'",
 			(int)n->len, n->str, types[n->data_type].name, types[init_type].name);
 }
 
@@ -940,7 +1108,7 @@ static void check_return (Sema *s, uint32_t idx)
 	if (ok) return;
 
 	error_report(s->err, ERR_ERROR, node_loc(n),
-			"returning %s but function returns %s",
+			"cannot return %s from a function returning %s; use an explicit cast with 'as'",
 			types[val_type].name, types[s->curr_ret].name);
 }
 
