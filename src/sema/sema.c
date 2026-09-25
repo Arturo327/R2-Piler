@@ -349,18 +349,20 @@ static int flex_literal (Sema *s, uint32_t idx, LitVal *v)
 
 static void err_lit_out_of_range (Sema *s, ASTNode *n, LitVal v, uint8_t to)
 {
-	const char *hint;
-
-	if (v.neg) hint = "; a negative value cannot fit there;"
-		" use an explicit cast with 'as' to reinterpret the bits";
+	if (v.neg) error_report(s->err, ERR_ERROR, node_loc(n),
+			"literal -%llu does not fit in type %s;"
+			" a negative value cannot fit there;"
+			" use an explicit cast with 'as' to reinterpret the bits",
+			(unsigned long long)v.mag, types[to].name);
 	else if (types[to].sign && v.mag > INT64_MAX)
-		hint = "; it is too large for i64"
-			" (the 'u' suffix makes it a u64 literal)";
-	else hint = "; use an explicit cast with 'as' to reinterpret the bits";
-
-	error_report(s->err, ERR_ERROR, node_loc(n),
-			"literal %s%llu does not fit in type %s%s",
-			v.neg ? "-" : "", (unsigned long long)v.mag, types[to].name, hint);
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"literal %llu does not fit in type %s;"
+				" it is too large (the 'u' suffix makes it a u64 literal)",
+				(unsigned long long)v.mag, types[to].name);
+	else error_report(s->err, ERR_ERROR, node_loc(n),
+			"literal %llu does not fit in type %s;"
+			" use an explicit cast with 'as' to reinterpret the bits",
+			(unsigned long long)v.mag, types[to].name);
 }
 
 static int retag_literal (Sema *s, uint32_t idx, uint8_t to)
@@ -678,6 +680,8 @@ static uint8_t check_unary (Sema *s, uint32_t idx)
 	uint8_t op = n->type;
 	uint8_t operand_type = check_expr(s, n->child);
 	uint8_t result_type;
+	uint8_t ct;
+	int is_lit;
 
 	if (operand_type == TYPE_ERROR) {
 		n->data_type = TYPE_ERROR;
@@ -693,9 +697,12 @@ static uint8_t check_unary (Sema *s, uint32_t idx)
 	}
 
 	n->data_type = (n->type == NODE_NOT_L) ? TYPE_i64 : operand_type;
+	ct = s->ast->nodes[n->child].type;
+	is_lit = ct == NODE_LIT_i64 || ct == NODE_LIT_u64
+		|| ct == NODE_LIT_CHAR;
 	result_type = try_fold_unary(s, idx);
 
-	if (op == NODE_NEG && !types[result_type].sign)
+	if (op == NODE_NEG && !types[result_type].sign && !is_lit)
 		error_report(s->err, ERR_WARNING, node_loc(n),
 				"negating an unsigned value; the result wraps");
 
