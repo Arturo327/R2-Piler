@@ -115,8 +115,7 @@ static int scan_digits (Lexer *l, int base, uint64_t *value, int *overflow)
 
 		if (*value > (UINT64_MAX - (uint64_t)digit) / (uint64_t)base)
 			*overflow = 1;
-		else
-			*value = *value * (uint64_t)base + (uint64_t)digit;
+		*value = *value * (uint64_t)base + (uint64_t)digit;
 
 		l->cursor++;
 		consumed = 1;
@@ -169,17 +168,10 @@ static Token handle_num_literal (Lexer *l)
 	if (check_invalid_trailing(l, start, start_line, start_col))
 		return make_token(TOK_INVALID, NULL, (uint16_t)(l->cursor - start), start_line, start_col);
 
-	if (overflow) {
-		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col,
-				(int)(l->cursor - start)), "literal integer out of range");
-		return make_token(TOK_INVALID, NULL, (uint16_t)(l->cursor - start), start_line, start_col);
-	}
-
-	if (!is_unsigned && value > (uint64_t)INT64_MAX + 1) {
-		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, (int)(l->cursor - start)),
-				"literal integer out of range for a signed value; append 'u' for unsigned");
-		return make_token(TOK_INVALID, NULL, (uint16_t)(l->cursor - start), start_line, start_col);
-	}
+	if (overflow) error_report(l->err, ERR_WARNING, loc_at(start_line, start_col,
+			(int)(l->cursor - start)),
+			"literal does not fit in 64 bits, truncated to %llu",
+			(unsigned long long)value);
 
 	Token token = {
 		.type = is_unsigned ? TOK_LIT_u64 : TOK_LIT_i64,
@@ -572,9 +564,7 @@ int dump_tokens (Lexer *l)
 			printf("%s ", str_type);
 			print_escaped(&t.chr, 1, '\'');
 			printf("\n");
-		} else if (t.type == TOK_LIT_i64) {
-			printf("%s %lld\n", str_type, (long long)t.i64);
-		} else if (t.type == TOK_LIT_u64) {
+		} else if (t.type == TOK_LIT_i64 || t.type == TOK_LIT_u64) {
 			printf("%s %llu\n", str_type, (unsigned long long)t.u64);
 		} else printf("%s\n", str_type);
 	} while (t.type != TOK_EOF);

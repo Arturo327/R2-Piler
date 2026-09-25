@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #define RESERVED_PREFIX "__r2_"
 #define RESERVED_PREFIX_LEN (sizeof(RESERVED_PREFIX) - 1)
@@ -96,6 +97,11 @@ static int implicit_cast_ok (uint8_t from, uint8_t to)
 static uint32_t sema_new_node (Sema *s, ASTNode node)
 {
 	uint32_t idx = s->ast->count++;
+
+	if (idx >= s->ast->cap) {
+		fprintf(stderr, "internal error: AST capacity exceeded by implicit casts\n");
+		exit(1);
+	}
 	s->ast->nodes[idx] = node;
 	return idx;
 }
@@ -118,17 +124,156 @@ static uint32_t sema_wrap_cast (Sema *s, uint32_t child, uint8_t to_type)
 	return sema_new_node(s, cast);
 }
 
+typedef struct LitVal {
+	uint64_t mag;
+	int neg;
+} LitVal;
+
+static int lit_fits (LitVal v, uint8_t type)
+{
+	const Type *t = &types[type];
+	unsigned bits = t->size * 8u;
+	uint64_t max;
+
+	if (bits == 0) return 0;
+	if (t->sign) max = ((uint64_t)1 << (bits - 1)) - 1;
+	else max = bits == 64 ? UINT64_MAX : ((uint64_t)1 << bits) - 1;
+
+	if (v.neg) return t->sign && v.mag <= max + 1;
+	return v.mag <= max;
+}
+
+static uint64_t lit_bits (LitVal v, uint8_t type)
+{
+	const Type *t = &types[type];
+	unsigned bits = t->size * 8u;
+	uint64_t raw = v.neg ? 0 - v.mag : v.mag;
+
+	if (bits >= 64) return raw;
+	raw &= ((uint64_t)1 << bits) - 1;
+	if (t->sign && ((raw >> (bits - 1)) & 1))
+		raw |= ~(uint64_t)0 << bits;
+	return raw;
+}
+
+static int lit_magnitude (ASTNode *lit, LitVal *v)
+{
+	v->neg = 0;
+
+	switch (lit->type)
+	{
+	case NODE_LIT_i64:
+		if (lit->i64 < 0 && lit->data_type != TYPE_u64) return 0;
+		v->mag = lit->u64;
+		return 1;
+	case NODE_LIT_u64:
+		v->mag = lit->u64;
+		return 1;
+	case NODE_LIT_CHAR:
+		v->neg = lit->chr < 0;
+		v->mag = v->neg ? 0 - (uint64_t)(int64_t)lit->chr : (uint64_t)lit->chr;
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+static int flex_literal (Sema *s, uint32_t idx, LitVal *v)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+	int negated = n->type == NODE_NEG;
+	ASTNode *lit = negated ? &s->ast->nodes[n->child] : n;
+
+	if (!lit_magnitude(lit, v)) return 0;
+	if (!negated) return 1;
+	if (v->neg) return 0;
+	v->neg = v->mag != 0;
+	return 1;
+}
+
+static void warn_lit_truncated (Sema *s, ASTNode *n, LitVal v, uint8_t to, uint64_t raw)
+{
+	const char *hint = "";
+	char shown[32];
+
+	if (types[to].sign) snprintf(shown, sizeof(shown), "%lld", (long long)raw);
+	else snprintf(shown, sizeof(shown), "%llu", (unsigned long long)raw);
+
+	if (types[to].sign && !v.neg && v.mag > INT64_MAX)
+		hint = " (use 'as' to reinterpret the bits explicitly)";
+
+	error_report(s->err, ERR_WARNING, node_loc(n),
+			"literal %s%llu does not fit in type %s, truncated to %s%s",
+			v.neg ? "-" : "", (unsigned long long)v.mag, types[to].name, shown, hint);
+}
+
+static int retag_literal (Sema *s, uint32_t idx, uint8_t to)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+	LitVal v;
+	uint64_t raw;
+
+	if (!flex_literal(s, idx, &v)) return 0;
+
+	raw = lit_bits(v, to);
+	if (!lit_fits(v, to))
+		warn_lit_truncated(s, n, v, to, raw);
+	else if (n->type == NODE_LIT_u64 && !types[n->data_type].sign && types[to].sign)
+		error_report(s->err, ERR_WARNING, node_loc(n),
+				"unsigned literal used as signed type %s; remove the 'u' suffix",
+				types[to].name);
+
+	n->u64 = raw;
+	if (n->type != NODE_LIT_u64) n->type = NODE_LIT_i64;
+	n->data_type = to;
+	n->child = NO_NODE;
+	return 1;
+}
+
+static const uint8_t flex_op[NODE_COUNT] = {
+	[NODE_NEG] = 1, [NODE_NOT_A] = 1,
+	[NODE_ADD] = 2, [NODE_SUB] = 2, [NODE_MUL] = 2, [NODE_DIV] = 2, [NODE_MOD] = 2,
+	[NODE_AND_A] = 2, [NODE_OR_A] = 2, [NODE_XOR] = 2,
+	[NODE_LS] = 3, [NODE_RS] = 3
+};
+
+static int is_flex_expr (Sema *s, uint32_t idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+	LitVal v;
+
+	if (flex_literal(s, idx, &v)) return 1;
+	if (!flex_op[n->type] || !is_flex_expr(s, n->child)) return 0;
+	if (flex_op[n->type] != 2) return 1;
+	return is_flex_expr(s, s->ast->nodes[n->child].next_bro);
+}
+
+static void retag_expr (Sema *s, uint32_t idx, uint8_t to)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+	uint32_t child = n->child;
+
+	if (retag_literal(s, idx, to)) return;
+
+	n->data_type = to;
+	retag_expr(s, child, to);
+	if (flex_op[n->type] == 2)
+		retag_expr(s, s->ast->nodes[child].next_bro, to);
+}
+
 static uint32_t force_cast (Sema *s, uint32_t child, uint8_t child_type, uint8_t target, int *ok)
 {
-	if (child_type == target || child_type == TYPE_ERROR || target == TYPE_ERROR) {
-		*ok = 1;
+	*ok = 1;
+	if (child_type == target || child_type == TYPE_ERROR || target == TYPE_ERROR)
+		return child;
+	if (types[target].size && is_flex_expr(s, child)) {
+		retag_expr(s, child, target);
 		return child;
 	}
 	if (!implicit_cast_ok(child_type, target)) {
 		*ok = 0;
 		return child;
 	}
-	*ok = 1;
 	return sema_wrap_cast(s, child, target);
 }
 
@@ -154,7 +299,7 @@ static uint8_t check_literal (Sema *s, uint32_t idx)
 	ASTNode *n = &s->ast->nodes[idx];
 	switch (n->type)
 	{
-	case NODE_LIT_i64: n->data_type = TYPE_i64; break;
+	case NODE_LIT_i64: n->data_type = n->u64 > INT64_MAX ? TYPE_u64 : TYPE_i64; break;
 	case NODE_LIT_u64: n->data_type = TYPE_u64; break;
 	case NODE_LIT_CHAR: n->data_type = TYPE_CHAR; break;
 	default:
@@ -399,12 +544,94 @@ static uint8_t binop_result_type (uint8_t node_type, uint8_t operand_type)
 	}
 }
 
+static int needs_common_type (uint8_t node_type)
+{
+	switch (node_type)
+	{
+	case NODE_AND_L: case NODE_OR_L: case NODE_LS: case NODE_RS:
+		return 0;
+	default:
+		return 1;
+	}
+}
+
+static void warn_const_operand (Sema *s, uint32_t idx, const char *op)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+	int tru;
+
+	switch (n->type)
+	{
+	case NODE_LIT_i64: tru = n->i64 != 0; break;
+	case NODE_LIT_u64: tru = n->u64 != 0; break;
+	case NODE_LIT_CHAR: tru = n->chr != 0; break;
+	default: return;
+	}
+
+	error_report(s->err, ERR_WARNING, node_loc(n),
+			"constant operand of '%s' is always %s", op, tru ? "true" : "false");
+}
+
+static const uint8_t cmp_op[NODE_COUNT] = {
+	[NODE_EQ] = 1, [NODE_NE] = 1, [NODE_GT] = 1,
+	[NODE_GE] = 1, [NODE_LT] = 1, [NODE_LE] = 1
+};
+
+static uint8_t common_type (Sema *s, ASTNode *n, uint32_t left, uint32_t right,
+		uint8_t l, uint8_t r)
+{
+	int l_flex = is_flex_expr(s, left);
+	int r_flex = is_flex_expr(s, right);
+	uint8_t other = l_flex ? r : l;
+	LitVal v;
+
+	if (l_flex != r_flex) {
+		int fits = !flex_literal(s, l_flex ? left : right, &v) || lit_fits(v, other);
+
+		if (fits || !cmp_op[n->type] || !implicit_cast_ok(other, l_flex ? l : r))
+			return other;
+	}
+	if (implicit_cast_ok(l, r)) return r;
+	if (implicit_cast_ok(r, l)) return l;
+	if (l_flex && r_flex) return types[l].sign ? r : l;
+	return TYPE_ERROR;
+}
+
+static void convert_operand (Sema *s, ASTNode *n, uint32_t *idx, uint8_t *type, uint8_t to)
+{
+	if (is_flex_expr(s, *idx)) {
+		retag_expr(s, *idx, to);
+	} else {
+		if (cmp_op[n->type])
+			error_report(s->err, ERR_WARNING, node_loc(n),
+					"comparison between different types: %s is implicitly converted to %s",
+					types[*type].name, types[to].name);
+		*idx = sema_wrap_cast(s, *idx, to);
+	}
+	*type = to;
+}
+
+static int unify_operands (Sema *s, ASTNode *n, uint32_t *left, uint32_t *right,
+		uint8_t *l, uint8_t *r)
+{
+	uint8_t to = common_type(s, n, *left, *right, *l, *r);
+
+	if (to == TYPE_ERROR) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"type mismatch: %s vs %s (use 'as' to convert explicitly)",
+				types[*l].name, types[*r].name);
+		return 0;
+	}
+	if (*l != to) convert_operand(s, n, left, l, to);
+	if (*r != to) convert_operand(s, n, right, r, to);
+	return 1;
+}
+
 static uint8_t check_binary (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
 	uint32_t left = n->child;
 	uint32_t right = s->ast->nodes[left].next_bro;
-
 	uint8_t l = check_expr(s, left);
 	uint8_t r = check_expr(s, right);
 
@@ -412,7 +639,6 @@ static uint8_t check_binary (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-
 	if (l == TYPE_VOID || r == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"operator cannot be applied to a value of type void");
@@ -420,24 +646,20 @@ static uint8_t check_binary (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
-	int need_common = (n->type != NODE_AND_L && n->type != NODE_OR_L && n->type != NODE_LS && n->type != NODE_RS);
-	if (l != r && need_common) {
-		if (implicit_cast_ok(r, l)) {
-			right = sema_wrap_cast(s, right, l);
-			r = l;
-		} else if (implicit_cast_ok(l, r)) {
-			left = sema_wrap_cast(s, left, r);
-			l = r;
-		} else {
-			error_report(s->err, ERR_ERROR, node_loc(n),
-					"type mismatch: %s vs %s", types[l].name, types[r].name);
-			n->data_type = TYPE_ERROR;
-			return TYPE_ERROR;
-		}
-		n->child = left;
-		s->ast->nodes[left].next_bro = right;
+	if (n->type == NODE_AND_L || n->type == NODE_OR_L) {
+		const char *op = n->type == NODE_AND_L ? "&&" : "||";
+		warn_const_operand(s, left, op);
+		warn_const_operand(s, right, op);
 	}
 
+	if (l != r && needs_common_type(n->type)
+			&& !unify_operands(s, n, &left, &right, &l, &r)) {
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	n->child = left;
+	s->ast->nodes[left].next_bro = right;
 	n->data_type = binop_result_type(n->type, l);
 	return n->data_type;
 }

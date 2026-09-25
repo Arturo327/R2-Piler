@@ -226,8 +226,8 @@ static uint32_t make_op (IR *ir, uint8_t op, uint32_t a, uint32_t b, uint8_t typ
 	i.data_type = type;
 	push_instr(ir, i);
 
-	if (types[type].size >= 8 || !char_wraps[op])
-		return i.dst;
+	if (types[type].size >= 8) return i.dst;
+	if (!char_wraps[op] && !(op == IR_NOT_A && !types[type].sign)) return i.dst;
 
 	IRInstr fix = blank_instr;
 	fix.op = IR_EXTEND;
@@ -387,9 +387,9 @@ static uint32_t gen_expr (IR *ir, ASTNode *n)
 {
 	switch (n->type)
 	{
-	case NODE_LIT_i64: return make_const(ir, n->i64, TYPE_i64);
-	case NODE_LIT_u64: return make_const(ir, (int64_t)n->u64, TYPE_u64);
-	case NODE_LIT_CHAR: return make_const(ir, (int8_t)n->chr, TYPE_CHAR);
+	case NODE_LIT_i64: return make_const(ir, n->i64, n->data_type);
+	case NODE_LIT_u64: return make_const(ir, (int64_t)n->u64, n->data_type);
+	case NODE_LIT_CHAR: return make_const(ir, (int8_t)n->chr, n->data_type);
 
 	case NODE_ID: return gen_id(ir, n);
 	case NODE_FN_CALL: return gen_call(ir, n);

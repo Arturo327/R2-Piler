@@ -262,13 +262,6 @@ static uint32_t parse_unary (Parser *p)
 
 	advance(p);
 
-	if (type == NODE_NEG && p->curr.type == TOK_LIT_i64 && p->curr.i64 == INT64_MIN) {
-		uint32_t lit = new_node(p, NODE_LIT_i64, line, col);
-		p->ast.nodes[lit].i64 = INT64_MIN;
-		advance(p);
-		return lit;
-	}
-
 	uint32_t node = new_node(p, type, line, col);
 	uint32_t child = parse_primary(p);
 	p->ast.nodes[node].child = child;
@@ -292,17 +285,17 @@ static uint32_t parse_primary_inner (Parser *p)
 		return node;
 	case TOK_LIT_i64:
 		node = new_node(p, NODE_LIT_i64, line, col);
-		p->ast.nodes[node].i64 = p->curr.i64;
-		if (p->curr.i64 == INT64_MIN)
-			error_report(p->err, ERR_ERROR, token_loc(p->curr),
-					"literal integer out of range for a signed value; append 'u' for unsigned");
+		p->ast.nodes[node].len = p->curr.len;
+		p->ast.nodes[node].u64 = p->curr.u64;
 		break;
 	case TOK_LIT_u64:
 		node = new_node(p, NODE_LIT_u64, line, col);
+		p->ast.nodes[node].len = p->curr.len;
 		p->ast.nodes[node].u64 = p->curr.u64;
 		break;
 	case TOK_LIT_CHAR:
 		node = new_node(p, NODE_LIT_CHAR, line, col);
+		p->ast.nodes[node].len = p->curr.len;
 		p->ast.nodes[node].chr = p->curr.chr;
 		break;
 	case TOK_LIT_STR:
@@ -350,6 +343,8 @@ static uint32_t parse_expr (Parser *p, int min_prec)
 		TokenType op_type = p->curr.type;
 		uint16_t line = p->curr.line;
 		uint16_t col = p->curr.col;
+		uint16_t len = p->curr.len;
+	
 		extra++;
 		advance(p);
 
@@ -358,6 +353,8 @@ static uint32_t parse_expr (Parser *p, int min_prec)
 
 		uint32_t node = new_node(p, (NodeType)binop_node[op_type], line, col);
 		uint32_t last = NO_NODE;
+		p->ast.nodes[node].len = len;
+	
 		append_child(p, node, &last, left);
 		append_child(p, node, &last, right);
 
@@ -785,7 +782,7 @@ static void dump_node_value (ASTNode *n)
 	switch (n->type)
 	{
 	case NODE_LIT_i64:
-		printf(" i64=%lld", (long long)n->i64);
+		printf(" i64=%llu", (unsigned long long)n->u64);
 		break;
 	case NODE_LIT_u64:
 		printf(" u64=%llu", (unsigned long long)n->u64);

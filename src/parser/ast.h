@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #define NO_NODE 0xFFFFFFFF
+#define TYPE_CHAR TYPE_i8
 
 typedef enum {
 	TYPE_VOID = 0,
@@ -15,7 +16,6 @@ typedef enum {
 	TYPE_u32,
 	TYPE_i64,
 	TYPE_u64,
-	TYPE_CHAR,
 	TYPE_ERROR,
 	TYPE_COUNT
 } DataType;
@@ -36,7 +36,6 @@ static const Type types[TYPE_COUNT] = {
 	[TYPE_u32] = { "u32", 4, 0 },
 	[TYPE_i64] = { "i64", 8, 1 },
 	[TYPE_u64] = { "u64", 8, 0 },
-	[TYPE_CHAR] = { "char", 1, 1 },
 	[TYPE_ERROR] = { "error", 0, 0 }
 };
 
