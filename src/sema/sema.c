@@ -94,6 +94,12 @@ static int implicit_cast_ok (uint8_t from, uint8_t to)
 	return t->size > f->size;
 }
 
+static int is_untyped (uint8_t type)
+{
+	return type == TYPE_UNTYPED_INT || type == TYPE_UNTYPED_UINT
+			|| type == TYPE_UNTYPED_CHAR;
+}
+
 static uint32_t sema_new_node (Sema *s, ASTNode node)
 {
 	uint32_t idx = s->ast->count++;
@@ -247,8 +253,8 @@ static int fold_compare (uint8_t op, uint64_t a, uint64_t b, uint8_t t, uint64_t
 
 static uint8_t neg_result_type (ASTNode *c)
 {
-	if (c->type == NODE_LIT_u64) return TYPE_u64;
-	if (c->type == NODE_LIT_i64 && c->data_type == TYPE_u64) return TYPE_i64;
+	if (c->type == NODE_LIT_u64) return TYPE_UNTYPED_UINT;
+	if (c->type == NODE_LIT_i64 && c->data_type == TYPE_UNTYPED_UINT) return TYPE_UNTYPED_INT;
 	return c->data_type;
 }
 
@@ -317,7 +323,7 @@ static int lit_magnitude (ASTNode *lit, LitVal *v)
 	{
 	case NODE_LIT_i64:
 		v->mag = lit->u64;
-		if (lit->i64 < 0 && lit->data_type != TYPE_u64) {
+		if (lit->i64 < 0 && lit->data_type != TYPE_UNTYPED_UINT) {
 			v->neg = 1;
 			v->mag = 0 - lit->u64;
 		}
@@ -402,17 +408,6 @@ static const uint8_t flex_op[NODE_COUNT] = {
 	[NODE_LS] = 3, [NODE_RS] = 3
 };
 
-static int is_flex_expr (Sema *s, uint32_t idx)
-{
-	ASTNode *n = &s->ast->nodes[idx];
-	LitVal v;
-
-	if (flex_literal(s, idx, &v)) return 1;
-	if (!flex_op[n->type] || !is_flex_expr(s, n->child)) return 0;
-	if (flex_op[n->type] != 2) return 1;
-	return is_flex_expr(s, s->ast->nodes[n->child].next_bro);
-}
-
 static void retag_expr (Sema *s, uint32_t idx, uint8_t to)
 {
 	ASTNode *n;
@@ -430,12 +425,31 @@ static void retag_expr (Sema *s, uint32_t idx, uint8_t to)
 		retag_expr(s, s->ast->nodes[child].next_bro, to);
 }
 
+static uint8_t default_type (uint8_t type)
+{
+	switch (type)
+	{
+	case TYPE_UNTYPED_INT: return TYPE_i64;
+	case TYPE_UNTYPED_UINT: return TYPE_u64;
+	case TYPE_UNTYPED_CHAR: return TYPE_i8;
+	default: return type;
+	}
+}
+
+static uint8_t finalize_type (Sema *s, uint32_t idx, uint8_t type)
+{
+	uint8_t to = default_type(type);
+
+	if (to != type) retag_expr(s, idx, to);
+	return to;
+}
+
 static uint32_t force_cast (Sema *s, uint32_t child, uint8_t child_type, uint8_t target, int *ok)
 {
 	*ok = 1;
 	if (child_type == target || child_type == TYPE_ERROR || target == TYPE_ERROR)
 		return child;
-	if (types[target].size && is_flex_expr(s, child)) {
+	if (types[target].size && is_untyped(child_type)) {
 		retag_expr(s, child, target);
 		return child;
 	}
@@ -468,9 +482,11 @@ static uint8_t check_literal (Sema *s, uint32_t idx)
 	ASTNode *n = &s->ast->nodes[idx];
 	switch (n->type)
 	{
-	case NODE_LIT_i64: n->data_type = n->u64 > INT64_MAX ? TYPE_u64 : TYPE_i64; break;
-	case NODE_LIT_u64: n->data_type = TYPE_u64; break;
-	case NODE_LIT_CHAR: n->data_type = TYPE_CHAR; break;
+	case NODE_LIT_i64:
+		n->data_type = n->u64 > INT64_MAX ? TYPE_UNTYPED_UINT : TYPE_UNTYPED_INT;
+		break;
+	case NODE_LIT_u64: n->data_type = TYPE_UNTYPED_UINT; break;
+	case NODE_LIT_CHAR: n->data_type = TYPE_UNTYPED_CHAR; break;
 	default:
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"string literals are not supported yet");
@@ -775,10 +791,10 @@ static void warn_const_operand (Sema *s, uint32_t idx, const char *op)
 			"constant operand of '%s' is always %s", op, tru ? "true" : "false");
 }
 
-static uint8_t common_type (Sema *s, uint32_t left, uint32_t right, uint8_t l, uint8_t r)
+static uint8_t common_type (uint8_t l, uint8_t r)
 {
-	int l_flex = is_flex_expr(s, left);
-	int r_flex = is_flex_expr(s, right);
+	int l_flex = is_untyped(l);
+	int r_flex = is_untyped(r);
 
 	if (l_flex != r_flex) return l_flex ? r : l;
 	if (implicit_cast_ok(l, r)) return r;
@@ -789,7 +805,7 @@ static uint8_t common_type (Sema *s, uint32_t left, uint32_t right, uint8_t l, u
 
 static void convert_operand (Sema *s, uint32_t *idx, uint8_t *type, uint8_t to)
 {
-	if (is_flex_expr(s, *idx)) {
+	if (is_untyped(*type)) {
 		retag_expr(s, *idx, to);
 	} else {
 		*idx = sema_wrap_cast(s, *idx, to);
@@ -800,7 +816,7 @@ static void convert_operand (Sema *s, uint32_t *idx, uint8_t *type, uint8_t to)
 static int unify_operands (Sema *s, ASTNode *n, uint32_t *left, uint32_t *right,
 		uint8_t *l, uint8_t *r)
 {
-	uint8_t to = common_type(s, *left, *right, *l, *r);
+	uint8_t to = common_type(*l, *r);
 
 	if (to == TYPE_ERROR) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
@@ -836,6 +852,10 @@ static uint8_t check_binary (Sema *s, uint32_t idx)
 		const char *op = n->type == NODE_AND_L ? "&&" : "||";
 		warn_const_operand(s, left, op);
 		warn_const_operand(s, right, op);
+		finalize_type(s, left, l);
+		finalize_type(s, right, r);
+	} else if (n->type == NODE_LS || n->type == NODE_RS) {
+		finalize_type(s, right, r);
 	}
 
 	if (l != r && needs_common_type(n->type)
@@ -866,6 +886,8 @@ static uint8_t check_cast (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+
+	finalize_type(s, n->child, from);
 	return n->data_type;
 }
 
@@ -1042,6 +1064,7 @@ static void check_elif_chain (Sema *s, uint32_t idx)
 			if (type == TYPE_VOID)
 				error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[cond]),
 						"expression with resulting type void is not valid as a condition");
+			finalize_type(s, cond, type);
 			check_body(s, body);
 		} else {
 			check_body(s, n->child);
@@ -1061,6 +1084,8 @@ static void check_if (Sema *s, uint32_t idx)
 	if (type == TYPE_VOID)
 		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[cond]),
 				"expression with resulting type void is not valid as a condition");
+	finalize_type(s, cond, type);
+
 	check_body(s, body);
 	check_elif_chain(s, s->ast->nodes[body].next_bro);
 }
@@ -1075,6 +1100,8 @@ static void check_while (Sema *s, uint32_t idx)
 	if (type == TYPE_VOID)
 		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[cond]),
 				"expression with resulting type void is not valid as a condition");
+	finalize_type(s, cond, type);
+
 	check_body(s, body);
 }
 
@@ -1095,8 +1122,9 @@ static void check_for (Sema *s, uint32_t idx)
 		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[cond]),
 				"expression with resulting type void is not valid as a condition");
 
+	finalize_type(s, cond, cond_type);
 	check_body(s, body);
-	check_expr(s, updt);
+	finalize_type(s, updt, check_expr(s, updt));
 
 	s->depth--;
 	symtab_pop_scope(&s->table, mark);
@@ -1199,7 +1227,7 @@ static void check_statement (Sema *s, uint32_t idx)
 				"functions can only be declared at the top level");
 		return;
 	default:
-		check_expr(s, idx);
+		finalize_type(s, idx, check_expr(s, idx));
 		return;
 	}
 }

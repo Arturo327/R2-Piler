@@ -16,6 +16,9 @@ typedef enum {
 	TYPE_u32,
 	TYPE_i64,
 	TYPE_u64,
+	TYPE_UNTYPED_INT,
+	TYPE_UNTYPED_UINT,
+	TYPE_UNTYPED_CHAR,
 	TYPE_ERROR,
 	TYPE_COUNT
 } DataType;
@@ -36,6 +39,9 @@ static const Type types[TYPE_COUNT] = {
 	[TYPE_u32] = { "u32", 4, 0 },
 	[TYPE_i64] = { "i64", 8, 1 },
 	[TYPE_u64] = { "u64", 8, 0 },
+	[TYPE_UNTYPED_INT] = { "untyped int", 8, 1 },
+	[TYPE_UNTYPED_UINT] = { "untyped uint", 8, 0 },
+	[TYPE_UNTYPED_CHAR] = { "untyped char", 1, 1 },
 	[TYPE_ERROR] = { "error", 0, 0 }
 };
 
