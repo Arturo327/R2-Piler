@@ -1,9 +1,9 @@
-tests/sema/024_err_toplevel_src.r2:2:3: [1;31mERROR[0m: only variable and function declarations are allowed at the top level
-      2 | x [1;31m=[0m 2;
-        |   [1;31m^[0m
-tests/sema/024_err_toplevel_src.r2:3:1: [1;31mERROR[0m: only variable and function declarations are allowed at the top level
-      3 | [1;31mi[0mf (x) {
-        | [1;31m^[0m
-tests/sema/024_err_toplevel_src.r2:6:1: [1;31mERROR[0m: only variable and function declarations are allowed at the top level
-      6 | [1;31m{[0m
-        | [1;31m^[0m
+tests/sema/024_err_toplevel_src.r2:2:3: ERROR: only variable and function declarations are allowed at the top level
+      2 | x = 2;
+        |   ^
+tests/sema/024_err_toplevel_src.r2:3:1: ERROR: only variable and function declarations are allowed at the top level
+      3 | if (x) {
+        | ^
+tests/sema/024_err_toplevel_src.r2:6:1: ERROR: only variable and function declarations are allowed at the top level
+      6 | {
+        | ^

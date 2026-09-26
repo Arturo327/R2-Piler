@@ -1,6 +1,6 @@
-tests/sema/017_err_arg_count_src.r2:5:17: [1;31mERROR[0m: wrong number of arguments in call to 'one'
-      5 |   var x : i64 = [1;31mone[0m();
-        |                 [1;31m^~~[0m
-tests/sema/017_err_arg_count_src.r2:6:17: [1;31mERROR[0m: wrong number of arguments in call to 'one'
-      6 |   var y : i64 = [1;31mone[0m(1, 2);
-        |                 [1;31m^~~[0m
+tests/sema/017_err_arg_count_src.r2:5:17: ERROR: wrong number of arguments in call to 'one'
+      5 |   var x : i64 = one();
+        |                 ^~~
+tests/sema/017_err_arg_count_src.r2:6:17: ERROR: wrong number of arguments in call to 'one'
+      6 |   var y : i64 = one(1, 2);
+        |                 ^~~

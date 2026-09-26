@@ -1,9 +1,9 @@
-tests/sema/049_warn_types_src.r2:3:17: [1;35mWARNING[0m: unsigned literal used as signed type i64; remove the 'u' suffix
-      3 |   var a : i64 = [1;35m5u[0m;
-        |                 [1;35m^~[0m
-tests/sema/049_warn_types_src.r2:4:17: [1;35mWARNING[0m: negating an unsigned value; the result wraps
-      4 |   var n : u64 = [1;35m-[0mu;
-        |                 [1;35m^[0m
-tests/sema/049_warn_types_src.r2:6:17: [1;35mWARNING[0m: constant operand of '&&' is always true
-      6 |   var t : i64 = [1;35m1[0m && a;
-        |                 [1;35m^[0m
+tests/sema/049_warn_types_src.r2:3:17: WARNING: unsigned literal used as signed type i64; remove the 'u' suffix
+      3 |   var a : i64 = 5u;
+        |                 ^~
+tests/sema/049_warn_types_src.r2:4:17: WARNING: negating an unsigned value; the result wraps
+      4 |   var n : u64 = -u;
+        |                 ^
+tests/sema/049_warn_types_src.r2:6:17: WARNING: constant operand of '&&' is always true
+      6 |   var t : i64 = 1 && a;
+        |                 ^

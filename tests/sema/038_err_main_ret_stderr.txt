@@ -1,3 +1,3 @@
-tests/sema/038_err_main_ret_src.r2:1:4: [1;31mERROR[0m: 'main' must be declared as 'fn main() : i64'
-      1 | fn [1;31mmain[0m() : void {
-        |    [1;31m^~~~[0m
+tests/sema/038_err_main_ret_src.r2:1:4: ERROR: 'main' must be declared as 'fn main() : i64'
+      1 | fn main() : void {
+        |    ^~~~

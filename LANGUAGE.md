@@ -2,7 +2,7 @@
 
 Especificación completa de R2-Lang, el lenguaje que compila R2-Piler.
 
-Estado: lexer, parser, sema e IR implementados y testeados. `optimize_ir` y codegen pendientes.
+Estado: lexer, parser, sema e IR implementados y testeados. Codegen: el andamiaje existe (CLI, tabla de backends, buffer de salida) pero el backend x86-64 es un stub que aún no emite assembly (`arm`, `riscv` y el intérprete se rechazan con "backend is not implemented"). `optimize_ir` pendiente.
 
 ---
 
@@ -15,7 +15,7 @@ R2-Lang es un lenguaje imperativo, estática y fuertemente tipado, sin conversio
 - Funciones solo a nivel top-level, con parámetros por valor.
 - Scopes de bloque con shadowing entre scopes.
 - Entry point: `fn main() : i64`.
-- El compilador emite assembly x86-64, no binarios: el binario final se produce ensamblando.
+- El compilador emitirá assembly x86-64 (no binarios: el binario final se produce ensamblando). **Hoy el backend es un stub**: una compilación sin flags de dump escribe un `out.s` vacío.
 
 Pipeline del compilador:
 
@@ -88,8 +88,11 @@ while  return  as
 
 Reglas de tipos (estrictas; el único implícito es el que no puede perder valor):
 
-- **Literales flexibles**: un literal (o `-literal`, o una expresión hecha solo de literales) adopta en silencio el tipo que le pide el contexto si su valor cabe en él: `var u : u64 = 1`, `take_i64('a')`, `c > 5` (el `5` se vuelve `i8`), `var v : u64 = 9223372036854775808` (sin sufijo, cabe en `u64`). Las subexpresiones puramente literales se **pliegan en compilación** con semántica de wrap, y el chequeo de rango se hace sobre el valor plegado: `var w : char = 100 * 100` es error (`literal 10000 does not fit in type i8`, reportado en el operador). No se pliega (se deja al hardware): división/módulo por cero, `INT64_MIN / -1` y shifts con cuenta `>= 64`.
-- **Literal fuera de rango**: error (`literal 300 does not fit in type i8; use an explicit cast with 'as' to reinterpret the bits`). Si además el destino es con signo y el valor supera `INT64_MAX`, el mensaje añade que el sufijo `u` lo convierte en literal `u64`.
+- **Literales flexibles**: un literal (o `-literal`, o una expresión hecha solo de literales) adopta en silencio el tipo que le pide el contexto si su valor cabe en él: `var u : u64 = 1`, `take_i64('a')`, `c > 5` (el `5` se vuelve `i8`), `var v : u64 = 9223372036854775808` (sin sufijo, cabe en `u64`). Las subexpresiones puramente literales se **pliegan en compilación** con semántica de wrap, y el chequeo de rango se hace sobre el valor plegado: `var w : char = 100 * 100` es error (`literal 10000 does not fit in type i8`, reportado en el operador). Los casts de literales también pliegan (el valor se trunca al tipo del cast antes de plegar): `-(5 as u64)` es la constante `u64` exacta, `(300 as u8) > 200` pliega a `0`. No se pliega (se deja al hardware): división/módulo por cero, `INT64_MIN / -1` y shifts con cuenta `>= 64`.
+- **Ancho del plegado**: toda subexpresión hecha solo de literales (untyped) pliega con wrap a **64 bits**, sea cual sea el sabor del literal: `var x : i64 = 'a' + 'b';` da **195**. Solo los pares de operandos con tipo concreto narrow (p. ej. dos casts) pliegan con truncado al ancho de ese tipo (`(250 as u8) + 10` pliega a `4`, lo mismo que haría `add.u8` en runtime). Consecuencia: una constante que no cabe en el tipo destino es error aunque "envolvería" bien en un tipo más ancho (`var a : i8 = 1 << 7;` → `literal 128 does not fit in type i8`).
+- **Locación de los errores de rango**: un literal suelto se reporta **en el literal** (`c + 300` marca el `300`); un `-literal` marca el `-literal` **completo**; una subexpresión plegada se reporta **en el operador** (el nodo plegado hereda la posición del operador), y un init en el nombre declarado.
+- **Shifts con izquierda untyped**: si la cuenta es un literal, la constante plegada queda flexible y adopta el tipo del contexto (`var v : u64 = 1 << 2;` vale). Si la cuenta **no** es un literal, la izquierda finaliza a su tipo por defecto (`1 << x` es `i64`, `'a' << x` es `i8`) y el shift ya no adopta el contexto: `var a : i8 = 1 << x;` es un error de estrechamiento, igual que `var a : i8 = 1 << 7;`. Migración: `var v : u64 = 1 << x;` → `var v : u64 = (1 << x) as u64;` (la misma regla que ya aplicaba a `var v : u64 = 5 + x;`).
+- **Literal fuera de rango**: error (`literal 300 does not fit in type i8; use an explicit cast with 'as' to reinterpret the bits`). Si además el destino es con signo y el valor supera `INT64_MAX`, el mensaje añade que el sufijo `u` lo convierte en literal `u64`. Un literal negativo hacia un destino sin signo es error, también dentro de binarios (`var u : u64 = -5;`, `5u + -1`); los mensajes siempre usan el nombre público del tipo (`u64`, nunca el interno). Un literal fuera de rango produce exactamente un diagnóstico, sin cascadas.
 - **Literal `u` usado como tipo con signo**: solo un **warning** (`unsigned literal used as signed type i64; remove the 'u' suffix`); compila igual.
 - **Ensanchar sin cambiar el valor es silencioso**: mismo signo a mayor tamaño (`i8`→`i64`, `u8`→`u32`), o sin signo a con signo mayor (`u8`→`i64`). Vale en binarios, init, asignación, args y `return`, sin emitir código (los regs ya guardan el valor extendido).
 - **Todo lo demás entre tipos distintos es error** con sufijo `'as'` en el mensaje: estrechar (`i64`→`i8`), cambiar de signo (`i8`→`u64`, `u64`→`i64`), o mezclar dos variables de tipos distintos en un binario (`type mismatch: i64 vs u64 (use 'as' to convert explicitly)`).
@@ -97,7 +100,7 @@ Reglas de tipos (estrictas; el único implícito es el que no puede perder valor
 - Shifts (`<< >>`): el resultado es el tipo del operando **izquierdo**; el derecho puede ser cualquier numérico (`a << b` con `a : i64`, `b : u64` vale).
 - Comparaciones (`< > <= >= == !=`): ambos operandos del **mismo tipo** (un literal flexible adopta el del otro: `c > 5` con `c : char` compara en `i8`); dos variables de tipos distintos son error. Nunca `void`. Resultado siempre `i64` (0 o 1).
 - Lógicos binarios (`&&` `||`): aceptan operandos de **cualquier tipo no-`void` sin conversión**; resultado siempre `i64`.
-- `-` y `~` unarios: preservan el tipo del operando. Negar una variable sin signo compila pero emite un **warning** (`negating an unsigned value; the result wraps`); negar un literal es silencioso (se pliega al valor exacto). `!` unario: acepta cualquier tipo no-`void`, resultado `i64`.
+- `-` y `~` unarios: preservan el tipo del operando. Negar una variable sin signo compila pero emite un **warning** (`negating an unsigned value; the result wraps`); negar un literal es silencioso (se pliega al valor exacto, también a través de un cast). `!` unario: acepta cualquier tipo no-`void`, resultado `i64`.
 - **Cast explícito `expr as type`** (`type` = cualquier numérico, incluido `char` como alias de `i8`): acepta cualquier operando no-`void` (incluido el resultado de otro cast) y devuelve exactamente el tipo escrito. Reinterpreta/trunca bits en silencio. `as void` no existe (error de parser: `expected type`). Castear un `void` (p. ej. `f() as i64` con `f : void`) es error de sema (`cannot cast a value of type void`). Castear un operando con error (no declarado, string, etc.) no añade un segundo error: el cast propaga `error`.
 - `void` no puede aparecer en expresiones (ni en condiciones, ni como operando, ni como init, ni como origen/destino de cast).
 
@@ -135,7 +138,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 - Literales enteros, char y string; identificadores; llamadas `f(a, b)`; expresiones entre paréntesis.
 - **Cast `expr as type`** (cualquier tipo numérico, `char` = `i8`): conversión explícita que acepta cualquier operando no-`void` y devuelve exactamente el tipo escrito. Todas las combinaciones están permitidas (incluido el cast identidad `x as i64` con `x : i64`). Entre 64 bits (`i64<->u64`) es reinterpretación de bits (wrap/módulo 2^64); hacia un tipo narrow es truncado al ancho + extendido (con signo si el destino lo tiene, con ceros si no); hacia 64 bits desde un narrow es no-op (el valor ya vive extendido en su reg). El cast no es asignable: `(x as i64) = 1` es error (`left side of '=' must be a variable`). Como cualquier expresión, puede aparecer en inits, args, `return` y condiciones.
 - **Asignación `=`**: es una expresión. El lado izquierdo debe ser una variable; el derecho debe ser del mismo tipo o ensanchar a él en silencio (ver §3; si no, error `cannot assign X to a variable of type Y; use an explicit cast with 'as'`, reportado en el `=`). Devuelve **el valor asignado**, por lo que puede encadenarse (`x = y = 1`) y usarse como expresión, incluso como condición.
-- **`&&` y `||`**: short-circuit. Si el resultado queda decidido por el operando izquierdo, el derecho no se evalúa. Compilan a una serie de saltos, no a operaciones aritméticas. Un operando literal emite un **warning** (`constant operand of '&&' is always true/false`).
+- **`&&` y `||`**: short-circuit. Si el resultado queda decidido por el operando izquierdo, el derecho no se evalúa. Compilan a una serie de saltos, no a operaciones aritméticas. Un operando constante emite un **warning** (`constant operand of '&&' is always true/false`), también a través de un cast (`(1 as i64) && x` advierte).
 
 ---
 
@@ -184,6 +187,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 - `var ID : type (= expr)? ;` a nivel top-level. Otra cosa a nivel top-level es error (el parser acepta cualquier statement suelto como test de parser puro, pero sema lo rechaza: `only variable and function declarations are allowed at the top level`).
 - Todas se declaran antes de chequear los inits: las **forward references están permitidas**.
 - Referencias a variables globales futuras permitido, ej: `var x:i64 = y; var y:i64 = 73` es válido
+- Una global **sin init vale 0** en runtime (vive en `.bss`) y su lectura **nunca advierte**; el warning de "used without being assigned" aplica solo a locales sin asignar.
 - **Auto-referencia** (`var x : i64 = x;`): error.
 - **Cadenas circulares** entre inits (`var y : i64 = x; var x : i64 = y;`): error. Al chequear el init de una global, si el init referencia a otra global cuyo init aún no se chequeó, ese init se chequea en ese momento (recursivamente); referenciar una global cuyo init está a medio chequear es el ciclo, y se reporta en el ref que lo cierra (un error por ciclo).
 - Solo se siguen **referencias directas** a globals en los inits. Los ciclos a través de llamadas a funciones dentro de inits no se detectan.
@@ -204,7 +208,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 
 - El entry point es exactamente `fn main() : i64`, sin parámetros. Su valor de retorno es el exit code del programa.
 - Si el programa no define `main`: se genera assembly igualmente.
-- La salida del compilador es **assembly x86-64**, no un binario. El binario final se produce ensamblando (p. ej. `gcc out.s`).
+- La salida del compilador será **assembly x86-64**, no un binario. El binario final se produce ensamblando (p. ej. `gcc out.s`). Hoy el backend es un stub y el archivo sale vacío.
 
 ---
 
@@ -218,7 +222,7 @@ No se añade ninguna lógica para evitarlo; el resultado es lo que haga el hardw
 
 El **wrap** aritmético NO es indefinido: está definido como complemento a 2 (y módulo 2^64 para `u64`).
 
-Plegado de constantes: una subexpresión hecha solo de literales se evalúa en compilación con esa misma semántica de wrap (incluida la negación: `-5u` es la constante `u64` exacta, sin warning). No se pliega y se deja al hardware: división/módulo por cero, `INT64_MIN / -1` (o `%`) y shifts con cuenta `>= 64`.
+Plegado de constantes: una subexpresión hecha solo de literales se evalúa en compilación con esa misma semántica de wrap, siempre a 64 bits (ver §3, "Ancho del plegado"), incluida la negación: `-5u` es la constante `u64` exacta, sin warning. Los literales detrás de un cast explícito también pliegan, truncando primero al tipo del cast (`-(300 as u8)` es la constante `212`). No se pliega y se deja al hardware: división/módulo por cero, `INT64_MIN / -1` (o `%`) y shifts con cuenta `>= 64`.
 
 ---
 
@@ -356,6 +360,8 @@ make
 | `-o` / `--out` | Ruta del assembly de salida |
 | `-a` / `--arch` | Arquitectura del assembly generado|
 | `-e` / `--execute` | Modo intérprete |
+
+Nota: sin flags de dump, `r2p` compila y escribe el assembly a `out.s` (o a la ruta de `-o`; `-` es stdout). Hoy el backend x86-64 es un stub y el archivo sale vacío; `-a arm`, `-a riscv` y `-e` abortan con "backend is not implemented".
 
 `make test` ejecuta las cuatro suites de fixtures (lexer, parser, sema, ir), cada una contra `build/r2p`.
 

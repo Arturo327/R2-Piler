@@ -1,6 +1,6 @@
-tests/sema/018_err_arg_type_src.r2:7:21: [1;31mERROR[0m: argument type u64 does not match parameter type i64; use an explicit cast with 'as'
-      7 |   var x : i64 = add([1;31mu[0m, c);
-        |                     [1;31m^[0m
-tests/sema/018_err_arg_type_src.r2:8:24: [1;31mERROR[0m: argument type u64 does not match parameter type i64; use an explicit cast with 'as'
-      8 |   var y : i64 = add(c, [1;31mu[0m);
-        |                        [1;31m^[0m
+tests/sema/018_err_arg_type_src.r2:7:21: ERROR: argument type u64 does not match parameter type i64; use an explicit cast with 'as'
+      7 |   var x : i64 = add(u, c);
+        |                     ^
+tests/sema/018_err_arg_type_src.r2:8:24: ERROR: argument type u64 does not match parameter type i64; use an explicit cast with 'as'
+      8 |   var y : i64 = add(c, u);
+        |                        ^

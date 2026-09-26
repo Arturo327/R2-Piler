@@ -1,6 +1,6 @@
-tests/sema/039_err_return_while_for_src.r2:1:4: [1;31mERROR[0m: function may reach the end without returning
-      1 | fn [1;31mw[0m() : i64 {
-        |    [1;31m^[0m
-tests/sema/039_err_return_while_for_src.r2:6:4: [1;31mERROR[0m: function may reach the end without returning
-      6 | fn [1;31mf[0m() : i64 {
-        |    [1;31m^[0m
+tests/sema/039_err_return_while_for_src.r2:1:4: ERROR: function may reach the end without returning
+      1 | fn w() : i64 {
+        |    ^
+tests/sema/039_err_return_while_for_src.r2:6:4: ERROR: function may reach the end without returning
+      6 | fn f() : i64 {
+        |    ^

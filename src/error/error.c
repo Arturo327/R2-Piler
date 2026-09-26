@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdarg.h>
+#include <unistd.h>
 
 #include "error/error.h"
 
@@ -7,6 +8,15 @@
 #define COL_PUR "\033[1;35m"
 #define COL_RESET "\033[0m"
 #define TAB_WIDTH 8
+
+static int color_mode = -1;
+
+static int colors_on (void)
+{
+	if (color_mode < 0)
+		color_mode = isatty(fileno(stderr));
+	return color_mode;
+}
 
 void error_init (ErrorReporter *er, const char *file, char *src, Arena *arena)
 {
@@ -56,12 +66,12 @@ static void index_lines (ErrorReporter *er)
 static const char *level_str (ErrorLevel level, char **col)
 {
 	if (level == ERR_WARNING) {
-		*col = COL_PUR;
-		return COL_PUR "WARNING" COL_RESET;
+		*col = colors_on() ? COL_PUR : "";
+		return colors_on() ? COL_PUR "WARNING" COL_RESET : "WARNING";
 	}
 
-	*col = COL_RED;
-	return COL_RED "ERROR" COL_RESET;
+	*col = colors_on() ? COL_RED : "";
+	return colors_on() ? COL_RED "ERROR" COL_RESET : "ERROR";
 }
 
 static char *error_get_line_start (ErrorReporter *er, int line)
@@ -119,7 +129,7 @@ static void print_snippet (const char *line, int line_len, int col, int span,
 	print_expanded(line, col, &vis);
 	fprintf(stderr, "%s", color);
 	print_expanded(line + col, span, &vis);
-	fprintf(stderr, "%s", COL_RESET);
+	fprintf(stderr, "%s", colors_on() ? COL_RESET : "");
 	print_expanded(line + col + span, line_len - col - span, &vis);
 	fprintf(stderr, "\n");
 }
@@ -131,7 +141,7 @@ static void print_caret (int vis_start, int vis_width, const char *color)
 	fprintf(stderr, "%s^", color);
 	for (int i = 1; i < vis_width; i++)
 		fputc('~', stderr);
-	fprintf(stderr, "%s\n", COL_RESET);
+	fprintf(stderr, "%s\n", colors_on() ? COL_RESET : "");
 }
 
 static void print_context (ErrorReporter *er, ErrorLoc loc, const char *color)

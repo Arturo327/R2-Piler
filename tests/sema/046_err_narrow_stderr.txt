@@ -1,21 +1,21 @@
-tests/sema/046_err_narrow_src.r2:10:7: [1;31mERROR[0m: can't initialize 'c' (i64) with a value of type u64; use an explicit cast with 'as'
-     10 |   var [1;31mc[0m : i64 = b;
-        |       [1;31m^[0m
-tests/sema/046_err_narrow_src.r2:11:7: [1;31mERROR[0m: can't initialize 'd' (u64) with a value of type i64; use an explicit cast with 'as'
-     11 |   var [1;31md[0m : u64 = a;
-        |       [1;31m^[0m
-tests/sema/046_err_narrow_src.r2:12:7: [1;31mERROR[0m: can't initialize 'e' (i8) with a value of type i64; use an explicit cast with 'as'
-     12 |   var [1;31me[0m : char = a;
-        |       [1;31m^[0m
-tests/sema/046_err_narrow_src.r2:13:26: [1;31mERROR[0m: argument type i64 does not match parameter type u64; use an explicit cast with 'as'
-     13 |   var f : u64 = take_u64([1;31ma[0m);
-        |                          [1;31m^[0m
-tests/sema/046_err_narrow_src.r2:14:26: [1;31mERROR[0m: argument type u64 does not match parameter type i64; use an explicit cast with 'as'
-     14 |   var g : i64 = take_i64([1;31mb[0m);
-        |                          [1;31m^[0m
-tests/sema/046_err_narrow_src.r2:17:18: [1;31mERROR[0m: literal 300 does not fit in type i8; use an explicit cast with 'as' to reinterpret the bits
-     17 |   var j : char = [1;31m300[0m;
-        |                  [1;31m^~~[0m
-tests/sema/046_err_narrow_src.r2:18:17: [1;31mERROR[0m: literal 18446744073709551615 does not fit in type i64; it is too large (the 'u' suffix makes it a u64 literal)
-     18 |   var k : i64 = [1;31m18446744073709551615u[0m;
-        |                 [1;31m^~~~~~~~~~~~~~~~~~~~~[0m
+tests/sema/046_err_narrow_src.r2:10:7: ERROR: can't initialize 'c' (i64) with a value of type u64; use an explicit cast with 'as'
+     10 |   var c : i64 = b;
+        |       ^
+tests/sema/046_err_narrow_src.r2:11:7: ERROR: can't initialize 'd' (u64) with a value of type i64; use an explicit cast with 'as'
+     11 |   var d : u64 = a;
+        |       ^
+tests/sema/046_err_narrow_src.r2:12:7: ERROR: can't initialize 'e' (i8) with a value of type i64; use an explicit cast with 'as'
+     12 |   var e : char = a;
+        |       ^
+tests/sema/046_err_narrow_src.r2:13:26: ERROR: argument type i64 does not match parameter type u64; use an explicit cast with 'as'
+     13 |   var f : u64 = take_u64(a);
+        |                          ^
+tests/sema/046_err_narrow_src.r2:14:26: ERROR: argument type u64 does not match parameter type i64; use an explicit cast with 'as'
+     14 |   var g : i64 = take_i64(b);
+        |                          ^
+tests/sema/046_err_narrow_src.r2:17:18: ERROR: literal 300 does not fit in type i8; use an explicit cast with 'as' to reinterpret the bits
+     17 |   var j : char = 300;
+        |                  ^~~
+tests/sema/046_err_narrow_src.r2:18:17: ERROR: literal 18446744073709551615 does not fit in type i64; it is too large (the 'u' suffix makes it a u64 literal)
+     18 |   var k : i64 = 18446744073709551615u;
+        |                 ^~~~~~~~~~~~~~~~~~~~~

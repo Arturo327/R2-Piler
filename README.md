@@ -6,7 +6,7 @@ A small compiler for the (invented) **R2-Lang** language, written in C.
 
 ## Current Status
 
-The code generator is not built yet, the rest is correctly implemented.
+The code generator backend exists but is still a stub: `gen_x86_64` emits nothing, so a plain compile writes an empty `.s` file. The rest is implemented and tested.
 
 **Work in progress.**
 
@@ -14,7 +14,7 @@ The code generator is not built yet, the rest is correctly implemented.
 - Parser — implemented and tested
 - Type checker — implemented and tested
 - IR — implemented and tested
-- Code generation — working on
+- Code generation — scaffolded (CLI, buffer, backends table); x86-64 emission and the interpreter are still pending
 
 For now, `--dump-tokens`, `--dump-ast`, `--dump-symbols` and `--dump-ir` are the main ways to see the compiler do something.
 
@@ -23,13 +23,13 @@ For now, `--dump-tokens`, `--dump-ast`, `--dump-symbols` and `--dump-ir` are the
 ## Features
 
 - Lexer: identifiers, keywords, integer/char/string literals (with escape sequences), `//` comments, and the full set of operators (arithmetic, bitwise, logical, comparison).
-- Parser: expresions, variable declarations, blocks, if statements, functions, for and while loops.
-- Sema: strict type checking, unitialized and undeclared variable detector, symbol table, allow foward-calls
+- Parser: expressions, variable declarations, blocks, if statements, functions, for and while loops.
+- Sema: strict type checking, uninitialized and undeclared variable detector, symbol table, allow forward-calls
 - IR: linear per-function stream with virtual registers, short-circuit `&&`/`||`, global init function (`__r2_init`), full lowering of expressions, calls, `if`/`while`/`for` and `return`.
 - Precise error reporting with `file:line:column` locations.
 - Arena allocator — all compiler memory is freed in a single call at program exit instead of scattered `malloc`/`free` calls.
 - `--dump-tokens` flag to inspect exactly what the lexer produces for a given source file.
-- `--dump-ast` flag to inspect exactly the AST produced by the pasrser for a given source file.
+- `--dump-ast` flag to inspect exactly the AST produced by the parser for a given source file.
 - `--dump-symbols` flag to inspect the resolved symbol table for a given source file.
 - `--dump-ir` flag to inspect the generated IR for a given source file.
 - Fixture-based test runner (`make test`) that checks stdout, stderr, and exit status.
@@ -48,6 +48,8 @@ make
 ./build/r2p --dump-ir path/to/file.r2
 ```
 
+A plain compile (no dump flag) writes assembly to `out.s` (or the `-o` target). Note: until the x86-64 backend is implemented, the emitted file is empty; `-a arm`, `-a riscv` and `-e` (interpreter) are rejected with "backend is not implemented".
+
 Run the test suite:
 
 ```bash
@@ -55,6 +57,8 @@ make test
 ```
 
 This runs the four fixture suites: `test_lexer` (`--dump-tokens` over `tests/lexer/*_src.r2`), `test_parser` (`--dump-ast` over `tests/parser/*_src.r2`), `test_sema` (`--dump-symbols` over `tests/sema/*_src.r2`) and `test_ir` (`--dump-ir` over `tests/ir/*_src.r2`).
+
+`tests/regen_fixtures.sh build/r2p` regenerates every `_stderr.txt` fixture from actual binary output (verifying stdout and exit status did not change); useful whenever diagnostics change.
 
 ---
 
@@ -80,11 +84,11 @@ src/
 |   ├── ast.h        # AST definition: nodes, types, AST tree
 |   └── parser.c/h   # Parser: get the tokens and crate an AST tree
 ├── codegen/
-|   ├── x86_64.c/h   # x86_64: translates the IR to x86-64 assembly
+|   ├── x86_64.c/h   # x86_64 backend: stub, does not emit assembly yet
 |   └── codegen.c/h  # Codegen: wires the different architectures and interpreter mode and manage opening/closing files.
 ├── sema/
 |   ├── symbol.c/h   # Symbol and Symbol table definition
-|   └── sema.c/h     # Semantic analyzer: analyze the AST, reports remainig errors and generate symbol table
+|   └── sema.c/h     # Semantic analyzer: analyze the AST, reports remaining errors and generate symbol table
 └── lexer/
     └── lexer.c/h    # Tokenizer: keywords, literals, operators
 ```

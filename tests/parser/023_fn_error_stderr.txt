@@ -1,30 +1,30 @@
-tests/parser/023_fn_error_src.r2:1:4: [1;31mERROR[0m: expected function name
-      1 | fn [1;31m([0ma : i64) {
-        |    [1;31m^[0m
-tests/parser/023_fn_error_src.r2:4:8: [1;31mERROR[0m: expected '(' after function name
-      4 | fn foo [1;31ma[0m : i64) {
-        |        [1;31m^[0m
-tests/parser/023_fn_error_src.r2:7:16: [1;31mERROR[0m: expected ')' after parameters
-      7 | fn foo(a : i64 [1;31m{[0m
-        |                [1;31m^[0m
-tests/parser/023_fn_error_src.r2:10:10: [1;31mERROR[0m: expected ':' followed by the parameter type
-     10 | fn foo(a [1;31mi64[0m) : i64 {
-        |          [1;31m^~~[0m
-tests/parser/023_fn_error_src.r2:13:12: [1;31mERROR[0m: expected type
-     13 | fn bar(a : [1;31mvoid[0m) {
-        |            [1;31m^~~~[0m
-tests/parser/023_fn_error_src.r2:16:12: [1;31mERROR[0m: expected type
-     16 | fn baz() : [1;31mfoo[0m {
-        |            [1;31m^~~[0m
-tests/parser/023_fn_error_src.r2:19:16: [1;31mERROR[0m: expected ')' after parameters
-     19 | fn bad(a : i64 [1;31mb[0m : char) {
-        |                [1;31m^[0m
-tests/parser/023_fn_error_src.r2:22:9: [1;31mERROR[0m: expected type
-     22 | fn f(a :[1;31m)[0m {
-        |         [1;31m^[0m
-tests/parser/023_fn_error_src.r2:25:10: [1;31mERROR[0m: expected type
-     25 | fn g() : [1;31m{[0m
-        |          [1;31m^[0m
-tests/parser/023_fn_error_src.r2:28:19: [1;31mERROR[0m: expected '{' for block opening
-     28 | fn noblock(a : i64[1;31m)[0m
-        |                   [1;31m^[0m
+tests/parser/023_fn_error_src.r2:1:4: ERROR: expected function name
+      1 | fn (a : i64) {
+        |    ^
+tests/parser/023_fn_error_src.r2:4:8: ERROR: expected '(' after function name
+      4 | fn foo a : i64) {
+        |        ^
+tests/parser/023_fn_error_src.r2:7:16: ERROR: expected ')' after parameters
+      7 | fn foo(a : i64 {
+        |                ^
+tests/parser/023_fn_error_src.r2:10:10: ERROR: expected ':' followed by the parameter type
+     10 | fn foo(a i64) : i64 {
+        |          ^~~
+tests/parser/023_fn_error_src.r2:13:12: ERROR: expected type
+     13 | fn bar(a : void) {
+        |            ^~~~
+tests/parser/023_fn_error_src.r2:16:12: ERROR: expected type
+     16 | fn baz() : foo {
+        |            ^~~
+tests/parser/023_fn_error_src.r2:19:16: ERROR: expected ')' after parameters
+     19 | fn bad(a : i64 b : char) {
+        |                ^
+tests/parser/023_fn_error_src.r2:22:9: ERROR: expected type
+     22 | fn f(a :) {
+        |         ^
+tests/parser/023_fn_error_src.r2:25:10: ERROR: expected type
+     25 | fn g() : {
+        |          ^
+tests/parser/023_fn_error_src.r2:28:19: ERROR: expected '{' for block opening
+     28 | fn noblock(a : i64)
+        |                   ^
