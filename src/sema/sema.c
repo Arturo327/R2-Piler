@@ -43,7 +43,7 @@ static void check_reserved_name (Sema *s, char *name, uint16_t len, uint32_t dec
 	if (memcmp(name, RESERVED_PREFIX, RESERVED_PREFIX_LEN) != 0)
 		return;
 
-	error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[decl_node]),
+	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + decl_node),
 			"identifiers starting with '%s' are reserved", RESERVED_PREFIX);
 }
 
@@ -162,7 +162,15 @@ static uint64_t lit_bits (LitVal v, uint8_t type)
 	return raw;
 }
 
-static int lit_node_bits (ASTNode *n, uint64_t *out)
+static uint64_t trunc_sext (uint64_t raw, uint8_t t)
+{
+	LitVal v = { 0 };
+
+	v.mag = raw;
+	return lit_bits(v, t);
+}
+
+static int lit_node_bits (Sema *s, ASTNode *n, uint64_t *out)
 {
 	switch (n->type)
 	{
@@ -173,17 +181,20 @@ static int lit_node_bits (ASTNode *n, uint64_t *out)
 	case NODE_LIT_CHAR:
 		*out = (uint64_t)(int64_t)n->chr;
 		return 1;
+	case NODE_CAST:
+		if (!lit_node_bits(s, &s->ast->nodes[n->child], out))
+			return 0;
+		*out = trunc_sext(*out, n->data_type);
+		return 1;
 	default:
 		return 0;
 	}
 }
 
-static uint64_t trunc_sext (uint64_t raw, uint8_t t)
+static int is_literal_node (Sema *s, uint32_t idx)
 {
-	LitVal v = { 0 };
-
-	v.mag = raw;
-	return lit_bits(v, t);
+	uint64_t v;
+	return lit_node_bits(s, s->ast->nodes + idx, &v);
 }
 
 static void make_fold_lit (ASTNode *n, uint64_t bits, uint8_t t)
@@ -266,8 +277,9 @@ static uint8_t try_fold_unary (Sema *s, uint32_t idx)
 	uint8_t t;
 
 	if (n->child == NO_NODE) return n->data_type;
-	c = &s->ast->nodes[n->child];
-	if (!lit_node_bits(c, &a)) return n->data_type;
+	c = s->ast->nodes + n->child;
+	if (!lit_node_bits(s, c, &a)) return n->data_type;
+	if (c->data_type == TYPE_ERROR) return n->data_type;
 
 	if (n->type == NODE_NOT_L) {
 		make_fold_lit(n, a == 0, TYPE_i64);
@@ -278,6 +290,7 @@ static uint8_t try_fold_unary (Sema *s, uint32_t idx)
 	if (n->type == NODE_NEG) {
 		t = neg_result_type(c);
 		v = 0 - a;
+		n->len = (uint16_t)(n->len + c->len);
 	} else if (n->type == NODE_NOT_A) {
 		v = ~a;
 	} else return n->data_type;
@@ -298,7 +311,9 @@ static void try_fold_binary (Sema *s, uint32_t idx)
 	l = &s->ast->nodes[n->child];
 	if (l->next_bro == NO_NODE) return;
 	r = &s->ast->nodes[l->next_bro];
-	if (!lit_node_bits(l, &a) || !lit_node_bits(r, &b)) return;
+
+	if (!lit_node_bits(s, l, &a) || !lit_node_bits(s, r, &b)) return;
+	if (l->data_type == TYPE_ERROR || r->data_type == TYPE_ERROR) return;
 
 	if (n->type == NODE_AND_L || n->type == NODE_OR_L) {
 		v = n->type == NODE_AND_L ? (a != 0 && b != 0) : (a != 0 || b != 0);
@@ -311,8 +326,12 @@ static void try_fold_binary (Sema *s, uint32_t idx)
 		make_fold_lit(n, v, TYPE_i64);
 		return;
 	}
-	if (fold_value(n->type, a, b, t, &v))
-		make_fold_lit(n, trunc_sext(v, t), t);
+
+	if (fold_value(n->type, a, b, t, &v)) {
+		uint64_t bits = is_untyped(t) ? v : trunc_sext(v, t);
+
+		make_fold_lit(n, bits, t);
+	}
 }
 
 static int lit_magnitude (ASTNode *lit, LitVal *v)
@@ -353,27 +372,39 @@ static int flex_literal (Sema *s, uint32_t idx, LitVal *v)
 	return 1;
 }
 
+static const char *type_display_name (uint8_t type)
+{
+	switch (type)
+	{
+	case TYPE_UNTYPED_INT: return types[TYPE_i64].name;
+	case TYPE_UNTYPED_UINT: return types[TYPE_u64].name;
+	case TYPE_UNTYPED_CHAR: return types[TYPE_i8].name;
+	default: return types[type].name;
+	}
+}
+
 static void err_lit_out_of_range (Sema *s, ASTNode *n, LitVal v, uint8_t to)
 {
+	const char *name = type_display_name(to);
 	if (v.neg && !types[to].sign)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"literal -%llu does not fit in type %s;"
 				" %s is unsigned and cannot hold a negative value;"
 				" use an explicit cast with 'as' to reinterpret the bits",
-				(unsigned long long)v.mag, types[to].name, types[to].name);
+				(unsigned long long)v.mag, name, name);
 	else if (v.neg) error_report(s->err, ERR_ERROR, node_loc(n),
 			"literal -%llu does not fit in type %s;"
 			" use an explicit cast with 'as' to reinterpret the bits",
-			(unsigned long long)v.mag, types[to].name);
+			(unsigned long long)v.mag, name);
 	else if (types[to].sign && v.mag > INT64_MAX)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"literal %llu does not fit in type %s;"
 				" it is too large (the 'u' suffix makes it a u64 literal)",
-				(unsigned long long)v.mag, types[to].name);
+				(unsigned long long)v.mag, name);
 	else error_report(s->err, ERR_ERROR, node_loc(n),
 			"literal %llu does not fit in type %s;"
 			" use an explicit cast with 'as' to reinterpret the bits",
-			(unsigned long long)v.mag, types[to].name);
+			(unsigned long long)v.mag, name);
 }
 
 static int retag_literal (Sema *s, uint32_t idx, uint8_t to)
@@ -382,16 +413,24 @@ static int retag_literal (Sema *s, uint32_t idx, uint8_t to)
 	LitVal v;
 	uint64_t raw;
 
+	if (n->data_type == TYPE_ERROR) return 1;
 	if (!flex_literal(s, idx, &v)) return 0;
 
 	raw = lit_bits(v, to);
 	if (!lit_fits(v, to)) {
 		err_lit_out_of_range(s, n, v, to);
-	} else if (n->type == NODE_LIT_u64 && !types[n->data_type].sign
+		n->u64 = raw;
+		if (n->type != NODE_LIT_u64) n->type = NODE_LIT_i64;
+		n->data_type = TYPE_ERROR;
+		n->child = NO_NODE;
+		return 1;
+	}
+
+	if (n->type == NODE_LIT_u64 && !types[n->data_type].sign
 			&& types[to].sign) {
 		error_report(s->err, ERR_WARNING, node_loc(n),
 				"unsigned literal used as signed type %s; remove the 'u' suffix",
-				types[to].name);
+				type_display_name(to));
 	}
 
 	n->u64 = raw;
@@ -776,8 +815,13 @@ static int needs_common_type (uint8_t node_type)
 
 static void warn_const_operand (Sema *s, uint32_t idx, const char *op)
 {
-	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *n = s->ast->nodes + idx;
 	int tru;
+
+	if (n->type == NODE_CAST) {
+		warn_const_operand(s, n->child, op);
+		return;
+	}
 
 	switch (n->type)
 	{
@@ -831,7 +875,7 @@ static int unify_operands (Sema *s, ASTNode *n, uint32_t *left, uint32_t *right,
 
 static uint8_t check_binary (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *n = s->ast->nodes + idx;
 	uint32_t left = n->child;
 	uint32_t right = s->ast->nodes[left].next_bro;
 	uint8_t l = check_expr(s, left);
@@ -856,6 +900,8 @@ static uint8_t check_binary (Sema *s, uint32_t idx)
 		finalize_type(s, right, r);
 	} else if (n->type == NODE_LS || n->type == NODE_RS) {
 		finalize_type(s, right, r);
+		if (!is_literal_node(s, right))
+			l = finalize_type(s, left, l);
 	}
 
 	if (l != r && needs_common_type(n->type)
@@ -893,7 +939,7 @@ static uint8_t check_cast (Sema *s, uint32_t idx)
 
 static uint8_t check_expr_node (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *n = s->ast->nodes + idx;
 
 	switch (n->type)
 	{
@@ -914,7 +960,7 @@ static uint8_t check_expr_node (Sema *s, uint32_t idx)
 
 static uint8_t check_expr (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *n = s->ast->nodes + idx;
 	uint8_t type;
 
 	if (s->expr_depth >= MAX_EXPR_DEPTH) {
@@ -974,7 +1020,7 @@ static void check_var_init_type (Sema *s, ASTNode *n, uint8_t init_type)
 
 static void check_var_dec (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *n = s->ast->nodes + idx;
 
 	if (n->child != NO_NODE)
 		check_var_init_type(s, n, check_expr(s, n->child));
@@ -984,7 +1030,7 @@ static void check_var_dec (Sema *s, uint32_t idx)
 
 static void check_main_signature (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *n = s->ast->nodes + idx;
 	uint32_t args = n->child;
 	uint32_t ret = s->ast->nodes[args].next_bro;
 	int bad_params = s->ast->nodes[args].child != NO_NODE;
@@ -1011,20 +1057,20 @@ static void check_fn_dec (Sema *s, uint32_t idx)
 	uint32_t param = s->ast->nodes[args].child;
 	uint32_t count = 0;
 	while (param != NO_NODE) {
-		ASTNode *p = &s->ast->nodes[param];
+		ASTNode *p = s->ast->nodes + param;
 		sema_declare(s, p->str, p->len, SYMBOL_PARAM, p->data_type, param);
 		count++;
 		param = p->next_bro;
 	}
 	if (count > MAX_PARAMS)
-		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[idx]),
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"too many parameters (max %d)", MAX_PARAMS);
 
 	check_block_body(s, body);
 
 	if (s->curr_ret != TYPE_VOID && s->curr_ret != TYPE_ERROR
 			&& !stmt_returns(s, body))
-		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[idx]),
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"function may reach the end without returning");
 
 	s->depth--;
@@ -1055,14 +1101,14 @@ static void check_body (Sema *s, uint32_t idx)
 static void check_elif_chain (Sema *s, uint32_t idx)
 {
 	while (idx != NO_NODE) {
-		ASTNode *n = &s->ast->nodes[idx];
+		ASTNode *n = s->ast->nodes + idx;
 
 		if (n->type == NODE_ELIF) {
 			uint32_t cond = n->child;
 			uint32_t body = s->ast->nodes[cond].next_bro;
 			uint8_t type = check_expr(s, cond);
 			if (type == TYPE_VOID)
-				error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[cond]),
+				error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
 						"expression with resulting type void is not valid as a condition");
 			finalize_type(s, cond, type);
 			check_body(s, body);
@@ -1076,13 +1122,13 @@ static void check_elif_chain (Sema *s, uint32_t idx)
 
 static void check_if (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *n = s->ast->nodes + idx;
 	uint32_t cond = n->child;
 	uint32_t body = s->ast->nodes[cond].next_bro;
 
 	uint8_t type = check_expr(s, cond);
 	if (type == TYPE_VOID)
-		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[cond]),
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
 				"expression with resulting type void is not valid as a condition");
 	finalize_type(s, cond, type);
 
@@ -1092,13 +1138,13 @@ static void check_if (Sema *s, uint32_t idx)
 
 static void check_while (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *n = s->ast->nodes + idx;
 	uint32_t cond = n->child;
 	uint32_t body = s->ast->nodes[cond].next_bro;
 
 	uint8_t type = check_expr(s, cond);
 	if (type == TYPE_VOID)
-		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[cond]),
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
 				"expression with resulting type void is not valid as a condition");
 	finalize_type(s, cond, type);
 
@@ -1107,7 +1153,7 @@ static void check_while (Sema *s, uint32_t idx)
 
 static void check_for (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *n = s->ast->nodes + idx;
 	uint32_t init = n->child;
 	uint32_t cond = s->ast->nodes[init].next_bro;
 	uint32_t updt = s->ast->nodes[cond].next_bro;
@@ -1132,7 +1178,7 @@ static void check_for (Sema *s, uint32_t idx)
 
 static void check_return (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *n = s->ast->nodes + idx;
 	uint8_t val_type;
 	int ok;
 
@@ -1186,7 +1232,7 @@ static int if_returns (Sema *s, uint32_t idx)
 	if (!stmt_returns(s, then_body)) return 0;
 
 	while (branch != NO_NODE) {
-		ASTNode *b = &s->ast->nodes[branch];
+		ASTNode *b = s->ast->nodes + branch;
 		uint32_t body = (b->type == NODE_ELIF)
 				? s->ast->nodes[b->child].next_bro : b->child;
 		if (!stmt_returns(s, body)) return 0;
@@ -1198,7 +1244,7 @@ static int if_returns (Sema *s, uint32_t idx)
 
 static int stmt_returns (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *n = s->ast->nodes + idx;
 
 	switch (n->type)
 	{
@@ -1211,7 +1257,7 @@ static int stmt_returns (Sema *s, uint32_t idx)
 
 static void check_statement (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *n = s->ast->nodes + idx;
 
 	switch (n->type)
 	{
@@ -1245,8 +1291,8 @@ static void record_init_order (Sema *s, uint32_t idx)
 
 static void check_global_var_init (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
-	Symbol *sym = &s->table.symbols[n->sym];
+	ASTNode *n = s->ast->nodes + idx;
+	Symbol *sym = s->table.symbols + n->sym;
 	uint32_t saved = s->init_node;
 
 	if (n->child == NO_NODE) return;
@@ -1265,7 +1311,7 @@ static void check_root (Sema *s)
 	uint32_t idx = s->ast->nodes[0].child;
 
 	while (idx != NO_NODE) {
-		ASTNode *n = &s->ast->nodes[idx];
+		ASTNode *n = s->ast->nodes + idx;
 		if (n->type == NODE_VAR_DEC) check_global_var_init(s, idx);
 		else if (n->type == NODE_FN_DEC) check_fn_dec(s, idx);
 		else error_report(s->err, ERR_ERROR, node_loc(n),
@@ -1279,7 +1325,7 @@ static void decl_globals (Sema *s)
 	uint32_t idx = s->ast->nodes[0].child;
 
 	while (idx != NO_NODE) {
-		ASTNode *n = &s->ast->nodes[idx];
+		ASTNode *n = s->ast->nodes + idx;
 
 		if (n->type == NODE_FN_DEC) {
 			uint32_t args = n->child;
@@ -1318,7 +1364,7 @@ static const char *kind_name (uint8_t kind)
 void dump_symbols (SymbolTable *t)
 {
 	for (uint32_t i = 0; i < t->count; i++) {
-		Symbol *sym = &t->symbols[i];
+		Symbol *sym = t->symbols + i;
 		printf("%s %.*s [%u:%u] depth=%u type=%s\n",
 				kind_name(sym->kind), (int)sym->len, sym->name,
 				sym->line, sym->col, sym->depth, types[sym->type].name);

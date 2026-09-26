@@ -255,6 +255,7 @@ static uint32_t parse_unary (Parser *p)
 {
 	uint16_t line = p->curr.line;
 	uint16_t col = p->curr.col;
+	uint16_t len = p->curr.len;
 	NodeType type = NODE_NEG;
 
 	if (p->curr.type == TOK_NOT_L) type = NODE_NOT_L;
@@ -263,6 +264,7 @@ static uint32_t parse_unary (Parser *p)
 	advance(p);
 
 	uint32_t node = new_node(p, type, line, col);
+	p->ast.nodes[node].len = len;
 	uint32_t child = parse_primary(p);
 	p->ast.nodes[node].child = child;
 	return node;

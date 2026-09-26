@@ -5,8 +5,8 @@ tests/sema/048_err_lit_range_src.r2:3:17: [1;31mERROR[0m: literal 184467440737
       3 |   var b : i64 = [1;31m18446744073709551615u[0m;
         |                 [1;31m^~~~~~~~~~~~~~~~~~~~~[0m
 tests/sema/048_err_lit_range_src.r2:4:17: [1;31mERROR[0m: literal -1 does not fit in type u64; u64 is unsigned and cannot hold a negative value; use an explicit cast with 'as' to reinterpret the bits
-      4 |   var c : u64 = [1;31m-[0m1;
-        |                 [1;31m^[0m
+      4 |   var c : u64 = [1;31m-1[0m;
+        |                 [1;31m^~[0m
 tests/sema/048_err_lit_range_src.r2:5:22: [1;31mERROR[0m: literal 10000 does not fit in type i8; use an explicit cast with 'as' to reinterpret the bits
       5 |   var d : char = 100 [1;31m*[0m 100;
         |                      [1;31m^[0m
