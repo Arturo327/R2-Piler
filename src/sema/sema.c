@@ -105,8 +105,10 @@ static uint32_t sema_new_node (Sema *s, ASTNode node)
 	uint32_t idx = s->ast->count++;
 
 	if (idx >= s->ast->cap) {
-		fprintf(stderr, "internal error: AST capacity exceeded by implicit casts\n");
-		exit(1);
+		uint32_t new_cap = s->ast->cap << 1;
+		s->ast->nodes = arena_realloc(s->arena, s->ast->nodes,
+				(size_t)s->ast->cap * sizeof(ASTNode), (size_t)new_cap * sizeof(ASTNode));
+		s->ast->cap = new_cap;
 	}
 	s->ast->nodes[idx] = node;
 	return idx;
@@ -322,6 +324,14 @@ static void try_fold_binary (Sema *s, uint32_t idx)
 	}
 
 	t = l->data_type;
+
+	if ((n->type == NODE_DIV || n->type == NODE_MOD) && b == 0) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"division by zero in constant expression");
+		n->data_type = TYPE_ERROR;
+		return;
+	}
+
 	if (fold_compare(n->type, a, b, t, &v)) {
 		make_fold_lit(n, v, TYPE_i64);
 		return;
@@ -594,6 +604,23 @@ static uint8_t check_id (Sema *s, uint32_t idx)
 	return n->data_type;
 }
 
+static uint32_t adapt_call_arg (Sema *s, uint32_t arg, uint8_t arg_type, uint8_t param_type)
+{
+	int ok;
+	uint32_t new_arg = force_cast(s, arg, arg_type, param_type, &ok);
+
+	if (ok) return new_arg;
+
+	const char *hint = arg_type == TYPE_VOID
+			? "a void value cannot be used here"
+			: "use an explicit cast with 'as'";
+
+	error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[new_arg]),
+			"argument type %s does not match parameter type %s; %s",
+			types[arg_type].name, types[param_type].name, hint);
+	return new_arg;
+}
+
 static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 {
 	ASTNode *call = &s->ast->nodes[call_idx];
@@ -607,25 +634,14 @@ static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 		uint8_t arg_type = check_expr(s, arg);
 		uint8_t param_type = param != NO_NODE ? s->ast->nodes[param].data_type : TYPE_VOID;
 		uint32_t next = s->ast->nodes[arg].next_bro;
-		int ok = 1;
 
 		if (param == NO_NODE) {
 			count_ok = 0;
 		} else if (arg_type != TYPE_ERROR && param_type != TYPE_ERROR
 				&& arg_type != param_type) {
-			arg = force_cast(s, arg, arg_type, param_type, &ok);
+			arg = adapt_call_arg(s, arg, arg_type, param_type);
 			if (prev == NO_NODE) call->child = arg;
 			else s->ast->nodes[prev].next_bro = arg;
-
-			if (!ok) {
-				const char *hint = arg_type == TYPE_VOID
-						? "a void value cannot be used here"
-						: "use an explicit cast with 'as'";
-
-				error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[arg]),
-						"argument type %s does not match parameter type %s; %s",
-						types[arg_type].name, types[param_type].name, hint);
-			}
 		}
 
 		prev = arg;

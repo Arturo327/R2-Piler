@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <getopt.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 
 #include "compiler.h"
