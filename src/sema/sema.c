@@ -349,9 +349,14 @@ static int flex_literal (Sema *s, uint32_t idx, LitVal *v)
 
 static void err_lit_out_of_range (Sema *s, ASTNode *n, LitVal v, uint8_t to)
 {
-	if (v.neg) error_report(s->err, ERR_ERROR, node_loc(n),
+	if (v.neg && !types[to].sign)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"literal -%llu does not fit in type %s;"
+				" %s is unsigned and cannot hold a negative value;"
+				" use an explicit cast with 'as' to reinterpret the bits",
+				(unsigned long long)v.mag, types[to].name, types[to].name);
+	else if (v.neg) error_report(s->err, ERR_ERROR, node_loc(n),
 			"literal -%llu does not fit in type %s;"
-			" a negative value cannot fit there;"
 			" use an explicit cast with 'as' to reinterpret the bits",
 			(unsigned long long)v.mag, types[to].name);
 	else if (types[to].sign && v.mag > INT64_MAX)
@@ -556,9 +561,16 @@ static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 			arg = force_cast(s, arg, arg_type, param_type, &ok);
 			if (prev == NO_NODE) call->child = arg;
 			else s->ast->nodes[prev].next_bro = arg;
-			if (!ok) error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[arg]),
-					"argument type %s does not match parameter type %s; use an explicit cast with 'as'",
-					types[arg_type].name, types[param_type].name);
+
+			if (!ok) {
+				const char *hint = arg_type == TYPE_VOID
+						? "a void value cannot be used here"
+						: "use an explicit cast with 'as'";
+
+				error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[arg]),
+						"argument type %s does not match parameter type %s; %s",
+						types[arg_type].name, types[param_type].name, hint);
+			}
 		}
 
 		prev = arg;
@@ -662,9 +674,14 @@ static uint8_t check_assign (Sema *s, uint32_t idx)
 		left_node->next_bro = right;
 
 		if (!ok) {
+			const char *hint = r == TYPE_VOID
+					? "a void value cannot be used here"
+					: "use an explicit cast with 'as'";
+
 			error_report(s->err, ERR_ERROR, node_loc(assign),
-					"cannot assign %s to a variable of type %s; use an explicit cast with 'as'",
-					types[r].name, types[l].name);
+					"cannot assign %s to a variable of type %s; %s",
+					types[r].name, types[l].name, hint);
+
 			assign->data_type = TYPE_ERROR;
 			return TYPE_ERROR;
 		}
@@ -674,13 +691,23 @@ static uint8_t check_assign (Sema *s, uint32_t idx)
 	return l;
 }
 
+static int const_operand (Sema *s, uint32_t idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+
+	if (n->type == NODE_LIT_i64 || n->type == NODE_LIT_u64 || n->type == NODE_LIT_CHAR)
+		return 1;
+	if (n->type == NODE_CAST)
+		return const_operand(s, n->child);
+	return 0;
+}
+
 static uint8_t check_unary (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
 	uint8_t op = n->type;
 	uint8_t operand_type = check_expr(s, n->child);
 	uint8_t result_type;
-	uint8_t ct;
 	int is_lit;
 
 	if (operand_type == TYPE_ERROR) {
@@ -697,9 +724,7 @@ static uint8_t check_unary (Sema *s, uint32_t idx)
 	}
 
 	n->data_type = (n->type == NODE_NOT_L) ? TYPE_i64 : operand_type;
-	ct = s->ast->nodes[n->child].type;
-	is_lit = ct == NODE_LIT_i64 || ct == NODE_LIT_u64
-		|| ct == NODE_LIT_CHAR;
+	is_lit = const_operand(s, n->child);
 	result_type = try_fold_unary(s, idx);
 
 	if (op == NODE_NEG && !types[result_type].sign && !is_lit)
@@ -750,25 +775,12 @@ static void warn_const_operand (Sema *s, uint32_t idx, const char *op)
 			"constant operand of '%s' is always %s", op, tru ? "true" : "false");
 }
 
-static const uint8_t cmp_op[NODE_COUNT] = {
-	[NODE_EQ] = 1, [NODE_NE] = 1, [NODE_GT] = 1,
-	[NODE_GE] = 1, [NODE_LT] = 1, [NODE_LE] = 1
-};
-
-static uint8_t common_type (Sema *s, ASTNode *n, uint32_t left, uint32_t right,
-		uint8_t l, uint8_t r)
+static uint8_t common_type (Sema *s, uint32_t left, uint32_t right, uint8_t l, uint8_t r)
 {
 	int l_flex = is_flex_expr(s, left);
 	int r_flex = is_flex_expr(s, right);
-	uint8_t other = l_flex ? r : l;
-	LitVal v;
 
-	if (l_flex != r_flex) {
-		int fits = !flex_literal(s, l_flex ? left : right, &v) || lit_fits(v, other);
-
-		if (fits || !cmp_op[n->type] || !implicit_cast_ok(other, l_flex ? l : r))
-			return other;
-	}
+	if (l_flex != r_flex) return l_flex ? r : l;
 	if (implicit_cast_ok(l, r)) return r;
 	if (implicit_cast_ok(r, l)) return l;
 	if (l_flex && r_flex) return types[l].sign ? r : l;
@@ -788,7 +800,7 @@ static void convert_operand (Sema *s, uint32_t *idx, uint8_t *type, uint8_t to)
 static int unify_operands (Sema *s, ASTNode *n, uint32_t *left, uint32_t *right,
 		uint8_t *l, uint8_t *r)
 {
-	uint8_t to = common_type(s, n, *left, *right, *l, *r);
+	uint8_t to = common_type(s, *left, *right, *l, *r);
 
 	if (to == TYPE_ERROR) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
@@ -929,9 +941,13 @@ static void check_var_init_type (Sema *s, ASTNode *n, uint8_t init_type)
 	n->child = force_cast(s, n->child, init_type, n->data_type, &ok);
 	if (ok) return;
 
+	const char *hint = init_type == TYPE_VOID
+			? "a void value cannot be used here"
+			: "use an explicit cast with 'as'";
+
 	error_report(s->err, ERR_ERROR, node_loc(n),
-			"can't initialize '%.*s' (%s) with a value of type %s; use an explicit cast with 'as'",
-			(int)n->len, n->str, types[n->data_type].name, types[init_type].name);
+			"can't initialize '%.*s' (%s) with a value of type %s; %s",
+			(int)n->len, n->str, types[n->data_type].name, types[init_type].name, hint);
 }
 
 static void check_var_dec (Sema *s, uint32_t idx)
@@ -1114,9 +1130,13 @@ static void check_return (Sema *s, uint32_t idx)
 	n->child = force_cast(s, n->child, val_type, s->curr_ret, &ok);
 	if (ok) return;
 
+	const char *hint = val_type == TYPE_VOID
+			? "a void value cannot be used here"
+			: "use an explicit cast with 'as'";
+
 	error_report(s->err, ERR_ERROR, node_loc(n),
-			"cannot return %s from a function returning %s; use an explicit cast with 'as'",
-			types[val_type].name, types[s->curr_ret].name);
+			"cannot return %s from a function returning %s; %s",
+			types[val_type].name, types[s->curr_ret].name, hint);
 }
 
 static int block_returns (Sema *s, uint32_t idx)
