@@ -1,9 +1,18 @@
 tests/sema/029_err_missing_return_src.r2:1:4: ERROR: function may reach the end without returning
       1 | fn g() : i64 {
         |    ^
+tests/sema/029_err_missing_return_src.r2:5:9: WARNING: condition is always true
+      5 |   if (1 == 1) {
+        |         ^~
 tests/sema/029_err_missing_return_src.r2:4:4: ERROR: function may reach the end without returning
       4 | fn m() : i64 {
         |    ^
+tests/sema/029_err_missing_return_src.r2:10:9: WARNING: condition is always true
+     10 |   if (1 == 1) {
+        |         ^~
+tests/sema/029_err_missing_return_src.r2:12:13: WARNING: condition is always true
+     12 |   } elif (2 == 2) {
+        |             ^~
 tests/sema/029_err_missing_return_src.r2:9:4: ERROR: function may reach the end without returning
       9 | fn b() : i64 {
         |    ^

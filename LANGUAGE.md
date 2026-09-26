@@ -45,9 +45,6 @@ i64  u64   var   char  elif  else  void
 while  return  as
 ```
 
-`as` es keyword desde los casts explícitos: no puede usarse como identificador
-(`as_`, `asdf` siguen siendo identificadores válidos).
-
 ### 2.3 Literales enteros
 
 - Decimal: `42`. Hexadecimal: `0x10` / `0X10`. Octal: `0o17` / `0O17`. Binario: `0b101` / `0B101`.
@@ -137,7 +134,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 
 - Literales enteros, char y string; identificadores; llamadas `f(a, b)`; expresiones entre paréntesis.
 - **Cast `expr as type`** (cualquier tipo numérico, `char` = `i8`): conversión explícita que acepta cualquier operando no-`void` y devuelve exactamente el tipo escrito. Todas las combinaciones están permitidas (incluido el cast identidad `x as i64` con `x : i64`). Entre 64 bits (`i64<->u64`) es reinterpretación de bits (wrap/módulo 2^64); hacia un tipo narrow es truncado al ancho + extendido (con signo si el destino lo tiene, con ceros si no); hacia 64 bits desde un narrow es no-op (el valor ya vive extendido en su reg). El cast no es asignable: `(x as i64) = 1` es error (`left side of '=' must be a variable`). Como cualquier expresión, puede aparecer en inits, args, `return` y condiciones.
-- **Asignación `=`**: es una expresión. El lado izquierdo debe ser una variable; el derecho debe ser del mismo tipo o ensanchar a él en silencio (ver §3; si no, error `cannot assign X to a variable of type Y; use an explicit cast with 'as'`, reportado en el `=`). Devuelve **el valor asignado**, por lo que puede encadenarse (`x = y = 1`) y usarse como expresión, incluso como condición.
+- **Asignación `=`**: es una expresión. El lado izquierdo debe ser una variable; el derecho debe ser del mismo tipo o ensanchar a él en silencio (ver punto 3; si no, error `cannot assign X to a variable of type Y; use an explicit cast with 'as'`, reportado en el `=`). Devuelve **el valor asignado**, por lo que puede encadenarse (`x = y = 1`) y usarse como expresión, incluso como condición.
 - **`&&` y `||`**: short-circuit. Si el resultado queda decidido por el operando izquierdo, el derecho no se evalúa. Compilan a una serie de saltos, no a operaciones aritméticas. Un operando constante emite un **warning** (`constant operand of '&&' is always true/false`), también a través de un cast (`(1 as i64) && x` advierte).
 
 ---
@@ -163,7 +160,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 - Redeclarar un nombre **en el mismo scope** es error. Shadowing de scopes exteriores está permitido.
 - Una local no puede referenciarse antes de su declaración (el init se chequea antes de declarar la variable).
 - **Local sin init**: permitida. Si se lee sin haberse asignado, sema emite un **warning** (no error). Su valor en runtime es **indefinido** (lo que haya en el stack).
-- El análisis de "asignada" es conservador e insensible al flujo: una variable se marca como asignada si tiene init, si es parámetro, o si aparece a la izquierda de una `=` en orden fuente. Una asignación en un path ya visitado silencia el warning aunque el path no se ejecute siempre.
+- El análisis de "asignada" es conservador y sensible al flujo: una variable cuenta como asignada si tiene init, si es parámetro, si se le asignó antes en el mismo flujo incondicional, o si **todas** las ramas de un `if`/`elif`/`else` la asignan (un `if` sin `else` no cuenta; lo asignado dentro de un `while`/`for` tampoco escapa del cuerpo). En otro caso la lectura emite el warning (`'x' is used without being assigned`). El cuerpo de un `if` con condición siempre-true se trata como incondicional.
 
 ---
 
@@ -187,7 +184,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 - `var ID : type (= expr)? ;` a nivel top-level. Otra cosa a nivel top-level es error (el parser acepta cualquier statement suelto como test de parser puro, pero sema lo rechaza: `only variable and function declarations are allowed at the top level`).
 - Todas se declaran antes de chequear los inits: las **forward references están permitidas**.
 - Referencias a variables globales futuras permitido, ej: `var x:i64 = y; var y:i64 = 73` es válido
-- Una global **sin init vale 0** en runtime (vive en `.bss`) y su lectura **nunca advierte**; el warning de "used without being assigned" aplica solo a locales sin asignar.
+- Una global **sin init vale 0** en runtime (vive en `.bss`), pero su lectura **sí advierte** igual que una local sin asignar: solo la evitan un init o una asignación previa en el flujo (una asignación en una función chequeada antes también la silencia, en orden fuente).
 - **Auto-referencia** (`var x : i64 = x;`): error.
 - **Cadenas circulares** entre inits (`var y : i64 = x; var x : i64 = y;`): error. Al chequear el init de una global, si el init referencia a otra global cuyo init aún no se chequeó, ese init se chequea en ese momento (recursivamente); referenciar una global cuyo init está a medio chequear es el ciclo, y se reporta en el ref que lo cierra (un error por ciclo).
 - Solo se siguen **referencias directas** a globals en los inits. Los ciclos a través de llamadas a funciones dentro de inits no se detectan.
@@ -201,6 +198,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 - Toda condición (`if`, `elif`, `while`, `for`) es una expresión de tipo no-`void` (un cast vale como condición: `if (x as i64)` es válido si `x` no es `void`).
 - Cualquier valor **distinto de cero es verdadero**; cero es falso.
 - La cond vacía de `for` cuenta como verdadera.
+- Una condición constante (literal o expresión plegada a literal, también tras un cast: `if (1)`, `if (0)`, `if (1 == 1)`, `while (0)`) emite un **warning** (`condition is always true` / `condition is always false`). La cond vacía de `for` no advierte.
 
 ---
 
@@ -222,7 +220,7 @@ No se añade ninguna lógica para evitarlo; el resultado es lo que haga el hardw
 
 El **wrap** aritmético NO es indefinido: está definido como complemento a 2 (y módulo 2^64 para `u64`).
 
-Plegado de constantes: una subexpresión hecha solo de literales se evalúa en compilación con esa misma semántica de wrap, siempre a 64 bits (ver §3, "Ancho del plegado"), incluida la negación: `-5u` es la constante `u64` exacta, sin warning. Los literales detrás de un cast explícito también pliegan, truncando primero al tipo del cast (`-(300 as u8)` es la constante `212`). No se pliega y se deja al hardware: división/módulo por cero, `INT64_MIN / -1` (o `%`) y shifts con cuenta `>= 64`.
+Plegado de constantes: una subexpresión hecha solo de literales se evalúa en compilación con esa misma semántica de wrap, siempre a 64 bits (ver "Ancho del plegado"), incluida la negación: `-5u` es la constante `u64` exacta, sin warning. Los literales detrás de un cast explícito también pliegan, truncando primero al tipo del cast (`-(300 as u8)` es la constante `212`). No se pliega y se deja al hardware: división/módulo por cero, `INT64_MIN / -1` (o `%`) y shifts con cuenta `>= 64`.
 
 ---
 
@@ -289,7 +287,7 @@ Modelo:
 - Un stream lineal por función (`IRFn.start`/`count`). Registros virtuales de 64 bits, numerados desde `0` en cada función (`reg_count` se reinicia por función; `label_count` es único en todo el módulo).
 - No es SSA: un reg puede tener varias definiciones (variables, resultado de `&&` y `||`).
 - Campos no usados = `NO_REG`. `imm64`/`target` comparten unión y nunca son registros.
-- `data_type` = tipo de los OPERANDOS (tras las conversiones de §3: mismo tipo en aritmética/comparaciones salvo `&&`/`||`/`<<`/`>>`, que no unifican; en `<<`/`>>` es el tipo del operando izquierdo y el derecho conserva el suyo; decide signed/unsigned en `DIV`, `MOD`, `RSHIFT` y comparaciones). El resultado de comparaciones (`EQ..LE`), `NOT_L` (`lnot`), `&&` y `||` es siempre `i64` (0 o 1, canónico en cualquier tipo).
+- `data_type` = tipo de los OPERANDOS (tras las conversiones: mismo tipo en aritmética/comparaciones salvo `&&`/`||`/`<<`/`>>`, que no unifican; en `<<`/`>>` es el tipo del operando izquierdo y el derecho conserva el suyo; decide signed/unsigned en `DIV`, `MOD`, `RSHIFT` y comparaciones). El resultado de comparaciones (`EQ..LE`), `NOT_L` (`lnot`), `&&` y `||` es siempre `i64` (0 o 1, canónico en cualquier tipo).
 - Invariante de valores: todo reg con un tipo narrow (tamaño < 8) guarda la imagen canónica de 64 bits (extendido con signo si el tipo lo tiene, con ceros si no). Por eso `ADD`, `SUB`, `MUL`, `DIV`, `LSHIFT` y `NEG` sobre un narrow van seguidos de `extend` (trunca al ancho + extiende), mientras que `MOD`, `RSHIFT`, `AND`/`OR`/`XOR` y `NOT` sobre narrow con signo no lo llevan (el resultado ya queda canónico); `NOT` sobre narrow sin signo sí lo lleva. Los literales ya llegan con el tipo de destino (sema los reetiqueta) y se emiten como `const.<tipo>`.
 - Cast (`NODE_CAST`, `expr as type`): solo emite código cuando el destino es narrow con origen de distinto tipo (un `extend.<tipo>` que trunca al ancho + extiende). Todo lo demás (hacia 64 bits, identidad) es no-op a nivel de IR porque todos los regs son de 64 bits y el narrow ya vive extendido: se reutiliza el reg del operando. Las conversiones implícitas de ensanche que inserta sema (init/asignación/arg/`return`) siguen la misma regla: `extend` si el destino es narrow, no-op si es de 64 bits. Como condición (`if`/`while`/`for`), el cast se evalúa a un reg y se salta con `JZ`/`JNZ` como cualquier otro valor.
 - `gen_expr` nunca devuelve el reg de una variable: leer una global emite `LD_GLOBAL` a un temporal; leer una local copia con `MOVE` a un temporal. Declarar una local con init reutiliza el reg del resultado; sin init reserva un reg sin emitir nada.

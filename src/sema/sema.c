@@ -67,8 +67,8 @@ uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 		.type = data_type
 	};
 
-	if (kind == SYMBOL_PARAM || (kind == SYMBOL_VAR && (s->depth == 0
-					|| s->ast->nodes[decl_node].child != NO_NODE)))
+	if (kind == SYMBOL_PARAM || (kind == SYMBOL_VAR
+				&& s->ast->nodes[decl_node].child != NO_NODE))
 		sym.assigned = 1;
 
 	uint32_t sym_idx = symtab_declare(&s->table, s->arena, sym);

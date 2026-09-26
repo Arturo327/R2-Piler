@@ -1,0 +1,3 @@
+var g [1:5] depth=0 type=i64
+fn init [2:4] depth=0 type=void
+fn main [6:4] depth=0 type=i64

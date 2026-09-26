@@ -1,0 +1,3 @@
+var g [1:5] depth=0 type=i64
+var h [2:5] depth=0 type=i64
+fn main [3:4] depth=0 type=i64

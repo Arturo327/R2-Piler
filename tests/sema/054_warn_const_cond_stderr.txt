@@ -1,0 +1,12 @@
+tests/sema/054_warn_const_cond_src.r2:3:7: WARNING: condition is always true
+      3 |   if (1) {
+        |       ^
+tests/sema/054_warn_const_cond_src.r2:10:7: WARNING: condition is always false
+     10 |   if (0) {
+        |       ^
+tests/sema/054_warn_const_cond_src.r2:15:10: WARNING: condition is always false
+     15 |   while (0) {
+        |          ^
+tests/sema/054_warn_const_cond_src.r2:23:11: WARNING: condition is always false
+     23 |   } elif (0) {
+        |           ^

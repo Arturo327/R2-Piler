@@ -24,7 +24,7 @@ For now, `--dump-tokens`, `--dump-ast`, `--dump-symbols` and `--dump-ir` are the
 
 - Lexer: identifiers, keywords, integer/char/string literals (with escape sequences), `//` comments, and the full set of operators (arithmetic, bitwise, logical, comparison).
 - Parser: expressions, variable declarations, blocks, if statements, functions, for and while loops.
-- Sema: strict type checking, uninitialized and undeclared variable detector, symbol table, allow forward-calls
+- Sema: strict type checking, uninitialized and undeclared variable detector (flow-sensitive definite assignment, uninitialized globals, constant-condition warnings), symbol table, allow forward-calls
 - IR: linear per-function stream with virtual registers, short-circuit `&&`/`||`, global init function (`__r2_init`), full lowering of expressions, calls, `if`/`while`/`for` and `return`.
 - Precise error reporting with `file:line:column` locations.
 - Arena allocator — all compiler memory is freed in a single call at program exit instead of scattered `malloc`/`free` calls.
@@ -87,8 +87,12 @@ src/
 |   ├── x86_64.c/h   # x86_64 backend: stub, does not emit assembly yet
 |   └── codegen.c/h  # Codegen: wires the different architectures and interpreter mode and manage opening/closing files.
 ├── sema/
-|   ├── symbol.c/h   # Symbol and Symbol table definition
-|   └── sema.c/h     # Semantic analyzer: analyze the AST, reports remaining errors and generate symbol table
+|   ├── sema.c/h      # Semantic analyzer driver: declarations, global inits, symbol dump
+|   ├── common.h      # Private cross-file declarations for sema/
+|   ├── expressions.c # Expression checking: ids, calls, assignment, operators
+|   ├── literals.c    # Literal folding, flex-literal retagging, casts, unification
+|   ├── statements.c  # Statement checking: blocks, if/elif/else, loops, return
+|   └── symbol.c/h    # Symbol and Symbol table definition
 └── lexer/
     └── lexer.c/h    # Tokenizer: keywords, literals, operators
 ```

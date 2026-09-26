@@ -107,8 +107,54 @@ static void check_body (Sema *s, uint32_t idx)
 	check_scoped_statement(s, idx);
 }
 
-static void check_elif_chain (Sema *s, uint32_t idx)
+static int const_cond_value (Sema *s, uint32_t idx)
 {
+	ASTNode *n = s->ast->nodes + idx;
+
+	if (n->type == NODE_CAST)
+		return const_cond_value(s, n->child);
+
+	switch (n->type)
+	{
+	case NODE_LIT_i64: return n->i64 != 0 ? 1 : 0;
+	case NODE_LIT_u64: return n->u64 != 0 ? 1 : 0;
+	case NODE_LIT_CHAR: return n->chr != 0 ? 1 : 0;
+	default: return -1;
+	}
+}
+
+static int warn_const_cond (Sema *s, uint32_t idx)
+{
+	int v = const_cond_value(s, idx);
+
+	if (v >= 0)
+		error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + idx),
+				"condition is always %s", v ? "true" : "false");
+	return v;
+}
+
+static void save_assigned (Sema *s, uint8_t *dst, uint32_t mark)
+{
+	for (uint32_t i = 0; i < mark; i++)
+		dst[i] = s->table.symbols[s->table.active[i]].assigned;
+}
+
+static void load_assigned (Sema *s, uint8_t *src, uint32_t mark)
+{
+	for (uint32_t i = 0; i < mark; i++)
+		s->table.symbols[s->table.active[i]].assigned = src[i];
+}
+
+static void intersect_assigned (Sema *s, uint8_t *dst, uint32_t mark)
+{
+	for (uint32_t i = 0; i < mark; i++)
+		dst[i] = dst[i] & s->table.symbols[s->table.active[i]].assigned;
+}
+
+static int check_elif_chain (Sema *s, uint32_t idx, uint8_t *snap, uint8_t *acc, uint32_t mark)
+{
+	int has_else = 0;
+
 	while (idx != NO_NODE) {
 		ASTNode *n = s->ast->nodes + idx;
 
@@ -120,13 +166,19 @@ static void check_elif_chain (Sema *s, uint32_t idx)
 				error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
 						"expression with resulting type void is not valid as a condition");
 			finalize_type(s, cond, type);
+			warn_const_cond(s, cond);
 			check_body(s, body);
 		} else {
+			has_else = 1;
 			check_body(s, n->child);
 		}
 
+		intersect_assigned(s, acc, mark);
+		load_assigned(s, snap, mark);
 		idx = n->next_bro;
 	}
+
+	return has_else;
 }
 
 static void check_if (Sema *s, uint32_t idx)
@@ -140,9 +192,27 @@ static void check_if (Sema *s, uint32_t idx)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
 				"expression with resulting type void is not valid as a condition");
 	finalize_type(s, cond, type);
+	int cv = warn_const_cond(s, cond);
 
+	uint32_t mark = s->table.act_count;
+	uint8_t *snap = arena_alloc(s->arena, (size_t)mark * 2);
+	uint8_t *acc = snap + mark;
+
+	if (cv == 1) {
+		check_body(s, body);
+		save_assigned(s, snap, mark);
+		check_elif_chain(s, s->ast->nodes[body].next_bro, snap, acc, mark);
+		load_assigned(s, snap, mark);
+		return;
+	}
+
+	save_assigned(s, snap, mark);
 	check_body(s, body);
-	check_elif_chain(s, s->ast->nodes[body].next_bro);
+	save_assigned(s, acc, mark);
+	load_assigned(s, snap, mark);
+
+	if (check_elif_chain(s, s->ast->nodes[body].next_bro, snap, acc, mark))
+		load_assigned(s, acc, mark);
 }
 
 static void check_while (Sema *s, uint32_t idx)
@@ -156,8 +226,14 @@ static void check_while (Sema *s, uint32_t idx)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
 				"expression with resulting type void is not valid as a condition");
 	finalize_type(s, cond, type);
+	warn_const_cond(s, cond);
 
+	uint32_t mark = s->table.act_count;
+	uint8_t *snap = arena_alloc(s->arena, (size_t)mark);
+
+	save_assigned(s, snap, mark);
 	check_body(s, body);
+	load_assigned(s, snap, mark);
 }
 
 static void check_for (Sema *s, uint32_t idx)
@@ -177,9 +253,15 @@ static void check_for (Sema *s, uint32_t idx)
 		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[cond]),
 				"expression with resulting type void is not valid as a condition");
 
+	uint32_t body_mark = s->table.act_count;
+	uint8_t *snap = arena_alloc(s->arena, (size_t)body_mark);
+
 	finalize_type(s, cond, cond_type);
+	warn_const_cond(s, cond);
+	save_assigned(s, snap, body_mark);
 	check_body(s, body);
 	finalize_type(s, updt, check_expr(s, updt));
+	load_assigned(s, snap, body_mark);
 
 	s->depth--;
 	symtab_pop_scope(&s->table, mark);

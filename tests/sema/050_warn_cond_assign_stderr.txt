@@ -1,0 +1,6 @@
+tests/sema/050_warn_cond_assign_src.r2:16:10: WARNING: 'a' is used without being assigned
+     16 |   return a + b + w;
+        |          ^
+tests/sema/050_warn_cond_assign_src.r2:16:14: WARNING: 'b' is used without being assigned
+     16 |   return a + b + w;
+        |              ^
