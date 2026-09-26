@@ -8,7 +8,7 @@ fn main(0 params, 8 regs) : i64
     r3 = const.i64 5
     r4 = const.u64 42
     r5 = const.u64 18446744073709551615
-    r6 = const.char 97
+    r6 = const.i8 97
     r7 = move.i64 r0
     ret.i64 r7
     ret

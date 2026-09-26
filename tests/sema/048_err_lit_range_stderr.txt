@@ -1,0 +1,15 @@
+tests/sema/048_err_lit_range_src.r2:2:18: [1;31mERROR[0m: literal 300 does not fit in type i8; use an explicit cast with 'as' to reinterpret the bits
+      2 |   var a : char = [1;31m300[0m;
+        |                  [1;31m^~~[0m
+tests/sema/048_err_lit_range_src.r2:3:17: [1;31mERROR[0m: literal 18446744073709551615 does not fit in type i64; it is too large (the 'u' suffix makes it a u64 literal)
+      3 |   var b : i64 = [1;31m18446744073709551615u[0m;
+        |                 [1;31m^~~~~~~~~~~~~~~~~~~~~[0m
+tests/sema/048_err_lit_range_src.r2:4:17: [1;31mERROR[0m: literal -1 does not fit in type u64; a negative value cannot fit there; use an explicit cast with 'as' to reinterpret the bits
+      4 |   var c : u64 = [1;31m-[0m1;
+        |                 [1;31m^[0m
+tests/sema/048_err_lit_range_src.r2:5:22: [1;31mERROR[0m: literal 10000 does not fit in type i8; use an explicit cast with 'as' to reinterpret the bits
+      5 |   var d : char = 100 [1;31m*[0m 100;
+        |                      [1;31m^[0m
+tests/sema/048_err_lit_range_src.r2:6:17: [1;31mERROR[0m: literal 9223372036854775808 does not fit in type i64; it is too large (the 'u' suffix makes it a u64 literal)
+      6 |   var e : i64 = [1;31m9223372036854775808[0m;
+        |                 [1;31m^~~~~~~~~~~~~~~~~~~[0m

@@ -1,0 +1,16 @@
+fn take_u64 [1:4] depth=0 type=u64
+fn take_i64 [4:4] depth=0 type=i64
+fn main [7:4] depth=0 type=i64
+param x [1:13] depth=1 type=u64
+param x [4:13] depth=1 type=i64
+var a [8:7] depth=1 type=i64
+var b [9:7] depth=1 type=u64
+var c [10:7] depth=1 type=i64
+var d [11:7] depth=1 type=u64
+var e [12:7] depth=1 type=i8
+var f [13:7] depth=1 type=u64
+var g [14:7] depth=1 type=i64
+var h [15:7] depth=1 type=u64
+var i [16:7] depth=1 type=i8
+var j [17:7] depth=1 type=i8
+var k [18:7] depth=1 type=i64

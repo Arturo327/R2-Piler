@@ -5,5 +5,6 @@ fn b() : void {
   return 1;
 }
 fn c() : i64 {
-  return 'a';
+  var u : u64 = 1u;
+  return u;
 }

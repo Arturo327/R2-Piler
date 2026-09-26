@@ -16,7 +16,7 @@ NODE_ROOT [0:0]
         NODE_LIT_i64 [7:10] i64=42
   NODE_FN_DEC [9:4] name="qux"
     NODE_ARGS_DEC [9:7]
-    NODE_RET_DEC [9:10] type=char
+    NODE_RET_DEC [9:10] type=i8
     NODE_BLOCK [9:17]
       NODE_RET [10:3]
         NODE_LIT_CHAR [10:10] char='a'

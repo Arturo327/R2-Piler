@@ -35,6 +35,6 @@ NODE_ROOT [0:0]
           NODE_ID [8:10] str="x"
   NODE_VAR_DEC [10:5] name="h" type=i64
     NODE_CAST [10:28] type=i64
-      NODE_CAST [10:20] type=char
+      NODE_CAST [10:20] type=i8
         NODE_NOT_L [10:15]
           NODE_LIT_i64 [10:16] i64=256

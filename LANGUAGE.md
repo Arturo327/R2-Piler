@@ -11,7 +11,7 @@ Estado: lexer, parser, sema e IR implementados y testeados. `optimize_ir` y code
 R2-Lang es un lenguaje imperativo, estática y fuertemente tipado, sin conversiones implícitas
 (solo casts explícitos con `expr as type`).
 
-- Tipos primitivos: `i64`, `u64`, `char` (1 byte con signo), `void`.
+- Tipos primitivos: `i8`, `u8`, `i16`, `u16`, `i32`, `u32`, `i64`, `u64` y `void`. `char` es un alias de `i8` aceptado solo en el frontend (lexer/parser): en dumps, símbolos y mensajes siempre aparece `i8`.
 - Funciones solo a nivel top-level, con parámetros por valor.
 - Scopes de bloque con shadowing entre scopes.
 - Entry point: `fn main() : i64`.
@@ -40,9 +40,9 @@ Identificadores: `[a-zA-Z_][a-zA-Z0-9_]*`.
 Keywords (una palabra clave nunca puede usarse como identificador):
 
 ```
-fn  if    for    i64  u64    var
-char  elif  else  void  while  return
-as
+fn  if    for    i8   u8   i16  u16  i32  u32
+i64  u64   var   char  elif  else  void
+while  return  as
 ```
 
 `as` es keyword desde los casts explícitos: no puede usarse como identificador
@@ -52,15 +52,15 @@ as
 
 - Decimal: `42`. Hexadecimal: `0x10` / `0X10`. Octal: `0o17` / `0O17`. Binario: `0b101` / `0B101`.
 - Los decimales con ceros a la izquierda (`007`) son decimales, no octales. `0` solo es decimal.
-- Sufijo `u` / `U` → `u64`; sin sufijo → `i64`.
-- Un literal sin sufijo mayor que `INT64_MAX` es error (se sugiere añadir `u`), con una sola excepción en dos fases: el lexer acepta `2^63` (`9223372036854775808`, `0x8000000000000000`, `0o1000000000000000000000`, `0b1` + 63 ceros) como `TOK_LIT_i64` con valor `INT64_MIN`, y es el parser quien lo rechaza si aparece como operando positivo (`literal integer out of range… append 'u'`), mientras que `-9223372036854775808` se pliega a un único literal `INT64_MIN` válido.
-- Overflow en cualquier base o dígito inválido para la base: error.
+- Sufijo `u` / `U` → literal `u64`; sin sufijo → literal `i64` en crudo (el valor se guarda sin interpretar el signo; es sema quien lo tipa según el contexto).
+- Desbordar los 64 bits en cualquier base no es error: el lexer emite un **warning** y trunca el valor a 64 bits (`literal does not fit in 64 bits, truncated to …`). Dígito inválido para la base o prefijo sin dígitos: error.
+- `2^63` sin sufijo (`9223372036854775808`, `0x8000000000000000`, `0o1000000000000000000000`, `0b1` + 63 ceros) se lexa como `TOK_LIT_i64` con el valor en crudo; el parser lo deja tal cual (incluso tras `-`: `-9223372036854775808` es `NEG(lit)` en el AST) y es **sema** quien lo resuelve: `-2^63` se pliega a un único literal `INT64_MIN` válido, un `2^63` positivo suelto es error (`literal … does not fit in type i64; it is too large (the 'u' suffix makes it a u64 literal)`), y en contexto `u64` el literal adopta `u64` en silencio.
 
 ### 2.4 Literales char
 
 - `'c'`, exactamente un carácter. Vacío, multichar, newline dentro o sin cerrar: error.
 - Escapes válidos: `\n` `\t` `\r` `\0` `\\` `\'` `\"`. Escapes desconocidos: error.
-- `char` es 1 byte **con signo**: rango -128..127. Al operar o comparar a 64 bits se hace sign-extend.
+- Un literal char tiene tipo `i8` (1 byte con signo, rango -128..127). La keyword `char` puede usarse en lugar de `i8` en declaraciones de tipos, parámetros, retornos y casts: es un alias puro del frontend.
 
 ### 2.5 Literales string
 
@@ -74,17 +74,31 @@ as
 
 | Tipo | Tamaño | Rango / representación |
 |------|--------|------------------------|
+| `i8` (`char`) | 1 byte | Con signo, -128..127. |
+| `u8` | 1 byte | Sin signo, 0..255. |
+| `i16` | 2 bytes | Con signo, -32768..32767. |
+| `u16` | 2 bytes | Sin signo, 0..65535. |
+| `i32` | 4 bytes | Con signo. |
+| `u32` | 4 bytes | Sin signo. |
 | `i64` | 8 bytes | Entero con signo, complemento a 2. Aritmética con wrap definido. |
 | `u64` | 8 bytes | Entero sin signo, módulo 2^64. |
-| `char` | 1 byte | Con signo, -128..127. Sign-extend al operar a 64 bits. |
 | `void` | — | Solo como tipo de retorno de función. |
 
-Reglas de tipos (estrictas, sin coerciones implícitas; solo `as` explícito):
+`char` es un alias de `i8` aceptado solo donde se escribe un tipo (`var x : char`, `fn f(a : char) : char`, `x as char`). No existe como tipo propio: en `--dump-ast`, `--dump-symbols`, `--dump-ir` y en todos los mensajes aparece `i8`.
 
-- Operadores aritméticos y bitwise (`+ - * / % & | ^ << >>`): ambos operandos del **mismo tipo**, resultado del tipo de los operandos.
-- Comparaciones (`< > <= >= == !=`) y lógicos binarios (`&& ||`): aceptan operandos de tipos **distintos** (pero nunca `void`); resultado siempre `i64` (0 o 1).
-- `-` y `~` unarios: preservan el tipo del operando. `!` unario: acepta cualquier tipo no-`void`, resultado `i64`.
-- **Cast explícito `expr as type`** (`type = i64 | u64 | char`): acepta cualquier operando no-`void` (incluido el resultado de otro cast) y devuelve exactamente el tipo escrito. `as void` no existe (error de parser: `expected type`). Castear un `void` (p. ej. `f() as i64` con `f : void`) es error de sema (`cannot cast a value of type void`). Castear un operando con error (no declarado, string, etc.) no añade un segundo error: el cast propaga `error`.
+Reglas de tipos (estrictas; el único implícito es el que no puede perder valor):
+
+- **Literales flexibles**: un literal (o `-literal`, o una expresión hecha solo de literales) adopta en silencio el tipo que le pide el contexto si su valor cabe en él: `var u : u64 = 1`, `take_i64('a')`, `c > 5` (el `5` se vuelve `i8`), `var v : u64 = 9223372036854775808` (sin sufijo, cabe en `u64`). Las subexpresiones puramente literales se **pliegan en compilación** con semántica de wrap, y el chequeo de rango se hace sobre el valor plegado: `var w : char = 100 * 100` es error (`literal 10000 does not fit in type i8`, reportado en el operador). No se pliega (se deja al hardware): división/módulo por cero, `INT64_MIN / -1` y shifts con cuenta `>= 64`.
+- **Literal fuera de rango**: error (`literal 300 does not fit in type i8; use an explicit cast with 'as' to reinterpret the bits`). Si además el destino es con signo y el valor supera `INT64_MAX`, el mensaje añade que el sufijo `u` lo convierte en literal `u64`.
+- **Literal `u` usado como tipo con signo**: solo un **warning** (`unsigned literal used as signed type i64; remove the 'u' suffix`); compila igual.
+- **Ensanchar sin cambiar el valor es silencioso**: mismo signo a mayor tamaño (`i8`→`i64`, `u8`→`u32`), o sin signo a con signo mayor (`u8`→`i64`). Vale en binarios, init, asignación, args y `return`, sin emitir código (los regs ya guardan el valor extendido).
+- **Todo lo demás entre tipos distintos es error** con sufijo `'as'` en el mensaje: estrechar (`i64`→`i8`), cambiar de signo (`i8`→`u64`, `u64`→`i64`), o mezclar dos variables de tipos distintos en un binario (`type mismatch: i64 vs u64 (use 'as' to convert explicitly)`).
+- Operadores aritméticos y bitwise (`+ - * / % & | ^`): ambos operandos del **mismo tipo** (tras lo anterior), resultado del tipo de los operandos.
+- Shifts (`<< >>`): el resultado es el tipo del operando **izquierdo**; el derecho puede ser cualquier numérico (`a << b` con `a : i64`, `b : u64` vale).
+- Comparaciones (`< > <= >= == !=`): ambos operandos del **mismo tipo** (un literal flexible adopta el del otro: `c > 5` con `c : char` compara en `i8`); dos variables de tipos distintos son error. Nunca `void`. Resultado siempre `i64` (0 o 1).
+- Lógicos binarios (`&&` `||`): aceptan operandos de **cualquier tipo no-`void` sin conversión**; resultado siempre `i64`.
+- `-` y `~` unarios: preservan el tipo del operando. Negar una variable sin signo compila pero emite un **warning** (`negating an unsigned value; the result wraps`); negar un literal es silencioso (se pliega al valor exacto). `!` unario: acepta cualquier tipo no-`void`, resultado `i64`.
+- **Cast explícito `expr as type`** (`type` = cualquier numérico, incluido `char` como alias de `i8`): acepta cualquier operando no-`void` (incluido el resultado de otro cast) y devuelve exactamente el tipo escrito. Reinterpreta/trunca bits en silencio. `as void` no existe (error de parser: `expected type`). Castear un `void` (p. ej. `f() as i64` con `f : void`) es error de sema (`cannot cast a value of type void`). Castear un operando con error (no declarado, string, etc.) no añade un segundo error: el cast propaga `error`.
 - `void` no puede aparecer en expresiones (ni en condiciones, ni como operando, ni como init, ni como origen/destino de cast).
 
 ---
@@ -96,10 +110,10 @@ De mayor a menor precedencia. Todos los binarios son asociativos por la izquierd
 | Prec | Operadores | Resultado |
 |------|-----------|-----------|
 | unario | `-` `!` `~` (prefijo) | `-`/`~` preservan tipo, `!` → `i64` |
-| cast | `expr as type` (postfijo, asociativo por la izquierda) | el `type` escrito (`i64`/`u64`/`char`) |
+| cast | `expr as type` (postfijo, asociativo por la izquierda) | el `type` escrito (cualquier numérico) |
 | 11 | `*` `/` `%` | tipo de los operandos |
 | 10 | `+` `-` | tipo de los operandos |
-| 9 | `>>` `<<` | tipo de los operandos |
+| 9 | `>>` `<<` | tipo del operando izquierdo |
 | 8 | `<` `>` `<=` `>=` | `i64` |
 | 7 | `==` `!=` | `i64` |
 | 6 | `&` | tipo de los operandos |
@@ -119,9 +133,9 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 ## 5. Expresiones
 
 - Literales enteros, char y string; identificadores; llamadas `f(a, b)`; expresiones entre paréntesis.
-- **Cast `expr as i64|u64|char`**: conversión explícita entre tipos numéricos. Todas las combinaciones están permitidas (`i64<->u64<->char`, incluido el cast identidad `x as i64` con `x : i64`). `i64<->u64` es reinterpretación de bits (wrap/módulo 2^64); `char` es con signo, así que `char -> i64/u64` es sign-extend (no emite código) y `i64/u64 -> char` es truncado a 8 bits + sign-extend. El cast no es asignable: `(x as i64) = 1` es error (`left side of '=' must be a variable`). Como cualquier expresión, puede aparecer en inits, args, `return` y condiciones.
-- **Asignación `=`**: es una expresión. El lado izquierdo debe ser una variable; el derecho debe tener exactamente el mismo tipo. Devuelve **el valor asignado**, por lo que puede encadenarse (`x = y = 1`) y usarse como expresión, incluso como condición.
-- **`&&` y `||`**: short-circuit. Si el resultado queda decidido por el operando izquierdo, el derecho no se evalúa. Compilan a una serie de saltos, no a operaciones aritméticas.
+- **Cast `expr as type`** (cualquier tipo numérico, `char` = `i8`): conversión explícita que acepta cualquier operando no-`void` y devuelve exactamente el tipo escrito. Todas las combinaciones están permitidas (incluido el cast identidad `x as i64` con `x : i64`). Entre 64 bits (`i64<->u64`) es reinterpretación de bits (wrap/módulo 2^64); hacia un tipo narrow es truncado al ancho + extendido (con signo si el destino lo tiene, con ceros si no); hacia 64 bits desde un narrow es no-op (el valor ya vive extendido en su reg). El cast no es asignable: `(x as i64) = 1` es error (`left side of '=' must be a variable`). Como cualquier expresión, puede aparecer en inits, args, `return` y condiciones.
+- **Asignación `=`**: es una expresión. El lado izquierdo debe ser una variable; el derecho debe ser del mismo tipo o ensanchar a él en silencio (ver §3; si no, error `cannot assign X to a variable of type Y; use an explicit cast with 'as'`, reportado en el `=`). Devuelve **el valor asignado**, por lo que puede encadenarse (`x = y = 1`) y usarse como expresión, incluso como condición.
+- **`&&` y `||`**: short-circuit. Si el resultado queda decidido por el operando izquierdo, el derecho no se evalúa. Compilan a una serie de saltos, no a operaciones aritméticas. Un operando literal emite un **warning** (`constant operand of '&&' is always true/false`).
 
 ---
 
@@ -136,7 +150,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
   - `init`: declaración `var` (con su `;`), expresión, o vacía.
   - `cond`: expresión o vacía (vacía = verdadero: `for(;;)` es un bucle infinito válido).
   - `updt`: expresión o vacía.
-- `return expr? ;` — en una función `void`: `return;`. En una función `T`: `return expr;` con tipo exacto.
+- `return expr? ;` — en una función `void`: `return;` (devolver un valor es error: `function returning void cannot return a value`). En una función `T`: `return expr;` con tipo `T` o que ensanche a `T` en silencio; si no, error (`cannot return X from a function returning Y; use an explicit cast with 'as'`); sin valor, error (`missing return value of type T`).
 
 ---
 
@@ -156,7 +170,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 - `fn nombre(params)? (: ret_type)? block` — sin `: tipo` el retorno es `void`.
 - Parámetros: `ID : type`, por valor. Siempre se consideran asignados.
 - Forward references y recursión permitidas: las funciones se declaran todas antes de chequear los cuerpos.
-- Las llamadas comprueban arity y tipos exactos, parámetro a parámetro.
+- Las llamadas comprueban arity y, parámetro a parámetro, tipo `T` o ensanche silencioso a `T` (los literales adoptan el tipo del parámetro si caben); si no, error (`argument type X does not match parameter type Y; use an explicit cast with 'as'`).
 - **Return obligatorio en todos los caminos** para funciones no-`void` (chequeo conservador):
   - Un `return` garantiza.
   - Un bloque garantiza si alguno de sus statements garantiza.
@@ -204,6 +218,8 @@ No se añade ninguna lógica para evitarlo; el resultado es lo que haga el hardw
 
 El **wrap** aritmético NO es indefinido: está definido como complemento a 2 (y módulo 2^64 para `u64`).
 
+Plegado de constantes: una subexpresión hecha solo de literales se evalúa en compilación con esa misma semántica de wrap (incluida la negación: `-5u` es la constante `u64` exacta, sin warning). No se pliega y se deja al hardware: división/módulo por cero, `INT64_MIN / -1` (o `%`) y shifts con cuenta `>= 64`.
+
 ---
 
 ## 13. IR y optimizaciones
@@ -222,7 +238,7 @@ fn_decl        = "fn" IDENT "(" [ params ] ")" [ ":" ret_type ] block ;
 params         = param { "," param } ;
 param          = IDENT ":" type ;
 ret_type       = "void" | type ;
-type           = "i64" | "u64" | "char" ;
+type           = "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "char" ;
 block          = "{" { statement } "}" ;
 statement      = var_decl | block | if_stmt | while_stmt | for_stmt
                | "return" [ expr ] ";"
@@ -256,7 +272,7 @@ primary        = INT_LIT | CHAR_LIT | STRING_LIT
 args           = expr { "," expr } ;
 ```
 
-Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se definen en la sección 2. Por leniencia el parser acepta una coma final en parámetros (`fn f(a : i64,)`) y argumentos (`f(a,)`), aunque la EBNF no la muestra. El cast es postfijo y asociativo por la izquierda (`x as i64 as u64` = `(x as i64) as u64`); el tipo tras `as` nunca puede ser `void`.
+Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se definen en la sección 2. `char` es alias de `i8` en cualquier posición de `type`. Por leniencia el parser acepta una coma final en parámetros (`fn f(a : i64,)`) y argumentos (`f(a,)`), aunque la EBNF no la muestra. El cast es postfijo y asociativo por la izquierda (`x as i64 as u64` = `(x as i64) as u64`); el tipo tras `as` nunca puede ser `void`.
 
 ---
 
@@ -269,9 +285,9 @@ Modelo:
 - Un stream lineal por función (`IRFn.start`/`count`). Registros virtuales de 64 bits, numerados desde `0` en cada función (`reg_count` se reinicia por función; `label_count` es único en todo el módulo).
 - No es SSA: un reg puede tener varias definiciones (variables, resultado de `&&` y `||`).
 - Campos no usados = `NO_REG`. `imm64`/`target` comparten unión y nunca son registros.
-- `data_type` = tipo de los OPERANDOS (mismo tipo en todos los casos salvo comparaciones/`&&`/`||` con tipos mixtos, donde es el del operando izquierdo; decide signed/unsigned en `DIV`, `MOD`, `RSHIFT` y comparaciones). El resultado de comparaciones (`EQ..LE`), `NOT_L` (`lnot`), `&&` y `||` es siempre `i64`.
-- Un `char` vive siempre en su reg extendido con signo (-128..127): `ADD`, `SUB`, `MUL`, `DIV`, `LSHIFT` y `NEG` sobre `char` van seguidos de `SEXT8`. `MOD`, `RSHIFT`, `AND`/`OR`/`XOR` y `NOT` sobre `char` no llevan `SEXT8` (el resultado ya queda bien extendido).
-- Cast (`NODE_CAST`, `expr as type`): solo emite código cuando el destino es `char` con origen no-`char` (un `sext8.char` que trunca a 8 bits + sign-extend). Todo lo demás (`i64<->u64`, `char->i64/u64`, identidad) es no-op a nivel de IR porque todos los regs son de 64 bits y el `char` ya vive extendido: se reutiliza el reg del operando. Como condición (`if`/`while`/`for`), el cast se evalúa a un reg y se salta con `JZ`/`JNZ` como cualquier otro valor.
+- `data_type` = tipo de los OPERANDOS (tras las conversiones de §3: mismo tipo en aritmética/comparaciones salvo `&&`/`||`/`<<`/`>>`, que no unifican; en `<<`/`>>` es el tipo del operando izquierdo y el derecho conserva el suyo; decide signed/unsigned en `DIV`, `MOD`, `RSHIFT` y comparaciones). El resultado de comparaciones (`EQ..LE`), `NOT_L` (`lnot`), `&&` y `||` es siempre `i64` (0 o 1, canónico en cualquier tipo).
+- Invariante de valores: todo reg con un tipo narrow (tamaño < 8) guarda la imagen canónica de 64 bits (extendido con signo si el tipo lo tiene, con ceros si no). Por eso `ADD`, `SUB`, `MUL`, `DIV`, `LSHIFT` y `NEG` sobre un narrow van seguidos de `extend` (trunca al ancho + extiende), mientras que `MOD`, `RSHIFT`, `AND`/`OR`/`XOR` y `NOT` sobre narrow con signo no lo llevan (el resultado ya queda canónico); `NOT` sobre narrow sin signo sí lo lleva. Los literales ya llegan con el tipo de destino (sema los reetiqueta) y se emiten como `const.<tipo>`.
+- Cast (`NODE_CAST`, `expr as type`): solo emite código cuando el destino es narrow con origen de distinto tipo (un `extend.<tipo>` que trunca al ancho + extiende). Todo lo demás (hacia 64 bits, identidad) es no-op a nivel de IR porque todos los regs son de 64 bits y el narrow ya vive extendido: se reutiliza el reg del operando. Las conversiones implícitas de ensanche que inserta sema (init/asignación/arg/`return`) siguen la misma regla: `extend` si el destino es narrow, no-op si es de 64 bits. Como condición (`if`/`while`/`for`), el cast se evalúa a un reg y se salta con `JZ`/`JNZ` como cualquier otro valor.
 - `gen_expr` nunca devuelve el reg de una variable: leer una global emite `LD_GLOBAL` a un temporal; leer una local copia con `MOVE` a un temporal. Declarar una local con init reutiliza el reg del resultado; sin init reserva un reg sin emitir nada.
 - La asignación (`=`) evalúa primero el RHS, luego emite `MOVE` (local) o `STR_GLOBAL` (global), y devuelve el reg del RHS, por lo que `x = y = 5` comparte el mismo reg.
 - Llamadas: los args se evalúan de izquierda a derecha a temporales, luego se emiten los `ARG` `0..argc-1` contiguos justo antes de su `CALL`. `CALL` a función `void` no tiene `dst` (se imprime sin `rN =`); con retorno, `dst` es un reg fresco.
@@ -283,7 +299,7 @@ Modelo:
 - Toda función acaba en `RET` implícito `void` (aunque ya tenga `return` explícito). El código tras un `RET` se conserva (inalcanzable).
 - Globals: se declaran en orden fuente pero sus inits se emiten en `init_order` (orden de resolución: una forward-ref fuerza el init referenciado antes). La función sintética `__r2_init` (siempre la primera, `: void`, `0 params`) contiene todos los inits (`gen_expr` + `STR_GLOBAL`) en ese orden. Sin globals, solo contiene `ret`.
 
-Nombres en el volcado (`dump_ir`): `const`, `param`, `ld_global`, `str_global`, `move`, `sext8`, `add`, `sub`, `mul`, `div`, `mod`, `and`, `or`, `xor`, `rshift`, `lshift`, `neg`, `not`, `lnot`, `eq`, `ne`, `gt`, `ge`, `lt`, `le`, `jmp`, `jz`, `jnz`, `arg`, `call`, `ret` (las etiquetas se imprimen como `Lx:`). El sufijo `.tipo` es el `data_type` (`ARG`, `JMP`/`JZ`/`JNZ` y `LABEL` no llevan sufijo; `CALL`/`RET` llevan el tipo de retorno). Formato:
+Nombres en el volcado (`dump_ir`): `const`, `param`, `ld_global`, `str_global`, `move`, `extend`, `add`, `sub`, `mul`, `div`, `mod`, `and`, `or`, `xor`, `rshift`, `lshift`, `neg`, `not`, `lnot`, `eq`, `ne`, `gt`, `ge`, `lt`, `le`, `jmp`, `jz`, `jnz`, `arg`, `call`, `ret` (las etiquetas se imprimen como `Lx:`). El sufijo `.tipo` es el `data_type` (`ARG`, `JMP`/`JZ`/`JNZ` y `LABEL` no llevan sufijo; `CALL`/`RET` llevan el tipo de retorno). `char` nunca aparece como sufijo: el frontend lo convierte a `i8`. Formato:
 
 ```
 global <nombre> : <tipo>
@@ -292,7 +308,7 @@ fn <nombre>(<n> params, <m> regs) : <ret>
     rN = const.<tipo> <imm>
     rN = param.<tipo> #indice
     rN = move.<tipo> rM
-    rN = sext8.char rM
+    rN = extend.<tipo> rM
     rN = ld_global.<tipo> @global
     str_global.<tipo> rM @global
     rN = <op>.<tipo> rA, rB
@@ -308,7 +324,7 @@ fn <nombre>(<n> params, <m> regs) : <ret>
 | `const` | r | - | - | imm64 | tipo del literal |
 | `param` | r | - | - | target=índice | tipo del parámetro |
 | `move` | r | r | - | - | tipo del valor |
-| `sext8` | r | r | - | - | `char` |
+| `extend` | r | r | - | - | narrow destino (trunca + extiende) |
 | `ld_global` | r | - | - | target=global | tipo de la global |
 | `str_global` | - | r | - | target=global | tipo de la global |
 | `add` `sub` `mul` `div` `mod` `and` `or` `xor` `rshift` `lshift` | r | a | b | - | tipo de los operandos |

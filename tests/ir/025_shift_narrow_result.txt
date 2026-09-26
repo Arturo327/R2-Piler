@@ -1,0 +1,28 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn id_u64(1 params, 2 regs) : u64
+    r0 = param.u64 #0
+    r1 = move.u64 r0
+    ret.u64 r1
+    ret
+
+fn main(0 params, 14 regs) : i64
+    r0 = const.i64 1
+    r1 = const.u64 2
+    r2 = move.i64 r0
+    r3 = move.u64 r1
+    r4 = lshift.i64 r2, r3
+    r5 = move.i64 r0
+    r6 = const.u64 2
+    r7 = rshift.i64 r5, r6
+    r8 = const.i8 97
+    r9 = move.i64 r0
+    r10 = extend.i8 r9
+    r11 = move.u64 r1
+    arg r11 #0
+    r12 = call.u64 id_u64
+    r13 = move.i64 r4
+    ret.i64 r13
+    ret
+

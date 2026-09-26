@@ -1,0 +1,65 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn chars(2 params, 48 regs) : i8
+    r0 = param.i8 #0
+    r1 = param.i8 #1
+    r2 = move.i8 r0
+    r3 = move.i8 r1
+    r4 = add.i8 r2, r3
+    r5 = extend.i8 r4
+    r6 = move.i8 r0
+    r7 = move.i8 r1
+    r8 = sub.i8 r6, r7
+    r9 = extend.i8 r8
+    r10 = move.i8 r0
+    r11 = move.i8 r1
+    r12 = mul.i8 r10, r11
+    r13 = extend.i8 r12
+    r14 = move.i8 r0
+    r15 = move.i8 r1
+    r16 = div.i8 r14, r15
+    r17 = extend.i8 r16
+    r18 = move.i8 r0
+    r19 = move.i8 r1
+    r20 = mod.i8 r18, r19
+    r21 = move.i8 r0
+    r22 = move.i8 r1
+    r23 = and.i8 r21, r22
+    r24 = move.i8 r0
+    r25 = move.i8 r1
+    r26 = or.i8 r24, r25
+    r27 = move.i8 r0
+    r28 = move.i8 r1
+    r29 = xor.i8 r27, r28
+    r30 = move.i8 r0
+    r31 = move.i8 r1
+    r32 = lshift.i8 r30, r31
+    r33 = extend.i8 r32
+    r34 = move.i8 r0
+    r35 = move.i8 r1
+    r36 = rshift.i8 r34, r35
+    r37 = move.i8 r0
+    r38 = neg.i8 r37
+    r39 = extend.i8 r38
+    r40 = move.i8 r0
+    r41 = not.i8 r40
+    r42 = move.i8 r0
+    r43 = move.i8 r1
+    r44 = lt.i8 r42, r43
+    r45 = move.i8 r0
+    r46 = lnot.i8 r45
+    r47 = move.i8 r5
+    ret.i8 r47
+    ret
+
+fn main(0 params, 4 regs) : i64
+    r0 = const.i8 97
+    r1 = const.i8 98
+    arg r0 #0
+    arg r1 #1
+    r2 = call.i8 chars
+    r3 = const.i64 0
+    ret.i64 r3
+    ret
+

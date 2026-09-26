@@ -1,0 +1,7 @@
+fn cmp [1:4] depth=0 type=i64
+param a [1:8] depth=1 type=u64
+param b [1:17] depth=1 type=i64
+var x [2:7] depth=1 type=i64
+var y [3:7] depth=1 type=i64
+var z [4:7] depth=1 type=i64
+var w [5:7] depth=1 type=i64

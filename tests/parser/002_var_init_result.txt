@@ -1,7 +1,7 @@
 NODE_ROOT [0:0]
   NODE_VAR_DEC [1:5] name="x" type=i64
     NODE_LIT_i64 [1:15] i64=42
-  NODE_VAR_DEC [2:5] name="c" type=char
+  NODE_VAR_DEC [2:5] name="c" type=i8
     NODE_LIT_CHAR [2:16] char='z'
   NODE_VAR_DEC [3:5] name="s" type=i64
     NODE_LIT_STR [3:15] str="hola"

@@ -1,18 +1,15 @@
-tests/lexer/034_bases_overflow_src.r2:2:1: [1;31mERROR[0m: literal integer out of range
-      2 | [1;31m18446744073709551616u[0m
-        | [1;31m^~~~~~~~~~~~~~~~~~~~~[0m
-tests/lexer/034_bases_overflow_src.r2:4:1: [1;31mERROR[0m: literal integer out of range
-      4 | [1;31m0xFFFFFFFFFFFFFFFFFFu[0m
-        | [1;31m^~~~~~~~~~~~~~~~~~~~~[0m
-tests/lexer/034_bases_overflow_src.r2:6:1: [1;31mERROR[0m: literal integer out of range
-      6 | [1;31m0o7777777777777777777777u[0m
-        | [1;31m^~~~~~~~~~~~~~~~~~~~~~~~~[0m
-tests/lexer/034_bases_overflow_src.r2:8:1: [1;31mERROR[0m: literal integer out of range
-      8 | [1;31m0b11111111111111111111111111111111111111111111111111111111111111111u[0m
-        | [1;31m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-tests/lexer/034_bases_overflow_src.r2:9:1: [1;31mERROR[0m: literal integer out of range
-      9 | [1;31m9999999999999999999999999999u[0m
-        | [1;31m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
-tests/lexer/034_bases_overflow_src.r2:10:1: [1;31mERROR[0m: literal integer out of range for a signed value; append 'u' for unsigned
-     10 | [1;31m0xFFFFFFFFFFFFFFFF[0m
-        | [1;31m^~~~~~~~~~~~~~~~~~[0m
+tests/lexer/034_bases_overflow_src.r2:2:1: [1;35mWARNING[0m: literal does not fit in 64 bits, truncated to 0
+      2 | [1;35m18446744073709551616u[0m
+        | [1;35m^~~~~~~~~~~~~~~~~~~~~[0m
+tests/lexer/034_bases_overflow_src.r2:4:1: [1;35mWARNING[0m: literal does not fit in 64 bits, truncated to 18446744073709551615
+      4 | [1;35m0xFFFFFFFFFFFFFFFFFFu[0m
+        | [1;35m^~~~~~~~~~~~~~~~~~~~~[0m
+tests/lexer/034_bases_overflow_src.r2:6:1: [1;35mWARNING[0m: literal does not fit in 64 bits, truncated to 18446744073709551615
+      6 | [1;35m0o7777777777777777777777u[0m
+        | [1;35m^~~~~~~~~~~~~~~~~~~~~~~~~[0m
+tests/lexer/034_bases_overflow_src.r2:8:1: [1;35mWARNING[0m: literal does not fit in 64 bits, truncated to 18446744073709551615
+      8 | [1;35m0b11111111111111111111111111111111111111111111111111111111111111111u[0m
+        | [1;35m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+tests/lexer/034_bases_overflow_src.r2:9:1: [1;35mWARNING[0m: literal does not fit in 64 bits, truncated to 4477988020393345023
+      9 | [1;35m9999999999999999999999999999u[0m
+        | [1;35m^~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m

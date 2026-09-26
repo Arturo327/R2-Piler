@@ -10,6 +10,6 @@ tests/sema/022_err_void_src.r2:6:23: [1;31mERROR[0m: string literals are not s
 tests/sema/022_err_void_src.r2:7:18: [1;31mERROR[0m: string literals are not supported yet
       7 |   var c : i64 = -[1;31m"h[0mi";
         |                  [1;31m^~[0m
-tests/sema/022_err_void_src.r2:8:7: [1;31mERROR[0m: cannot initialize 'd' (i64) with a value of type void
+tests/sema/022_err_void_src.r2:8:7: [1;31mERROR[0m: can't initialize 'd' (i64) with a value of type void; use an explicit cast with 'as'
       8 |   var [1;31md[0m : i64 = v();
         |       [1;31m^[0m

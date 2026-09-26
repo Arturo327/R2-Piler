@@ -1,6 +1,6 @@
 global a : i64
 global b : i64
-global c : char
+global c : i8
 global u : u64
 
 fn __r2_init(0 params, 6 regs) : void
@@ -10,8 +10,8 @@ fn __r2_init(0 params, 6 regs) : void
     r2 = const.i64 2
     r3 = add.i64 r1, r2
     str_global.i64 r3 @b
-    r4 = const.char 122
-    str_global.char r4 @c
+    r4 = const.i8 122
+    str_global.i8 r4 @c
     r5 = const.u64 7
     str_global.u64 r5 @u
     ret

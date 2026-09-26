@@ -1,3 +1,4 @@
 fn a [1:4] depth=0 type=i64
 fn b [4:4] depth=0 type=void
 fn c [7:4] depth=0 type=i64
+var u [8:7] depth=1 type=u64

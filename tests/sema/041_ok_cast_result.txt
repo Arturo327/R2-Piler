@@ -6,8 +6,8 @@ param x [3:11] depth=1 type=u64
 var a [7:7] depth=1 type=i64
 var b [8:7] depth=1 type=u64
 var c [9:7] depth=1 type=i64
-var ch [10:7] depth=1 type=char
+var ch [10:7] depth=1 type=i8
 var d [11:7] depth=1 type=i64
-var e [12:7] depth=1 type=char
+var e [12:7] depth=1 type=i8
 var f [13:7] depth=1 type=u64
 var h2 [14:7] depth=1 type=u64

@@ -18,8 +18,8 @@ NODE_ROOT [0:0]
   NODE_FN_DEC [7:4] name="mixed"
     NODE_ARGS_DEC [7:9]
       NODE_VAR_DEC [7:10] name="a" type=i64
-      NODE_VAR_DEC [7:19] name="b" type=char
-    NODE_RET_DEC [7:29] type=char
+      NODE_VAR_DEC [7:19] name="b" type=i8
+    NODE_RET_DEC [7:29] type=i8
     NODE_BLOCK [7:36]
       NODE_RET [8:3]
         NODE_ID [8:10] str="b"
@@ -32,7 +32,7 @@ NODE_ROOT [0:0]
   NODE_FN_DEC [13:4] name="noann"
     NODE_ARGS_DEC [13:9]
       NODE_VAR_DEC [13:10] name="a" type=i64
-      NODE_VAR_DEC [13:19] name="b" type=char
+      NODE_VAR_DEC [13:19] name="b" type=i8
     NODE_RET_DEC [13:29] type=void
     NODE_BLOCK [13:29]
       NODE_VAR_DEC [14:7] name="x" type=i64

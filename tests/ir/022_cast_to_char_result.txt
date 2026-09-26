@@ -11,12 +11,12 @@ fn __r2_init(0 params, 2 regs) : void
 fn main(0 params, 11 regs) : i64
     r0 = const.i64 300
     r1 = move.i64 r0
-    r2 = sext8.char r1
+    r2 = extend.i8 r1
     r3 = const.u64 200
     r4 = move.u64 r3
-    r5 = sext8.char r4
-    r6 = move.char r2
-    r7 = move.char r2
+    r5 = extend.i8 r4
+    r6 = move.i8 r2
+    r7 = move.i8 r2
     r8 = move.i64 r0
     jz r8 -> L1
     r9 = move.i64 r7

@@ -1,0 +1,12 @@
+fn mixed [1:4] depth=0 type=i64
+param a [1:10] depth=1 type=i64
+param b [1:19] depth=1 type=u64
+param c [1:28] depth=1 type=i8
+var x [2:7] depth=1 type=u64
+var y [3:7] depth=1 type=i64
+var z [4:7] depth=1 type=u64
+var w [5:7] depth=1 type=i8
+var s [6:7] depth=1 type=i64
+var t [7:7] depth=1 type=i8
+var u [8:7] depth=1 type=i64
+var v [9:7] depth=1 type=u64
