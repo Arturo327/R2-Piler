@@ -133,7 +133,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 ## 5. Expresiones
 
 - Literales enteros, char y string; identificadores; llamadas `f(a, b)`; expresiones entre paréntesis.
-- **Cast `expr as type`** (cualquier tipo numérico, `char` = `i8`): conversión explícita que acepta cualquier operando no-`void` y devuelve exactamente el tipo escrito. Todas las combinaciones están permitidas (incluido el cast identidad `x as i64` con `x : i64`). Entre 64 bits (`i64<->u64`) es reinterpretación de bits (wrap/módulo 2^64); hacia un tipo narrow es truncado al ancho + extendido (con signo si el destino lo tiene, con ceros si no); hacia 64 bits desde un narrow es no-op (el valor ya vive extendido en su reg). El cast no es asignable: `(x as i64) = 1` es error (`left side of '=' must be a variable`). Como cualquier expresión, puede aparecer en inits, args, `return` y condiciones.
+- **Cast `expr as type`** (cualquier tipo numérico, `char` = `i8`): conversión explícita que acepta cualquier operando no-`void` y devuelve exactamente el tipo escrito. Todas las combinaciones están permitidas (incluido el cast identidad `x as i64` con `x : i64`). Entre 64 bits (`i64<->u64`) es reinterpretación de bits (wrap/módulo 2^64); hacia un tipo narrow es truncado al ancho; hacia 64 bits desde un narrow es extensión con el signo del origen (`i8`→`i64` extiende con signo, `u8`→`u64` con ceros). El cast no es asignable: `(x as i64) = 1` es error (`left side of '=' must be a variable`). Como cualquier expresión, puede aparecer en inits, args, `return` y condiciones.
 - **Asignación `=`**: es una expresión. El lado izquierdo debe ser una variable; el derecho debe ser del mismo tipo o ensanchar a él en silencio (ver punto 3; si no, error `cannot assign X to a variable of type Y; use an explicit cast with 'as'`, reportado en el `=`). Devuelve **el valor asignado**, por lo que puede encadenarse (`x = y = 1`) y usarse como expresión, incluso como condición.
 - **`&&` y `||`**: short-circuit. Si el resultado queda decidido por el operando izquierdo, el derecho no se evalúa. Compilan a una serie de saltos, no a operaciones aritméticas. Un operando constante emite un **warning** (`constant operand of '&&' is always true/false`), también a través de un cast (`(1 as i64) && x` advierte).
 
@@ -205,8 +205,9 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 ## 11. Entry point y salida
 
 - El entry point es exactamente `fn main() : i64`, sin parámetros. Su valor de retorno es el exit code del programa.
-- Si el programa no define `main`: se genera assembly igualmente.
-- La salida del compilador será **assembly x86-64**, no un binario. El binario final se produce ensamblando (p. ej. `gcc out.s`). Hoy el backend es un stub y el archivo sale vacío.
+- En el assembly, el `main` del usuario se emite como `__r2_main` y se genera un wrapper `main` que llama a `__r2_init` (si hay variables globales) y después a `__r2_main`, devolviendo su valor como exit code. El prefijo `__r2_` está reservado a nivel top-level (una colisión la detecta el ensamblador, no el compilador).
+- Si el programa no define `main`: se genera assembly igualmente, sin wrapper. Todas las funciones se emiten con `.globl` para poder linkearse desde otros archivos en el futuro (las globals quedan como símbolos locales del objeto).
+- La salida del compilador es **assembly x86-64** AT&T, no un binario. El binario final se produce ensamblando (p. ej. `gcc out.s`).
 
 ---
 
@@ -216,6 +217,7 @@ No se añade ninguna lógica para evitarlo; el resultado es lo que haga el hardw
 
 - Shifts con cuenta `>= 64`.
 - División o módulo por cero: fault del hardware (`SIGFPE`).
+- División o módulo con el mínimo negativo de un narrow (`INT8_MIN / -1`, `INT16_MIN / -1` y análogos): fault del hardware (`#DE`), porque la división corre al ancho nativo del tipo.
 - Leer una local sin asignar: valor indefinido.
 
 El **wrap** aritmético NO es indefinido: está definido como complemento a 2 (y módulo 2^64 para `u64`).
@@ -288,8 +290,8 @@ Modelo:
 - No es SSA: un reg puede tener varias definiciones (variables, resultado de `&&` y `||`).
 - Campos no usados = `NO_REG`. `imm64`/`target` comparten unión y nunca son registros.
 - `data_type` = tipo de los OPERANDOS (tras las conversiones: mismo tipo en aritmética/comparaciones salvo `&&`/`||`/`<<`/`>>`, que no unifican; en `<<`/`>>` es el tipo del operando izquierdo y el derecho conserva el suyo; decide signed/unsigned en `DIV`, `MOD`, `RSHIFT` y comparaciones). El resultado de comparaciones (`EQ..LE`), `NOT_L` (`lnot`), `&&` y `||` es siempre `i64` (0 o 1, canónico en cualquier tipo).
-- Invariante de valores: todo reg con un tipo narrow (tamaño < 8) guarda la imagen canónica de 64 bits (extendido con signo si el tipo lo tiene, con ceros si no). Por eso `ADD`, `SUB`, `MUL`, `DIV`, `LSHIFT` y `NEG` sobre un narrow van seguidos de `extend` (trunca al ancho + extiende), mientras que `MOD`, `RSHIFT`, `AND`/`OR`/`XOR` y `NOT` sobre narrow con signo no lo llevan (el resultado ya queda canónico); `NOT` sobre narrow sin signo sí lo lleva. Los literales ya llegan con el tipo de destino (sema los reetiqueta) y se emiten como `const.<tipo>`.
-- Cast (`NODE_CAST`, `expr as type`): solo emite código cuando el destino es narrow con origen de distinto tipo (un `extend.<tipo>` que trunca al ancho + extiende). Todo lo demás (hacia 64 bits, identidad) es no-op a nivel de IR porque todos los regs son de 64 bits y el narrow ya vive extendido: se reutiliza el reg del operando. Las conversiones implícitas de ensanche que inserta sema (init/asignación/arg/`return`) siguen la misma regla: `extend` si el destino es narrow, no-op si es de 64 bits. Como condición (`if`/`while`/`for`), el cast se evalúa a un reg y se salta con `JZ`/`JNZ` como cualquier otro valor.
+- Un reg por tipo: cada reg virtual tiene un tipo (`IRFn.reg_types`), igual al tipo semántico del valor que guarda; en el codegen su home en el stack ocupa exactamente `types[t].size` bytes (un `u8` ocupa 1 byte, no 8). No hay operaciones de extender/truncar tras la aritmética narrow: `add.u8` produce directamente un `u8`, que el codegen calcula con la instrucción nativa del ancho. Los literales ya llegan con el tipo de destino (sema los reetiqueta) y se emiten como `const.<tipo>`.
+- Cast (`NODE_CAST`, `expr as type`): emite `extend.<tipo>` siempre que el tipo cambia, salvo entre los dos tipos de 64 bits (`i64<->u64`, reinterpretación pura de bits) y el cast identidad (se reutiliza el reg del operando). Aquí `extend` significa "redimensionar al ancho destino": leer el origen a su ancho con la extensión de su signo (`movsx`/`movzx`) y guardar `types[destino].size` bytes. Cubre ensanchar (`u8`→`u64`), truncar (`i64`→`i8`) y re-etiquetar el signo al mismo ancho (`u8`→`i8`, copia de bytes que fija la extensión de las lecturas posteriores). Las conversiones implícitas que inserta sema (init/asignación/arg/`return`/unificación de binarios) generan ese mismo `extend`, así que todo consumidor ve operandos del tipo de la instrucción (salvo el src2 de shifts, que conserva el suyo). Como condición (`if`/`while`/`for`), el cast se evalúa a un reg y se salta con `JZ`/`JNZ` como cualquier otro valor.
 - `gen_expr` nunca devuelve el reg de una variable: leer una global emite `LD_GLOBAL` a un temporal; leer una local copia con `MOVE` a un temporal. Declarar una local con init reutiliza el reg del resultado; sin init reserva un reg sin emitir nada.
 - La asignación (`=`) evalúa primero el RHS, luego emite `MOVE` (local) o `STR_GLOBAL` (global), y devuelve el reg del RHS, por lo que `x = y = 5` comparte el mismo reg.
 - Llamadas: los args se evalúan de izquierda a derecha a temporales, luego se emiten los `ARG` `0..argc-1` contiguos justo antes de su `CALL`. `CALL` a función `void` no tiene `dst` (se imprime sin `rN =`); con retorno, `dst` es un reg fresco.

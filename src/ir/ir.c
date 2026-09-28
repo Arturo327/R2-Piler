@@ -61,10 +61,26 @@ static const uint8_t node_to_ir[NODE_COUNT] = {
 	[NODE_GE] = IR_GE, [NODE_LT] = IR_LT, [NODE_LE] = IR_LE
 };
 
-static const uint8_t char_wraps[IR_COUNT] = {
-	[IR_ADD] = 1, [IR_SUB] = 1, [IR_MUL] = 1, [IR_DIV] = 1,
-	[IR_LS] = 1, [IR_NEG] = 1
-};
+static uint32_t new_reg (IR *ir, uint8_t type)
+{
+	uint32_t r = ir->reg_count++;
+
+	if (r >= ir->reg_type_cap) {
+		uint32_t old = ir->reg_type_cap;
+		ir->reg_type_cap = old ? old << 1 : 64;
+		ir->reg_types = arena_realloc(ir->arena, ir->reg_types,
+				old, ir->reg_type_cap);
+	}
+	ir->reg_types[r] = type;
+	return r;
+}
+
+static uint8_t result_type (uint8_t op, uint8_t type)
+{
+	if (op >= IR_EQ && op <= IR_LE) return TYPE_i64;
+	if (op == IR_NOT_L) return TYPE_i64;
+	return type;
+}
 
 void ir_init (IR *ir, Arena *arena, Sema *sema)
 {
@@ -76,6 +92,9 @@ void ir_init (IR *ir, Arena *arena, Sema *sema)
 	ir->init_fn = 0;
 	ir->reg_count = 0;
 	ir->label_count = 0;
+
+	ir->reg_types = NULL;
+	ir->reg_type_cap = 0;
 
 	ir->instr_count = 0;
 	ir->instr_cap = 256;
@@ -168,7 +187,7 @@ static void make_const_into (IR *ir, uint32_t dst, int64_t val, uint8_t type)
 
 static uint32_t make_const (IR *ir, int64_t val, uint8_t type)
 {
-	uint32_t dst = ir->reg_count++;
+	uint32_t dst = new_reg(ir, type);
 	make_const_into(ir, dst, val, type);
 	return dst;
 }
@@ -177,7 +196,7 @@ static uint32_t make_ld_global (IR *ir, uint32_t idx, uint8_t type)
 {
 	IRInstr i = blank_instr;
 	i.op = IR_LD_GLOBAL;
-	i.dst = ir->reg_count++;
+	i.dst = new_reg(ir, type);
 	i.target = idx;
 	i.data_type = type;
 	push_instr(ir, i);
@@ -198,7 +217,7 @@ static uint32_t make_call (IR *ir, uint32_t idx, uint16_t argc, uint8_t ret_type
 {
 	IRInstr i = blank_instr;
 	i.op = IR_CALL;
-	i.dst = ret_type == TYPE_VOID ? NO_REG : ir->reg_count++;
+	i.dst = ret_type == TYPE_VOID ? NO_REG : new_reg(ir, ret_type);
 	i.target = idx;
 	i.argc = argc;
 	i.data_type = ret_type;
@@ -220,22 +239,12 @@ static uint32_t make_op (IR *ir, uint8_t op, uint32_t a, uint32_t b, uint8_t typ
 {
 	IRInstr i = blank_instr;
 	i.op = op;
-	i.dst = ir->reg_count++;
+	i.dst = new_reg(ir, result_type(op, type));
 	i.src1 = a;
 	i.src2 = b;
 	i.data_type = type;
 	push_instr(ir, i);
-
-	if (types[type].size >= 8) return i.dst;
-	if (!char_wraps[op] && !(op == IR_NOT_A && !types[type].sign)) return i.dst;
-
-	IRInstr fix = blank_instr;
-	fix.op = IR_EXTEND;
-	fix.dst = ir->reg_count++;
-	fix.src1 = i.dst;
-	fix.data_type = type;
-	push_instr(ir, fix);
-	return fix.dst;
+	return i.dst;
 }
 
 static void make_jump (IR *ir, uint8_t op, uint32_t cond, uint32_t label)
@@ -277,7 +286,7 @@ static uint32_t gen_id (IR *ir, ASTNode *n)
 	if (!s->depth)
 		return make_ld_global(ir, s->ir_id, s->type);
 
-	tmp = ir->reg_count++;
+	tmp = new_reg(ir, s->type);
 	make_move(ir, tmp, s->ir_id, s->type);
 	return tmp;
 }
@@ -360,7 +369,7 @@ static void gen_jump_if (IR *ir, ASTNode *n, uint32_t label, int when)
 
 static uint32_t gen_logic (IR *ir, ASTNode *n)
 {
-	uint32_t res = ir->reg_count++;
+	uint32_t res = new_reg(ir, TYPE_i64);
 	uint32_t l_false = ir->label_count++;
 	uint32_t l_end = ir->label_count++;
 
@@ -378,8 +387,10 @@ static uint32_t gen_cast (IR *ir, ASTNode *n)
 	ASTNode *operand = ir->ast->nodes + n->child;
 	uint32_t src = gen_expr(ir, operand);
 
-	if (types[n->data_type].size == 8 || n->data_type == operand->data_type)
+	if (types[n->data_type].size == 8 && types[operand->data_type].size == 8)
 		return src;
+	if (n->data_type == operand->data_type) return src;
+
 	return make_op(ir, IR_EXTEND, src, NO_REG, n->data_type);
 }
 
@@ -409,7 +420,7 @@ static void gen_var_dec (IR *ir, ASTNode *n)
 {
 	Symbol *s = ir->symtab->symbols + n->sym;
 
-	if (n->child == NO_NODE) s->ir_id = ir->reg_count++;
+	if (n->child == NO_NODE) s->ir_id = new_reg(ir, s->type);
 	else s->ir_id = gen_expr(ir, ir->ast->nodes + n->child);
 }
 
@@ -525,7 +536,7 @@ static void gen_args_dec (IR *ir, uint32_t node)
 		ASTNode *n = ir->ast->nodes + p;
 		Symbol *s = ir->symtab->symbols + n->sym;
 
-		s->ir_id = ir->reg_count++;
+		s->ir_id = new_reg(ir, s->type);
 		make_arg_dec(ir, s->ir_id, idx++, s->type);
 		p = n->next_bro;
 	}
@@ -538,6 +549,7 @@ static void fn_end (IR *ir, uint32_t idx)
 	make_ret(ir, NO_REG, TYPE_VOID);
 	fn->count = ir->instr_count - fn->start;
 	fn->reg_count = ir->reg_count;
+	fn->reg_types = ir->reg_types;
 }
 
 static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
@@ -547,6 +559,9 @@ static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
 	uint32_t body = ir->ast->nodes[ret].next_bro;
 
 	ir->reg_count = 0;
+	ir->reg_types = NULL;
+	ir->reg_type_cap = 0;
+
 	ir->fns[fn_idx].start = ir->instr_count;
 	gen_args_dec(ir, args);
 	gen_block(ir, ir->ast->nodes + body);
@@ -556,6 +571,8 @@ static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
 static void gen_init_fn (IR *ir)
 {
 	ir->reg_count = 0;
+	ir->reg_types = NULL;
+	ir->reg_type_cap = 0;
 	ir->fns[ir->init_fn].start = ir->instr_count;
 
 	for (uint32_t i = 0; i < ir->init_order_count; i++) {

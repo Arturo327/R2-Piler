@@ -8,7 +8,7 @@ fn __r2_init(0 params, 2 regs) : void
     str_global.u64 r1 @y
     ret
 
-fn main(0 params, 11 regs) : i64
+fn main(0 params, 12 regs) : i64
     r0 = const.i64 300
     r1 = move.i64 r0
     r2 = extend.i8 r1
@@ -17,13 +17,14 @@ fn main(0 params, 11 regs) : i64
     r5 = extend.i8 r4
     r6 = move.i8 r2
     r7 = move.i8 r2
-    r8 = move.i64 r0
-    jz r8 -> L1
-    r9 = move.i64 r7
-    ret.i64 r9
+    r8 = extend.i64 r7
+    r9 = move.i64 r0
+    jz r9 -> L1
+    r10 = move.i64 r8
+    ret.i64 r10
   L1:
   L0:
-    r10 = const.i64 0
-    ret.i64 r10
+    r11 = const.i64 0
+    ret.i64 r11
     ret
 

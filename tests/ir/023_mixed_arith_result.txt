@@ -10,11 +10,11 @@ fn main(0 params, 14 regs) : i64
     r5 = const.i8 97
     r6 = move.i64 r0
     r7 = move.i8 r5
-    r8 = add.i64 r6, r7
-    r9 = move.i8 r5
+    r8 = extend.i64 r7
+    r9 = add.i64 r6, r8
     r10 = move.i8 r5
-    r11 = add.i8 r9, r10
-    r12 = extend.i8 r11
+    r11 = move.i8 r5
+    r12 = add.i8 r10, r11
     r13 = const.i64 0
     ret.i64 r13
     ret

@@ -14,7 +14,7 @@ The code generator backend exists but is still a stub: `gen_x86_64` emits nothin
 - Parser — implemented and tested
 - Type checker — implemented and tested
 - IR — implemented and tested
-- Code generation — scaffolded (CLI, buffer, backends table); x86-64 emission and the interpreter are still pending
+- Code generation — Working on. Nowadays scaffolded (CLI, buffer, backends table); x86-64 emission and the interpreter are still pending
 
 For now, `--dump-tokens`, `--dump-ast`, `--dump-symbols` and `--dump-ir` are the main ways to see the compiler do something.
 

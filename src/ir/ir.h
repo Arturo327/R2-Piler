@@ -41,6 +41,7 @@ typedef struct IRInstr {
 
 typedef struct IRFn {
 	char *name;
+	uint8_t *reg_types;
 
 	uint32_t start;
 	uint32_t count;
@@ -78,6 +79,9 @@ typedef struct IR {
 
 	uint32_t reg_count;
 	uint32_t label_count;
+
+	uint8_t *reg_types;
+	uint32_t reg_type_cap;
 
 	Arena *arena;
 	AST *ast;
