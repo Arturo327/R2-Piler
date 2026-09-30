@@ -15,7 +15,7 @@ R2-Lang es un lenguaje imperativo, estática y fuertemente tipado, sin conversio
 - Funciones solo a nivel top-level, con parámetros por valor.
 - Scopes de bloque con shadowing entre scopes.
 - Entry point: `fn main() : i64`.
-- El compilador emitirá assembly x86-64 (no binarios: el binario final se produce ensamblando). **Hoy el backend es un stub**: una compilación sin flags de dump escribe un `out.s` vacío.
+- El compilador emitirá assembly x86-64 (no binarios: el binario final se produce ensamblando). **Hoy el backend es un stub**: una compilación sin flags de dump escribe un `<fuente>.s` vacío.
 
 Pipeline del compilador:
 

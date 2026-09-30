@@ -6,18 +6,38 @@ static void clasf_globals (CodeGen *c, uint8_t *kind, int64_t *vals)
 {
 	IR *ir = c->ir;
 	IRFn *init = ir->fns + ir->init_fn;
+
+	uint8_t *seen = arena_alloc(c->arena, ir->global_count ? ir->global_count : 1);
 	memset(kind, 0, ir->global_count);
+	memset(seen, 0, ir->global_count);
 
 	for (uint32_t i = 0; i < init->count; i++) {
+
 		IRInstr *instr = ir->instrs + init->start + i;
-		if (instr->op != IR_STR_GLOBAL || i == 0) continue;
+		if (instr->op == IR_CALL || instr->op == IR_JMP || instr->op == IR_JZ
+				|| instr->op == IR_JNZ || instr->op == IR_LABEL) break;
+
+		uint32_t g = NO_REG;
+		int is_store = 0;
+
+		if (instr->op == IR_STR_GLOBAL) {
+			g = instr->target;
+			is_store = 1;
+		} else if (instr->op == IR_LD_GLOBAL) {
+			g = instr->target;
+		} else continue;
+
+		if (seen[g]) continue;
+		seen[g] = 1;
+
+		if (!is_store || !i) continue;
 
 		IRInstr *prev = instr - 1;
 		if (prev->op != IR_CONST || prev->dst != instr->src1) continue;
-		if (prev->data_type != ir->globals[instr->target].type) continue;
+		if (prev->data_type != ir->globals[g].type) continue;
 
-		kind[instr->target] = 1;
-		vals[instr->target] = prev->imm64;
+		kind[g] = 1;
+		vals[g] = prev->imm64;
 	}
 }
 
@@ -37,7 +57,7 @@ static void make_global_data (CodeGen *c, uint32_t i, int64_t val)
 	IRGlobal *g = c->ir->globals + i;
 	uint8_t size = types[g->type].size;
 
-	cg_printf(c, "\t.align %u\n%.*s:\t", size, (int)g->len, g->name);
+	cg_printf(c, "\t.balign %u\n%.*s:\t", size, (int)g->len, g->name);
 	cg_printf(c, "%s ", asm_size_name(size));
 
 	if (types[g->type].sign) cg_printf(c, "%lld\n", (long long)val);
@@ -48,7 +68,7 @@ static void make_global_bss (CodeGen *c, uint32_t i)
 {
 	IRGlobal *g = c->ir->globals + i;
 	uint8_t size = types[g->type].size;
-	cg_printf(c, "\t.align %u\n%.*s:\t", size, (int)g->len, g->name);
+	cg_printf(c, "\t.balign %u\n%.*s:\t", size, (int)g->len, g->name);
 	cg_printf(c, ".zero %u\n", size);
 }
 
@@ -58,13 +78,19 @@ static void make_globals (CodeGen *c, uint8_t *kind, int64_t *vals)
 	int printed = 0;
 	for (uint32_t i = 0; i < ir->global_count; i++) {
 		if (!kind[i]) continue;
-		if (!printed) cg_printf(c, "\t.section .data\n");
+		if (!printed) {
+			printed = 1;
+			cg_printf(c, "\t.section .data\n");
+		}
 		make_global_data(c, i, vals[i]);
 	}
 	printed = 0;
 	for (uint32_t i = 0; i < ir->global_count; i++) {
 		if (kind[i]) continue;
-		if (!printed) cg_printf(c, "\t.section .bss\n");
+		if (!printed) {
+			printed = 1;
+			cg_printf(c, "\t.section .bss\n");
+		}
 		make_global_bss(c, i);
 	}
 }
@@ -109,14 +135,106 @@ static void layout_fn (X86Fn *f)
 
 static void print_fn_name (CodeGen *c, IRFn *fn)
 {
-	if (strncmp(fn->name, "main", fn->len)) cg_printf(c, "%.*s", (int)fn->len, fn->name);
-	else cg_printf(c, "__r2_main");
+	if (fn->len == 4 && memcmp(fn->name, "main", 4) == 0)
+		cg_printf(c,"__r2_main");
+	else cg_printf(c, "%.*s", (int)fn->len, fn->name);
+}
+
+static const char *const regs_names[] =
+{
+	// 1 byte
+	"%al", "%cl", "%dl", "%bl",
+	"%spl", "%bpl", "%sil", "%dil",
+	"%r8b", "%r9b", "%r10b", "%r11b",
+	"%r12b", "%r13b", "%r14b", "%r15b",
+
+
+	// 2 bytes
+	"%ax", "%cx", "%dx", "%bx",
+	"%sp", "%bp", "%si", "%di",
+	"%r8w", "%r9w", "%r10w", "%r11w",
+	"%r12w", "%r13w", "%r14w", "%r15w",
+
+	// 4 bytes
+	"%eax", "%ecx", "%edx", "%ebx",
+	"%esp", "%ebp", "%esi", "%edi",
+	"%r8d", "%r9d", "%r10d", "%r11d",
+	"%r12d", "%r13d", "%r14d", "%r15d",
+
+	// 8 bytes
+	"%rax", "%rcx", "%rdx", "%rbx",
+	"%rsp", "%rbp", "%rsi", "%rdi",
+	"%r8", "%r9", "%r10", "%r11",
+	"%r12", "%r13", "%r14", "%r15"
+};
+
+static const uint8_t size_idx[9] = { [1] = 0, [2] = 1, [4] = 2, [8] = 3 };
+static const char mem_suf[9] = { [1] = 'b', [2] = 'w', [4] = 'l', [8] = 'q' };
+static const uint8_t arg_regs[6] = { 7, 6, 2, 1, 8, 9 };
+
+static inline const char *reg_name (uint8_t reg, uint8_t size)
+{
+	return regs_names[(size_idx[size] << 4) + reg];
+}
+
+static const char *const load_ops[8] = {
+	"movzbl", "movsbq", "movzwl", "movswq",
+	"movl", "movslq", "movq", "movq"
+};
+
+static const char *load_op (uint8_t t, uint8_t *size)
+{
+	uint8_t s = types[t].size;
+	uint8_t sign = types[t].sign;
+
+	*size = (s < 8 && !sign) ? 4 : 8;
+	return load_ops[(size_idx[s] << 1) | sign];
+}
+
+static void load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
+{
+	uint8_t w;
+	const char *op = load_op(f->fn->reg_types[vreg], &w);
+	cg_printf(f->cg, "\t%s -%u(%%rbp), %s\n", op, f->slots[vreg], reg_name(reg, w));
+}
+
+static void store_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
+{
+	uint8_t s = types[f->fn->reg_types[vreg]].size;
+	cg_printf(f->cg, "\tmov%c %s, -%u(%%rbp)\n", mem_suf[s], reg_name(reg, s), f->slots[vreg]);
+}
+
+static void make_instr (X86Fn *f, IRInstr *i)
+{
+	switch (i->op)
+	{
+/*	case IR_CONST: make_const(f, i); break;
+	case IR_PARAM: make_param(f, i); break;
+	case IR_LD_GLOBAL: make_ld_global(f, i); break;
+	case IR_STR_GLOBAL: make_str_global(f, i); break;
+	case IR_MOVE: case IR_EXTEND: make_move(f, i); break;
+	case IR_ADD: case IR_SUB: case IR_AND_A: case IR_OR_A: case IR_XOR:
+		make_arith(f, i); break;
+	case IR_MUL: make_mul(f, i); break;
+	case IR_DIV: case IR_MOD: make_divmod(f, i); break;
+	case IR_RS: case IR_LS: make_shift(f, i); break;
+	case IR_NEG: make_unary(f, i, "neg"); break;
+	case IR_NOT_A: make_unary(f, i, "not"); break;
+	case IR_NOT_L: make_not_l(f, i); break;
+	case IR_EQ: case IR_NE: case IR_GT: case IR_GE: case IR_LT: case IR_LE:
+		make_cmp(f, i); break;
+	case IR_LABEL: case IR_JMP: case IR_JZ: case IR_JNZ: make_jump(f, i); break;
+	case IR_ARG: make_arg(f, i); break;
+	case IR_CALL: make_call(f, i); break;
+	case IR_RET: make_ret(f, i); break;	*/
+	default: break;
+	}
 }
 
 static void make_fn (X86Fn *f)
 {
 	CodeGen *c = f->cg;
-//	IR *ir = c->ir;
+	IR *ir = c->ir;
 	IRFn *fn = f->fn;
 
 	cg_printf(c, "\t.globl ");
@@ -127,14 +245,14 @@ static void make_fn (X86Fn *f)
 	cg_printf(c, ":\n\tpushq %%rbp\n\tmovq %%rsp, %%rbp\n");
 	if (f->frame) cg_printf(c, "\tsubq $%u, %%rsp\n", f->frame);
 
-//	for (uint32_t i = 0; i < fn->count; i++)
-//		make_fn_instr(f, ir->instrs + fn->start + i);
+	for (uint32_t i = 0; i < fn->count; i++)
+		make_instr(f, ir->instrs + fn->start + i);
 }
 
 static uint32_t find_main (IR *ir)
 {
 	for (uint32_t i = 0; i < ir->fn_count; i++)
-		if (!strncmp(ir->fns[i].name, "main", ir->fns[i].len)) return i;
+		if (ir->fns[i].len == 4 && !strncmp(ir->fns[i].name, "main", 4)) return i;
 	return NO_REG;
 }
 
