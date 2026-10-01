@@ -2,6 +2,9 @@
 
 #include <string.h>
 
+#define SYM_PREFIX "__r2_"
+#define INIT_SYM "__r2.init"
+
 static void clasf_globals (CodeGen *c, uint8_t *kind, int64_t *vals)
 {
 	IR *ir = c->ir;
@@ -54,7 +57,7 @@ static void make_global_data (CodeGen *c, uint32_t i, int64_t val)
 	IRGlobal *g = c->ir->globals + i;
 	uint8_t size = types[g->type].size;
 
-	cg_printf(c, "\t.balign %u\n%.*s:\t", size, (int)g->len, g->name);
+	cg_printf(c, "\t.balign %u\n" SYM_PREFIX "%.*s:\t", size, (int)g->len, g->name);
 	cg_printf(c, "%s ", asm_size_name[size]);
 
 	if (types[g->type].sign) cg_printf(c, "%lld\n", (long long)val);
@@ -65,7 +68,7 @@ static void make_global_bss (CodeGen *c, uint32_t i)
 {
 	IRGlobal *g = c->ir->globals + i;
 	uint8_t size = types[g->type].size;
-	cg_printf(c, "\t.balign %u\n%.*s:\t", size, (int)g->len, g->name);
+	cg_printf(c, "\t.balign %u\n" SYM_PREFIX "%.*s:\t", size, (int)g->len, g->name);
 	cg_printf(c, ".zero %u\n", size);
 }
 
@@ -132,9 +135,8 @@ static void layout_fn (X86Fn *f)
 
 static void print_fn_name (CodeGen *c, IRFn *fn)
 {
-	if (fn->len == 4 && memcmp(fn->name, "main", 4) == 0)
-		cg_printf(c,"__r2_main");
-	else cg_printf(c, "%.*s", (int)fn->len, fn->name);
+	if (fn == c->ir->fns + c->ir->init_fn) cg_printf(c, INIT_SYM);
+	else cg_printf(c, SYM_PREFIX "%.*s", (int)fn->len, fn->name);
 }
 
 static const char *regs_names[] =
@@ -240,7 +242,8 @@ static void make_ld_global (X86Fn *f, IRInstr *i)
 	uint8_t size;
 	const char *op = load_op(g->type, &size);
 
-	cg_printf(c, "\t%s %.*s(%%rip), %s\n", op, (int)g->len, g->name, reg_name(0, size));
+	cg_printf(c, "\t%s " SYM_PREFIX "%.*s(%%rip), %s\n", op,
+			(int)g->len, g->name, reg_name(0, size));
 	store_reg(f, 0, i->dst);
 }
 
@@ -251,8 +254,8 @@ static void make_str_global (X86Fn *f, IRInstr *i)
 	uint8_t s = types[g->type].size;
 
 	load_reg(f, 0, i->src1);
-	cg_printf(c, "\tmov%c %s, %.*s(%%rip)\n", mem_suf[s], reg_name(0, s),
-			(int)g->len, g->name);
+	cg_printf(c, "\tmov%c %s, " SYM_PREFIX "%.*s(%%rip)\n", mem_suf[s],
+			reg_name(0, s), (int)g->len, g->name);
 }
 
 static void make_move (X86Fn *f, IRInstr *i)
@@ -287,6 +290,34 @@ static void make_arith (X86Fn *f, IRInstr *i)
 	store_reg(f, 0, i->dst);
 }
 
+static const char *sext_ops[9] = {
+	[1] = "cbtw",
+	[2] = "cwtd",
+	[4] = "cltd",
+	[8] = "cqto"
+};
+
+static void make_divmod (X86Fn *f, IRInstr *i)
+{
+	CodeGen *c = f->cg;
+	uint8_t s = types[i->data_type].size;
+	int sign = types[i->data_type].sign;
+
+	load_reg(f, 0, i->src1);
+	load_reg(f, 1, i->src2);
+
+	if (sign) cg_printf(c, "\t%s\n", sext_ops[s]);
+	else if (s > 1) cg_printf(c, "\txorl %%edx, %%edx\n");
+
+	cg_printf(c, "\t%s%c %s\n", sign ? "idiv" : "div", mem_suf[s], reg_name(1, s));
+
+	if (i->op == IR_DIV)
+		store_reg(f, 0, i->dst);
+	else if (s == 1)
+		cg_printf(c, "\tmovb %%ah, -%u(%%rbp)\n", f->slots[i->dst]);
+	else store_reg(f, 2, i->dst);
+}
+
 static void make_instr (X86Fn *f, IRInstr *i)
 {
 	switch (i->op)
@@ -296,10 +327,11 @@ static void make_instr (X86Fn *f, IRInstr *i)
 	case IR_LD_GLOBAL: make_ld_global(f, i); break;
 	case IR_STR_GLOBAL: make_str_global(f, i); break;
 	case IR_MOVE: case IR_EXTEND: make_move(f, i); break;
+
 	case IR_ADD: case IR_SUB: case IR_AND_A: case IR_OR_A: case IR_MUL: case IR_XOR:
 		make_arith(f, i); break;
-/*
 	case IR_DIV: case IR_MOD: make_divmod(f, i); break;
+/*
 	case IR_RS: case IR_LS: make_shift(f, i); break;
 	case IR_NEG: make_unary(f, i, "neg"); break;
 	case IR_NOT_A: make_unary(f, i, "not"); break;
@@ -321,7 +353,7 @@ static void make_fn (X86Fn *f)
 	IR *ir = c->ir;
 	IRFn *fn = f->fn;
 
-	cg_printf(c, "\t.globl ");
+	cg_printf(c, "\t.p2align 4\n\t.globl ");
 	print_fn_name(c, fn);
 	cg_printf(c, "\n");
 	print_fn_name(c, fn);
@@ -345,8 +377,8 @@ static void make_entry (CodeGen *c)
 	IR *ir = c->ir;
 	if (find_main(ir) == NO_REG) return;
 	cg_printf(c, "\t.globl main\nmain:\n\tpushq %%rbp\n\tmovq %%rsp, %%rbp\n");
-	if (ir->global_count) cg_printf(c, "\tcall __r2_init\n");
-	cg_printf(c, "\tcall __r2_main\n\tpopq %%rbp\n\tret\n");
+	if (ir->global_count) cg_printf(c, "\tcall " INIT_SYM "\n");
+	cg_printf(c, "\tcall " SYM_PREFIX "main\n\tpopq %%rbp\n\tret\n");
 }
 
 int gen_x86_64 (CodeGen *c)
