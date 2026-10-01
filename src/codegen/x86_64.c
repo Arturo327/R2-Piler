@@ -137,7 +137,7 @@ static void print_fn_name (CodeGen *c, IRFn *fn)
 	else cg_printf(c, "%.*s", (int)fn->len, fn->name);
 }
 
-static const char *const regs_names[] =
+static const char *regs_names[] =
 {
 	// 1 byte
 	"%al", "%cl", "%dl", "%bl",
@@ -261,6 +261,32 @@ static void make_move (X86Fn *f, IRInstr *i)
 	store_reg(f, 0, i->dst);
 }
 
+static void op_rax (X86Fn *f, const char *op, uint32_t vreg)
+{
+	if (types[f->fn->reg_types[vreg]].size == 8) {
+		cg_printf(f->cg, "\t%sq -%u(%%rbp), %%rax\n", op, f->slots[vreg]);
+		return;
+	}
+	load_reg(f, 1, vreg);
+	cg_printf(f->cg, "\t%sq %%rcx, %%rax\n", op);
+}
+
+static const char *arith_ops[IR_COUNT] = {
+	[IR_ADD] = "add",
+	[IR_SUB] = "sub",
+	[IR_MUL] = "imul",
+	[IR_AND_A] = "and",
+	[IR_OR_A] = "or",
+	[IR_XOR] = "xor"
+};
+
+static void make_arith (X86Fn *f, IRInstr *i)
+{
+	load_reg(f, 0, i->src1);
+	op_rax(f, arith_ops[i->op], i->src2);
+	store_reg(f, 0, i->dst);
+}
+
 static void make_instr (X86Fn *f, IRInstr *i)
 {
 	switch (i->op)
@@ -270,10 +296,9 @@ static void make_instr (X86Fn *f, IRInstr *i)
 	case IR_LD_GLOBAL: make_ld_global(f, i); break;
 	case IR_STR_GLOBAL: make_str_global(f, i); break;
 	case IR_MOVE: case IR_EXTEND: make_move(f, i); break;
-/*
-	case IR_ADD: case IR_SUB: case IR_AND_A: case IR_OR_A: case IR_XOR:
+	case IR_ADD: case IR_SUB: case IR_AND_A: case IR_OR_A: case IR_MUL: case IR_XOR:
 		make_arith(f, i); break;
-	case IR_MUL: make_mul(f, i); break;
+/*
 	case IR_DIV: case IR_MOD: make_divmod(f, i); break;
 	case IR_RS: case IR_LS: make_shift(f, i); break;
 	case IR_NEG: make_unary(f, i, "neg"); break;
