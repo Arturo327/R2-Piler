@@ -5,10 +5,26 @@
 #define SYM_PREFIX "__r2_"
 #define INIT_SYM "__r2.init"
 
+static uint32_t *count_uses (CodeGen *c, IRFn *fn)
+{
+	IR *ir = c->ir;
+	size_t bytes = (size_t)fn->reg_count * sizeof(uint32_t);
+	uint32_t *uses = arena_alloc(c->arena, bytes);
+
+	memset(uses, 0, bytes);
+	for (uint32_t i = 0; i < fn->count; i++) {
+		IRInstr *instr = ir->instrs + fn->start + i;
+		if (instr->src1 != NO_REG) uses[instr->src1]++;
+		if (instr->src2 != NO_REG) uses[instr->src2]++;
+	}
+	return uses;
+}
+
 static void clasf_globals (CodeGen *c, uint8_t *kind, int64_t *vals)
 {
 	IR *ir = c->ir;
 	IRFn *init = ir->fns + ir->init_fn;
+	uint32_t *uses = count_uses(c, init);
 
 	uint8_t *seen = arena_alloc(c->arena, ir->global_count ? ir->global_count : 1);
 	memset(kind, 0, ir->global_count);
@@ -41,6 +57,8 @@ static void clasf_globals (CodeGen *c, uint8_t *kind, int64_t *vals)
 
 		kind[g] = 1;
 		vals[g] = prev->imm64;
+		if (uses[prev->dst] == 1) prev->op = IR_NOP;
+		instr->op = IR_NOP;
 	}
 }
 
@@ -372,13 +390,25 @@ static uint32_t find_main (IR *ir)
 	return NO_REG;
 }
 
-static void make_entry (CodeGen *c)
+static void make_entry (CodeGen *c, int run_init)
 {
 	IR *ir = c->ir;
 	if (find_main(ir) == NO_REG) return;
 	cg_printf(c, "\t.globl main\nmain:\n\tpushq %%rbp\n\tmovq %%rsp, %%rbp\n");
-	if (ir->global_count) cg_printf(c, "\tcall " INIT_SYM "\n");
+	if (run_init) cg_printf(c, "\tcall " INIT_SYM "\n");
 	cg_printf(c, "\tcall " SYM_PREFIX "main\n\tpopq %%rbp\n\tret\n");
+}
+
+static int init_is_empty (CodeGen *c)
+{
+	IR *ir = c->ir;
+	IRFn *init = ir->fns + ir->init_fn;
+
+	for (uint32_t i = 0; i < init->count; i++) {
+		uint8_t op = ir->instrs[init->start + i].op;
+		if (op != IR_NOP && op != IR_RET) return 0;
+	}
+	return 1;
 }
 
 int gen_x86_64 (CodeGen *c)
@@ -386,6 +416,7 @@ int gen_x86_64 (CodeGen *c)
 	IR *ir = c->ir;
 	uint8_t *kind;
 	int64_t *vals;
+	int init_empty;
 
 	uint32_t max_regs = 1;
 	for (uint32_t i = 0; i < ir->fn_count; i++)
@@ -401,15 +432,18 @@ int gen_x86_64 (CodeGen *c)
 			* sizeof(int64_t));
 
 	clasf_globals(c, kind, vals);
+	init_empty = init_is_empty(c);
 	make_globals(c, kind, vals);
 	cg_printf(c, "\t.text\n");
 
 	for (uint32_t i = 0; i < ir->fn_count; i++) {
+		if (init_empty && i == ir->init_fn) continue;
 		f.fn = ir->fns + i;
 		layout_fn(&f);
 		make_fn(&f);
 	}
-	make_entry(c);
+	make_entry(c, !init_empty);
+
 	cg_printf(c, "\t.section .note.GNU-stack,\"\",@progbits\n");
 
 	return 0;
