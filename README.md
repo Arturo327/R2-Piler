@@ -6,7 +6,7 @@ A small compiler for the (invented) **R2-Lang** language, written in C.
 
 ## Current Status
 
-The code generator backend exists but is still a stub: `gen_x86_64` emits nothing, so a plain compile writes an empty `.s` file. The rest is implemented and tested.
+The x86-64 backend now lowers every IR instruction to AT&T assembly, so a plain compile produces a `.s` file that `gcc` can assemble and run. It is deliberately naive: there is no register allocator yet, every virtual register lives in a stack slot. The front end and the IR are implemented and tested.
 
 **Work in progress.**
 
@@ -14,9 +14,11 @@ The code generator backend exists but is still a stub: `gen_x86_64` emits nothin
 - Parser — implemented and tested
 - Type checker — implemented and tested
 - IR — implemented and tested
-- Code generation — Working on. Nowadays scaffolded (CLI, buffer, backends table); x86-64 emission and the interpreter are still pending
+- Code generation — x86-64 implemented (memory-homed registers, System V ABI); ARM, RISC-V and the interpreter are still pending
+- IR optimizer (`optimize_ir`) — pending
+- Tests — lexer, parser, sema and IR fixtures; codegen fixtures pending
 
-For now, `--dump-tokens`, `--dump-ast`, `--dump-symbols` and `--dump-ir` are the main ways to see the compiler do something.
+`--dump-tokens`, `--dump-ast`, `--dump-symbols` and `--dump-ir` show what each stage produces; a plain compile now generates runnable assembly.
 
 ---
 
@@ -26,6 +28,7 @@ For now, `--dump-tokens`, `--dump-ast`, `--dump-symbols` and `--dump-ir` are the
 - Parser: expressions, variable declarations, blocks, if statements, functions, for and while loops.
 - Sema: strict type checking, uninitialized and undeclared variable detector (flow-sensitive definite assignment, uninitialized globals, constant-condition warnings), symbol table, allow forward-calls
 - IR: linear per-function stream with virtual registers, short-circuit `&&`/`||`, global init function (`__r2_init`), full lowering of expressions, calls, `if`/`while`/`for` and `return`.
+- Codegen: x86-64 AT&T assembly (System V AMD64 ABI). Every virtual register has a stack home sized to its type; operands are loaded with sign/zero extension, arithmetic runs on 64 bits and the store truncates, division runs at the native width, globals are `.data`/`.bss` and RIP-relative.
 - Precise error reporting with `file:line:column` locations.
 - Arena allocator — all compiler memory is freed in a single call at program exit instead of scattered `malloc`/`free` calls.
 - `--dump-tokens` flag to inspect exactly what the lexer produces for a given source file.
@@ -48,7 +51,15 @@ make
 ./build/r2p --dump-ir path/to/file.r2
 ```
 
-A plain compile (no dump flag) writes assembly to `out.s` (or the `-o` target). Note: until the x86-64 backend is implemented, the emitted file is empty; `-a arm`, `-a riscv` and `-e` (interpreter) are rejected with "backend is not implemented".
+A plain compile (no dump flag) writes assembly to `<source>.s` (or the `-o` target; `-` for stdout). Assemble and run it with gcc:
+
+```bash
+./build/r2p prog.r2      # writes prog.s
+gcc prog.s -o prog
+./prog; echo $?          # exit code = value returned by main
+```
+
+`-a arm`, `-a riscv` and `-e` (interpreter) are rejected with "backend is not implemented".
 
 Run the test suite:
 
@@ -84,7 +95,7 @@ src/
 |   ├── ast.h        # AST definition: nodes, types, AST tree
 |   └── parser.c/h   # Parser: get the tokens and crate an AST tree
 ├── codegen/
-|   ├── x86_64.c/h   # x86_64 backend: stub, does not emit assembly yet
+|   ├── x86_64.c/h   # x86_64 backend: lowers the IR to AT&T assembly (System V ABI)
 |   └── codegen.c/h  # Codegen: wires the different architectures and interpreter mode and manage opening/closing files.
 ├── sema/
 |   ├── sema.c/h      # Semantic analyzer driver: declarations, global inits, symbol dump

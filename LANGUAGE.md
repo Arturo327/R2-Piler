@@ -2,7 +2,7 @@
 
 Especificación completa de R2-Lang, el lenguaje que compila R2-Piler.
 
-Estado: lexer, parser, sema e IR implementados y testeados. Codegen: el andamiaje existe (CLI, tabla de backends, buffer de salida) pero el backend x86-64 es un stub que aún no emite assembly (`arm`, `riscv` y el intérprete se rechazan con "backend is not implemented"). `optimize_ir` pendiente.
+Estado: lexer, parser, sema e IR implementados y testeados con fixtures. Codegen: el backend x86-64 emite assembly AT&T completo (modelo simple, sin allocator de registros; ver «Backend x86-64») y aún no tiene suite de fixtures propia; `arm`, `riscv` y el intérprete se rechazan con "backend is not implemented". `optimize_ir` pendiente.
 
 ---
 
@@ -15,7 +15,7 @@ R2-Lang es un lenguaje imperativo, estática y fuertemente tipado, sin conversio
 - Funciones solo a nivel top-level, con parámetros por valor.
 - Scopes de bloque con shadowing entre scopes.
 - Entry point: `fn main() : i64`.
-- El compilador emitirá assembly x86-64 (no binarios: el binario final se produce ensamblando). **Hoy el backend es un stub**: una compilación sin flags de dump escribe un `<fuente>.s` vacío.
+- El compilador emite assembly x86-64 AT&T (no binarios: el binario final se produce ensamblando, p. ej. `gcc prog.s -o prog`). Una compilación sin flags de dump escribe `<fuente>.s` (la ruta del fuente con la extensión cambiada por `.s`) o la ruta de `-o`.
 
 Pipeline del compilador:
 
@@ -207,7 +207,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 - El entry point es exactamente `fn main() : i64`, sin parámetros. Su valor de retorno es el exit code del programa.
 - En el assembly, el `main` del usuario se emite como `__r2_main` y se genera un wrapper `main` que llama a `__r2_init` (si hay variables globales) y después a `__r2_main`, devolviendo su valor como exit code. El prefijo `__r2_` está reservado a nivel top-level (una colisión la detecta el ensamblador, no el compilador).
 - Si el programa no define `main`: se genera assembly igualmente, sin wrapper. Todas las funciones se emiten con `.globl` para poder linkearse desde otros archivos en el futuro (las globals quedan como símbolos locales del objeto).
-- La salida del compilador es **assembly x86-64** AT&T, no un binario. El binario final se produce ensamblando (p. ej. `gcc out.s`).
+- La salida del compilador es **assembly x86-64** AT&T, no un binario. El binario final se produce ensamblando (p. ej. `gcc prog.s -o prog`).
 
 ---
 
@@ -215,12 +215,12 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 
 No se añade ninguna lógica para evitarlo; el resultado es lo que haga el hardware:
 
-- Shifts con cuenta `>= 64`.
+- Shifts con cuenta `>= 64` (una cuenta negativa se interpreta como un valor sin signo enorme, así que cae en este caso).
 - División o módulo por cero: fault del hardware (`SIGFPE`).
 - División o módulo con el mínimo negativo de un narrow (`INT8_MIN / -1`, `INT16_MIN / -1` y análogos): fault del hardware (`#DE`), porque la división corre al ancho nativo del tipo.
 - Leer una local sin asignar: valor indefinido.
 
-El **wrap** aritmético NO es indefinido: está definido como complemento a 2 (y módulo 2^64 para `u64`).
+El **wrap** aritmético NO es indefinido: está definido como complemento a 2 (y módulo 2^64 para `u64`). Tampoco lo son los shifts con cuenta menor que 64: se calculan a 64 bits sobre el valor extendido y el resultado se trunca al tipo del operando izquierdo (p. ej. `u8 << 9` vale 0 y `i8 >> 9` rellena con el signo).
 
 Plegado de constantes: una subexpresión hecha solo de literales se evalúa en compilación con esa misma semántica de wrap, siempre a 64 bits (ver "Ancho del plegado"), incluida la negación: `-5u` es la constante `u64` exacta, sin warning. Los literales detrás de un cast explícito también pliegan, truncando primero al tipo del cast (`-(300 as u8)` es la constante `212`). No se pliega y se deja al hardware: división/módulo por cero, `INT64_MIN / -1` (o `%`) y shifts con cuenta `>= 64`.
 
@@ -344,6 +344,20 @@ fn <nombre>(<n> params, <m> regs) : <ret>
 
 ---
 
+## Backend x86-64
+
+Modelo deliberadamente simple: todavía no hay allocator de registros ni `optimize_ir`.
+
+- **Homes en memoria**: cada registro virtual ocupa `types[t].size` bytes en el frame, en `-N(%rbp)`. Los slots se reparten de mayor a menor tamaño (8, 4, 2, 1) para mantener la alineación natural, y el área de salida para llamadas queda al fondo del frame. El frame siempre es múltiplo de 16.
+- **Cada instrucción IR es autocontenida**: carga sus operandos, calcula y guarda el resultado en el home del destino. Ningún valor vive en un registro entre dos instrucciones, y solo se usan `rax`, `rcx`, `rdx` (más los registros de argumentos al preparar una llamada). No se usa ningún registro callee-saved.
+- **Extensión al cargar**: leer un vreg emite `movzx`/`movsx` (o `movl`/`movq`) según el tipo del vreg, así que el valor en el registro de trabajo es el valor de 64 bits con su signo correcto. Guardar escribe solo `types[t].size` bytes.
+- **Aritmética**: `add sub and or xor imul neg not shl` se calculan a 64 bits sobre el valor extendido (los bits bajos coinciden con la operación nativa del ancho). `shr`/`sar` y las comparaciones usan el signo de `data_type`. `div`/`mod` corren al **ancho nativo** del tipo (`idivb/w/l/q`, `divb/w/l/q`); el resto de un tipo de 1 byte sale de `%ah`.
+- **Comparaciones y saltos**: `cmp` + `setcc` + `movzbl`, con resultado `i64` 0/1. `jz`/`jnz` emiten `cmp $0, <home>` + `je`/`jne`. Las etiquetas son `.L<n>` con los ids únicos del IR.
+- **Llamadas (System V AMD64)**: los args 0..5 van en `rdi rsi rdx rcx r8 r9`; el resto, en el área de salida (`(%rsp)`, `8(%rsp)`, …). El callee los lee de `16(%rbp)`, `24(%rbp)`, … y el retorno va en `rax`.
+- **Globals**: se accede a ellos con `nombre(%rip)`. Si el **primer acceso** a un global dentro de `__r2_init` es un `const` seguido de su `str_global`, y todavía no ha habido ninguna llamada ni salto, el global se emite en `.data` con ese valor; el resto va a `.bss`. El init dinámico se ejecuta igualmente, así que el valor observable no cambia.
+- **Prólogo/epílogo**: `pushq %rbp; movq %rsp, %rbp; subq $frame, %rsp` y `leave; ret`. Todo `ret` del IR (incluido el implícito de final de función) emite su epílogo.
+- **Entry**: ver la sección 11 (`main` del usuario como `__r2_main` y wrapper `main`).
+
 ## 15. Uso del compilador
 
 ```bash
@@ -357,11 +371,19 @@ make
 | `-A` / `--dump-ast` | Vuelca el AST a stdout |
 | `-S` / `--dump-symbols` | Vuelca la tabla de símbolos resuelta a stdout |
 | `-I` / `--dump-ir` | Vuelca la IR generada a stdout |
-| `-o` / `--out` | Ruta del assembly de salida |
+| `-o` / `--out` | Ruta del assembly de salida (por defecto `<fuente>.s`; `-` = stdout) |
 | `-a` / `--arch` | Arquitectura del assembly generado|
 | `-e` / `--execute` | Modo intérprete |
 
-Nota: sin flags de dump, `r2p` compila y escribe el assembly a `out.s` (o a la ruta de `-o`; `-` es stdout). Hoy el backend x86-64 es un stub y el archivo sale vacío; `-a arm`, `-a riscv` y `-e` abortan con "backend is not implemented".
+Nota: sin flags de dump, `r2p` compila y escribe el assembly a `<fuente>.s` (o a la ruta de `-o`; `-` es stdout). `-a arm`, `-a riscv` y `-e` abortan con "backend is not implemented".
+
+Para ejecutar un programa:
+
+```bash
+./build/r2p prog.r2      # escribe prog.s
+gcc prog.s -o prog       # ensambla y enlaza
+./prog; echo $?          # el exit code es el valor que devuelve main
+```
 
 `make test` ejecuta las cuatro suites de fixtures (lexer, parser, sema, ir), cada una contra `build/r2p`.
 

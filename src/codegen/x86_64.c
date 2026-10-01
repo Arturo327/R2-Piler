@@ -41,16 +41,13 @@ static void clasf_globals (CodeGen *c, uint8_t *kind, int64_t *vals)
 	}
 }
 
-static const char *asm_size_name (uint8_t size)
+static const char *asm_size_name[9] =
 {
-	switch (size)
-	{
-	case 1: return ".byte";
-	case 2: return ".word";
-	case 4: return ".long";
-	default: return ".quad";
-	}
-}
+	[1] = ".byte",
+	[2] = ".word",
+	[4] = ".long",
+	[8] = ".quad"
+};
 
 static void make_global_data (CodeGen *c, uint32_t i, int64_t val)
 {
@@ -58,7 +55,7 @@ static void make_global_data (CodeGen *c, uint32_t i, int64_t val)
 	uint8_t size = types[g->type].size;
 
 	cg_printf(c, "\t.balign %u\n%.*s:\t", size, (int)g->len, g->name);
-	cg_printf(c, "%s ", asm_size_name(size));
+	cg_printf(c, "%s ", asm_size_name[size]);
 
 	if (types[g->type].sign) cg_printf(c, "%lld\n", (long long)val);
 	else cg_printf(c, "%llu\n", (unsigned long long)val);
@@ -195,21 +192,42 @@ static void load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 {
 	uint8_t w;
 	const char *op = load_op(f->fn->reg_types[vreg], &w);
-	cg_printf(f->cg, "\t%s -%u(%%rbp), %s\n", op, f->slots[vreg], reg_name(reg, w));
+	cg_printf(f->cg, "\t%s -%u(%%rbp), %s\n",
+			op, f->slots[vreg], reg_name(reg, w));
 }
 
 static void store_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 {
 	uint8_t s = types[f->fn->reg_types[vreg]].size;
-	cg_printf(f->cg, "\tmov%c %s, -%u(%%rbp)\n", mem_suf[s], reg_name(reg, s), f->slots[vreg]);
+	cg_printf(f->cg, "\tmov%c %s, -%u(%%rbp)\n",
+			mem_suf[s], reg_name(reg, s), f->slots[vreg]);
+}
+
+static void make_const (X86Fn *f, IRInstr *i)
+{
+	CodeGen *c = f->cg;
+	uint8_t s = types[f->fn->reg_types[i->dst]].size;
+	int64_t v = i->imm64;
+
+	if (s == 8 && (v < INT32_MIN || v > INT32_MAX)) {
+		cg_printf(c, "\tmovabsq $0x%llx, %%rax\n", (unsigned long long)v);
+		store_reg(f, 0, i->dst);
+		return;
+	}
+	if (s == 4) v = (int32_t)v;
+	else if (s == 2) v = (int16_t)v;
+	else if (s == 1) v = (int8_t)v;
+
+	cg_printf(c, "\tmov%c $%lld, -%u(%%rbp)\n",
+			mem_suf[s], (long long)v, f->slots[i->dst]);
 }
 
 static void make_instr (X86Fn *f, IRInstr *i)
 {
 	switch (i->op)
 	{
-/*	case IR_CONST: make_const(f, i); break;
-	case IR_PARAM: make_param(f, i); break;
+	case IR_CONST: make_const(f, i); break;
+/*	case IR_PARAM: make_param(f, i); break;
 	case IR_LD_GLOBAL: make_ld_global(f, i); break;
 	case IR_STR_GLOBAL: make_str_global(f, i); break;
 	case IR_MOVE: case IR_EXTEND: make_move(f, i); break;
