@@ -222,15 +222,55 @@ static void make_const (X86Fn *f, IRInstr *i)
 			mem_suf[s], (long long)v, f->slots[i->dst]);
 }
 
+static void make_param (X86Fn *f, IRInstr *i)
+{
+	if (i->target < 6) {
+		store_reg(f, arg_regs[i->target], i->dst);
+		return;
+	}
+	cg_printf(f->cg, "\tmovq %u(%%rbp), %%rax\n", 16 + ((i->target - 6) << 3));
+	store_reg(f, 0, i->dst);
+}
+
+static void make_ld_global (X86Fn *f, IRInstr *i)
+{
+	CodeGen *c = f->cg;
+	IRGlobal *g = c->ir->globals + i->target;
+
+	uint8_t size;
+	const char *op = load_op(g->type, &size);
+
+	cg_printf(c, "\t%s %.*s(%%rip), %s\n", op, (int)g->len, g->name, reg_name(0, size));
+	store_reg(f, 0, i->dst);
+}
+
+static void make_str_global (X86Fn *f, IRInstr *i)
+{
+	CodeGen *c = f->cg;
+	IRGlobal *g = c->ir->globals + i->target;
+	uint8_t s = types[g->type].size;
+
+	load_reg(f, 0, i->src1);
+	cg_printf(c, "\tmov%c %s, %.*s(%%rip)\n", mem_suf[s], reg_name(0, s),
+			(int)g->len, g->name);
+}
+
+static void make_move (X86Fn *f, IRInstr *i)
+{
+	load_reg(f, 0, i->src1);
+	store_reg(f, 0, i->dst);
+}
+
 static void make_instr (X86Fn *f, IRInstr *i)
 {
 	switch (i->op)
 	{
 	case IR_CONST: make_const(f, i); break;
-/*	case IR_PARAM: make_param(f, i); break;
+	case IR_PARAM: make_param(f, i); break;
 	case IR_LD_GLOBAL: make_ld_global(f, i); break;
 	case IR_STR_GLOBAL: make_str_global(f, i); break;
 	case IR_MOVE: case IR_EXTEND: make_move(f, i); break;
+/*
 	case IR_ADD: case IR_SUB: case IR_AND_A: case IR_OR_A: case IR_XOR:
 		make_arith(f, i); break;
 	case IR_MUL: make_mul(f, i); break;
@@ -244,7 +284,8 @@ static void make_instr (X86Fn *f, IRInstr *i)
 	case IR_LABEL: case IR_JMP: case IR_JZ: case IR_JNZ: make_jump(f, i); break;
 	case IR_ARG: make_arg(f, i); break;
 	case IR_CALL: make_call(f, i); break;
-	case IR_RET: make_ret(f, i); break;	*/
+	case IR_RET: make_ret(f, i); break;
+*/
 	default: break;
 	}
 }
