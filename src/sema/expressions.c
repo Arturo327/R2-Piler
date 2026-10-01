@@ -46,7 +46,7 @@ static uint8_t check_init_ref (Sema *s, uint32_t idx, uint32_t sym_idx)
 	return TYPE_ERROR;
 }
 
-static uint8_t check_id (Sema *s, uint32_t idx)
+static uint8_t check_assign_target (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
 	uint32_t sym_idx = symtab_find(&s->table, n->str, n->len);
@@ -72,12 +72,19 @@ static uint8_t check_id (Sema *s, uint32_t idx)
 		if (check_init_ref(s, idx, sym_idx) == TYPE_ERROR) return TYPE_ERROR;
 	}
 
-	if (!s->table.symbols[sym_idx].assigned)
-		error_report(s->err, ERR_WARNING, node_loc(n),
-				"'%.*s' is used without being assigned", (int)n->len, n->str);
-
 	n->data_type = s->table.symbols[sym_idx].type;
 	return n->data_type;
+}
+
+static uint8_t check_id (Sema *s, uint32_t idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+	uint8_t type = check_assign_target(s, idx);
+
+	if (type != TYPE_ERROR && !s->table.symbols[n->sym].assigned)
+		error_report(s->err, ERR_WARNING, node_loc(n),
+				"'%.*s' is used without being assigned", (int)n->len, n->str);
+	return type;
 }
 
 static uint32_t adapt_call_arg (Sema *s, uint32_t arg, uint8_t arg_type, uint8_t param_type)
@@ -155,36 +162,6 @@ static uint8_t check_fn_call (Sema *s, uint32_t idx)
 	Symbol *fn = &s->table.symbols[sym_idx];
 	check_call_args(s, idx, fn->decl);
 	n->data_type = fn->type;
-	return n->data_type;
-}
-
-static uint8_t check_assign_target (Sema *s, uint32_t idx)
-{
-	ASTNode *n = &s->ast->nodes[idx];
-	uint32_t sym_idx = symtab_find(&s->table, n->str, n->len);
-
-	if (sym_idx == NO_SYMBOL) {
-		error_report(s->err, ERR_ERROR, node_loc(n), "'%.*s' is not declared",
-				(int)n->len, n->str);
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
-
-	if (s->table.symbols[sym_idx].kind == SYMBOL_FN) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"'%.*s' is a function, not a variable", (int)n->len, n->str);
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
-
-	n->sym = sym_idx;
-
-	if (s->init_node != NO_NODE
-			&& s->table.symbols[sym_idx].kind == SYMBOL_VAR) {
-		if (check_init_ref(s, idx, sym_idx) == TYPE_ERROR) return TYPE_ERROR;
-	}
-
-	n->data_type = s->table.symbols[sym_idx].type;
 	return n->data_type;
 }
 

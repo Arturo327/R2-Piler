@@ -260,6 +260,11 @@ static Token string_literal_decode (Lexer *l, char *end, int start_line, int sta
 	}
 
 	str[str_len] = '\0';
+	if (str_len > UINT16_MAX) {
+		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col, 1),
+				"string literal is longer than %u characters", (unsigned)UINT16_MAX);
+		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
+	}
 	return make_token(TOK_LIT_STR, str, str_len, start_line, start_col);
 }
 

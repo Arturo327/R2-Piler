@@ -12,7 +12,7 @@
 static void print_help (const char *build)
 {
 	printf("%s\n", VERSION);
-	printf("Nowadays, R2-Piler is not finished and does not work\n\n");
+	printf("Work in progress: only the x86-64 backend is available\n\n");
 
 	printf("USAGE\n");
 	printf("    %s [OPTIONS] codefile.r2\n\n", build);
@@ -22,7 +22,7 @@ static void print_help (const char *build)
 	printf("    -h|--help           Shows this message.\n");
 	printf("    -o|--out FILE       Output assembly path (default: <source>.s). '-' for stdout\n");
 	printf("    -a|--arch ARCH      Indicates the architecture. Default: x86-64.\n");
-	printf("    -e|--execute        Executes the program as an interpreter inestead generating assembly.\n");
+	printf("    -e|--execute        Runs the program with the interpreter instead of generating assembly (not implemented yet).\n");
 	printf("    -T|--dump-tokens    Prints your code tokens to stdout\n");
 	printf("    -A|--dump-ast       Prints the parsed AST to stdout\n");
 	printf("    -S|--dump-symbols   Prints the resolved symbol table to stdout\n");

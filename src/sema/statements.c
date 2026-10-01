@@ -123,13 +123,18 @@ static int const_cond_value (Sema *s, uint32_t idx)
 	}
 }
 
-static int warn_const_cond (Sema *s, uint32_t idx)
+static int check_cond (Sema *s, uint32_t cond, int alw_err)
 {
-	int v = const_cond_value(s, idx);
+	uint8_t type = check_expr(s, cond);
 
-	if (v >= 0)
-		error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + idx),
-				"condition is always %s", v ? "true" : "false");
+	if (type == TYPE_VOID && s->ast->nodes[cond].type != NODE_EMPTY)
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
+				"expression with resulting type void is not valid as a condition");
+	finalize_type(s, cond, type);
+
+	int v = const_cond_value(s, cond);
+	if (v == 0 || (alw_err && v > 0)) error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + cond),
+			"condition is always %s", v ? "true" : "false");
 	return v;
 }
 
@@ -157,23 +162,18 @@ static int check_elif_chain (Sema *s, uint32_t idx, uint8_t *snap, uint8_t *acc,
 
 	while (idx != NO_NODE) {
 		ASTNode *n = s->ast->nodes + idx;
+		uint32_t body = n->child;
 
 		if (n->type == NODE_ELIF) {
-			uint32_t cond = n->child;
-			uint32_t body = s->ast->nodes[cond].next_bro;
-			uint8_t type = check_expr(s, cond);
-			if (type == TYPE_VOID)
-				error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
-						"expression with resulting type void is not valid as a condition");
-			finalize_type(s, cond, type);
-			warn_const_cond(s, cond);
-			check_body(s, body);
+			body = s->ast->nodes[n->child].next_bro;
+			check_cond(s, n->child, 1);
 		} else {
 			has_else = 1;
-			check_body(s, n->child);
 		}
+		check_body(s, body);
 
-		intersect_assigned(s, acc, mark);
+		if (!stmt_returns(s, body))
+			intersect_assigned(s, acc, mark);
 		load_assigned(s, snap, mark);
 		idx = n->next_bro;
 	}
@@ -186,18 +186,13 @@ static void check_if (Sema *s, uint32_t idx)
 	ASTNode *n = s->ast->nodes + idx;
 	uint32_t cond = n->child;
 	uint32_t body = s->ast->nodes[cond].next_bro;
-
-	uint8_t type = check_expr(s, cond);
-	if (type == TYPE_VOID)
-		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
-				"expression with resulting type void is not valid as a condition");
-	finalize_type(s, cond, type);
-	int cv = warn_const_cond(s, cond);
+	int cv = check_cond(s, cond, 1);
 
 	uint32_t mark = s->table.act_count;
 	uint8_t *snap = arena_alloc(s->arena, (size_t)mark * 2);
 	uint8_t *acc = snap + mark;
 
+	memset(acc, 1, mark);
 	if (cv == 1) {
 		check_body(s, body);
 		save_assigned(s, snap, mark);
@@ -208,7 +203,8 @@ static void check_if (Sema *s, uint32_t idx)
 
 	save_assigned(s, snap, mark);
 	check_body(s, body);
-	save_assigned(s, acc, mark);
+	if (!stmt_returns(s, body))
+		save_assigned(s, acc, mark);
 	load_assigned(s, snap, mark);
 
 	if (check_elif_chain(s, s->ast->nodes[body].next_bro, snap, acc, mark))
@@ -221,12 +217,7 @@ static void check_while (Sema *s, uint32_t idx)
 	uint32_t cond = n->child;
 	uint32_t body = s->ast->nodes[cond].next_bro;
 
-	uint8_t type = check_expr(s, cond);
-	if (type == TYPE_VOID)
-		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
-				"expression with resulting type void is not valid as a condition");
-	finalize_type(s, cond, type);
-	warn_const_cond(s, cond);
+	check_cond(s, cond, 0);
 
 	uint32_t mark = s->table.act_count;
 	uint8_t *snap = arena_alloc(s->arena, (size_t)mark);
@@ -248,16 +239,11 @@ static void check_for (Sema *s, uint32_t idx)
 	s->depth++;
 
 	check_statement(s, init);
-	uint8_t cond_type = check_expr(s, cond);
-	if (cond_type == TYPE_VOID && s->ast->nodes[cond].type != NODE_EMPTY)
-		error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[cond]),
-				"expression with resulting type void is not valid as a condition");
+	check_cond(s, cond, 0);
 
 	uint32_t body_mark = s->table.act_count;
 	uint8_t *snap = arena_alloc(s->arena, (size_t)body_mark);
 
-	finalize_type(s, cond, cond_type);
-	warn_const_cond(s, cond);
 	save_assigned(s, snap, body_mark);
 	check_body(s, body);
 	finalize_type(s, updt, check_expr(s, updt));
@@ -336,12 +322,18 @@ static int if_returns (Sema *s, uint32_t idx)
 static int stmt_returns (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
+	uint32_t cond;
 
 	switch (n->type)
 	{
 	case NODE_RET: return 1;
 	case NODE_BLOCK: return block_returns(s, idx);
 	case NODE_IF: return if_returns(s, idx);
+	case NODE_WHILE: return const_cond_value(s, n->child) == 1;
+	case NODE_FOR:
+		cond = s->ast->nodes[n->child].next_bro;
+		return s->ast->nodes[cond].type == NODE_EMPTY
+				|| const_cond_value(s, cond) == 1;
 	default: return 0;
 	}
 }

@@ -111,7 +111,7 @@ static void print_expanded (const char *s, int len, int *vis)
 		char c = s[i];
 		if (c == '\t') {
 			int w = TAB_WIDTH - (*vis % TAB_WIDTH);
-			for (int i = 0; i < w; i++) fputc(' ', stderr);
+			for (int j = 0; j < w; j++) fputc(' ', stderr);
 			*vis += w;
 		} else if (c != '\r') {
 			fputc(c, stderr);
