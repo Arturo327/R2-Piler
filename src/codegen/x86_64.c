@@ -396,12 +396,41 @@ static void make_jump (X86Fn *f, IRInstr *i)
 	cg_printf(c, "\t%s .L%u\n", i->op == IR_JZ ? "je" : "jne", i->target);
 }
 
+static void make_arg (X86Fn *f, IRInstr *i)
+{
+	if (i->target < 6) {
+		load_reg(f, arg_regs[i->target], i->src1);
+		return;
+	}
+	load_reg(f, 0, i->src1);
+	cg_printf(f->cg, "\tmovq %%rax, %u(%%rsp)\n", (i->target - 6) << 3);
+}
+
+static void make_call (X86Fn *f, IRInstr *i)
+{
+	CodeGen *c = f->cg;
+
+	cg_printf(c, "\tcall ");
+	print_fn_name(c, c->ir->fns + i->target);
+	cg_printf(c, "\n");
+	if (i->dst != NO_REG)
+		store_reg(f, 0, i->dst);
+}
+
+static void make_ret (X86Fn *f, IRInstr *i)
+{
+	if (i->src1 != NO_REG)
+		load_reg(f, 0, i->src1);
+	cg_printf(f->cg, "\tleave\n\tret\n");
+}
+
 static void make_instr (X86Fn *f, IRInstr *i)
 {
 	switch (i->op)
 	{
 	case IR_CONST: make_const(f, i); break;
 	case IR_PARAM: make_param(f, i); break;
+
 	case IR_LD_GLOBAL: make_ld_global(f, i); break;
 	case IR_STR_GLOBAL: make_str_global(f, i); break;
 	case IR_MOVE: case IR_EXTEND: make_move(f, i); break;
@@ -419,11 +448,11 @@ static void make_instr (X86Fn *f, IRInstr *i)
 		make_cmp(f, i); break;
 
 	case IR_LABEL: case IR_JMP: case IR_JZ: case IR_JNZ: make_jump(f, i); break;
-/*
+
 	case IR_ARG: make_arg(f, i); break;
 	case IR_CALL: make_call(f, i); break;
 	case IR_RET: make_ret(f, i); break;
-*/
+
 	default: break;
 	}
 }
