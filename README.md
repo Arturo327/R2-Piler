@@ -14,9 +14,9 @@ The x86-64 backend now lowers every IR instruction to AT&T assembly, so a plain 
 - Parser — implemented and tested
 - Type checker — implemented and tested
 - IR — implemented and tested
-- Code generation — x86-64 implemented (memory-homed registers, System V ABI); ARM, RISC-V and the interpreter are still pending
+- Code generation — x86-64 implemented (memory-homed registers, System V ABI) and tested with the `tests/asm/` return-code suite; ARM, RISC-V and the interpreter are still pending
 - IR optimizer (`optimize_ir`) — pending
-- Tests — lexer, parser, sema and IR fixtures; codegen fixtures pending
+- Tests — lexer, parser, sema, IR and asm (x86-64 execution) fixtures
 
 `--dump-tokens`, `--dump-ast`, `--dump-symbols` and `--dump-ir` show what each stage produces; a plain compile now generates runnable assembly.
 
@@ -28,7 +28,7 @@ The x86-64 backend now lowers every IR instruction to AT&T assembly, so a plain 
 - Parser: expressions, variable declarations, blocks, if statements, functions, for and while loops.
 - Sema: strict type checking, uninitialized and undeclared variable detector (flow-sensitive definite assignment, uninitialized globals, constant-condition warnings), symbol table, allow forward-calls
 - IR: linear per-function stream with virtual registers, short-circuit `&&`/`||`, global init function (`__r2_init`), full lowering of expressions, calls, `if`/`while`/`for` and `return`.
-- Codegen: x86-64 AT&T assembly (System V AMD64 ABI). Every virtual register has a stack home sized to its type; operands are loaded with sign/zero extension, arithmetic runs on 64 bits and the store truncates, division runs at the native width, globals are `.data`/`.bss` and RIP-relative.
+- Codegen: x86-64 AT&T assembly (System V AMD64 ABI). Every virtual register has a stack home sized to its type; operands are loaded with sign/zero extension, arithmetic runs on 64 bits and the store truncates, division runs at the native width, globals are `.data`/`.bss` and RIP-relative. The synthetic `__r2_init` holds global inits (emitted as `__r2.init` only when non-empty, with a dot to avoid colliding with a user global/fn named `init`) and a `main` wrapper calls it before `__r2_main`.
 - Precise error reporting with `file:line:column` locations.
 - Arena allocator — all compiler memory is freed in a single call at program exit instead of scattered `malloc`/`free` calls.
 - `--dump-tokens` flag to inspect exactly what the lexer produces for a given source file.
@@ -67,7 +67,7 @@ Run the test suite:
 make test
 ```
 
-This runs the four fixture suites: `test_lexer` (`--dump-tokens` over `tests/lexer/*_src.r2`), `test_parser` (`--dump-ast` over `tests/parser/*_src.r2`), `test_sema` (`--dump-symbols` over `tests/sema/*_src.r2`) and `test_ir` (`--dump-ir` over `tests/ir/*_src.r2`).
+This runs the five fixture suites: `test_lexer` (`--dump-tokens` over `tests/lexer/*_src.r2`), `test_parser` (`--dump-ast` over `tests/parser/*_src.r2`), `test_sema` (`--dump-symbols` over `tests/sema/*_src.r2`), `test_ir` (`--dump-ir` over `tests/ir/*_src.r2`) and `test_asm` (`tests/run_asm.sh` over `tests/asm/*_src.r2`, which compiles, assembles with `gcc`, runs the binary and checks the exit code in `<name>_exit.txt`).
 
 `tests/regen_fixtures.sh build/r2p` regenerates every `_stderr.txt` fixture from actual binary output (verifying stdout and exit status did not change); useful whenever diagnostics change.
 
@@ -108,7 +108,7 @@ src/
     └── lexer.c/h    # Tokenizer: keywords, literals, operators
 ```
 
-Tests live under `tests/`, each fixture as `<name>_src.r2` plus expected `<name>_result.txt` (and optional `<name>_stderr.txt` / `<name>_status.txt`), checked by `tests/run_suite.sh`.
+Tests live under `tests/`: dump fixtures as `<name>_src.r2` plus expected `<name>_result.txt` (and optional `<name>_stderr.txt` / `<name>_status.txt`), checked by `tests/run_suite.sh`; assembler fixtures as `tests/asm/<name>_src.r2` plus expected `<name>_exit.txt` (and optional `<name>_stderr.txt`), checked by `tests/run_asm.sh` (compile + `gcc` + run, compare exit code).
 
 ---
 

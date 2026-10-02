@@ -2,7 +2,7 @@
 
 Especificación completa de R2-Lang, el lenguaje que compila R2-Piler.
 
-Estado: lexer, parser, sema e IR implementados y testeados con fixtures. Codegen: el backend x86-64 emite assembly AT&T completo (modelo simple, sin allocator de registros; ver «Backend x86-64») y aún no tiene suite de fixtures propia; `arm`, `riscv` y el intérprete se rechazan con "backend is not implemented". `optimize_ir` pendiente.
+Estado: lexer, parser, sema e IR implementados y testeados con fixtures. Codegen: el backend x86-64 emite assembly AT&T completo (modelo simple, sin allocator de registros; ver «Backend x86-64») y tiene suite propia de ejecución (`tests/asm/`, comprueba el exit code del binario); `arm`, `riscv` y el intérprete se rechazan con "backend is not implemented". `optimize_ir` pendiente.
 
 ---
 
@@ -205,7 +205,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 ## 11. Entry point y salida
 
 - El entry point es exactamente `fn main() : i64`, sin parámetros. Su valor de retorno es el exit code del programa.
-- En el assembly, el `main` del usuario se emite como `__r2_main` y se genera un wrapper `main` que llama a `__r2_init` (si hay variables globales) y después a `__r2_main`, devolviendo su valor como exit code. El prefijo `__r2_` está reservado a nivel top-level (una colisión la detecta el ensamblador, no el compilador).
+- En el assembly, el `main` del usuario se emite como `__r2_main` y se genera un wrapper `main` que llama a `__r2.init` (solo si el init no está vacío, es decir, si hay inits dinámicos que ejecutar) y después a `__r2_main`, devolviendo su valor como exit code. El prefijo `__r2_` está reservado a nivel top-level y lo rechaza el compilador (`identifiers starting with '__r2_' are reserved`). Una global/fn de usuario llamada `init` es legal (se emite como `__r2_init`); la fn de init usa `__r2.init` con punto a propósito para no colisionar con ella.
 - Si el programa no define `main`: se genera assembly igualmente, sin wrapper. Todas las funciones se emiten con `.globl` para poder linkearse desde otros archivos en el futuro (las globals quedan como símbolos locales del objeto).
 - La salida del compilador es **assembly x86-64** AT&T, no un binario. El binario final se produce ensamblando (p. ej. `gcc prog.s -o prog`).
 
@@ -290,7 +290,7 @@ Modelo:
 - No es SSA: un reg puede tener varias definiciones (variables, resultado de `&&` y `||`).
 - Campos no usados = `NO_REG`. `imm64`/`target` comparten unión y nunca son registros.
 - `data_type` = tipo de los OPERANDOS (tras las conversiones: mismo tipo en aritmética/comparaciones salvo `&&`/`||`/`<<`/`>>`, que no unifican; en `<<`/`>>` es el tipo del operando izquierdo y el derecho conserva el suyo; decide signed/unsigned en `DIV`, `MOD`, `RSHIFT` y comparaciones). El resultado de comparaciones (`EQ..LE`), `NOT_L` (`lnot`), `&&` y `||` es siempre `i64` (0 o 1, canónico en cualquier tipo).
-- Un reg por tipo: cada reg virtual tiene un tipo (`IRFn.reg_types`), igual al tipo semántico del valor que guarda; en el codegen su home en el stack ocupa exactamente `types[t].size` bytes (un `u8` ocupa 1 byte, no 8). No hay operaciones de extender/truncar tras la aritmética narrow: `add.u8` produce directamente un `u8`, que el codegen calcula con la instrucción nativa del ancho. Los literales ya llegan con el tipo de destino (sema los reetiqueta) y se emiten como `const.<tipo>`.
+- Un reg por tipo: cada reg virtual tiene un tipo (`IRFn.reg_types`), igual al tipo semántico del valor que guarda; en el codegen su home en el stack ocupa exactamente `types[t].size` bytes (un `u8` ocupa 1 byte, no 8). No hay canonical-64-bit: cada consumidor carga con extensión de signo/cero a 64 bits (`movzbl`/`movsbq`/…) y la aritmética narrow (`add`/`sub`/`mul`/`and`/`or`/`xor`/`neg`/`not`/`shl`) se calcula a 64 bits sobre el valor extendido y se trunca al guardar; solo `div`/`mod` corren al ancho nativo del tipo. Los literales ya llegan con el tipo de destino (sema los reetiqueta) y se emiten como `const.<tipo>`.
 - Cast (`NODE_CAST`, `expr as type`): emite `extend.<tipo>` siempre que el tipo cambia, salvo entre los dos tipos de 64 bits (`i64<->u64`, reinterpretación pura de bits) y el cast identidad (se reutiliza el reg del operando). Aquí `extend` significa "redimensionar al ancho destino": leer el origen a su ancho con la extensión de su signo (`movsx`/`movzx`) y guardar `types[destino].size` bytes. Cubre ensanchar (`u8`→`u64`), truncar (`i64`→`i8`) y re-etiquetar el signo al mismo ancho (`u8`→`i8`, copia de bytes que fija la extensión de las lecturas posteriores). Las conversiones implícitas que inserta sema (init/asignación/arg/`return`/unificación de binarios) generan ese mismo `extend`, así que todo consumidor ve operandos del tipo de la instrucción (salvo el src2 de shifts, que conserva el suyo). Como condición (`if`/`while`/`for`), el cast se evalúa a un reg y se salta con `JZ`/`JNZ` como cualquier otro valor.
 - `gen_expr` nunca devuelve el reg de una variable: leer una global emite `LD_GLOBAL` a un temporal; leer una local copia con `MOVE` a un temporal. Declarar una local con init reutiliza el reg del resultado; sin init reserva un reg sin emitir nada.
 - La asignación (`=`) evalúa primero el RHS, luego emite `MOVE` (local) o `STR_GLOBAL` (global), y devuelve el reg del RHS, por lo que `x = y = 5` comparte el mismo reg.
@@ -354,7 +354,7 @@ Modelo deliberadamente simple: todavía no hay allocator de registros ni `optimi
 - **Aritmética**: `add sub and or xor imul neg not shl` se calculan a 64 bits sobre el valor extendido (los bits bajos coinciden con la operación nativa del ancho). `shr`/`sar` y las comparaciones usan el signo de `data_type`. `div`/`mod` corren al **ancho nativo** del tipo (`idivb/w/l/q`, `divb/w/l/q`); el resto de un tipo de 1 byte sale de `%ah`.
 - **Comparaciones y saltos**: `cmp` + `setcc` + `movzbl`, con resultado `i64` 0/1. `jz`/`jnz` emiten `cmp $0, <home>` + `je`/`jne`. Las etiquetas son `.L<n>` con los ids únicos del IR.
 - **Llamadas (System V AMD64)**: los args 0..5 van en `rdi rsi rdx rcx r8 r9`; el resto, en el área de salida (`(%rsp)`, `8(%rsp)`, …). El callee los lee de `16(%rbp)`, `24(%rbp)`, … y el retorno va en `rax`.
-- **Globals**: se accede a ellos con `nombre(%rip)`. Si el **primer acceso** a un global dentro de `__r2_init` es un `const` seguido de su `str_global`, y todavía no ha habido ninguna llamada ni salto, el global se emite en `.data` con ese valor; el resto va a `.bss`. El init dinámico se ejecuta igualmente, así que el valor observable no cambia.
+- **Globals**: se accede a ellos con `nombre(%rip)`. Si el **primer acceso** a un global dentro de `__r2_init` es un `const` seguido de su `str_global` (mismo reg y mismo tipo), y todavía no ha habido ninguna llamada ni salto, el global se emite en `.data` con ese valor; el resto va a `.bss`. Cuando el init se optimiza a `.data`, su `const`+`str_global` se borran (`NOP`) y si el init queda vacío no se emite `__r2.init` ni la llamada desde `main`.
 - **Prólogo/epílogo**: `pushq %rbp; movq %rsp, %rbp; subq $frame, %rsp` y `leave; ret`. Todo `ret` del IR (incluido el implícito de final de función) emite su epílogo.
 - **Entry**: ver la sección 11 (`main` del usuario como `__r2_main` y wrapper `main`).
 
@@ -385,7 +385,7 @@ gcc prog.s -o prog       # ensambla y enlaza
 ./prog; echo $?          # el exit code es el valor que devuelve main
 ```
 
-`make test` ejecuta las cuatro suites de fixtures (lexer, parser, sema, ir), cada una contra `build/r2p`.
+`make test` ejecuta las cinco suites de fixtures (lexer, parser, sema, ir y asm), cada una contra `build/r2p`. La suite `asm` (`tests/asm/`, runner `tests/run_asm.sh`) compila cada `<nombre>_src.r2`, lo ensambla con `gcc`, lo ejecuta y compara su exit code con `<nombre>_exit.txt` (más `<nombre>_stderr.txt` opcional para warnings de compilación).
 
 Ejemplo de programa completo:
 

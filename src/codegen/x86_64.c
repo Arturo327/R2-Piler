@@ -9,7 +9,7 @@ static uint32_t *count_uses (CodeGen *c, IRFn *fn)
 {
 	IR *ir = c->ir;
 	size_t bytes = (size_t)fn->reg_count * sizeof(uint32_t);
-	uint32_t *uses = arena_alloc(c->arena, bytes);
+	uint32_t *uses = arena_alloc(c->arena, bytes ? bytes : sizeof(uint32_t));
 
 	memset(uses, 0, bytes);
 	for (uint32_t i = 0; i < fn->count; i++) {
@@ -462,17 +462,32 @@ static void make_fn (X86Fn *f)
 	CodeGen *c = f->cg;
 	IR *ir = c->ir;
 	IRFn *fn = f->fn;
+	int dead = 0;
 
 	cg_printf(c, "\t.p2align 4\n\t.globl ");
 	print_fn_name(c, fn);
-	cg_printf(c, "\n");
+	cg_printf(c, "\n\t.type ");
 	print_fn_name(c, fn);
-
+	cg_printf(c, ", @function\n");
+	print_fn_name(c, fn);
 	cg_printf(c, ":\n\tpushq %%rbp\n\tmovq %%rsp, %%rbp\n");
+
 	if (f->frame) cg_printf(c, "\tsubq $%u, %%rsp\n", f->frame);
 
-	for (uint32_t i = 0; i < fn->count; i++)
-		make_instr(f, ir->instrs + fn->start + i);
+	for (uint32_t i = 0; i < fn->count; i++) {
+		IRInstr *instr = ir->instrs + fn->start + i;
+
+		if (instr->op == IR_LABEL) dead = 0;
+		if (dead) continue;
+		make_instr(f, instr);
+		dead = instr->op == IR_RET || instr->op == IR_JMP;
+	}
+
+	cg_printf(c, "\t.size ");
+	print_fn_name(c, fn);
+	cg_printf(c, ", .-");
+	print_fn_name(c, fn);
+	cg_printf(c, "\n");
 }
 
 static uint32_t find_main (IR *ir)

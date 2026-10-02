@@ -387,8 +387,10 @@ static uint32_t gen_cast (IR *ir, ASTNode *n)
 	ASTNode *operand = ir->ast->nodes + n->child;
 	uint32_t src = gen_expr(ir, operand);
 
-	if (types[n->data_type].size == 8 && types[operand->data_type].size == 8)
+	if (types[n->data_type].size == 8 && types[operand->data_type].size == 8) {
+		ir->reg_types[src] = n->data_type;
 		return src;
+	}
 	if (n->data_type == operand->data_type) return src;
 
 	return make_op(ir, IR_EXTEND, src, NO_REG, n->data_type);
