@@ -102,16 +102,6 @@ static void make_globals (CodeGen *c, uint8_t *kind, int64_t *vals)
 		}
 		make_global_data(c, i, vals[i]);
 	}
-	clasf_globals(c, kind, vals);
-	make_globals(c, kind, vals);
-	cg_printf(c, "\t.text\n");
-
-	for (uint32_t i = 0; i < ir->fn_count; i++) {
-		f.fn = ir->fns + i;
-		layout_fn(&f);
-		make_fn(&f);
-	}
-	make_entry(c);
 	printed = 0;
 	for (uint32_t i = 0; i < ir->global_count; i++) {
 		if (kind[i]) continue;
@@ -174,17 +164,6 @@ static const char *regs_names[] =
 	"%spl", "%bpl", "%sil", "%dil",
 	"%r8b", "%r9b", "%r10b", "%r11b",
 	"%r12b", "%r13b", "%r14b", "%r15b",
-	clasf_globals(c, kind, vals);
-	make_globals(c, kind, vals);
-	cg_printf(c, "\t.text\n");
-
-	for (uint32_t i = 0; i < ir->fn_count; i++) {
-		f.fn = ir->fns + i;
-		layout_fn(&f);
-		make_fn(&f);
-	}
-	make_entry(c);
-
 
 	// 2 bytes
 	"%ax", "%cx", "%dx", "%bx",
@@ -204,16 +183,6 @@ static const char *regs_names[] =
 	"%r8", "%r9", "%r10", "%r11",
 	"%r12", "%r13", "%r14", "%r15"
 };
-	clasf_globals(c, kind, vals);
-	make_globals(c, kind, vals);
-	cg_printf(c, "\t.text\n");
-
-	for (uint32_t i = 0; i < ir->fn_count; i++) {
-		f.fn = ir->fns + i;
-		layout_fn(&f);
-		make_fn(&f);
-	}
-	make_entry(c);
 
 static const uint8_t size_idx[9] = { [1] = 0, [2] = 1, [4] = 2, [8] = 3 };
 static const char mem_suf[9] = { [1] = 'b', [2] = 'w', [4] = 'l', [8] = 'q' };
@@ -239,16 +208,6 @@ static const char *load_op (uint8_t t, uint8_t *size)
 }
 
 static void load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
-	clasf_globals(c, kind, vals);
-	make_globals(c, kind, vals);
-	cg_printf(c, "\t.text\n");
-
-	for (uint32_t i = 0; i < ir->fn_count; i++) {
-		f.fn = ir->fns + i;
-		layout_fn(&f);
-		make_fn(&f);
-	}
-	make_entry(c);
 {
 	uint8_t w;
 	const char *op = load_op(f->fn->reg_types[vreg], &w);
@@ -419,6 +378,24 @@ static void make_cmp (X86Fn *f, IRInstr *i)
 	store_reg(f, 0, i->dst);
 }
 
+static void make_jump (X86Fn *f, IRInstr *i)
+{
+	CodeGen *c = f->cg;
+	uint8_t s;
+
+	if (i->op == IR_LABEL) {
+		cg_printf(c, ".L%u:\n", i->target);
+		return;
+	}
+	if (i->op == IR_JMP) {
+		cg_printf(c, "\tjmp .L%u\n", i->target);
+		return;
+	}
+	s = types[f->fn->reg_types[i->src1]].size;
+	cg_printf(c, "\tcmp%c $0, -%u(%%rbp)\n", mem_suf[s], f->slots[i->src1]);
+	cg_printf(c, "\t%s .L%u\n", i->op == IR_JZ ? "je" : "jne", i->target);
+}
+
 static void make_instr (X86Fn *f, IRInstr *i)
 {
 	switch (i->op)
@@ -440,8 +417,9 @@ static void make_instr (X86Fn *f, IRInstr *i)
 	case IR_NOT_L: make_not_l(f, i); break;
 	case IR_EQ: case IR_NE: case IR_GT: case IR_GE: case IR_LT: case IR_LE:
 		make_cmp(f, i); break;
-/*
+
 	case IR_LABEL: case IR_JMP: case IR_JZ: case IR_JNZ: make_jump(f, i); break;
+/*
 	case IR_ARG: make_arg(f, i); break;
 	case IR_CALL: make_call(f, i); break;
 	case IR_RET: make_ret(f, i); break;
