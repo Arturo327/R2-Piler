@@ -102,6 +102,16 @@ static void make_globals (CodeGen *c, uint8_t *kind, int64_t *vals)
 		}
 		make_global_data(c, i, vals[i]);
 	}
+	clasf_globals(c, kind, vals);
+	make_globals(c, kind, vals);
+	cg_printf(c, "\t.text\n");
+
+	for (uint32_t i = 0; i < ir->fn_count; i++) {
+		f.fn = ir->fns + i;
+		layout_fn(&f);
+		make_fn(&f);
+	}
+	make_entry(c);
 	printed = 0;
 	for (uint32_t i = 0; i < ir->global_count; i++) {
 		if (kind[i]) continue;
@@ -164,6 +174,16 @@ static const char *regs_names[] =
 	"%spl", "%bpl", "%sil", "%dil",
 	"%r8b", "%r9b", "%r10b", "%r11b",
 	"%r12b", "%r13b", "%r14b", "%r15b",
+	clasf_globals(c, kind, vals);
+	make_globals(c, kind, vals);
+	cg_printf(c, "\t.text\n");
+
+	for (uint32_t i = 0; i < ir->fn_count; i++) {
+		f.fn = ir->fns + i;
+		layout_fn(&f);
+		make_fn(&f);
+	}
+	make_entry(c);
 
 
 	// 2 bytes
@@ -184,6 +204,16 @@ static const char *regs_names[] =
 	"%r8", "%r9", "%r10", "%r11",
 	"%r12", "%r13", "%r14", "%r15"
 };
+	clasf_globals(c, kind, vals);
+	make_globals(c, kind, vals);
+	cg_printf(c, "\t.text\n");
+
+	for (uint32_t i = 0; i < ir->fn_count; i++) {
+		f.fn = ir->fns + i;
+		layout_fn(&f);
+		make_fn(&f);
+	}
+	make_entry(c);
 
 static const uint8_t size_idx[9] = { [1] = 0, [2] = 1, [4] = 2, [8] = 3 };
 static const char mem_suf[9] = { [1] = 'b', [2] = 'w', [4] = 'l', [8] = 'q' };
@@ -209,6 +239,16 @@ static const char *load_op (uint8_t t, uint8_t *size)
 }
 
 static void load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
+	clasf_globals(c, kind, vals);
+	make_globals(c, kind, vals);
+	cg_printf(c, "\t.text\n");
+
+	for (uint32_t i = 0; i < ir->fn_count; i++) {
+		f.fn = ir->fns + i;
+		layout_fn(&f);
+		make_fn(&f);
+	}
+	make_entry(c);
 {
 	uint8_t w;
 	const char *op = load_op(f->fn->reg_types[vreg], &w);
@@ -336,6 +376,49 @@ static void make_divmod (X86Fn *f, IRInstr *i)
 	else store_reg(f, 2, i->dst);
 }
 
+static void make_shift (X86Fn *f, IRInstr *i)
+{
+	const char *op = "shl";
+
+	if (i->op == IR_RS)
+		op = types[i->data_type].sign ? "sar" : "shr";
+
+	load_reg(f, 0, i->src1);
+	load_reg(f, 1, i->src2);
+	cg_printf(f->cg, "\t%sq %%cl, %%rax\n", op);
+	store_reg(f, 0, i->dst);
+}
+
+static void make_unary (X86Fn *f, IRInstr *i, const char *op)
+{
+	load_reg(f, 0, i->src1);
+	cg_printf(f->cg, "\t%sq %%rax\n", op);
+	store_reg(f, 0, i->dst);
+}
+
+static void make_not_l (X86Fn *f, IRInstr *i)
+{
+	load_reg(f, 0, i->src1);
+	cg_printf(f->cg, "\ttestq %%rax, %%rax\n\tsete %%al\n\tmovzbl %%al, %%eax\n");
+	store_reg(f, 0, i->dst);
+}
+
+static const char *comp_names[12] = {
+	"e", "ne", "g", "ge", "l", "le",
+	"e", "ne", "a", "ae", "b", "be"
+};
+
+static void make_cmp (X86Fn *f, IRInstr *i)
+{
+	int base = types[i->data_type].sign ? 0 : 6;
+	const char *comp_name = comp_names[base + (i->op - IR_EQ)];
+
+	load_reg(f, 0, i->src1);
+	op_rax(f, "cmp", i->src2);
+	cg_printf(f->cg, "\tset%s %%al\n\tmovzbl %%al, %%eax\n", comp_name);
+	store_reg(f, 0, i->dst);
+}
+
 static void make_instr (X86Fn *f, IRInstr *i)
 {
 	switch (i->op)
@@ -349,13 +432,15 @@ static void make_instr (X86Fn *f, IRInstr *i)
 	case IR_ADD: case IR_SUB: case IR_AND_A: case IR_OR_A: case IR_MUL: case IR_XOR:
 		make_arith(f, i); break;
 	case IR_DIV: case IR_MOD: make_divmod(f, i); break;
-/*
 	case IR_RS: case IR_LS: make_shift(f, i); break;
+
 	case IR_NEG: make_unary(f, i, "neg"); break;
 	case IR_NOT_A: make_unary(f, i, "not"); break;
+
 	case IR_NOT_L: make_not_l(f, i); break;
 	case IR_EQ: case IR_NE: case IR_GT: case IR_GE: case IR_LT: case IR_LE:
 		make_cmp(f, i); break;
+/*
 	case IR_LABEL: case IR_JMP: case IR_JZ: case IR_JNZ: make_jump(f, i); break;
 	case IR_ARG: make_arg(f, i); break;
 	case IR_CALL: make_call(f, i); break;
