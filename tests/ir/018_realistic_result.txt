@@ -35,10 +35,9 @@ fn main(0 params, 7 regs) : i64
     r2 = move.i64 r1
     r3 = const.i64 120
     r4 = eq.i64 r2, r3
-    jz r4 -> L3
+    jz r4 -> L2
     r5 = const.i64 0
     ret.i64 r5
-  L3:
   L2:
     r6 = const.i64 1
     ret.i64 r6

@@ -442,11 +442,12 @@ static void gen_return (IR *ir, ASTNode *n)
 static void gen_branch (IR *ir, uint32_t cond, uint32_t body, uint32_t end, int more)
 {
 	ASTNode *nodes = ir->ast->nodes;
-	uint32_t next = ir->label_count++;
+	uint32_t next = more ? ir->label_count++ : end;
 
 	gen_jump_if(ir, nodes + cond, next, 0);
 	gen_stmt(ir, nodes + body);
-	if (more) make_jump(ir, IR_JMP, NO_REG, end);
+	if (!more) return;
+	make_jump(ir, IR_JMP, NO_REG, end);
 	make_label(ir, next);
 }
 
