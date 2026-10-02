@@ -1,7 +1,7 @@
 fn __r2_init(0 params, 0 regs) : void
     ret
 
-fn cmp(2 params, 45 regs) : i64
+fn cmp(2 params, 53 regs) : i64
     r0 = param.i64 #0
     r1 = param.i64 #1
     r2 = move.i64 r0
@@ -22,45 +22,40 @@ fn cmp(2 params, 45 regs) : i64
     r17 = move.i64 r0
     r18 = move.i64 r1
     r19 = le.i64 r17, r18
-    r21 = move.i64 r0
-    jz r21 -> L0
-    r22 = move.i64 r1
-    jz r22 -> L0
-    r20 = const.i64 1
-    jmp -> L1
-  L0:
-    r20 = const.i64 0
-  L1:
-    r24 = move.i64 r0
-    jnz r24 -> L4
-    r25 = move.i64 r1
-    jz r25 -> L2
-  L4:
-    r23 = const.i64 1
-    jmp -> L3
-  L2:
-    r23 = const.i64 0
-  L3:
-    r26 = move.i64 r0
-    r27 = lnot.i64 r26
-    r28 = move.i64 r4
-    r29 = move.i64 r7
-    r30 = add.i64 r28, r29
-    r31 = move.i64 r10
-    r32 = add.i64 r30, r31
-    r33 = move.i64 r13
-    r34 = add.i64 r32, r33
-    r35 = move.i64 r16
-    r36 = add.i64 r34, r35
-    r37 = move.i64 r19
+    r20 = move.i64 r0
+    r21 = const.i64 0
+    r22 = ne.i64 r20, r21
+    r23 = move.i64 r1
+    r24 = const.i64 0
+    r25 = ne.i64 r23, r24
+    r26 = and.i64 r22, r25
+    r27 = move.i64 r0
+    r28 = const.i64 0
+    r29 = ne.i64 r27, r28
+    r30 = move.i64 r1
+    r31 = const.i64 0
+    r32 = ne.i64 r30, r31
+    r33 = or.i64 r29, r32
+    r34 = move.i64 r0
+    r35 = lnot.i64 r34
+    r36 = move.i64 r4
+    r37 = move.i64 r7
     r38 = add.i64 r36, r37
-    r39 = move.i64 r20
+    r39 = move.i64 r10
     r40 = add.i64 r38, r39
-    r41 = move.i64 r23
+    r41 = move.i64 r13
     r42 = add.i64 r40, r41
-    r43 = move.i64 r27
+    r43 = move.i64 r16
     r44 = add.i64 r42, r43
-    ret.i64 r44
+    r45 = move.i64 r19
+    r46 = add.i64 r44, r45
+    r47 = move.i64 r26
+    r48 = add.i64 r46, r47
+    r49 = move.i64 r33
+    r50 = add.i64 r48, r49
+    r51 = move.i64 r35
+    r52 = add.i64 r50, r51
+    ret.i64 r52
     ret
 
 fn main(0 params, 3 regs) : i64

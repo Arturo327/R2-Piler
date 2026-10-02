@@ -51,6 +51,20 @@ static const IRInstr blank_instr = {
 	.src2 = NO_REG
 };
 
+#define LOGIC_BUDGET 8
+
+static const uint8_t pure_node[NODE_COUNT] = {
+	[NODE_LIT_CHAR] = 1, [NODE_LIT_i64] = 1, [NODE_LIT_u64] = 1,
+	[NODE_ID] = 1, [NODE_CAST] = 1,
+	[NODE_ADD] = 1, [NODE_SUB] = 1, [NODE_MUL] = 1,
+	[NODE_AND_A] = 1, [NODE_OR_A] = 1, [NODE_XOR] = 1,
+	[NODE_RS] = 1, [NODE_LS] = 1,
+	[NODE_NEG] = 1, [NODE_NOT_A] = 1, [NODE_NOT_L] = 1,
+	[NODE_EQ] = 1, [NODE_NE] = 1, [NODE_GT] = 1,
+	[NODE_GE] = 1, [NODE_LT] = 1, [NODE_LE] = 1,
+	[NODE_AND_L] = 1, [NODE_OR_L] = 1
+};
+
 static const uint8_t node_to_ir[NODE_COUNT] = {
 	[NODE_ADD] = IR_ADD, [NODE_SUB] = IR_SUB, [NODE_MUL] = IR_MUL,
 	[NODE_DIV] = IR_DIV, [NODE_MOD] = IR_MOD,
@@ -367,12 +381,49 @@ static void gen_jump_if (IR *ir, ASTNode *n, uint32_t label, int when)
 	}
 }
 
+static int is_pure (IR *ir, uint32_t idx, int *budget)
+{
+	ASTNode *n = ir->ast->nodes + idx;
+	uint32_t c;
+
+	if (--*budget < 0 || !pure_node[n->type]) return 0;
+	for (c = n->child; c != NO_NODE; c = ir->ast->nodes[c].next_bro)
+		if (!is_pure(ir, c, budget)) return 0;
+	return 1;
+}
+
+static uint32_t gen_bool (IR *ir, ASTNode *n)
+{
+	uint32_t val = gen_expr(ir, n);
+	uint32_t zero;
+
+	if (n->type >= NODE_EQ && n->type <= NODE_NOT_L) return val;
+	zero = make_const(ir, 0, n->data_type);
+	return make_op(ir, IR_NE, val, zero, n->data_type);
+}
+
+static uint32_t gen_logic_flat (IR *ir, ASTNode *n)
+{
+	ASTNode *lhs = ir->ast->nodes + n->child;
+	ASTNode *rhs = ir->ast->nodes + lhs->next_bro;
+	uint32_t a = gen_bool(ir, lhs);
+	uint32_t b = gen_bool(ir, rhs);
+	uint8_t op = n->type == NODE_AND_L ? IR_AND_A : IR_OR_A;
+
+	return make_op(ir, op, a, b, TYPE_i64);
+}
+
 static uint32_t gen_logic (IR *ir, ASTNode *n)
 {
-	uint32_t res = new_reg(ir, TYPE_i64);
-	uint32_t l_false = ir->label_count++;
-	uint32_t l_end = ir->label_count++;
+	int budget = LOGIC_BUDGET;
+	uint32_t rhs = ir->ast->nodes[n->child].next_bro;
+	uint32_t res, l_false, l_end;
 
+	if (is_pure(ir, rhs, &budget)) return gen_logic_flat(ir, n);
+
+	res = new_reg(ir, TYPE_i64);
+	l_false = ir->label_count++;
+	l_end = ir->label_count++;
 	gen_jump_if(ir, n, l_false, 0);
 	make_const_into(ir, res, 1, TYPE_i64);
 	make_jump(ir, IR_JMP, NO_REG, l_end);
