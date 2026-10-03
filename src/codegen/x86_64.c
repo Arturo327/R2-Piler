@@ -4,6 +4,7 @@
 
 #define SYM_PREFIX "__r2_"
 #define INIT_SYM "__r2.init"
+#define RED_ZONE 128
 
 static uint32_t *count_uses (CodeGen *c, IRFn *fn)
 {
@@ -56,6 +57,7 @@ static void clasf_globals (CodeGen *c, uint8_t *kind, int64_t *vals)
 		if (prev->data_type != ir->globals[g].type) continue;
 
 		kind[g] = 1;
+
 		vals[g] = prev->imm64;
 		if (uses[prev->dst] == 1) prev->op = IR_NOP;
 		instr->op = IR_NOP;
@@ -113,11 +115,34 @@ static void make_globals (CodeGen *c, uint8_t *kind, int64_t *vals)
 	}
 }
 
+static void scan_regs (X86Fn *f)
+{
+	IR *ir = f->cg->ir;
+	IRFn *fn = f->fn;
+
+	memset(f->uses, 0, (size_t)fn->reg_count * sizeof(uint32_t));
+	memset(f->cstate, 0, fn->reg_count);
+
+	for (uint32_t i = 0; i < fn->count; i++) {
+		IRInstr *in = ir->instrs + fn->start + i;
+
+		if (in->op == IR_NOP) continue;
+		if (in->src1 != NO_REG) f->uses[in->src1]++;
+		if (in->src2 != NO_REG) f->uses[in->src2]++;
+		if (in->dst == NO_REG) continue;
+
+		if (in->op == IR_CONST && f->cstate[in->dst] == 0) {
+			f->cstate[in->dst] = 1;
+			f->cval[in->dst] = in->imm64;
+		} else f->cstate[in->dst] = 2;
+	}
+}
+
 static uint32_t lay_size (X86Fn *f, uint32_t c, uint8_t s)
 {
 	IRFn *fn = f->fn;
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
-		if (types[fn->reg_types[r]].size != s) continue;
+		if (types[fn->reg_types[r]].size != s || f->cstate[r] == 1) continue;
 		c += s;
 		f->slots[r] = c;
 	}
@@ -130,10 +155,14 @@ static uint32_t scan_outg (X86Fn *f)
 	IRFn *fn = f->fn;
 	uint32_t out = 0;
 
+	f->leaf = 1;
 	for (uint32_t i = 0; i < fn->count; i++) {
 		IRInstr *instr = ir->instrs + fn->start + i;
 		uint32_t n;
-		if (instr->op != IR_CALL || instr->argc <= 6) continue;
+
+		if (instr->op != IR_CALL) continue;
+		f->leaf = 0;
+		if (instr->argc <= 6) continue;
 		n = (instr->argc - 6) << 3;
 		if (n > out) out = n;
 	}
@@ -142,13 +171,18 @@ static uint32_t scan_outg (X86Fn *f)
 
 static void layout_fn (X86Fn *f)
 {
-	uint32_t c = lay_size(f, 0, 8);
+	uint32_t c;
+	scan_regs(f);
+	c = lay_size(f, 0, 8);
 	c = lay_size(f, c, 4);
 	c = lay_size(f, c, 2);
 	c = lay_size(f, c, 1);
+
 	f->outgoing = scan_outg(f);
 	c += f->outgoing;
-	f->frame = (c + 15) & ~15u;
+	f->leaf = f->leaf && c <= RED_ZONE;
+	f->frame = f->leaf ? 0 : (c + 15) & ~15u;
+	f->base = f->leaf ? "%rsp" : "%rbp";
 }
 
 static void print_fn_name (CodeGen *c, IRFn *fn)
@@ -207,38 +241,66 @@ static const char *load_op (uint8_t t, uint8_t *size)
 	return load_ops[(size_idx[s] << 1) | sign];
 }
 
+static int64_t const_ext (X86Fn *f, uint32_t vreg)
+{
+	const Type *t = types + f->fn->reg_types[vreg];
+	unsigned sh = 64u - t->size * 8u;
+	uint64_t v = (uint64_t)f->cval[vreg] << sh;
+
+	return t->sign ? (int64_t)v >> sh : (int64_t)(v >> sh);
+}
+
+static void load_const (X86Fn *f, uint8_t reg, int64_t v)
+{
+	CodeGen *c = f->cg;
+
+	if (v >= 0 && v <= UINT32_MAX)
+		cg_printf(c, "\tmovl $%lld, %s\n", (long long)v, reg_name(reg, 4));
+	else if (v == (int32_t)v)
+		cg_printf(c, "\tmovq $%lld, %s\n", (long long)v, reg_name(reg, 8));
+	else cg_printf(c, "\tmovabsq $0x%llx, %s\n",
+			(unsigned long long)v, reg_name(reg, 8));
+}
+
 static void load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 {
 	uint8_t w;
-	const char *op = load_op(f->fn->reg_types[vreg], &w);
-	cg_printf(f->cg, "\t%s -%u(%%rbp), %s\n",
-			op, f->slots[vreg], reg_name(reg, w));
+	const char *op;
+
+	if (f->cstate[vreg] == 1) {
+		load_const(f, reg, const_ext(f, vreg));
+		return;
+	}
+
+	op = load_op(f->fn->reg_types[vreg], &w);
+	cg_printf(f->cg, "\t%s -%u(%s), %s\n",
+			op, f->slots[vreg], f->base, reg_name(reg, w));
 }
 
 static void store_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 {
 	uint8_t s = types[f->fn->reg_types[vreg]].size;
-	cg_printf(f->cg, "\tmov%c %s, -%u(%%rbp)\n",
-			mem_suf[s], reg_name(reg, s), f->slots[vreg]);
+	cg_printf(f->cg, "\tmov%c %s, -%u(%s)\n",
+			mem_suf[s], reg_name(reg, s), f->slots[vreg], f->base);
 }
 
-static void make_const (X86Fn *f, IRInstr *i)
+static void store_imm (X86Fn *f, uint32_t vreg, int64_t v)
 {
 	CodeGen *c = f->cg;
-	uint8_t s = types[f->fn->reg_types[i->dst]].size;
-	int64_t v = i->imm64;
+	uint8_t s = types[f->fn->reg_types[vreg]].size;
 
-	if (s == 8 && (v < INT32_MIN || v > INT32_MAX)) {
+	if (s == 8 && v != (int32_t)v) {
 		cg_printf(c, "\tmovabsq $0x%llx, %%rax\n", (unsigned long long)v);
-		store_reg(f, 0, i->dst);
+		store_reg(f, 0, vreg);
 		return;
 	}
+
 	if (s == 4) v = (int32_t)v;
 	else if (s == 2) v = (int16_t)v;
 	else if (s == 1) v = (int8_t)v;
 
-	cg_printf(c, "\tmov%c $%lld, -%u(%%rbp)\n",
-			mem_suf[s], (long long)v, f->slots[i->dst]);
+	cg_printf(c, "\tmov%c $%lld, -%u(%s)\n",
+			mem_suf[s], (long long)v, f->slots[vreg], f->base);
 }
 
 static void make_param (X86Fn *f, IRInstr *i)
@@ -247,7 +309,18 @@ static void make_param (X86Fn *f, IRInstr *i)
 		store_reg(f, arg_regs[i->target], i->dst);
 		return;
 	}
-	cg_printf(f->cg, "\tmovq %u(%%rbp), %%rax\n", 16 + ((i->target - 6) << 3));
+	cg_printf(f->cg, "\tmovq %u(%s), %%rax\n",
+			(f->leaf ? 8 : 16) + ((i->target - 6) << 3), f->base);
+	store_reg(f, 0, i->dst);
+}
+
+static void make_move (X86Fn *f, IRInstr *i)
+{
+	if (f->cstate[i->src1] == 1) {
+		store_imm(f, i->dst, const_ext(f, i->src1));
+		return;
+	}
+	load_reg(f, 0, i->src1);
 	store_reg(f, 0, i->dst);
 }
 
@@ -275,16 +348,17 @@ static void make_str_global (X86Fn *f, IRInstr *i)
 			reg_name(0, s), (int)g->len, g->name);
 }
 
-static void make_move (X86Fn *f, IRInstr *i)
-{
-	load_reg(f, 0, i->src1);
-	store_reg(f, 0, i->dst);
-}
-
 static void op_rax (X86Fn *f, const char *op, uint32_t vreg)
 {
-	if (types[f->fn->reg_types[vreg]].size == 8) {
-		cg_printf(f->cg, "\t%sq -%u(%%rbp), %%rax\n", op, f->slots[vreg]);
+	int is_const = f->cstate[vreg] == 1;
+	int64_t v = is_const ? const_ext(f, vreg) : 0;
+
+	if (is_const && v == (int32_t)v) {
+		cg_printf(f->cg, "\t%sq $%lld, %%rax\n", op, (long long)v);
+		return;
+	}
+	if (!is_const && types[f->fn->reg_types[vreg]].size == 8) {
+		cg_printf(f->cg, "\t%sq -%u(%s), %%rax\n", op, f->slots[vreg], f->base);
 		return;
 	}
 	load_reg(f, 1, vreg);
@@ -331,7 +405,7 @@ static void make_divmod (X86Fn *f, IRInstr *i)
 	if (i->op == IR_DIV)
 		store_reg(f, 0, i->dst);
 	else if (s == 1)
-		cg_printf(c, "\tmovb %%ah, -%u(%%rbp)\n", f->slots[i->dst]);
+		cg_printf(c, "\tmovb %%ah, -%u(%s)\n", f->slots[i->dst], f->base);
 	else store_reg(f, 2, i->dst);
 }
 
@@ -391,15 +465,30 @@ static void make_jump (X86Fn *f, IRInstr *i)
 		cg_printf(c, "\tjmp .L%u\n", i->target);
 		return;
 	}
+	if (f->cstate[i->src1] == 1) {
+		int taken = (const_ext(f, i->src1) != 0) == (i->op == IR_JNZ);
+
+		if (taken) cg_printf(c, "\tjmp .L%u\n", i->target);
+		return;
+	}
+
 	s = types[f->fn->reg_types[i->src1]].size;
-	cg_printf(c, "\tcmp%c $0, -%u(%%rbp)\n", mem_suf[s], f->slots[i->src1]);
+	cg_printf(c, "\tcmp%c $0, -%u(%s)\n", mem_suf[s], f->slots[i->src1], f->base);
 	cg_printf(c, "\t%s .L%u\n", i->op == IR_JZ ? "je" : "jne", i->target);
 }
 
 static void make_arg (X86Fn *f, IRInstr *i)
 {
+	int is_const = f->cstate[i->src1] == 1;
+	int64_t v = is_const ? const_ext(f, i->src1) : 0;
+
 	if (i->target < 6) {
 		load_reg(f, arg_regs[i->target], i->src1);
+		return;
+	}
+	if (is_const && v == (int32_t)v) {
+		cg_printf(f->cg, "\tmovq $%lld, %u(%%rsp)\n",
+				(long long)v, (i->target - 6) << 3);
 		return;
 	}
 	load_reg(f, 0, i->src1);
@@ -421,14 +510,16 @@ static void make_ret (X86Fn *f, IRInstr *i)
 {
 	if (i->src1 != NO_REG)
 		load_reg(f, 0, i->src1);
-	cg_printf(f->cg, "\tleave\n\tret\n");
+	cg_printf(f->cg, f->leaf ? "\tret\n" : "\tleave\n\tret\n");
 }
 
 static void make_instr (X86Fn *f, IRInstr *i)
 {
 	switch (i->op)
 	{
-	case IR_CONST: make_const(f, i); break;
+	case IR_CONST:
+		if (f->cstate[i->dst] != 1) store_imm(f, i->dst, i->imm64);
+		break;
 	case IR_PARAM: make_param(f, i); break;
 
 	case IR_LD_GLOBAL: make_ld_global(f, i); break;
@@ -470,8 +561,9 @@ static void make_fn (X86Fn *f)
 	print_fn_name(c, fn);
 	cg_printf(c, ", @function\n");
 	print_fn_name(c, fn);
-	cg_printf(c, ":\n\tpushq %%rbp\n\tmovq %%rsp, %%rbp\n");
 
+	cg_printf(c, ":\n");
+	if (!f->leaf) cg_printf(c, "\tpushq %%rbp\n\tmovq %%rsp, %%rbp\n");
 	if (f->frame) cg_printf(c, "\tsubq $%u, %%rsp\n", f->frame);
 
 	for (uint32_t i = 0; i < fn->count; i++) {
@@ -534,9 +626,11 @@ int gen_x86_64 (CodeGen *c)
 	f.slots = arena_alloc(c->arena, (size_t)max_regs * sizeof(uint32_t));
 	f.cg = c;
 
+	f.uses = arena_alloc(c->arena, (size_t)max_regs * sizeof(uint32_t));
+	f.cval = arena_alloc(c->arena, (size_t)max_regs * sizeof(int64_t));
+	f.cstate = arena_alloc(c->arena, max_regs);
 	kind = arena_alloc(c->arena, ir->global_count ? ir->global_count : 1);
-	vals = arena_alloc(c->arena, (ir->global_count ? ir->global_count : 1)
-			* sizeof(int64_t));
+	vals = arena_alloc(c->arena, (ir->global_count ? ir->global_count : 1) * sizeof(int64_t));
 
 	clasf_globals(c, kind, vals);
 	init_empty = init_is_empty(c);
