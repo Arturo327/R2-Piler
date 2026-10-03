@@ -361,6 +361,24 @@ static void make_str_global (X86Fn *f, IRInstr *i)
 	IRGlobal *g = c->ir->globals + i->target;
 	uint8_t s = types[g->type].size;
 
+	if (f->cstate[i->src1] == 1) {
+		int64_t v = const_ext(f, i->src1);
+
+		if (s == 8 && v != (int32_t)v) {
+			cg_printf(c, "\tmovabsq $0x%llx, %%rax\n", (unsigned long long)v);
+			cg_printf(c, "\tmovq %%rax, " SYM_PREFIX "%.*s(%%rip)\n",
+					(int)g->len, g->name);
+			f->rax_v = NO_REG;
+			return;
+		}
+		if (s == 4) v = (int32_t)v;
+		else if (s == 2) v = (int16_t)v;
+		else if (s == 1) v = (int8_t)v;
+		cg_printf(c, "\tmov%c $%lld, " SYM_PREFIX "%.*s(%%rip)\n", mem_suf[s],
+				(long long)v, (int)g->len, g->name);
+		return;
+	}
+
 	load_reg(f, 0, i->src1);
 	cg_printf(c, "\tmov%c %s, " SYM_PREFIX "%.*s(%%rip)\n", mem_suf[s],
 			reg_name(0, s), (int)g->len, g->name);
@@ -392,8 +410,72 @@ static const char *arith_ops[IR_COUNT] = {
 	[IR_XOR] = "xor"
 };
 
+static uint64_t shift_amt (uint64_t v)
+{
+	uint64_t k = 0;
+
+	while ((v & 1u) == 0) {
+		v >>= 1;
+		k++;
+	}
+	return k;
+}
+
+static int make_rmw (X86Fn *f, IRInstr *i, uint32_t home)
+{
+	uint8_t s = types[f->fn->reg_types[home]].size;
+	int64_t v;
+
+	if (f->cstate[i->src2] != 1) return 0;
+	v = const_ext(f, i->src2);
+	if (i->op == IR_MUL) {
+		if (v <= 0 || (v & (v - 1)) != 0) return 0;
+		cg_printf(f->cg, "\tshl%c $%llu, -%u(%s)\n", mem_suf[s],
+				(unsigned long long)shift_amt((uint64_t)v),
+				f->slots[home], f->base);
+		f->rax_v = NO_REG;
+		return 1;
+	}
+	if (i->op != IR_ADD && i->op != IR_SUB && i->op != IR_AND_A
+			&& i->op != IR_OR_A && i->op != IR_XOR) return 0;
+	if (s == 8 && v != (int32_t)v) return 0;
+	if (s == 4) v = (int32_t)v;
+	else if (s == 2) v = (int16_t)v;
+	else if (s == 1) v = (int8_t)v;
+	cg_printf(f->cg, "\t%s%c $%lld, -%u(%s)\n", arith_ops[i->op],
+			mem_suf[s], (long long)v, f->slots[home], f->base);
+	f->rax_v = NO_REG;
+	return 1;
+}
+
+static int make_mul_const (X86Fn *f, IRInstr *i)
+{
+	int64_t v;
+
+	if (f->cstate[i->src2] != 1) return 0;
+	v = const_ext(f, i->src2);
+	load_reg(f, 0, i->src1);
+	if (v > 0 && (v & (v - 1)) == 0) {
+		uint64_t k = shift_amt((uint64_t)v);
+		cg_printf(f->cg, "\tshlq $%llu, %%rax\n", (unsigned long long)k);
+	} else if (v == 3 || v == 5 || v == 9)
+		cg_printf(f->cg, "\tleaq (%%rax,%%rax,%lld), %%rax\n", (long long)(v - 1));
+	else op_rax(f, "imul", i->src2);
+	store_reg(f, 0, i->dst);
+	return 1;
+}
+
 static void make_arith (X86Fn *f, IRInstr *i)
 {
+	uint32_t src = i->src1;
+	uint32_t dst = i->dst;
+
+	if (src != NO_REG && src == f->sub_from) src = f->sub_to;
+	if (dst != NO_REG && dst == f->redir_from) dst = f->redir_to;
+	if (src == dst && src != NO_REG && f->cstate[src] != 1 &&
+			make_rmw(f, i, src)) return;
+
+	if (i->op == IR_MUL && make_mul_const(f, i)) return;
 	load_reg(f, 0, i->src1);
 	op_rax(f, arith_ops[i->op], i->src2);
 	store_reg(f, 0, i->dst);
