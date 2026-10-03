@@ -183,6 +183,10 @@ static void layout_fn (X86Fn *f)
 	f->leaf = f->leaf && c <= RED_ZONE;
 	f->frame = f->leaf ? 0 : (c + 15) & ~15u;
 	f->base = f->leaf ? "%rsp" : "%rbp";
+
+	f->sub_from = NO_REG;
+	f->redir_from = NO_REG;
+	f->rax_v = NO_REG;
 }
 
 static void print_fn_name (CodeGen *c, IRFn *fn)
@@ -267,21 +271,34 @@ static void load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 	uint8_t w;
 	const char *op;
 
+	if (vreg != NO_REG && vreg == f->sub_from) vreg = f->sub_to;
+	if (reg == 0 && vreg == f->rax_v) return;
+
 	if (f->cstate[vreg] == 1) {
 		load_const(f, reg, const_ext(f, vreg));
+		if (reg == 0) f->rax_v = vreg;
 		return;
 	}
 
 	op = load_op(f->fn->reg_types[vreg], &w);
 	cg_printf(f->cg, "\t%s -%u(%s), %s\n",
 			op, f->slots[vreg], f->base, reg_name(reg, w));
+
+	if (reg == 0) f->rax_v = vreg;
 }
 
 static void store_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 {
-	uint8_t s = types[f->fn->reg_types[vreg]].size;
+	uint8_t s;
+	uint32_t h = vreg;
+
+	if (vreg != NO_REG && vreg == f->redir_from) h = f->redir_to;
+	s = types[f->fn->reg_types[vreg]].size;
 	cg_printf(f->cg, "\tmov%c %s, -%u(%s)\n",
-			mem_suf[s], reg_name(reg, s), f->slots[vreg], f->base);
+			mem_suf[s], reg_name(reg, s), f->slots[h], f->base);
+
+	if (reg == 0 && s == 8) f->rax_v = h;
+	else if (h == f->rax_v) f->rax_v = NO_REG;
 }
 
 static void store_imm (X86Fn *f, uint32_t vreg, int64_t v)
@@ -316,6 +333,7 @@ static void make_param (X86Fn *f, IRInstr *i)
 
 static void make_move (X86Fn *f, IRInstr *i)
 {
+	if (i->dst == i->src1) return;
 	if (f->cstate[i->src1] == 1) {
 		store_imm(f, i->dst, const_ext(f, i->src1));
 		return;
@@ -417,6 +435,15 @@ static void make_shift (X86Fn *f, IRInstr *i)
 		op = types[i->data_type].sign ? "sar" : "shr";
 
 	load_reg(f, 0, i->src1);
+	if (f->cstate[i->src2] == 1) {
+		int64_t v = const_ext(f, i->src2);
+		if (v >= 0 && v < 64) {
+			cg_printf(f->cg, "\t%sq $%lld, %%rax\n", op, (long long)v);
+			store_reg(f, 0, i->dst);
+			return;
+		}
+	}
+
 	load_reg(f, 1, i->src2);
 	cg_printf(f->cg, "\t%sq %%cl, %%rax\n", op);
 	store_reg(f, 0, i->dst);
@@ -533,8 +560,22 @@ static void make_ret (X86Fn *f, IRInstr *i)
 	cg_printf(f->cg, f->leaf ? "\tret\n" : "\tleave\n\tret\n");
 }
 
+static const uint8_t execute_anyways[IR_COUNT] =
+{
+	[IR_CONST] = 1, [IR_MOVE] = 1, [IR_EXTEND] = 1,
+	[IR_ADD] = 1, [IR_SUB] = 1, [IR_MUL] = 1,
+	[IR_AND_A] = 1, [IR_OR_A] = 1, [IR_XOR] = 1,
+	[IR_RS] = 1, [IR_LS] = 1, [IR_NEG] = 1,
+	[IR_NOT_A] = 1, [IR_NOT_L] = 1, [IR_EQ] = 1,
+	[IR_NE] = 1, [IR_GT] = 1, [IR_GE] = 1,
+	[IR_LT] = 1, [IR_LE] = 1, [IR_LD_GLOBAL] = 1
+};
+
 static int make_instr (X86Fn *f, IRInstr *i)
 {
+	if (i->dst != NO_REG && f->uses[i->dst] == 0 && execute_anyways[i->op])
+		return 1;
+
 	switch (i->op)
 	{
 	case IR_CONST:
