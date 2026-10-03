@@ -298,7 +298,7 @@ static void store_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 			mem_suf[s], reg_name(reg, s), f->slots[h], f->base);
 
 	if (reg == 0 && s == 8) f->rax_v = h;
-	else if (h == f->rax_v) f->rax_v = NO_REG;
+	else f->rax_v = NO_REG;
 }
 
 static void store_imm (X86Fn *f, uint32_t vreg, int64_t v)
@@ -634,8 +634,6 @@ static void make_jump (X86Fn *f, IRInstr *i)
 		cg_printf(c, "\tcmp%c $0, -%u(%s)\n", mem_suf[s], f->slots[i->src1], f->base);
 	}
 
-	s = types[f->fn->reg_types[i->src1]].size;
-	cg_printf(c, "\tcmp%c $0, -%u(%s)\n", mem_suf[s], f->slots[i->src1], f->base);
 	cg_printf(c, "\t%s .L%u\n", i->op == IR_JZ ? "je" : "jne", i->target);
 	f->rax_v = NO_REG;
 }
@@ -779,11 +777,14 @@ static uint32_t find_main (IR *ir)
 
 static void make_entry (CodeGen *c, int run_init)
 {
-	IR *ir = c->ir;
-	if (find_main(ir) == NO_REG) return;
-	cg_printf(c, "\t.globl main\nmain:\n\tpushq %%rbp\n\tmovq %%rsp, %%rbp\n");
-	if (run_init) cg_printf(c, "\tcall " INIT_SYM "\n");
-	cg_printf(c, "\tcall " SYM_PREFIX "main\n\tpopq %%rbp\n\tret\n");
+	if (find_main(c->ir) == NO_REG) return;
+	if (run_init) {
+		cg_printf(c, "\t.globl main\nmain:\n\tsubq $8, %%rsp\n");
+		cg_printf(c, "\tcall " INIT_SYM "\n\taddq $8, %%rsp\n");
+		cg_printf(c, "\tjmp " SYM_PREFIX "main\n");
+		return;
+	}
+	cg_printf(c, "\t.globl main\nmain:\n\tjmp " SYM_PREFIX "main\n");
 }
 
 static int init_is_empty (CodeGen *c)
