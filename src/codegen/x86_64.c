@@ -183,29 +183,71 @@ static void mark_deferred (X86Fn *f)
 		if (can_defer(f, i, end)) f->cstate[i->dst] = VR_REG;
 }
 
-static void scan_regs (X86Fn *f)
+static int same_rep (X86Fn *f, uint32_t a, uint32_t b)
+{
+	const Type *ta = types + f->fn->reg_types[a];
+	const Type *tb = types + f->fn->reg_types[b];
+
+	return ta->size == tb->size && (ta->size == 8 || ta->sign == tb->sign);
+}
+
+static void count_defs (X86Fn *f)
 {
 	IR *ir = f->cg->ir;
 	IRFn *fn = f->fn;
 
 	memset(f->uses, 0, (size_t)fn->reg_count * sizeof(uint32_t));
-	memset(f->cstate, 0, fn->reg_count);
 	memset(f->defs, 0, fn->reg_count);
-
 	for (uint32_t i = 0; i < fn->count; i++) {
 		IRInstr *in = ir->instrs + fn->start + i;
 
 		if (in->op == IR_NOP) continue;
 		if (in->src1 != NO_REG) f->uses[in->src1]++;
 		if (in->src2 != NO_REG) f->uses[in->src2]++;
-		if (in->dst == NO_REG) continue;
-
-		if (f->defs[in->dst] < 2) f->defs[in->dst]++;
-		if (in->op == IR_CONST && f->cstate[in->dst] == VR_NONE) {
-			f->cstate[in->dst] = VR_CONST;
-			f->cval[in->dst] = in->imm64;
-		} else f->cstate[in->dst] = VR_MEM;
+		if (in->dst != NO_REG && f->defs[in->dst] < 2) f->defs[in->dst]++;
 	}
+}
+
+static void clasf_def (X86Fn *f, IRInstr *in)
+{
+	uint32_t d = in->dst;
+	uint32_t s = in->src1;
+
+	f->cstate[d] = VR_MEM;
+	if (f->defs[d] != 1) return;
+	if (in->op == IR_CONST) {
+		f->cstate[d] = VR_CONST;
+		f->cval[d] = in->imm64;
+		return;
+	}
+	if (in->op != IR_MOVE || !same_rep(f, d, s)) return;
+	if (f->cstate[s] == VR_CONST) {
+		f->cstate[d] = VR_CONST;
+		f->cval[d] = f->cval[s];
+	} else if (f->cstate[s] == VR_MEM && f->defs[s] == 1) {
+		f->cstate[d] = VR_ALIAS;
+		f->slots[d] = s;
+	}
+}
+
+static void clasf_regs (X86Fn *f)
+{
+	IR *ir = f->cg->ir;
+	IRFn *fn = f->fn;
+
+	memset(f->cstate, 0, fn->reg_count);
+	for (uint32_t i = 0; i < fn->count; i++) {
+		IRInstr *in = ir->instrs + fn->start + i;
+
+		if (in->op != IR_NOP && in->dst != NO_REG)
+			clasf_def(f, in);
+	}
+}
+
+static void scan_regs (X86Fn *f)
+{
+	count_defs(f);
+	clasf_regs(f);
 	mark_deferred(f);
 }
 
@@ -244,6 +286,13 @@ static uint32_t scan_outg (X86Fn *f)
 	return out;
 }
 
+static void resolve_alias (X86Fn *f)
+{
+	for (uint32_t r = 0; r < f->fn->reg_count; r++)
+		if (f->cstate[r] == VR_ALIAS)
+			f->slots[r] = f->slots[f->slots[r]];
+}
+
 static void layout_fn (X86Fn *f)
 {
 	uint32_t c;
@@ -252,6 +301,7 @@ static void layout_fn (X86Fn *f)
 	c = lay_size(f, c, 4);
 	c = lay_size(f, c, 2);
 	c = lay_size(f, c, 1);
+	resolve_alias(f);
 
 	f->outgoing = scan_outg(f);
 	c += f->outgoing;
@@ -715,6 +765,132 @@ static void make_ret (X86Fn *f, IRInstr *i)
 	cg_printf(f->cg, f->leaf ? "\tret\n" : "\tleave\n\tret\n");
 }
 
+enum { RMW_NONE = 0, RMW_UNARY, RMW_ARITH, RMW_SHIFT };
+
+static const uint8_t rmw_kind[IR_COUNT] = {
+	[IR_ADD] = RMW_ARITH, [IR_SUB] = RMW_ARITH, [IR_AND_A] = RMW_ARITH,
+	[IR_OR_A] = RMW_ARITH, [IR_XOR] = RMW_ARITH,
+	[IR_NEG] = RMW_UNARY, [IR_NOT_A] = RMW_UNARY,
+	[IR_MUL] = RMW_SHIFT, [IR_LS] = RMW_SHIFT, [IR_RS] = RMW_SHIFT
+};
+
+static const char *const rmw_names[IR_COUNT] = {
+	[IR_ADD] = "add", [IR_SUB] = "sub", [IR_AND_A] = "and",
+	[IR_OR_A] = "or", [IR_XOR] = "xor", [IR_NEG] = "neg", [IR_NOT_A] = "not"
+};
+
+static int rmw_shift (X86Fn *f, IRInstr *b, uint8_t s, const char **op, int64_t *v)
+{
+	int64_t k;
+
+	if (f->cstate[b->src2] != VR_CONST) return 0;
+	k = const_ext(f, b->src2);
+	if (b->op == IR_MUL) {
+		if (k <= 1 || (k & (k - 1))) return 0;
+		k = (int64_t)shift_amt((uint64_t)k);
+	}
+	if (k < 1 || k >= 8 * s) return 0;
+	if (b->op == IR_RS) *op = types[b->data_type].sign ? "sar" : "shr";
+	else *op = "shl";
+	*v = k;
+	return 1;
+}
+
+static int rmw_arith (X86Fn *f, IRInstr *b, uint8_t s, const char **op, int64_t *v)
+{
+	int64_t k;
+
+	if (f->cstate[b->src2] != VR_CONST) return 0;
+	k = const_ext(f, b->src2);
+	if (s == 8 && k != (int32_t)k) return 0;
+	if (s == 4) k = (int32_t)k;
+	else if (s == 2) k = (int16_t)k;
+	else if (s == 1) k = (int8_t)k;
+	*op = rmw_names[b->op];
+	*v = k;
+	return 1;
+}
+
+static int rmw_operand (X86Fn *f, IRInstr *b, uint8_t s, const char **op, int64_t *v)
+{
+	switch (rmw_kind[b->op])
+	{
+	case RMW_UNARY: *op = rmw_names[b->op]; return 1;
+	case RMW_ARITH: return rmw_arith(f, b, s, op, v);
+	case RMW_SHIFT: return rmw_shift(f, b, s, op, v);
+	default: return 0;
+	}
+}
+
+static IRInstr *rmw_find (X86Fn *f, IRInstr *a, IRInstr **mid)
+{
+	IRInstr *end = f->cg->ir->instrs + f->fn->start + f->fn->count;
+	IRInstr *b = next_live(f, a, end);
+	IRInstr *c;
+
+	if (b == end || !rmw_kind[b->op] || b->src1 != a->dst) return NULL;
+	c = next_live(f, b, end);
+	if (c == end || c->op != IR_MOVE) return NULL;
+	if (c->src1 != b->dst || c->dst != a->src1) return NULL;
+	*mid = b;
+	return c;
+}
+
+static int rmw_shape_ok (X86Fn *f, IRInstr *a, IRInstr *b)
+{
+	uint8_t *rt = f->fn->reg_types;
+	uint8_t s = types[rt[a->src1]].size;
+
+	if (f->uses[a->dst] != 1 || f->uses[b->dst] != 1) return 0;
+	if (f->cstate[a->src1] != VR_MEM) return 0;
+	return types[rt[a->dst]].size == s && types[rt[b->dst]].size == s;
+}
+
+static int make_rmw (X86Fn *f, IRInstr *a)
+{
+	IRInstr *b = NULL;
+	IRInstr *c = rmw_find(f, a, &b);
+	const char *op = NULL;
+	int64_t v = 0;
+	uint8_t s;
+
+	if (!c || !rmw_shape_ok(f, a, b)) return 0;
+	s = types[f->fn->reg_types[a->src1]].size;
+	if (!rmw_operand(f, b, s, &op, &v)) return 0;
+
+	if (rmw_kind[b->op] == RMW_UNARY)
+		cg_printf(f->cg, "\t%s%c -%u(%s)\n", op, mem_suf[s],
+				f->slots[a->src1], f->base);
+	else cg_printf(f->cg, "\t%s%c $%lld, -%u(%s)\n", op, mem_suf[s],
+			(long long)v, f->slots[a->src1], f->base);
+	if (f->rax_v == a->src1) f->rax_v = NO_REG;
+	return (int)(c - a) + 1;
+}
+
+static int tail_match (X86Fn *f, IRInstr *call)
+{
+	IRInstr *ret = call + 1;
+	uint8_t from = f->cg->ir->fns[call->target].ret_type;
+	uint8_t to = f->fn->ret_type;
+
+	if (ret->op != IR_RET || call->argc > 6) return 0;
+	if (ret->src1 != call->dst) return 0;
+	if (call->dst != NO_REG && f->uses[call->dst] != 1) return 0;
+	return from == to || (types[from].size == 8 && types[to].size == 8);
+}
+
+static int make_tail_call (X86Fn *f, IRInstr *i)
+{
+	CodeGen *c = f->cg;
+
+	if (!tail_match(f, i)) return 0;
+	cg_printf(c, "\tleave\n\tjmp ");
+	print_fn_name(c, c->ir->fns + i->target);
+	cg_printf(c, "\n");
+	f->rax_v = NO_REG;
+	return 1;
+}
+
 static int make_instr (X86Fn *f, IRInstr *i)
 {
 	if (is_silent(f, i)) return 1;
@@ -728,7 +904,13 @@ static int make_instr (X86Fn *f, IRInstr *i)
 
 	case IR_LD_GLOBAL: make_ld_global(f, i); return 1;
 	case IR_STR_GLOBAL: make_str_global(f, i); return 1;
-	case IR_MOVE: case IR_EXTEND: make_move(f, i); return 1;
+
+	case IR_MOVE:
+		int n = make_rmw(f, i);
+		if (n) return n;
+		make_move(f, i);
+		return 1;
+	case IR_EXTEND: make_move(f, i); return 1;
 
 	case IR_ADD: case IR_SUB: case IR_AND_A: case IR_OR_A: case IR_MUL: case IR_XOR:
 		make_arith(f, i); return 1;
@@ -750,7 +932,10 @@ static int make_instr (X86Fn *f, IRInstr *i)
 	case IR_LABEL: case IR_JMP: case IR_JZ: case IR_JNZ: make_jump(f, i); return 1;
 
 	case IR_ARG: make_arg(f, i); return 1;
-	case IR_CALL: make_call(f, i); return 1;
+	case IR_CALL:
+		if (make_tail_call(f, i)) return 2;
+		make_call(f, i);
+		return 1;
 	case IR_RET: make_ret(f, i); return 1;
 
 	default: return 1;
