@@ -184,8 +184,6 @@ static void layout_fn (X86Fn *f)
 	f->frame = f->leaf ? 0 : (c + 15) & ~15u;
 	f->base = f->leaf ? "%rsp" : "%rbp";
 
-	f->sub_from = NO_REG;
-	f->redir_from = NO_REG;
 	f->rax_v = NO_REG;
 }
 
@@ -268,10 +266,6 @@ static void load_const (X86Fn *f, uint8_t reg, int64_t v)
 
 static void load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 {
-	uint8_t w;
-	const char *op;
-
-	if (vreg != NO_REG && vreg == f->sub_from) vreg = f->sub_to;
 	if (reg == 0 && vreg == f->rax_v) return;
 
 	if (f->cstate[vreg] == 1) {
@@ -280,7 +274,8 @@ static void load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 		return;
 	}
 
-	op = load_op(f->fn->reg_types[vreg], &w);
+	uint8_t w;
+	const char *op = load_op(f->fn->reg_types[vreg], &w);
 	cg_printf(f->cg, "\t%s -%u(%s), %s\n",
 			op, f->slots[vreg], f->base, reg_name(reg, w));
 
@@ -289,15 +284,12 @@ static void load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 
 static void store_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 {
-	uint8_t s;
-	uint32_t h = vreg;
+	uint8_t s = types[f->fn->reg_types[vreg]].size;
 
-	if (vreg != NO_REG && vreg == f->redir_from) h = f->redir_to;
-	s = types[f->fn->reg_types[vreg]].size;
 	cg_printf(f->cg, "\tmov%c %s, -%u(%s)\n",
-			mem_suf[s], reg_name(reg, s), f->slots[h], f->base);
+			mem_suf[s], reg_name(reg, s), f->slots[vreg], f->base);
 
-	if (reg == 0 && s == 8) f->rax_v = h;
+	if (reg == 0 && s == 8) f->rax_v = vreg;
 	else f->rax_v = NO_REG;
 }
 
@@ -318,6 +310,7 @@ static void store_imm (X86Fn *f, uint32_t vreg, int64_t v)
 
 	cg_printf(c, "\tmov%c $%lld, -%u(%s)\n",
 			mem_suf[s], (long long)v, f->slots[vreg], f->base);
+	if (vreg == f->rax_v) f->rax_v = NO_REG;
 }
 
 static void make_param (X86Fn *f, IRInstr *i)
@@ -421,60 +414,25 @@ static uint64_t shift_amt (uint64_t v)
 	return k;
 }
 
-static int make_rmw (X86Fn *f, IRInstr *i, uint32_t home)
-{
-	uint8_t s = types[f->fn->reg_types[home]].size;
-	int64_t v;
-
-	if (f->cstate[i->src2] != 1) return 0;
-	v = const_ext(f, i->src2);
-	if (i->op == IR_MUL) {
-		if (v <= 0 || (v & (v - 1)) != 0) return 0;
-		cg_printf(f->cg, "\tshl%c $%llu, -%u(%s)\n", mem_suf[s],
-				(unsigned long long)shift_amt((uint64_t)v),
-				f->slots[home], f->base);
-		f->rax_v = NO_REG;
-		return 1;
-	}
-	if (i->op != IR_ADD && i->op != IR_SUB && i->op != IR_AND_A
-			&& i->op != IR_OR_A && i->op != IR_XOR) return 0;
-	if (s == 8 && v != (int32_t)v) return 0;
-	if (s == 4) v = (int32_t)v;
-	else if (s == 2) v = (int16_t)v;
-	else if (s == 1) v = (int8_t)v;
-	cg_printf(f->cg, "\t%s%c $%lld, -%u(%s)\n", arith_ops[i->op],
-			mem_suf[s], (long long)v, f->slots[home], f->base);
-	f->rax_v = NO_REG;
-	return 1;
-}
-
 static int make_mul_const (X86Fn *f, IRInstr *i)
 {
-	int64_t v;
-
 	if (f->cstate[i->src2] != 1) return 0;
-	v = const_ext(f, i->src2);
+	int64_t v = const_ext(f, i->src2);
 	load_reg(f, 0, i->src1);
+
 	if (v > 0 && (v & (v - 1)) == 0) {
 		uint64_t k = shift_amt((uint64_t)v);
 		cg_printf(f->cg, "\tshlq $%llu, %%rax\n", (unsigned long long)k);
 	} else if (v == 3 || v == 5 || v == 9)
 		cg_printf(f->cg, "\tleaq (%%rax,%%rax,%lld), %%rax\n", (long long)(v - 1));
 	else op_rax(f, "imul", i->src2);
+
 	store_reg(f, 0, i->dst);
 	return 1;
 }
 
 static void make_arith (X86Fn *f, IRInstr *i)
 {
-	uint32_t src = i->src1;
-	uint32_t dst = i->dst;
-
-	if (src != NO_REG && src == f->sub_from) src = f->sub_to;
-	if (dst != NO_REG && dst == f->redir_from) dst = f->redir_to;
-	if (src == dst && src != NO_REG && f->cstate[src] != 1 &&
-			make_rmw(f, i, src)) return;
-
 	if (i->op == IR_MUL && make_mul_const(f, i)) return;
 	load_reg(f, 0, i->src1);
 	op_rax(f, arith_ops[i->op], i->src2);
@@ -494,7 +452,8 @@ static int make_divmod_pow2 (X86Fn *f, IRInstr *i)
 	if (f->cstate[i->src2] != 1) return 0;
 
 	int64_t v = const_ext(f, i->src2);
-	if (v <= 0 || (v & (v - 1)) != 0) return 0;
+	if (v <= 0 || (v & (v - 1))) return 0;
+	if (i->op == IR_MOD && v - 1 != (int32_t)(v - 1)) return 0;
 	uint64_t k = shift_amt((uint64_t)v);
 
 	load_reg(f, 0, i->src1);

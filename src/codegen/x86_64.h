@@ -13,14 +13,8 @@ typedef struct X86Fn {
 	uint32_t *uses;
 	int64_t *cval;
 	uint8_t *cstate;
-	uint32_t *label_refs;
 
-	uint32_t sub_from;
-	uint32_t sub_to;
-	uint32_t redir_from;
-	uint32_t redir_to;
 	uint32_t rax_v;
-
 	uint32_t outgoing;
 	uint32_t frame;
 	uint8_t leaf;
