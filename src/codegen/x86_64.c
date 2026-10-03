@@ -452,6 +452,27 @@ static void make_cmp (X86Fn *f, IRInstr *i)
 	store_reg(f, 0, i->dst);
 }
 
+static const uint8_t inv_cmp[6] = { 1, 0, 5, 4, 3, 2 };
+
+static int fuses_with_next (X86Fn *f, IRInstr *i)
+{
+	IRInstr *n = i + 1;
+
+	if (n->op != IR_JZ && n->op != IR_JNZ) return 0;
+	return n->src1 == i->dst && f->uses[i->dst] == 1;
+}
+
+static void make_cmp_jump (X86Fn *f, IRInstr *cmp, IRInstr *jmp)
+{
+	int base = types[cmp->data_type].sign ? 0 : 6;
+	int cc = cmp->op - IR_EQ;
+
+	if (jmp->op == IR_JZ) cc = inv_cmp[cc];
+	load_reg(f, 0, cmp->src1);
+	op_rax(f, "cmp", cmp->src2);
+	cg_printf(f->cg, "\tj%s .L%u\n", comp_names[base + cc], jmp->target);
+}
+
 static void make_jump (X86Fn *f, IRInstr *i)
 {
 	CodeGen *c = f->cg;
@@ -471,7 +492,6 @@ static void make_jump (X86Fn *f, IRInstr *i)
 		if (taken) cg_printf(c, "\tjmp .L%u\n", i->target);
 		return;
 	}
-
 	s = types[f->fn->reg_types[i->src1]].size;
 	cg_printf(c, "\tcmp%c $0, -%u(%s)\n", mem_suf[s], f->slots[i->src1], f->base);
 	cg_printf(c, "\t%s .L%u\n", i->op == IR_JZ ? "je" : "jne", i->target);
@@ -513,38 +533,43 @@ static void make_ret (X86Fn *f, IRInstr *i)
 	cg_printf(f->cg, f->leaf ? "\tret\n" : "\tleave\n\tret\n");
 }
 
-static void make_instr (X86Fn *f, IRInstr *i)
+static int make_instr (X86Fn *f, IRInstr *i)
 {
 	switch (i->op)
 	{
 	case IR_CONST:
 		if (f->cstate[i->dst] != 1) store_imm(f, i->dst, i->imm64);
-		break;
-	case IR_PARAM: make_param(f, i); break;
+		return 1;
+	case IR_PARAM: make_param(f, i); return 1;
 
-	case IR_LD_GLOBAL: make_ld_global(f, i); break;
-	case IR_STR_GLOBAL: make_str_global(f, i); break;
-	case IR_MOVE: case IR_EXTEND: make_move(f, i); break;
+	case IR_LD_GLOBAL: make_ld_global(f, i); return 1;
+	case IR_STR_GLOBAL: make_str_global(f, i); return 1;
+	case IR_MOVE: case IR_EXTEND: make_move(f, i); return 1;
 
 	case IR_ADD: case IR_SUB: case IR_AND_A: case IR_OR_A: case IR_MUL: case IR_XOR:
-		make_arith(f, i); break;
-	case IR_DIV: case IR_MOD: make_divmod(f, i); break;
-	case IR_RS: case IR_LS: make_shift(f, i); break;
+		make_arith(f, i); return 1;
+	case IR_DIV: case IR_MOD: make_divmod(f, i); return 1;
+	case IR_RS: case IR_LS: make_shift(f, i); return 1;
 
-	case IR_NEG: make_unary(f, i, "neg"); break;
-	case IR_NOT_A: make_unary(f, i, "not"); break;
+	case IR_NEG: make_unary(f, i, "neg"); return 1;
+	case IR_NOT_A: make_unary(f, i, "not"); return 1;
+	case IR_NOT_L: make_not_l(f, i); return 1;
 
-	case IR_NOT_L: make_not_l(f, i); break;
 	case IR_EQ: case IR_NE: case IR_GT: case IR_GE: case IR_LT: case IR_LE:
-		make_cmp(f, i); break;
+		if (!fuses_with_next(f, i)) {
+			make_cmp(f, i);
+			return 1;
+		}
+		make_cmp_jump(f, i, i + 1);
+		return 2;
 
-	case IR_LABEL: case IR_JMP: case IR_JZ: case IR_JNZ: make_jump(f, i); break;
+	case IR_LABEL: case IR_JMP: case IR_JZ: case IR_JNZ: make_jump(f, i); return 1;
 
-	case IR_ARG: make_arg(f, i); break;
-	case IR_CALL: make_call(f, i); break;
-	case IR_RET: make_ret(f, i); break;
+	case IR_ARG: make_arg(f, i); return 1;
+	case IR_CALL: make_call(f, i); return 1;
+	case IR_RET: make_ret(f, i); return 1;
 
-	default: break;
+	default: return 1;
 	}
 }
 
@@ -566,12 +591,17 @@ static void make_fn (X86Fn *f)
 	if (!f->leaf) cg_printf(c, "\tpushq %%rbp\n\tmovq %%rsp, %%rbp\n");
 	if (f->frame) cg_printf(c, "\tsubq $%u, %%rsp\n", f->frame);
 
-	for (uint32_t i = 0; i < fn->count; i++) {
+	uint32_t i = 0;
+	while (i < fn->count) {
 		IRInstr *instr = ir->instrs + fn->start + i;
 
 		if (instr->op == IR_LABEL) dead = 0;
-		if (dead) continue;
-		make_instr(f, instr);
+		if (dead) {
+			i++;
+			continue;
+		}
+
+		i += make_instr(f, instr);
 		dead = instr->op == IR_RET || instr->op == IR_JMP;
 	}
 
