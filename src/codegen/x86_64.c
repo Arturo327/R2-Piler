@@ -488,12 +488,31 @@ static const char *sext_ops[9] = {
 	[8] = "cqto"
 };
 
+static int make_divmod_pow2 (X86Fn *f, IRInstr *i)
+{
+	if (types[i->data_type].sign) return 0;
+	if (f->cstate[i->src2] != 1) return 0;
+
+	int64_t v = const_ext(f, i->src2);
+	if (v <= 0 || (v & (v - 1)) != 0) return 0;
+	uint64_t k = shift_amt((uint64_t)v);
+
+	load_reg(f, 0, i->src1);
+	if (i->op == IR_DIV) cg_printf(f->cg, "\tshrq $%llu, %%rax\n", (unsigned long long)k);
+	else cg_printf(f->cg, "\tandq $%llu, %%rax\n",
+			(unsigned long long)((uint64_t)v - 1));
+
+	store_reg(f, 0, i->dst);
+	return 1;
+}
+
 static void make_divmod (X86Fn *f, IRInstr *i)
 {
 	CodeGen *c = f->cg;
 	uint8_t s = types[i->data_type].size;
 	int sign = types[i->data_type].sign;
 
+	if (make_divmod_pow2(f, i)) return;
 	load_reg(f, 0, i->src1);
 	load_reg(f, 1, i->src2);
 
@@ -501,12 +520,14 @@ static void make_divmod (X86Fn *f, IRInstr *i)
 	else if (s > 1) cg_printf(c, "\txorl %%edx, %%edx\n");
 
 	cg_printf(c, "\t%s%c %s\n", sign ? "idiv" : "div", mem_suf[s], reg_name(1, s));
+	f->rax_v = NO_REG;
 
 	if (i->op == IR_DIV)
 		store_reg(f, 0, i->dst);
-	else if (s == 1)
+	else if (s == 1) {
 		cg_printf(c, "\tmovb %%ah, -%u(%s)\n", f->slots[i->dst], f->base);
-	else store_reg(f, 2, i->dst);
+		f->rax_v = NO_REG;
+	} else store_reg(f, 2, i->dst);
 }
 
 static void make_shift (X86Fn *f, IRInstr *i)
@@ -580,6 +601,8 @@ static void make_cmp_jump (X86Fn *f, IRInstr *cmp, IRInstr *jmp)
 	load_reg(f, 0, cmp->src1);
 	op_rax(f, "cmp", cmp->src2);
 	cg_printf(f->cg, "\tj%s .L%u\n", comp_names[base + cc], jmp->target);
+
+	f->rax_v = NO_REG;
 }
 
 static void make_jump (X86Fn *f, IRInstr *i)
@@ -589,21 +612,32 @@ static void make_jump (X86Fn *f, IRInstr *i)
 
 	if (i->op == IR_LABEL) {
 		cg_printf(c, ".L%u:\n", i->target);
+		f->rax_v = NO_REG;
 		return;
 	}
 	if (i->op == IR_JMP) {
 		cg_printf(c, "\tjmp .L%u\n", i->target);
+		f->rax_v = NO_REG;
 		return;
 	}
 	if (f->cstate[i->src1] == 1) {
 		int taken = (const_ext(f, i->src1) != 0) == (i->op == IR_JNZ);
-
 		if (taken) cg_printf(c, "\tjmp .L%u\n", i->target);
+		f->rax_v = NO_REG;
 		return;
 	}
+
+	if (i->src1 == f->rax_v) {
+		cg_printf(c, "\ttestq %%rax, %%rax\n");
+	} else {
+		s = types[f->fn->reg_types[i->src1]].size;
+		cg_printf(c, "\tcmp%c $0, -%u(%s)\n", mem_suf[s], f->slots[i->src1], f->base);
+	}
+
 	s = types[f->fn->reg_types[i->src1]].size;
 	cg_printf(c, "\tcmp%c $0, -%u(%s)\n", mem_suf[s], f->slots[i->src1], f->base);
 	cg_printf(c, "\t%s .L%u\n", i->op == IR_JZ ? "je" : "jne", i->target);
+	f->rax_v = NO_REG;
 }
 
 static void make_arg (X86Fn *f, IRInstr *i)
@@ -633,6 +667,7 @@ static void make_call (X86Fn *f, IRInstr *i)
 	cg_printf(c, "\n");
 	if (i->dst != NO_REG)
 		store_reg(f, 0, i->dst);
+	else f->rax_v = NO_REG;
 }
 
 static void make_ret (X86Fn *f, IRInstr *i)
