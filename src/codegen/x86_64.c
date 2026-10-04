@@ -545,6 +545,15 @@ static uint64_t shift_amt (uint64_t v)
 	return k;
 }
 
+static void make_mul_pm1 (X86Fn *f, uint64_t k, int plus)
+{
+	CodeGen *c = f->cg;
+
+	cg_printf(c, "\tmovq %%rax, %%rdx\n\tshlq $%llu, %%rdx\n", (unsigned long long)k);
+	if (plus) cg_printf(c, "\taddq %%rdx, %%rax\n");
+	else cg_printf(c, "\tsubq %%rax, %%rdx\n\tmovq %%rdx, %%rax\n");
+}
+
 static int make_mul_const (X86Fn *f, IRInstr *i)
 {
 	if (f->cstate[i->src2] != 1) return 0;
@@ -556,6 +565,10 @@ static int make_mul_const (X86Fn *f, IRInstr *i)
 		cg_printf(f->cg, "\tshlq $%llu, %%rax\n", (unsigned long long)k);
 	} else if (v == 3 || v == 5 || v == 9)
 		cg_printf(f->cg, "\tleaq (%%rax,%%rax,%lld), %%rax\n", (long long)(v - 1));
+	else if (v > 9 && !((uint64_t)(v - 1) & (uint64_t)(v - 2)))
+		make_mul_pm1(f, shift_amt((uint64_t)(v - 1)), 1);
+	else if (v > 3 && !((uint64_t)v & ((uint64_t)v + 1)))
+		make_mul_pm1(f, shift_amt((uint64_t)v + 1), 0);
 	else op_rax(f, "imul", i->src2);
 
 	store_reg(f, 0, i->dst);
@@ -577,20 +590,113 @@ static const char *sext_ops[9] = {
 	[8] = "cqto"
 };
 
-static int make_divmod_pow2 (X86Fn *f, IRInstr *i)
+static uint64_t magic_unsigned (uint64_t d, unsigned *l)
 {
-	if (types[i->data_type].sign) return 0;
-	if (f->cstate[i->src2] != 1) return 0;
+	unsigned k = 64 - (unsigned)__builtin_clzll(d - 1);
+	uint64_t low = k == 64 ? 0 - d : (1ull << k) - d;
 
+	*l = k;
+	return (uint64_t)(((unsigned __int128)low << 64) / d) + 1;
+}
+
+static uint64_t magic_signed (uint64_t d, unsigned *sh)
+{
+	uint64_t two63 = 1ull << 63;
+	uint64_t anc = two63 - 1 - two63 % d;
+
+	uint64_t q1 = two63 / anc;
+	uint64_t r1 = two63 - q1 * anc;
+	uint64_t q2 = two63 / d;
+	uint64_t r2 = two63 - q2 * d;
+
+	uint64_t delta;
+	unsigned p = 63;
+
+	do {
+		p++;
+		q1 <<= 1;
+		r1 <<= 1;
+		if (r1 >= anc) { q1++; r1 -= anc; }
+		q2 <<= 1;
+		r2 <<= 1;
+		if (r2 >= d) { q2++; r2 -= d; }
+		delta = d - r2;
+	} while (q1 < delta || (q1 == delta && r1 == 0));
+
+	*sh = p - 64;
+	return q2 + 1;
+}
+
+static void make_mod_tail (X86Fn *f, uint64_t d)
+{
+	CodeGen *c = f->cg;
+
+	if (d <= INT32_MAX)
+		cg_printf(c, "\timulq $%llu, %%rax, %%rax\n", (unsigned long long)d);
+	else cg_printf(c, "\tmovabsq $0x%llx, %%rdx\n\timulq %%rdx, %%rax\n",
+			(unsigned long long)d);
+	cg_printf(c, "\tsubq %%rax, %%rcx\n\tmovq %%rcx, %%rax\n");
+}
+
+static void make_udiv_magic (X86Fn *f, int is_div, uint64_t d)
+{
+	CodeGen *c = f->cg;
+	unsigned l;
+	uint64_t m = magic_unsigned(d, &l);
+
+	cg_printf(c, "\tmovq %%rax, %%rcx\n\tmovabsq $0x%llx, %%rdx\n\tmulq %%rdx\n",
+			(unsigned long long)m);
+	cg_printf(c, "\tmovq %%rcx, %%rax\n\tsubq %%rdx, %%rax\n\tshrq $1, %%rax\n");
+	cg_printf(c, "\taddq %%rdx, %%rax\n\tshrq $%u, %%rax\n", l - 1);
+	if (!is_div) make_mod_tail(f, d);
+}
+
+static void make_sdiv_magic (X86Fn *f, int is_div, uint64_t d)
+{
+	CodeGen *c = f->cg;
+	unsigned s;
+	uint64_t m = magic_signed(d, &s);
+
+	cg_printf(c, "\tmovq %%rax, %%rcx\n\tmovabsq $0x%llx, %%rdx\n\timulq %%rdx\n",
+			(unsigned long long)m);
+	if ((int64_t)m < 0) cg_printf(c, "\taddq %%rcx, %%rdx\n");
+	if (s) cg_printf(c, "\tsarq $%u, %%rdx\n", s);
+	cg_printf(c, "\tmovq %%rdx, %%rax\n\tshrq $63, %%rax\n\taddq %%rdx, %%rax\n");
+	if (!is_div) make_mod_tail(f, d);
+}
+
+static void make_div_pow2 (X86Fn *f, int sign, int is_div, int64_t v)
+{
+	CodeGen *c = f->cg;
+	unsigned long long k = shift_amt((uint64_t)v);
+
+	if (!sign) {
+		if (is_div) cg_printf(c, "\tshrq $%llu, %%rax\n", k);
+		else cg_printf(c, "\tandq $%lld, %%rax\n", (long long)(v - 1));
+		return;
+	}
+	cg_printf(c, "\tmovq %%rax, %%rdx\n\tsarq $63, %%rdx\n");
+	cg_printf(c, "\tshrq $%llu, %%rdx\n\taddq %%rdx, %%rax\n", 64 - k);
+
+	if (is_div) cg_printf(c, "\tsarq $%llu, %%rax\n", k);
+	else cg_printf(c, "\tandq $%lld, %%rax\n\tsubq %%rdx, %%rax\n", (long long)(v - 1));
+}
+
+static int make_divmod_const (X86Fn *f, IRInstr *i)
+{
+	int sign = types[i->data_type].sign;
+	int is_div = i->op == IR_DIV;
+
+	if (f->cstate[i->src2] != VR_CONST) return 0;
 	int64_t v = const_ext(f, i->src2);
-	if (v <= 0 || (v & (v - 1))) return 0;
-	if (i->op == IR_MOD && v - 1 != (int32_t)(v - 1)) return 0;
-	uint64_t k = shift_amt((uint64_t)v);
+	if (v <= 0 || (sign && v == 1)) return 0;
+	int pow2 = (v & (v - 1)) == 0;
+	if (pow2 && !is_div && v - 1 != (int32_t)(v - 1)) return 0;
 
 	load_reg(f, 0, i->src1);
-	if (i->op == IR_DIV) cg_printf(f->cg, "\tshrq $%llu, %%rax\n", (unsigned long long)k);
-	else cg_printf(f->cg, "\tandq $%llu, %%rax\n",
-			(unsigned long long)((uint64_t)v - 1));
+	if (pow2) make_div_pow2(f, sign, is_div, v);
+	else if (sign) make_sdiv_magic(f, is_div, (uint64_t)v);
+	else make_udiv_magic(f, is_div, (uint64_t)v);
 
 	store_reg(f, 0, i->dst);
 	return 1;
@@ -602,7 +708,7 @@ static void make_divmod (X86Fn *f, IRInstr *i)
 	uint8_t s = types[i->data_type].size;
 	int sign = types[i->data_type].sign;
 
-	if (make_divmod_pow2(f, i)) return;
+	if (make_divmod_const(f, i)) return;
 	load_reg(f, 0, i->src1);
 	load_reg(f, 1, i->src2);
 
@@ -867,9 +973,16 @@ static int make_rmw (X86Fn *f, IRInstr *a)
 	return (int)(c - a) + 1;
 }
 
-static int tail_match (X86Fn *f, IRInstr *call)
+static IRInstr *tail_ret (IRInstr *call)
 {
-	IRInstr *ret = call + 1;
+	IRInstr *n = call + 1;
+
+	while (n->op == IR_LABEL) n++;
+	return n;
+}
+
+static int tail_match (X86Fn *f, IRInstr *call, IRInstr *ret)
+{
 	uint8_t from = f->cg->ir->fns[call->target].ret_type;
 	uint8_t to = f->fn->ret_type;
 
@@ -882,18 +995,20 @@ static int tail_match (X86Fn *f, IRInstr *call)
 static int make_tail_call (X86Fn *f, IRInstr *i)
 {
 	CodeGen *c = f->cg;
+	IRInstr *ret = tail_ret(i);
 
-	if (!tail_match(f, i)) return 0;
+	if (!tail_match(f, i, ret)) return 0;
 	cg_printf(c, "\tleave\n\tjmp ");
 	print_fn_name(c, c->ir->fns + i->target);
 	cg_printf(c, "\n");
 	f->rax_v = NO_REG;
-	return 1;
+	return ret == i + 1 ? 2 : 1;
 }
 
 static int make_instr (X86Fn *f, IRInstr *i)
 {
 	if (is_silent(f, i)) return 1;
+	int n;
 
 	switch (i->op)
 	{
@@ -906,7 +1021,7 @@ static int make_instr (X86Fn *f, IRInstr *i)
 	case IR_STR_GLOBAL: make_str_global(f, i); return 1;
 
 	case IR_MOVE:
-		int n = make_rmw(f, i);
+		n = make_rmw(f, i);
 		if (n) return n;
 		make_move(f, i);
 		return 1;
@@ -933,7 +1048,8 @@ static int make_instr (X86Fn *f, IRInstr *i)
 
 	case IR_ARG: make_arg(f, i); return 1;
 	case IR_CALL:
-		if (make_tail_call(f, i)) return 2;
+		n = make_tail_call(f, i);
+		if (n) return n;
 		make_call(f, i);
 		return 1;
 	case IR_RET: make_ret(f, i); return 1;
