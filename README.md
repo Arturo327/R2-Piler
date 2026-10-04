@@ -6,7 +6,7 @@ A small compiler for the (invented) **R2-Lang** language, written in C.
 
 ## Current Status
 
-The x86-64 backend now lowers every IR instruction to AT&T assembly, so a plain compile produces a `.s` file that `gcc` can assemble and run. It is deliberately naive: there is no register allocator yet, every virtual register lives in a stack slot. The front end and the IR are implemented and tested.
+The x86-64 backend lowers every IR instruction to AT&T assembly, so a plain compile produces a `.s` file that `gcc` can assemble and run. It does peephole codegen opts (see `comp_pending.md`: deferred single-use stores, const/alias propagation, read-modify-write, mul/div/mod/shift strength reduction incl. signed-pow2 and magic division, cmp+jcc fusion, DCE, tail calls); there is no register allocator yet, surviving virtual registers live in stack slots. The front end and the IR are implemented and tested.
 
 **Work in progress.**
 
@@ -28,7 +28,7 @@ The x86-64 backend now lowers every IR instruction to AT&T assembly, so a plain 
 - Parser: expressions, variable declarations, blocks, if statements, functions, for and while loops.
 - Sema: strict type checking, uninitialized and undeclared variable detector (flow-sensitive definite assignment, uninitialized globals, constant-condition warnings), symbol table, allow forward-calls
 - IR: linear per-function stream with virtual registers, short-circuit `&&`/`||`, global init function (`__r2_init`), full lowering of expressions, calls, `if`/`while`/`for` and `return`.
-- Codegen: x86-64 AT&T assembly (System V AMD64 ABI). Every virtual register has a stack home sized to its type; operands are loaded with sign/zero extension, arithmetic runs on 64 bits and the store truncates, division runs at the native width, globals are `.data`/`.bss` and RIP-relative. The synthetic `__r2_init` holds global inits (emitted as `__r2.init` only when non-empty, with a dot to avoid colliding with a user global/fn named `init`) and a `main` wrapper calls it before `__r2_main`.
+- Codegen: x86-64 AT&T assembly (System V AMD64 ABI). Surviving virtual registers have sized stack homes; operands load with sign/zero extension, arithmetic runs on 64 bits and the store truncates, division runs at the native width (except constant divisors, lowered via shifts/magic), globals are `.data`/`.bss` and RIP-relative. Peephole opts: single-use `i64` temporaries stay in `%rax` (no slot/store), single-def `MOVE`s propagate consts/aliases as immediates/slot reuse, `x = x op K` becomes one RMW mem op, `*2^k`/`*3,5,9`/`*(2^k±1)` → `shl`/`lea`, `/`/`%` by const → pow2 `shr`/`and` (signed via bias) or magic `mul`+shifts, shifts take immediates, `cmp` fuses with the next `jz`/`jnz`, unused pure defs are skipped, `return f()` with ≤6 args becomes `leave; jmp`. The synthetic `__r2_init` holds global inits (emitted as `__r2.init` only when non-empty, with a dot to avoid colliding with a user global/fn named `init`) and a `main` wrapper calls it before `__r2_main`.
 - Precise error reporting with `file:line:column` locations.
 - Arena allocator — all compiler memory is freed in a single call at program exit instead of scattered `malloc`/`free` calls.
 - `--dump-tokens` flag to inspect exactly what the lexer produces for a given source file.

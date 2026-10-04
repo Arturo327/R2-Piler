@@ -2,7 +2,7 @@
 
 Especificación completa de R2-Lang, el lenguaje que compila R2-Piler.
 
-Estado: lexer, parser, sema e IR implementados y testeados con fixtures. Codegen: el backend x86-64 emite assembly AT&T completo (modelo simple, sin allocator de registros; ver «Backend x86-64») y tiene suite propia de ejecución (`tests/asm/`, comprueba el exit code del binario); `arm`, `riscv` y el intérprete se rechazan con "backend is not implemented". `optimize_ir` pendiente.
+Estado: lexer, parser, sema e IR implementados y testeados con fixtures. Codegen: el backend x86-64 emite assembly AT&T completo y tiene suite propia de ejecución (`tests/asm/`, comprueba el exit code del binario); aplica optimizaciones locales de codegen (A1–A5 en `comp_pending.md`: stores diferidos, const/alias, RMW, strength reduction con magia de división, fusión cmp+jcc, DCE, tail calls); `arm`, `riscv` y el intérprete se rechazan con "backend is not implemented". `optimize_ir` pendiente.
 
 ---
 
@@ -346,16 +346,16 @@ fn <nombre>(<n> params, <m> regs) : <ret>
 
 ## Backend x86-64
 
-Modelo deliberadamente simple: todavía no hay allocator de registros ni `optimize_ir`.
+Modelo con optimizaciones locales de codegen (A1–A5, ver `comp_pending.md`); todavía no hay allocator de registros ni `optimize_ir`.
 
-- **Homes en memoria**: cada registro virtual ocupa `types[t].size` bytes en el frame, en `-N(%rbp)`. Los slots se reparten de mayor a menor tamaño (8, 4, 2, 1) para mantener la alineación natural, y el área de salida para llamadas queda al fondo del frame. El frame siempre es múltiplo de 16.
-- **Cada instrucción IR es autocontenida**: carga sus operandos, calcula y guarda el resultado en el home del destino. Ningún valor vive en un registro entre dos instrucciones, y solo se usan `rax`, `rcx`, `rdx` (más los registros de argumentos al preparar una llamada). No se usa ningún registro callee-saved.
+- **Homes en memoria**: cada registro virtual superviviente ocupa `types[t].size` bytes en el frame, en `-N(%rbp)` (o `(%rsp)` en hojas red-zone). Los temporales de un solo uso de 8 bytes se quedan en `%rax` sin slot ni store (A1); los `MOVE`s de definición única no emiten nada (const → inmediato, alias → slot del origen, A2). Los slots se reparten de mayor a menor tamaño (8, 4, 2, 1) para mantener la alineación natural, y el área de salida para llamadas queda al fondo del frame. El frame siempre es múltiplo de 16.
+- **Cada instrucción IR es autocontenida salvo A1**: carga sus operandos, calcula y guarda el resultado en el home del destino (o lo deja en `%rax` si es diferido). Solo se usan `rax`, `rcx`, `rdx` (más los registros de argumentos al preparar una llamada). No se usa ningún registro callee-saved. La caché `rax_v` evita recargas (invalidada en `call`, `div/mod`, labels y stores narrow).
 - **Extensión al cargar**: leer un vreg emite `movzx`/`movsx` (o `movl`/`movq`) según el tipo del vreg, así que el valor en el registro de trabajo es el valor de 64 bits con su signo correcto. Guardar escribe solo `types[t].size` bytes.
-- **Aritmética**: `add sub and or xor imul neg not shl` se calculan a 64 bits sobre el valor extendido (los bits bajos coinciden con la operación nativa del ancho). `shr`/`sar` y las comparaciones usan el signo de `data_type`. `div`/`mod` corren al **ancho nativo** del tipo (`idivb/w/l/q`, `divb/w/l/q`); el resto de un tipo de 1 byte sale de `%ah`.
-- **Comparaciones y saltos**: `cmp` + `setcc` + `movzbl`, con resultado `i64` 0/1. `jz`/`jnz` emiten `cmp $0, <home>` + `je`/`jne`. Las etiquetas son `.L<n>` con los ids únicos del IR.
+- **Aritmética y fuerza**: `add sub and or xor imul neg not shl` se calculan a 64 bits sobre el valor extendido (los bits bajos coinciden con la operación nativa del ancho). `x = x op K` con `K` constante se emite como una sola instrucción RMW en memoria (`addq $K, mem`, también `sub/and/or/xor`, `shl`, `neg`/`not`). `*2^k` → `shl`, `*3/5/9` → `lea`, `*(2^k±1)` → `shl+add/sub`; `/`/`%` por constante → `shrq`/`andq` si es potencia de 2 (con signo vía `bias`) o magia con `mulq`/`imulq` + shifts en otro caso; shifts con cuenta constante usan inmediato. `shr`/`sar` y las comparaciones usan el signo de `data_type`. `div`/`mod` con divisor no constante corren al **ancho nativo** del tipo (`idivb/w/l/q`, `divb/w/l/q`); el resto de un tipo de 1 byte sale de `%ah`.
+- **Comparaciones y saltos**: `cmp` + `setcc` + `movzbl`, con resultado `i64` 0/1; si la comparación alimenta directamente a un `jz`/`jnz` se fusiona en un solo `cmp+jcc`. `jz`/`jnz` sobre constante se resuelven (`jmp`/nada); si no, emiten `cmp $0, <home>` + `je`/`jne` (con atajo `testq %rax` si el valor ya está en `%rax`). Las etiquetas son `.L<n>` con los ids únicos del IR. Defs puras sin usos no emiten nada (DCE local).
 - **Llamadas (System V AMD64)**: los args 0..5 van en `rdi rsi rdx rcx r8 r9`; el resto, en el área de salida (`(%rsp)`, `8(%rsp)`, …). El callee los lee de `16(%rbp)`, `24(%rbp)`, … y el retorno va en `rax`.
 - **Globals**: se accede a ellos con `nombre(%rip)`. Si el **primer acceso** a un global dentro de `__r2_init` es un `const` seguido de su `str_global` (mismo reg y mismo tipo), y todavía no ha habido ninguna llamada ni salto, el global se emite en `.data` con ese valor; el resto va a `.bss`. Cuando el init se optimiza a `.data`, su `const`+`str_global` se borran (`NOP`) y si el init queda vacío no se emite `__r2.init` ni la llamada desde `main`.
-- **Prólogo/epílogo**: `pushq %rbp; movq %rsp, %rbp; subq $frame, %rsp` y `leave; ret`. Todo `ret` del IR (incluido el implícito de final de función) emite su epílogo.
+- **Prólogo/epílogo**: `pushq %rbp; movq %rsp, %rbp; subq $frame, %rsp` y `leave; ret` (hojas en red-zone sin nada). Todo `ret` del IR (incluido el implícito de final de función) emite su epílogo. `return f()` con ≤6 args y mismo tipo de retorno es tail call (`leave; jmp`).
 - **Entry**: ver la sección 11 (`main` del usuario como `__r2_main` y wrapper `main`).
 
 ## 15. Uso del compilador
