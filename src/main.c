@@ -23,10 +23,12 @@ static void print_help (const char *build)
 	printf("    -o|--out FILE       Output assembly path (default: <source>.s). '-' for stdout\n");
 	printf("    -a|--arch ARCH      Indicates the architecture. Default: x86-64.\n");
 	printf("    -e|--execute        Runs the program with the interpreter instead of generating assembly (not implemented yet).\n");
+	printf("    -O|--opt LEVEL      Optimization level. Accepted without space. Accepted 0, 1 and 2\n");
 	printf("    -T|--dump-tokens    Prints your code tokens to stdout\n");
 	printf("    -A|--dump-ast       Prints the parsed AST to stdout\n");
 	printf("    -S|--dump-symbols   Prints the resolved symbol table to stdout\n");
 	printf("    -I|--dump-ir        Prints the generated IR to stdout\n");
+	printf("    -D|--dump-opt       Prints the optimized IR to stdout\n");
 }
 
 typedef struct ArchAlias {
@@ -50,6 +52,8 @@ static const struct option long_options[] = {
 	{"dump-ast", no_argument, 0, 'A'},
 	{"dump-symbols", no_argument, 0, 'S'},
 	{"dump-ir", no_argument, 0, 'I'},
+	{"dump-opt", no_argument, 0, 'D'},
+	{"opt", required_argument, 0, 'O'},
 	{0, 0, 0, 0}
 };
 
@@ -62,6 +66,21 @@ static Arch get_arch (const char *s)
 			return arch_aliases[i].arch;
 
 	fprintf(stderr, "Unknown architecture '%s' (valid: x86-64, arm, riscv)\n", s);
+	exit(1);
+}
+
+static OptLevel get_opt_level (const char *s)
+{
+	if (!s || !s[0] || s[1] != '\0') {
+		fprintf(stderr, "Unknown optimization level '%s'. Use 0, 1 or 2\n", s ? s : "(null)");
+		exit(1);
+	}
+
+	if (s[0] == '0') return NO_OPT;
+	if (s[0] == '1') return OPT_BASIC;
+	if (s[0] == '2') return OPT_FULL;
+
+	fprintf(stderr, "Unknown optimization level '%s'. Use 0, 1 or 2\n", s ? s : "(null)");
 	exit(1);
 }
 
@@ -97,7 +116,7 @@ static int same_file (const char *a, const char *b)
 static void resolve_paths (CompilerOpts *args, int argc, char *argv[])
 {
 	int dumping = args->dump_tokens || args->dump_ast
-			|| args->dump_symbols || args->dump_ir;
+			|| args->dump_symbols || args->dump_ir || args->dump_opt;
 
 	if (optind >= argc) {
 		fprintf(stderr, "No source file found\n");
@@ -117,12 +136,14 @@ static void resolve_paths (CompilerOpts *args, int argc, char *argv[])
 
 static CompilerOpts parse_args (int argc, char *argv[])
 {
-	CompilerOpts args = { .arch = ARCH_X86_64 };
+	CompilerOpts args = { .arch = ARCH_X86_64, .opt_level = OPT_BASIC };
 	int opt;
 	int interp = 0;
+	int opt_spec = 0;
 
 	opterr = 0;
-	while ((opt = getopt_long(argc, argv, ":TIASo:a:ehv", long_options, NULL)) != -1) {
+	const char *short_opts = ":TIASDO:o:a:ehv";
+	while ((opt = getopt_long(argc, argv, short_opts, long_options, NULL)) != -1) {
 		switch (opt)
 		{
 		case 'o': args.out = optarg; break;
@@ -134,6 +155,8 @@ static CompilerOpts parse_args (int argc, char *argv[])
 		case 'A': args.dump_ast = 1; break;
 		case 'S': args.dump_symbols = 1; break;
 		case 'I': args.dump_ir = 1; break;
+		case 'D': args.dump_opt = 1; break;
+		case 'O': args.opt_level = get_opt_level(optarg); opt_spec = 1; break;
 		case ':':
 			fprintf(stderr, "Option '-%c' requires an argument.\n", optopt);
 			exit(1);
@@ -145,6 +168,7 @@ static CompilerOpts parse_args (int argc, char *argv[])
 	}
 	resolve_paths(&args, argc, argv);
 	if (interp) args.arch = ARCH_INTERP;
+	if (args.dump_opt && !opt_spec) args.opt_level = OPT_FULL;
 	return args;
 }
 

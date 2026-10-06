@@ -118,24 +118,13 @@ static void make_globals (CodeGen *c, uint8_t *kind, int64_t *vals)
 	}
 }
 
-static const uint8_t execute_anyways[IR_COUNT] =
-{
-	[IR_CONST] = 1, [IR_MOVE] = 1, [IR_EXTEND] = 1,
-	[IR_ADD] = 1, [IR_SUB] = 1, [IR_MUL] = 1,
-	[IR_AND_A] = 1, [IR_OR_A] = 1, [IR_XOR] = 1,
-	[IR_RS] = 1, [IR_LS] = 1, [IR_NEG] = 1,
-	[IR_NOT_A] = 1, [IR_NOT_L] = 1, [IR_EQ] = 1,
-	[IR_NE] = 1, [IR_GT] = 1, [IR_GE] = 1,
-	[IR_LT] = 1, [IR_LE] = 1, [IR_LD_GLOBAL] = 1
-};
-
 static int is_silent (X86Fn *f, IRInstr *i)
 {
 	if (i->op == IR_NOP) return 1;
 	if (i->dst == NO_REG) return 0;
 	if (f->cstate[i->dst] == VR_CONST || f->cstate[i->dst] == VR_ALIAS)
 		return 1;
-	return f->uses[i->dst] == 0 && execute_anyways[i->op];
+	return f->uses[i->dst] == 0 && is_deletable[i->op];
 }
 
 static IRInstr *next_live (X86Fn *f, IRInstr *i, IRInstr *end)

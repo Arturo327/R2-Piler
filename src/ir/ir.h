@@ -88,6 +88,9 @@ typedef struct IR {
 	SymbolTable *symtab;
 } IR;
 
+extern const uint8_t is_deletable[IR_COUNT];
+extern const uint8_t has_side_effect[IR_COUNT];
+
 void ir_init (IR *ir, Arena *arena, Sema *sema);
 void ir_gen (IR *ir);
 void dump_ir (IR *ir);

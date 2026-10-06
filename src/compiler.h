@@ -8,16 +8,19 @@
 #include "sema/sema.h"
 #include "codegen/codegen.h"
 #include "ir/ir.h"
+#include "ir/opt.h"
 
 typedef struct CompilerOpts {
 	char *path;
 	char *out;
 	Arch arch;
+	OptLevel opt_level;
 
 	int dump_tokens;
 	int dump_ast;
 	int dump_symbols;
 	int dump_ir;
+	int dump_opt;
 } CompilerOpts;
 
 typedef struct Compiler {
@@ -26,6 +29,7 @@ typedef struct Compiler {
 	Arena sym_arena;
 	Arena ir_arena;
 	Arena gen_arena;
+	Arena opt_arena;
 
 	ErrorReporter err;
 

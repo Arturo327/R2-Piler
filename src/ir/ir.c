@@ -75,6 +75,25 @@ static const uint8_t node_to_ir[NODE_COUNT] = {
 	[NODE_GE] = IR_GE, [NODE_LT] = IR_LT, [NODE_LE] = IR_LE
 };
 
+const uint8_t is_deletable[IR_COUNT] =
+{
+	[IR_CONST] = 1, [IR_MOVE] = 1, [IR_EXTEND] = 1,
+	[IR_ADD] = 1, [IR_SUB] = 1, [IR_MUL] = 1,
+	[IR_AND_A] = 1, [IR_OR_A] = 1, [IR_XOR] = 1,
+	[IR_RS] = 1, [IR_LS] = 1, [IR_NEG] = 1,
+	[IR_NOT_A] = 1, [IR_NOT_L] = 1, [IR_EQ] = 1,
+	[IR_NE] = 1, [IR_GT] = 1, [IR_GE] = 1,
+	[IR_LT] = 1, [IR_LE] = 1, [IR_LD_GLOBAL] = 1
+};
+
+const uint8_t has_side_effect[IR_COUNT] =
+{
+	[IR_STR_GLOBAL] = 1, [IR_CALL] = 1, [IR_RET] = 1,
+	[IR_LABEL] = 1, [IR_JMP] = 1, [IR_JZ] = 1, [IR_JNZ] = 1,
+	[IR_ARG] = 1, [IR_PARAM] = 1,
+	[IR_DIV] = 1, [IR_MOD] = 1
+};
+
 static uint32_t new_reg (IR *ir, uint8_t type)
 {
 	uint32_t r = ir->reg_count++;

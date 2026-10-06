@@ -13,6 +13,7 @@ void compiler_init (Compiler *comp)
 	arena_init(&comp->sym_arena);
 	arena_init(&comp->ir_arena);
 	arena_init(&comp->gen_arena);
+	arena_init(&comp->opt_arena);
 }
 
 static long file_size (FILE *f, const char *file)
@@ -117,7 +118,7 @@ static void release_frontend (Compiler *c)
 int compile (Compiler *c, CompilerOpts *opts)
 {
 	int dumping = opts->dump_tokens || opts->dump_ast
-			|| opts->dump_symbols || opts->dump_ir;
+			|| opts->dump_symbols || opts->dump_ir || opts->dump_opt;
 
 	if (compiler_load_file(c, opts->path)) return 1;
 	if (!dumping && init_codegen(&c->codegen, opts->arch, &c->gen_arena,
@@ -147,6 +148,15 @@ int compile (Compiler *c, CompilerOpts *opts)
 		return 0;
 	}
 	release_frontend(c);
+
+	if (opts->opt_level)
+		optimize_ir(&c->ir, &c->opt_arena, opts->opt_level);
+
+	if (opts->dump_opt) {
+		dump_ir(&c->ir);
+		return 0;
+	}
+
 	return codegen_run(&c->codegen);
 }
 
@@ -157,5 +167,6 @@ void compiler_destroy (Compiler *comp)
 	arena_destroy(&comp->sym_arena);
 	arena_destroy(&comp->ir_arena);
 	arena_destroy(&comp->gen_arena);
+	arena_destroy(&comp->opt_arena);
 	memset(comp, 0, sizeof(*comp));
 }

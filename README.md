@@ -45,19 +45,12 @@ The x86-64 backend lowers every IR instruction to AT&T assembly, so a plain comp
 git clone https://github.com/Arturo327/R2-Piler
 cd R2-Piler
 make
-./build/r2p --dump-tokens path/to/file.r2
-./build/r2p --dump-ast path/to/file.r2
-./build/r2p --dump-symbols path/to/file.r2
-./build/r2p --dump-ir path/to/file.r2
-```
-
-A plain compile (no dump flag) writes assembly to `<source>.s` (or the `-o` target; `-` for stdout). Assemble and run it with gcc:
-
-```bash
 ./build/r2p prog.r2      # writes prog.s
 gcc prog.s -o prog
 ./prog; echo $?          # exit code = value returned by main
 ```
+
+A plain compile (no dump flag) writes assembly to `<source>.s` (or the `-o` target; `-` for stdout). Assemble with gcc and run it.
 
 `-a arm`, `-a riscv` and `-e` (interpreter) are rejected with "backend is not implemented".
 
@@ -70,6 +63,15 @@ make test
 This runs the five fixture suites: `test_lexer` (`--dump-tokens` over `tests/lexer/*_src.r2`), `test_parser` (`--dump-ast` over `tests/parser/*_src.r2`), `test_sema` (`--dump-symbols` over `tests/sema/*_src.r2`), `test_ir` (`--dump-ir` over `tests/ir/*_src.r2`) and `test_asm` (`tests/run_asm.sh` over `tests/asm/*_src.r2`, which compiles, assembles with `gcc`, runs the binary and checks the exit code in `<name>_exit.txt`).
 
 `tests/regen_fixtures.sh build/r2p` regenerates every `_stderr.txt` fixture from actual binary output (verifying stdout and exit status did not change); useful whenever diagnostics change.
+
+Some debug flags:
+```bash
+./build/r2p --dump-tokens path/to/file.r2
+./build/r2p --dump-ast path/to/file.r2
+./build/r2p --dump-symbols path/to/file.r2
+./build/r2p --dump-ir path/to/file.r2
+./build/r2p --dump-opt path/to/file.r2
+```
 
 ---
 
