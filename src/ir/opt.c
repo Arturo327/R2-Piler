@@ -91,6 +91,51 @@ static void analyze_fn (Optimizer *opt, OptFn *f)
 	count_label_refs(opt->ir, f);
 }
 
+static uint32_t label_block (IR *ir, OptFn *f, uint32_t label)
+{
+	uint32_t b = f->lmap[label];
+	IRInstr *in;
+
+	if (b >= f->block_count) return OPT_NO_BLOCK;
+	in = ir->instrs + f->blocks[b].start;
+	return in->op == IR_LABEL && in->target == label ? b : OPT_NO_BLOCK;
+}
+
+static void build_cfg (IR *ir, OptFn *f)
+{
+	for (uint32_t b = 0; b < f->block_count; b++) {
+		OptBlock *blk = f->blocks + b;
+		IRInstr *last = ir->instrs + blk->start + blk->count - 1;
+		int jumps = last->op == IR_JMP || last->op == IR_JZ || last->op == IR_JNZ;
+		int falls = last->op != IR_JMP && last->op != IR_RET && b + 1 < f->block_count;
+
+		blk->succ_count = 0;
+		blk->reachable = 0;
+		if (falls) blk->succ[blk->succ_count++] = b + 1;
+		if (!jumps) continue;
+
+		uint32_t t = label_block(ir, f, last->target);
+		blk->succ[blk->succ_count++] = t;
+	}
+}
+
+static void mark_reachable (OptFn *f)
+{
+	uint32_t sp = 0;
+
+	f->work[sp++] = 0;
+	f->blocks[0].reachable = 1;
+	while (sp) {
+		OptBlock *b = f->blocks + f->work[--sp];
+
+		for (uint32_t k = 0; k < b->succ_count; k++) {
+			if (f->blocks[b->succ[k]].reachable) continue;
+			f->blocks[b->succ[k]].reachable = 1;
+			f->work[sp++] = b->succ[k];
+		}
+	}
+}
+
 static void kill_instr (IRInstr *in)
 {
 	in->op = IR_NOP;
@@ -98,6 +143,12 @@ static void kill_instr (IRInstr *in)
 	in->src1 = NO_REG;
 	in->src2 = NO_REG;
 	in->argc = 0;
+}
+
+static IRInstr *next_real (IRInstr *code, uint32_t from, uint32_t count)
+{
+	while (from < count && code[from].op == IR_NOP) from++;
+	return from < count ? code + from : NULL;
 }
 
 static int same_rep (IRFn *fn, uint32_t a, uint32_t b)
@@ -287,12 +338,74 @@ static int opt_fold (Optimizer *opt, OptFn *f)
 	return changed;
 }
 
+static int opt_coalesce (Optimizer *opt, OptFn *f)
+{
+	IRInstr *code = opt->ir->instrs + f->fn->start;
+	int changed = 0;
+
+	for (uint32_t i = 0; i < f->fn->count; i++) {
+		IRInstr *a = code + i;
+		IRInstr *m;
+		int can = (is_deletable[a->op] && a->op != IR_MOVE)
+				|| a->op == IR_CALL || a->op == IR_DIV || a->op == IR_MOD;
+
+		if (!can || a->dst == NO_REG) continue;
+		if (f->defs[a->dst] != 1 || f->uses[a->dst] != 1) continue;
+
+		m = next_real(code, i + 1, f->fn->count);
+		if (!m || m->op != IR_MOVE || m->src1 != a->dst || m->dst == a->dst) continue;
+		if (!same_rep(f->fn, a->dst, m->dst)) continue;
+
+		a->dst = m->dst;
+		kill_instr(m);
+		changed = 1;
+	}
+	return changed;
+}
+
+static int opt_dce (Optimizer *opt, OptFn *f)
+{
+	IRInstr *code = opt->ir->instrs + f->fn->start;
+	int changed = 0;
+
+	for (uint32_t i = f->fn->count; i-- > 0;) {
+		IRInstr *in = code + i;
+
+		if (in->dst == NO_REG || f->uses[in->dst] || !is_deletable[in->op]) continue;
+		if (in->src1 != NO_REG) f->uses[in->src1]--;
+		if (in->src2 != NO_REG) f->uses[in->src2]--;
+		kill_instr(in);
+		changed = 1;
+	}
+	return changed;
+}
+
+static int opt_unreachable (Optimizer *opt, OptFn *f)
+{
+	IRInstr *last = opt->ir->instrs + f->fn->start + f->fn->count - 1;
+	int changed = 0;
+
+	build_cfg(opt->ir, f);
+	mark_reachable(f);
+	for (uint32_t b = 1; b < f->block_count; b++) {
+		IRInstr *code = opt->ir->instrs + f->blocks[b].start;
+
+		if (f->blocks[b].reachable) continue;
+		for (uint32_t i = 0; i < f->blocks[b].count; i++) {
+			if (code[i].op == IR_NOP || code + i == last) continue;
+			kill_instr(code + i);
+			changed = 1;
+		}
+	}
+	return changed;
+}
+
 static const OptPassDesc passes[] = {
 	{ opt_propagate, OPT_BASIC },
 	{ opt_fold, OPT_BASIC },
-//	{ opt_coalesce, OPT_FULL },
-//	{ opt_dce, OPT_BASIC },
-//	{ opt_unreachable, OPT_BASIC },
+	{ opt_coalesce, OPT_FULL },
+	{ opt_dce, OPT_BASIC },
+	{ opt_unreachable, OPT_BASIC },
 //	{ opt_jumps, OPT_BASIC }
 };
 
