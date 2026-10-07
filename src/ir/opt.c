@@ -400,13 +400,59 @@ static int opt_unreachable (Optimizer *opt, OptFn *f)
 	return changed;
 }
 
+static int jump_to_next (OptFn *f, IRInstr *code, uint32_t i)
+{
+	IRInstr *in = code + i;
+	IRInstr *nx = next_real(code, i + 1, f->fn->count);
+
+	if (!nx || nx->op != IR_LABEL || nx->target != in->target) return 0;
+	f->lrefs[in->target]--;
+	kill_instr(in);
+	return 1;
+}
+
+static int flip_branch (OptFn *f, IRInstr *code, uint32_t i)
+{
+	IRInstr *br = code + i;
+	IRInstr *jmp = next_real(code, i + 1, f->fn->count);
+	IRInstr *lab;
+
+	if (!jmp || jmp->op != IR_JMP) return 0;
+	lab = next_real(code, (uint32_t)(jmp - code) + 1, f->fn->count);
+	if (!lab || lab->op != IR_LABEL || lab->target != br->target) return 0;
+
+	f->lrefs[br->target]--;
+	br->op = br->op == IR_JZ ? IR_JNZ : IR_JZ;
+	br->target = jmp->target;
+	kill_instr(jmp);
+	return 1;
+}
+
+static int opt_jumps (Optimizer *opt, OptFn *f)
+{
+	IRInstr *code = opt->ir->instrs + f->fn->start;
+	int changed = 0;
+
+	for (uint32_t i = 0; i + 1 < f->fn->count; i++) {
+		IRInstr *in = code + i;
+
+		if (in->op == IR_LABEL && !f->lrefs[in->target]) {
+			kill_instr(in);
+			changed = 1;
+		} else if (in->op == IR_JMP) changed |= jump_to_next(f, code, i);
+		else if (in->op == IR_JZ || in->op == IR_JNZ)
+			changed |= flip_branch(f, code, i);
+	}
+	return changed;
+}
+
 static const OptPassDesc passes[] = {
 	{ opt_propagate, OPT_BASIC },
 	{ opt_fold, OPT_BASIC },
 	{ opt_coalesce, OPT_FULL },
 	{ opt_dce, OPT_BASIC },
 	{ opt_unreachable, OPT_BASIC },
-//	{ opt_jumps, OPT_BASIC }
+	{ opt_jumps, OPT_BASIC }
 };
 
 static void optimize_fn (Optimizer *opt, OptFn *f)
