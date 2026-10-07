@@ -29,15 +29,16 @@ fn main(0 params, 16 regs) : i64
     r11 = const.i64 3
     ret.i64 r11
   L3:
+    jmp -> L6
   L5:
-    r12 = move.i64 r0
-    jz r12 -> L6
-    r13 = move.i64 r1
-    jnz r13 -> L6
-    r14 = const.i64 1
-    r1 = move.i64 r14
-    jmp -> L5
+    r12 = const.i64 1
+    r1 = move.i64 r12
   L6:
+    r13 = move.i64 r0
+    jz r13 -> L7
+    r14 = move.i64 r1
+    jz r14 -> L5
+  L7:
     r15 = move.i64 r1
     ret.i64 r15
     ret

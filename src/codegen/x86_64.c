@@ -262,12 +262,15 @@ static uint32_t lay_size (X86Fn *f, uint32_t c, uint8_t s)
 		uint8_t k = f->cstate[r];
 
 		if (types[fn->reg_types[r]].size != s) continue;
-		if (k == VR_CONST || k > VR_MEM) continue;
+		if (k == VR_CONST || k > VR_MEM || !f->uses[r]) continue;
 		c += s;
 		f->slots[r] = c;
 	}
 	return c;
 }
+
+static IRInstr *tail_ret (IRInstr *call);
+static int tail_match (X86Fn *f, IRInstr *call, IRInstr *ret);
 
 static uint32_t scan_outg (X86Fn *f)
 {
@@ -281,7 +284,9 @@ static uint32_t scan_outg (X86Fn *f)
 		uint32_t n;
 
 		if (instr->op != IR_CALL) continue;
+		if (tail_match(f, instr, tail_ret(instr))) continue;
 		f->leaf = 0;
+
 		if (instr->argc <= 6) continue;
 		n = (instr->argc - 6) << 3;
 		if (n > out) out = n;
@@ -423,6 +428,11 @@ static const char *const norm_ops[6] = {
 static void store_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 {
 	uint8_t s = types[f->fn->reg_types[vreg]].size;
+
+	if (!f->uses[vreg]) {
+		f->rax_v = NO_REG;
+		return;
+	}
 
 	if (f->cstate[vreg] == VR_REG) {
 		if (reg != 0)
@@ -743,7 +753,8 @@ static void make_divmod (X86Fn *f, IRInstr *i)
 	if (i->op == IR_DIV)
 		store_reg(f, 0, i->dst);
 	else if (s == 1) {
-		cg_printf(c, "\tmovb %%ah, -%u(%s)\n", f->slots[i->dst], f->base);
+		if (f->uses[i->dst])
+			cg_printf(c, "\tmovb %%ah, -%u(%s)\n", f->slots[i->dst], f->base);
 		f->rax_v = NO_REG;
 	} else store_reg(f, 2, i->dst);
 }
@@ -1017,6 +1028,27 @@ static int make_rmw (X86Fn *f, IRInstr *a)
 	return (int)(c - a) + 1;
 }
 
+static int try_rmw_inplace (X86Fn *f, IRInstr *i)
+{
+	const char *op = NULL;
+	int64_t v = 0;
+	uint32_t x = i->dst;
+	uint8_t s;
+
+	if (!rmw_kind[i->op] || i->dst != i->src1 || f->cstate[x] != VR_MEM)
+		return 0;
+	s = types[f->fn->reg_types[x]].size;
+	if (!rmw_operand(f, i, s, &op, &v)) return 0;
+
+	cg_printf(f->cg, "\t%s%c ", op, mem_suf[s]);
+	if (rmw_kind[i->op] != RMW_UNARY)
+		cg_printf(f->cg, "$%lld, ", (long long)v);
+	cg_printf(f->cg, "-%u(%s)\n", f->slots[x], f->base);
+
+	if (f->rax_v == x) f->rax_v = NO_REG;
+	return 1;
+}
+
 static IRInstr *tail_ret (IRInstr *call)
 {
 	IRInstr *n = call + 1;
@@ -1045,7 +1077,8 @@ static int make_tail_call (X86Fn *f, IRInstr *i)
 	if (c->ir->fns + i->target == f->fn) {
 		cg_printf(c, "\tjmp .LS%u\n", i->target);
 	} else {
-		cg_printf(c, "\tleave\n\tjmp ");
+		if (!f->leaf) cg_printf(c, "\tleave\n");
+		cg_printf(c, "\tjmp ");
 		print_fn_name(c, c->ir->fns + i->target);
 		cg_printf(c, "\n");
 	}
@@ -1058,6 +1091,7 @@ static int make_instr (X86Fn *f, IRInstr *i)
 {
 	if (is_silent(f, i)) return 1;
 	int n;
+	if (try_rmw_inplace(f, i)) return 1;
 
 	switch (i->op)
 	{
@@ -1148,7 +1182,7 @@ static void make_fn (X86Fn *f)
 	cg_printf(c, ":\n");
 	if (!f->leaf) cg_printf(c, "\tpushq %%rbp\n\tmovq %%rsp, %%rbp\n");
 	if (f->frame) cg_printf(c, "\tsubq $%u, %%rsp\n", f->frame);
-	if (!f->leaf) cg_printf(c, ".LS%u:\n", (uint32_t)(fn - c->ir->fns));
+	cg_printf(c, ".LS%u:\n", (uint32_t)(fn - c->ir->fns));
 
 	make_body(f);
 

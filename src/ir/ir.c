@@ -545,14 +545,14 @@ static void gen_while (IR *ir, ASTNode *n)
 {
 	ASTNode *nodes = ir->ast->nodes;
 	uint32_t body = nodes[n->child].next_bro;
+	uint32_t l_body = ir->label_count++;
 	uint32_t l_cond = ir->label_count++;
-	uint32_t l_end = ir->label_count++;
 
-	make_label(ir, l_cond);
-	gen_jump_if(ir, nodes + n->child, l_end, 0);
-	gen_stmt(ir, nodes + body);
 	make_jump(ir, IR_JMP, NO_REG, l_cond);
-	make_label(ir, l_end);
+	make_label(ir, l_body);
+	gen_stmt(ir, nodes + body);
+	make_label(ir, l_cond);
+	gen_jump_if(ir, nodes + n->child, l_body, 1);
 }
 
 static void gen_for (IR *ir, ASTNode *n)
@@ -561,18 +561,19 @@ static void gen_for (IR *ir, ASTNode *n)
 	ASTNode *cond = nodes + nodes[n->child].next_bro;
 	ASTNode *updt = nodes + cond->next_bro;
 	ASTNode *body = nodes + updt->next_bro;
+	uint32_t l_body = ir->label_count++;
 	uint32_t l_cond = ir->label_count++;
-	uint32_t l_end = ir->label_count++;
 
 	gen_stmt(ir, nodes + n->child);
-	make_label(ir, l_cond);
 	if (cond->type != NODE_EMPTY)
-		gen_jump_if(ir, cond, l_end, 0);
+		make_jump(ir, IR_JMP, NO_REG, l_cond);
 
+	make_label(ir, l_body);
 	gen_stmt(ir, body);
 	gen_stmt(ir, updt);
-	make_jump(ir, IR_JMP, NO_REG, l_cond);
-	make_label(ir, l_end);
+	make_label(ir, l_cond);
+	if (cond->type == NODE_EMPTY) make_jump(ir, IR_JMP, NO_REG, l_body);
+	else gen_jump_if(ir, cond, l_body, 1);
 }
 
 static void gen_stmt (IR *ir, ASTNode *n)
