@@ -2,6 +2,15 @@
 
 #include <string.h>
 
+#define OPT_MAX_ROUNDS 8
+
+typedef int (*OptPass) (Optimizer *opt, OptFn *f);
+
+typedef struct OptPassDesc {
+	OptPass run;
+	OptLevel min_level;
+} OptPassDesc;
+
 static int starts_block (IR *ir, IRFn *fn, uint32_t i)
 {
 	if (!i) return 1;
@@ -15,114 +24,150 @@ static int starts_block (IR *ir, IRFn *fn, uint32_t i)
 	return 0;
 }
 
-static uint32_t count_blocks (IR *ir, IRFn *fn)
-{
-	uint32_t n = 0;
-
-	for (uint32_t i = 0; i < fn->count; i++) 
-		if (starts_block(ir, fn, i)) n++;
-
-	return n;
-}
-
-static void fill_blocks (IR *ir, OptFn *optfn, IRFn *fn)
+static void fill_blocks (IR *ir, OptFn *f)
 {
 	uint32_t b = 0;
 
-	if (!optfn->block_count) return;
-	optfn->blocks[0].start = fn->start;
-	optfn->blocks[0].count = 0;
-
-	for (uint32_t i = 0; i < fn->count; i++) {
-		if (i > 0 && starts_block(ir, fn, i)) {
+	f->blocks[0].start = f->fn->start;
+	f->blocks[0].count = 0;
+	for (uint32_t i = 0; i < f->fn->count; i++) {
+		if (i > 0 && starts_block(ir, f->fn, i)) {
 			b++;
-			optfn->blocks[b].start = fn->start + i;
-			optfn->blocks[b].count = 0;
+			f->blocks[b].start = f->fn->start + i;
+			f->blocks[b].count = 0;
 		}
-		optfn->blocks[b].count++;
+		f->blocks[b].count++;
+	}
+	f->block_count = b + 1;
+}
+
+static void build_lmap (IR *ir, OptFn *f)
+{
+	for (uint32_t j = 0; j < f->block_count; j++) {
+		IRInstr *in = ir->instrs + f->blocks[j].start;
+
+		if (in->op != IR_LABEL) continue;
+		f->lmap[in->target] = j;
+		f->lrefs[in->target] = 0;
 	}
 }
 
-static void setup_fn (OptFn *optfn, IR *ir, IRFn *fn, uint32_t i)
+static void count_regs (IR *ir, OptFn *f)
 {
-	optfn->fn_idx = i;
-	optfn->reg_count = fn->reg_count;
-	optfn->label_cap = ir->label_count;
-	optfn->block_count = count_blocks(ir, fn);
-}
+	IRFn *fn = f->fn;
+	memset(f->defs, 0, (size_t)fn->reg_count * sizeof(uint32_t));
+	memset(f->uses, 0, (size_t)fn->reg_count * sizeof(uint32_t));
 
-static void alloc_fn (Arena *a, OptFn *optfn, IR *ir, IRFn *fn)
-{
-	optfn->blocks = arena_alloc(a, optfn->block_count ?
-			optfn->block_count * sizeof(OptBlock) : sizeof(OptBlock));
-	optfn->lmap = arena_alloc(a, ir->label_count ?
-			ir->label_count * sizeof(uint32_t) : sizeof(uint32_t));
-	optfn->defs = arena_alloc(a, fn->reg_count ?
-			fn->reg_count * sizeof(uint32_t) : sizeof(uint32_t));
-	optfn->uses = arena_alloc(a, fn->reg_count ?
-			fn->reg_count * sizeof(uint32_t) : sizeof(uint32_t));
-}
-
-static void clear_fn (OptFn *optfn, IR *ir, IRFn *fn)
-{
-	memset(optfn->lmap, 0xFF, ir->label_count ?
-			ir->label_count * sizeof(uint32_t) : sizeof(uint32_t));
-	memset(optfn->defs, 0, fn->reg_count ?
-			fn->reg_count * sizeof(uint32_t) : sizeof(uint32_t));
-	memset(optfn->uses, 0, fn->reg_count ?
-			fn->reg_count * sizeof(uint32_t) : sizeof(uint32_t));
-}
-
-static void build_lmap (IR *ir, OptFn *optfn)
-{
-	for (uint32_t j = 0; j < optfn->block_count; j++) {
-		IRInstr *in = ir->instrs + optfn->blocks[j].start;
-		if (in->op != IR_LABEL || in->target >= ir->label_count) continue;
-		if (optfn->lmap[in->target] != OPT_NO_BLOCK) continue;
-		optfn->lmap[in->target] = j;
-	}
-}
-
-static void count_regs (IR *ir, OptFn *optfn, IRFn *fn)
-{
 	for (uint32_t j = 0; j < fn->count; j++) {
 		IRInstr *in = ir->instrs + fn->start + j;
+
 		if (in->op == IR_NOP) continue;
-		if (in->dst != NO_REG && in->dst < fn->reg_count) optfn->defs[in->dst]++;
-		if (in->src1 != NO_REG && in->src1 < fn->reg_count) optfn->uses[in->src1]++;
-		if (in->src2 != NO_REG && in->src2 < fn->reg_count) optfn->uses[in->src2]++;
+		if (in->dst != NO_REG) {
+			f->defs[in->dst]++;
+			f->def_at[in->dst] = fn->start + j;
+		}
+		if (in->src1 != NO_REG)
+			f->uses[in->src1]++;
+		if (in->src2 != NO_REG)
+			f->uses[in->src2]++;
 	}
 }
 
-static void analyze_fn (Optimizer *opt, uint32_t i)
+static void count_label_refs (IR *ir, OptFn *f)
 {
-	OptFn *optfn = opt->fns + i;
-	IR *ir = opt->ir;
-	IRFn *fn = ir->fns + i;
+	for (uint32_t j = 0; j < f->fn->count; j++) {
+		IRInstr *in = ir->instrs + f->fn->start + j;
 
-	setup_fn(optfn, ir, fn, i);
-	alloc_fn(opt->arena, optfn, ir, fn);
-	fill_blocks(ir, optfn, fn);
-	clear_fn(optfn, ir, fn);
-	build_lmap(ir, optfn);
-	count_regs(ir, optfn, fn);
+		if (in->op == IR_JMP || in->op == IR_JZ || in->op == IR_JNZ)
+			f->lrefs[in->target]++;
+	}
+}
+
+static void analyze_fn (Optimizer *opt, OptFn *f)
+{
+	fill_blocks(opt->ir, f);
+	build_lmap(opt->ir, f);
+	count_regs(opt->ir, f);
+	count_label_refs(opt->ir, f);
+}
+
+static const OptPassDesc passes[] = {
+//	{ opt_propagate, OPT_BASIC },
+//	{ opt_fold, OPT_BASIC },
+//	{ opt_coalesce, OPT_FULL },
+//	{ opt_dce, OPT_BASIC },
+//	{ opt_unreachable, OPT_BASIC },
+//	{ opt_jumps, OPT_BASIC }
+};
+
+static void optimize_fn (Optimizer *opt, OptFn *f)
+{
+	size_t n = sizeof(passes) / sizeof(passes[0]);
+
+	for (int round = 0; round < OPT_MAX_ROUNDS; round++) {
+		int changed = 0;
+
+		for (size_t p = 0; p < n; p++) {
+			if (passes[p].min_level > opt->level) continue;
+			analyze_fn(opt, f);
+			changed |= passes[p].run(opt, f);
+		}
+		if (!changed) break;
+	}
+}
+
+static void compact_ir (IR *ir)
+{
+	uint32_t out = 0;
+
+	for (uint32_t i = 0; i < ir->fn_count; i++) {
+		IRFn *fn = ir->fns + i;
+		uint32_t begin = fn->start;
+		uint32_t end = begin + fn->count;
+
+		fn->start = out;
+		for (uint32_t j = begin; j < end; j++)
+			if (ir->instrs[j].op != IR_NOP) ir->instrs[out++] = ir->instrs[j];
+		fn->count = out - fn->start;
+	}
+	ir->instr_count = out;
 }
 
 static void init_opt (Optimizer *opt, IR *ir, Arena *a, OptLevel level)
 {
+	size_t max_regs = 1;
+	size_t max_instrs = 1;
+	size_t labels = (size_t)ir->label_count + 1;
+
+	for (uint32_t i = 0; i < ir->fn_count; i++) {
+		if (ir->fns[i].reg_count > max_regs) max_regs = ir->fns[i].reg_count;
+		if (ir->fns[i].count > max_instrs) max_instrs = ir->fns[i].count;
+	}
 	opt->arena = a;
 	opt->ir = ir;
 	opt->level = level;
-	opt->fn_count = ir->fn_count;
-	opt->fns = arena_alloc(a, ir->fn_count ?
-			ir->fn_count * sizeof(OptFn) : sizeof(OptFn));
+	opt->lmap = arena_alloc(a, labels * sizeof(uint32_t));
+	opt->lrefs = arena_alloc(a, labels * sizeof(uint32_t));
+	memset(opt->lmap, 0xFF, labels * sizeof(uint32_t));
 
-	for (uint32_t i = 0; i < ir->fn_count; i++)
-		analyze_fn(opt, i);
+	opt->cur.lmap = opt->lmap;
+	opt->cur.lrefs = opt->lrefs;
+	opt->cur.defs = arena_alloc(a, max_regs * sizeof(uint32_t));
+	opt->cur.uses = arena_alloc(a, max_regs * sizeof(uint32_t));
+	opt->cur.def_at = arena_alloc(a, max_regs * sizeof(uint32_t));
+	opt->cur.blocks = arena_alloc(a, max_instrs * sizeof(OptBlock));
+	opt->cur.work = arena_alloc(a, max_instrs * sizeof(uint32_t));
 }
 
-void optimize_ir (IR *ir, Arena *a, OptLevel opt_level)
+void optimize_ir (IR *ir, Arena *a, OptLevel level)
 {
 	Optimizer opt;
-	init_opt(&opt, ir, a, opt_level);
+
+	if (level == NO_OPT) return;
+	init_opt(&opt, ir, a, level);
+	for (uint32_t i = 0; i < ir->fn_count; i++) {
+		opt.cur.fn = ir->fns + i;
+		optimize_fn(&opt, &opt.cur);
+	}
+	compact_ir(ir);
 }

@@ -18,17 +18,17 @@ static void print_help (const char *build)
 	printf("    %s [OPTIONS] codefile.r2\n\n", build);
 
 	printf("OPTIONS\n");
-	printf("    -v|--version        Shows running version.\n");
-	printf("    -h|--help           Shows this message.\n");
-	printf("    -o|--out FILE       Output assembly path (default: <source>.s). '-' for stdout\n");
-	printf("    -a|--arch ARCH      Indicates the architecture. Default: x86-64.\n");
-	printf("    -e|--execute        Runs the program with the interpreter instead of generating assembly (not implemented yet).\n");
-	printf("    -O|--opt LEVEL      Optimization level. Accepted without space. Accepted 0, 1 and 2\n");
-	printf("    -T|--dump-tokens    Prints your code tokens to stdout\n");
-	printf("    -A|--dump-ast       Prints the parsed AST to stdout\n");
-	printf("    -S|--dump-symbols   Prints the resolved symbol table to stdout\n");
-	printf("    -I|--dump-ir        Prints the generated IR to stdout\n");
-	printf("    -D|--dump-opt       Prints the optimized IR to stdout\n");
+	printf("    -v|--version            Shows running version.\n");
+	printf("    -h|--help               Shows this message.\n");
+	printf("    -o|--out FILE           Output assembly path (default: <source>.s). '-' for stdout\n");
+	printf("    -a|--arch ARCH          Indicates the architecture. Default: x86-64.\n");
+	printf("    -e|--execute            Runs the program with the interpreter instead of generating assembly (not implemented yet).\n");
+	printf("    -O[LEVEL]|--opt[=LEVEL] Optimization level 0, 1 or 2 (no space; plain -O means 1). Default: 1\n");
+	printf("    -T|--dump-tokens        Prints your code tokens to stdout\n");
+	printf("    -A|--dump-ast           Prints the parsed AST to stdout\n");
+	printf("    -S|--dump-symbols       Prints the resolved symbol table to stdout\n");
+	printf("    -I|--dump-ir            Prints the generated IR to stdout\n");
+	printf("    -D|--dump-opt           Prints the optimized IR to stdout\n");
 }
 
 typedef struct ArchAlias {
@@ -53,7 +53,7 @@ static const struct option long_options[] = {
 	{"dump-symbols", no_argument, 0, 'S'},
 	{"dump-ir", no_argument, 0, 'I'},
 	{"dump-opt", no_argument, 0, 'D'},
-	{"opt", required_argument, 0, 'O'},
+	{"opt", optional_argument, 0, 'O'},
 	{0, 0, 0, 0}
 };
 
@@ -142,7 +142,7 @@ static CompilerOpts parse_args (int argc, char *argv[])
 	int opt_spec = 0;
 
 	opterr = 0;
-	const char *short_opts = ":TIASDO:o:a:ehv";
+	const char *short_opts = ":TIASDO::o:a:ehv";
 	while ((opt = getopt_long(argc, argv, short_opts, long_options, NULL)) != -1) {
 		switch (opt)
 		{
@@ -156,7 +156,10 @@ static CompilerOpts parse_args (int argc, char *argv[])
 		case 'S': args.dump_symbols = 1; break;
 		case 'I': args.dump_ir = 1; break;
 		case 'D': args.dump_opt = 1; break;
-		case 'O': args.opt_level = get_opt_level(optarg); opt_spec = 1; break;
+		case 'O':
+			args.opt_level = optarg ? get_opt_level(optarg) : OPT_BASIC;
+			opt_spec = 1;
+			break;
 		case ':':
 			fprintf(stderr, "Option '-%c' requires an argument.\n", optopt);
 			exit(1);

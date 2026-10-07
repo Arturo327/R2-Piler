@@ -21,28 +21,25 @@ typedef struct OptBlock {
 } OptBlock;
 
 typedef struct OptFn {
+	IRFn *fn;
 	OptBlock *blocks;
 
 	uint32_t *lmap;
+	uint32_t *lrefs;
 	uint32_t *defs;
 	uint32_t *uses;
-
-	uint32_t *pred_head;
-	uint32_t *pred_next;
-	uint32_t *pred_blk;
-	uint32_t *pred_count;
+	uint32_t *def_at;
+	uint32_t *work;
 
 	uint32_t block_count;
-	uint32_t fn_idx;
-	uint32_t reg_count;
-	uint32_t label_cap;
 } OptFn;
 
 typedef struct Optimizer {
 	Arena *arena;
 	IR *ir;
-	OptFn *fns;
-	uint32_t fn_count;
+	OptFn cur;
+	uint32_t *lmap;
+	uint32_t *lrefs;
 	OptLevel level;
 } Optimizer;
 
