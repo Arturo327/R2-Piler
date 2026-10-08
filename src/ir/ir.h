@@ -55,8 +55,10 @@ typedef struct IRFn {
 
 typedef struct IRGlobal {
 	char *name;
+	int64_t init;
 	uint16_t len;
 	uint8_t type;
+	uint8_t has_init;
 } IRGlobal;
 
 typedef struct IR {

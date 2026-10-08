@@ -6,67 +6,6 @@
 #define INIT_SYM "__r2.init"
 #define RED_ZONE 128
 
-static uint32_t *count_uses (CodeGen *c, IRFn *fn)
-{
-	IR *ir = c->ir;
-	size_t bytes = (size_t)fn->reg_count * sizeof(uint32_t);
-	uint32_t *uses = arena_alloc(c->arena, bytes ? bytes : sizeof(uint32_t));
-
-	memset(uses, 0, bytes);
-	for (uint32_t i = 0; i < fn->count; i++) {
-		IRInstr *instr = ir->instrs + fn->start + i;
-		if (instr->src1 != NO_REG) uses[instr->src1]++;
-		if (instr->src2 != NO_REG) uses[instr->src2]++;
-	}
-	return uses;
-}
-
-static void clasf_globals (CodeGen *c, uint8_t *kind, int64_t *vals)
-{
-	IR *ir = c->ir;
-	IRFn *init = ir->fns + ir->init_fn;
-	uint32_t *uses = count_uses(c, init);
-	IRInstr *first = ir->instrs + init->start;
-
-	uint8_t *seen = arena_alloc(c->arena, ir->global_count ? ir->global_count : 1);
-	memset(kind, 0, ir->global_count);
-	memset(seen, 0, ir->global_count);
-
-	for (uint32_t i = 0; i < init->count; i++) {
-
-		IRInstr *instr = ir->instrs + init->start + i;
-		if (instr->op == IR_CALL || instr->op == IR_JMP || instr->op == IR_JZ
-				|| instr->op == IR_JNZ || instr->op == IR_LABEL) break;
-
-		uint32_t g = NO_REG;
-		int is_store = 0;
-
-		if (instr->op == IR_STR_GLOBAL) {
-			g = instr->target;
-			is_store = 1;
-		} else if (instr->op == IR_LD_GLOBAL) {
-			g = instr->target;
-		} else continue;
-
-		if (seen[g]) continue;
-		seen[g] = 1;
-
-		if (!is_store || !i) continue;
-
-		IRInstr *prev = instr - 1;
-		while (prev > first && prev->op == IR_NOP) prev--;
-
-		if (prev->op != IR_CONST || prev->dst != instr->src1) continue;
-		if (prev->data_type != ir->globals[g].type) continue;
-
-		kind[g] = 1;
-
-		vals[g] = prev->imm64;
-		if (uses[prev->dst] == 1) prev->op = IR_NOP;
-		instr->op = IR_NOP;
-	}
-}
-
 static const char *asm_size_name[9] =
 {
 	[1] = ".byte",
@@ -75,7 +14,7 @@ static const char *asm_size_name[9] =
 	[8] = ".quad"
 };
 
-static void make_global_data (CodeGen *c, uint32_t i, int64_t val)
+static void make_global_data (CodeGen *c, uint32_t i)
 {
 	IRGlobal *g = c->ir->globals + i;
 	uint8_t size = types[g->type].size;
@@ -83,8 +22,8 @@ static void make_global_data (CodeGen *c, uint32_t i, int64_t val)
 	cg_printf(c, "\t.balign %u\n" SYM_PREFIX "%.*s:\t", size, (int)g->len, g->name);
 	cg_printf(c, "%s ", asm_size_name[size]);
 
-	if (types[g->type].sign) cg_printf(c, "%lld\n", (long long)val);
-	else cg_printf(c, "%llu\n", (unsigned long long)val);
+	if (types[g->type].sign) cg_printf(c, "%lld\n", (long long)g->init);
+	else cg_printf(c, "%llu\n", (unsigned long long)g->init);
 }
 
 static void make_global_bss (CodeGen *c, uint32_t i)
@@ -95,21 +34,22 @@ static void make_global_bss (CodeGen *c, uint32_t i)
 	cg_printf(c, ".zero %u\n", size);
 }
 
-static void make_globals (CodeGen *c, uint8_t *kind, int64_t *vals)
+static void make_globals (CodeGen *c)
 {
 	IR *ir = c->ir;
 	int printed = 0;
+
 	for (uint32_t i = 0; i < ir->global_count; i++) {
-		if (!kind[i]) continue;
+		if (!ir->globals[i].has_init) continue;
 		if (!printed) {
 			printed = 1;
 			cg_printf(c, "\t.section .data\n");
 		}
-		make_global_data(c, i, vals[i]);
+		make_global_data(c, i);
 	}
 	printed = 0;
 	for (uint32_t i = 0; i < ir->global_count; i++) {
-		if (kind[i]) continue;
+		if (ir->globals[i].has_init) continue;
 		if (!printed) {
 			printed = 1;
 			cg_printf(c, "\t.section .bss\n");
@@ -1207,24 +1147,9 @@ static void make_entry (CodeGen *c, int run_init)
 	cg_printf(c, "\t.globl main\nmain:\n\tjmp " SYM_PREFIX "main\n");
 }
 
-static int init_is_empty (CodeGen *c)
-{
-	IR *ir = c->ir;
-	IRFn *init = ir->fns + ir->init_fn;
-
-	for (uint32_t i = 0; i < init->count; i++) {
-		uint8_t op = ir->instrs[init->start + i].op;
-		if (op != IR_NOP && op != IR_RET && op != IR_CONST) return 0;
-	}
-	return 1;
-}
-
 int gen_x86_64 (CodeGen *c)
 {
 	IR *ir = c->ir;
-	uint8_t *kind;
-	int64_t *vals;
-	int init_empty;
 
 	uint32_t max_regs = 1;
 	for (uint32_t i = 0; i < ir->fn_count; i++)
@@ -1240,12 +1165,8 @@ int gen_x86_64 (CodeGen *c)
 	f.cstate = arena_alloc(c->arena, max_regs);
 	f.defs = arena_alloc(c->arena, max_regs);
 
-	kind = arena_alloc(c->arena, ir->global_count ? ir->global_count : 1);
-	vals = arena_alloc(c->arena, (ir->global_count ? ir->global_count : 1) * sizeof(int64_t));
-
-	clasf_globals(c, kind, vals);
-	init_empty = init_is_empty(c);
-	make_globals(c, kind, vals);
+	int init_empty = ir->fns[ir->init_fn].count <= 1;
+	make_globals(c);
 	cg_printf(c, "\t.text\n");
 
 	for (uint32_t i = 0; i < ir->fn_count; i++) {

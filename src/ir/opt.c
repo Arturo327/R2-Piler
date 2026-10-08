@@ -689,6 +689,57 @@ static void init_opt (Optimizer *opt, IR *ir, Arena *a, OptLevel level)
 	opt->cur.epoch = 1;
 }
 
+static const uint8_t stops_static[IR_COUNT] = {
+	[IR_CALL] = 1, [IR_JMP] = 1, [IR_JZ] = 1, [IR_JNZ] = 1, [IR_LABEL] = 1
+};
+
+static int bind_static (Optimizer *opt, OptFn *f, IRInstr *st)
+{
+	IRInstr *first = opt->ir->instrs + f->fn->start;
+	IRGlobal *g = opt->ir->globals + st->target;
+	IRInstr *cst;
+
+	if (st == first) return 0;
+	cst = st - 1;
+	while (cst > first && cst->op == IR_NOP) cst--;
+	if (cst->op != IR_CONST || cst->dst != st->src1) return 0;
+	if (cst->data_type != g->type) return 0;
+
+	g->has_init = 1;
+	g->init = cst->imm64;
+	if (f->uses[cst->dst] == 1) kill_instr(cst);
+	kill_instr(st);
+	return 1;
+}
+
+static int scan_static_init (Optimizer *opt, OptFn *f)
+{
+	IR *ir = opt->ir;
+	uint8_t *seen = arena_alloc(opt->arena, ir->global_count + 1);
+	int changed = 0;
+
+	memset(seen, 0, ir->global_count + 1);
+	for (uint32_t i = 0; i < f->fn->count; i++) {
+		IRInstr *in = ir->instrs + f->fn->start + i;
+
+		if (stops_static[in->op]) break;
+		if (in->op != IR_STR_GLOBAL && in->op != IR_LD_GLOBAL) continue;
+		if (seen[in->target]) continue;
+		seen[in->target] = 1;
+		if (in->op == IR_STR_GLOBAL) changed |= bind_static(opt, f, in);
+	}
+	return changed;
+}
+
+static void run_static_init (Optimizer *opt)
+{
+	OptFn *f = &opt->cur;
+
+	f->fn = opt->ir->fns + opt->ir->init_fn;
+	analyze_fn(opt, f);
+	if (scan_static_init(opt, f)) optimize_fn(opt, f);
+}
+
 void optimize_ir (IR *ir, Arena *a, OptLevel level)
 {
 	Optimizer opt;
@@ -699,5 +750,6 @@ void optimize_ir (IR *ir, Arena *a, OptLevel level)
 		opt.cur.fn = ir->fns + i;
 		optimize_fn(&opt, &opt.cur);
 	}
+	run_static_init(&opt);
 	compact_ir(ir);
 }
