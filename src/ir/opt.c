@@ -214,6 +214,10 @@ static int reg_const (Optimizer *opt, OptFn *f, uint32_t reg, int64_t *val)
 {
 	IRInstr *def;
 
+	if (f->kstamp[reg] == f->epoch) {
+		*val = f->kval[reg];
+		return 1;
+	}
 	if (f->defs[reg] != 1) return 0;
 	def = opt->ir->instrs + f->def_at[reg];
 	if (def->op != IR_CONST) return 0;
@@ -290,6 +294,28 @@ static int eval_unary (uint8_t op, int64_t a, int64_t *r)
 	}
 }
 
+static void to_const (OptFn *f, IRInstr *in, int64_t v)
+{
+	in->data_type = f->fn->reg_types[in->dst];
+	in->imm64 = norm_val((uint64_t)v, in->data_type);
+	in->op = IR_CONST;
+	in->src1 = NO_REG;
+	in->src2 = NO_REG;
+}
+
+static int try_move (OptFn *f, IRInstr *in, uint32_t src)
+{
+	if (!same_rep(f->fn, in->dst, src)) return 0;
+	if (in->dst == src) {
+		kill_instr(in);
+		return 1;
+	}
+	in->op = IR_MOVE;
+	in->src1 = src;
+	in->src2 = NO_REG;
+	return 1;
+}
+
 static int fold_instr (Optimizer *opt, OptFn *f, IRInstr *in)
 {
 	int64_t a, b, r = 0;
@@ -303,12 +329,92 @@ static int fold_instr (Optimizer *opt, OptFn *f, IRInstr *in)
 		ok = eval_binary(in->op, in->data_type, a, b, &r);
 	if (!ok) return 0;
 
-	in->data_type = f->fn->reg_types[in->dst];
-	in->imm64 = norm_val((uint64_t)r, in->data_type);
-	in->op = IR_CONST;
-	in->src1 = NO_REG;
-	in->src2 = NO_REG;
+	to_const(f, in, r);
 	return 1;
+}
+
+static int simplify_same (OptFn *f, IRInstr *in)
+{
+	switch (in->op)
+	{
+	case IR_SUB: case IR_XOR: case IR_NE: case IR_LT: case IR_GT:
+		to_const(f, in, 0);
+		return 1;
+	case IR_EQ: case IR_LE: case IR_GE:
+		to_const(f, in, 1);
+		return 1;
+	case IR_AND_A: case IR_OR_A:
+		return try_move(f, in, in->src1);
+	default:
+		return 0;
+	}
+}
+
+static int simplify_rhs (OptFn *f, IRInstr *in, int64_t b)
+{
+	switch (in->op)
+	{
+	case IR_ADD: case IR_SUB: case IR_OR_A: case IR_XOR: case IR_LS: case IR_RS:
+		return b == 0 && try_move(f, in, in->src1);
+	case IR_DIV:
+		return b == 1 && try_move(f, in, in->src1);
+	case IR_MOD:
+		if (b != 1) return 0;
+		to_const(f, in, 0);
+		return 1;
+	case IR_MUL:
+		if (b != 0) return b == 1 && try_move(f, in, in->src1);
+		to_const(f, in, 0);
+		return 1;
+	case IR_AND_A:
+		if (b != 0) return b == norm_val(~(uint64_t)0, in->data_type)
+				&& try_move(f, in, in->src1);
+		to_const(f, in, 0);
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+static int simplify_lhs (OptFn *f, IRInstr *in, int64_t a)
+{
+	switch (in->op)
+	{
+	case IR_ADD: case IR_OR_A: case IR_XOR:
+		return a == 0 && try_move(f, in, in->src2);
+	case IR_MUL:
+		if (a != 0) return a == 1 && try_move(f, in, in->src2);
+		to_const(f, in, 0);
+		return 1;
+	case IR_AND_A:
+		if (a != 0) return a == norm_val(~(uint64_t)0, in->data_type)
+				&& try_move(f, in, in->src2);
+		to_const(f, in, 0);
+		return 1;
+	case IR_LS: case IR_RS:
+		if (a != 0) return 0;
+		to_const(f, in, 0);
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+static int simplify_instr (Optimizer *opt, OptFn *f, IRInstr *in)
+{
+	if (in->dst == NO_REG || in->src1 == NO_REG || in->src2 == NO_REG) return 0;
+	if (in->src1 == in->src2) return simplify_same(f, in);
+
+	int64_t a = 0;
+	int64_t b = 0;
+
+	int ca = reg_const(opt, f, in->src1, &a);
+	int cb = reg_const(opt, f, in->src2, &b);
+
+	if (ca && cb) return 0;
+	if (cb) return simplify_rhs(f, in, b);
+	if (ca) return simplify_lhs(f, in, a);
+	return 0;
 }
 
 static int fold_jump (Optimizer *opt, OptFn *f, IRInstr *in)
@@ -323,18 +429,41 @@ static int fold_jump (Optimizer *opt, OptFn *f, IRInstr *in)
 	return 1;
 }
 
-static int opt_fold (Optimizer *opt, OptFn *f)
+static void track_const (OptFn *f, IRInstr *in)
 {
-	IRInstr *code = opt->ir->instrs + f->fn->start;
+	if (in->dst == NO_REG) return;
+	if (in->op != IR_CONST) {
+		f->kstamp[in->dst] = 0;
+		return;
+	}
+	f->kstamp[in->dst] = f->epoch;
+	f->kval[in->dst] = norm_val((uint64_t)in->imm64, f->fn->reg_types[in->dst]);
+}
+
+static int fold_block (Optimizer *opt, OptFn *f, OptBlock *blk)
+{
+	IRInstr *code = opt->ir->instrs + blk->start;
 	int changed = 0;
 
-	for (uint32_t i = 0; i < f->fn->count; i++) {
+	f->epoch++;
+	for (uint32_t i = 0; i < blk->count; i++) {
 		IRInstr *in = code + i;
 
 		if (in->op == IR_JZ || in->op == IR_JNZ)
 			changed |= fold_jump(opt, f, in);
-		else changed |= fold_instr(opt, f, in);
+		else changed |= fold_instr(opt, f, in) || simplify_instr(opt, f, in);
+		track_const(f, in);
 	}
+	return changed;
+}
+
+static int opt_fold (Optimizer *opt, OptFn *f)
+{
+	int changed = 0;
+
+	for (uint32_t b = 0; b < f->block_count; b++)
+		changed |= fold_block(opt, f, f->blocks + b);
+	f->epoch++;
 	return changed;
 }
 
@@ -512,6 +641,11 @@ static void init_opt (Optimizer *opt, IR *ir, Arena *a, OptLevel level)
 	opt->cur.def_at = arena_alloc(a, max_regs * sizeof(uint32_t));
 	opt->cur.blocks = arena_alloc(a, max_instrs * sizeof(OptBlock));
 	opt->cur.work = arena_alloc(a, max_instrs * sizeof(uint32_t));
+
+	opt->cur.kstamp = arena_alloc(a, max_regs * sizeof(uint32_t));
+	opt->cur.kval = arena_alloc(a, max_regs * sizeof(int64_t));
+	memset(opt->cur.kstamp, 0, max_regs * sizeof(uint32_t));
+	opt->cur.epoch = 1;
 }
 
 void optimize_ir (IR *ir, Arena *a, OptLevel level)

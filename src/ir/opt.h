@@ -31,6 +31,10 @@ typedef struct OptFn {
 	uint32_t *def_at;
 	uint32_t *work;
 
+	uint32_t *kstamp;
+	int64_t *kval;
+	uint32_t epoch;
+
 	uint32_t block_count;
 } OptFn;
 
