@@ -585,13 +585,6 @@ static int make_mul_const (X86Fn *f, IRInstr *i)
 {
 	if (f->cstate[i->src2] != 1) return 0;
 	int64_t v = const_ext(f, i->src2);
-
-	if (v == 0 || v == 1) {
-		if (v == 0) cg_printf(f->cg, "\txorl %%eax, %%eax\n");
-		else load_reg(f, 0, i->src1);
-		store_reg(f, 0, i->dst);
-		return 1;
-	}
 	load_reg(f, 0, i->src1);
 
 	if (v > 0 && (v & (v - 1)) == 0) {

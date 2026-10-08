@@ -3,6 +3,7 @@
 #include <string.h>
 
 #define OPT_MAX_ROUNDS 8
+#define OPT_MAX_HOPS 8
 
 typedef int (*OptPass) (Optimizer *opt, OptFn *f);
 
@@ -529,17 +530,6 @@ static int opt_unreachable (Optimizer *opt, OptFn *f)
 	return changed;
 }
 
-static int jump_to_next (OptFn *f, IRInstr *code, uint32_t i)
-{
-	IRInstr *in = code + i;
-	IRInstr *nx = next_real(code, i + 1, f->fn->count);
-
-	if (!nx || nx->op != IR_LABEL || nx->target != in->target) return 0;
-	f->lrefs[in->target]--;
-	kill_instr(in);
-	return 1;
-}
-
 static int flip_branch (OptFn *f, IRInstr *code, uint32_t i)
 {
 	IRInstr *br = code + i;
@@ -557,6 +547,53 @@ static int flip_branch (OptFn *f, IRInstr *code, uint32_t i)
 	return 1;
 }
 
+static IRInstr *skip_labels (IRInstr *code, uint32_t from, uint32_t count)
+{
+	IRInstr *in = next_real(code, from, count);
+
+	while (in && in->op == IR_LABEL)
+		in = next_real(code, (uint32_t)(in - code) + 1, count);
+	return in;
+}
+
+static int thread_jump (Optimizer *opt, OptFn *f, IRInstr *br)
+{
+	IRInstr *code = opt->ir->instrs + f->fn->start;
+	uint32_t label = br->target;
+
+	for (int hops = 0; hops < OPT_MAX_HOPS; hops++) {
+		uint32_t b = label_block(opt->ir, f, label);
+		IRInstr *nx;
+
+		if (b == OPT_NO_BLOCK) break;
+		nx = skip_labels(code, f->blocks[b].start - f->fn->start + 1,
+				f->fn->count);
+		if (!nx || nx->op != IR_JMP || nx->target == label) break;
+		label = nx->target;
+	}
+	if (label == br->target) return 0;
+	f->lrefs[br->target]--;
+	f->lrefs[label]++;
+	br->target = label;
+	return 1;
+}
+
+static int jump_to_next (OptFn *f, IRInstr *code, uint32_t i)
+{
+	IRInstr *in = code + i;
+	IRInstr *nx = next_real(code, i + 1, f->fn->count);
+
+	while (nx && nx->op == IR_LABEL) {
+		if (nx->target == in->target) {
+			f->lrefs[in->target]--;
+			kill_instr(in);
+			return 1;
+		}
+		nx = next_real(code, (uint32_t)(nx - code) + 1, f->fn->count);
+	}
+	return 0;
+}
+
 static int opt_jumps (Optimizer *opt, OptFn *f)
 {
 	IRInstr *code = opt->ir->instrs + f->fn->start;
@@ -568,9 +605,13 @@ static int opt_jumps (Optimizer *opt, OptFn *f)
 		if (in->op == IR_LABEL && !f->lrefs[in->target]) {
 			kill_instr(in);
 			changed = 1;
-		} else if (in->op == IR_JMP) changed |= jump_to_next(f, code, i);
-		else if (in->op == IR_JZ || in->op == IR_JNZ)
+		} else if (in->op == IR_JMP) {
+			changed |= thread_jump(opt, f, in);
+			changed |= jump_to_next(f, code, i);
+		} else if (in->op == IR_JZ || in->op == IR_JNZ) {
+			changed |= thread_jump(opt, f, in);
 			changed |= flip_branch(f, code, i);
+		}
 	}
 	return changed;
 }
