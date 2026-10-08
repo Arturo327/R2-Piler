@@ -1,0 +1,20 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn f(2 params, 8 regs) : i64
+    r0 = param.i64 #0
+    r1 = param.i64 #1
+    r5 = add.i64 r0, r1
+    r5 = const.i64 99
+    ret.i64 r5
+    ret
+
+fn main(0 params, 3 regs) : i64
+    r0 = const.i64 1
+    r1 = const.i64 2
+    arg r0 #0
+    arg r1 #1
+    r2 = call.i64 f
+    ret.i64 r2
+    ret
+

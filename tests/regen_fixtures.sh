@@ -12,7 +12,7 @@ trap 'rm -f "$tmp_out" "$tmp_err" "$tmp_old"' EXIT
 strip_ansi() { sed 's/\x1b\[[0-9;]*m//g'; }
 
 review=0
-for pair in "lexer --dump-tokens" "parser --dump-ast" "sema --dump-symbols" "ir --dump-ir"; do
+for pair in "lexer --dump-tokens" "parser --dump-ast" "sema --dump-symbols" "ir --dump-ir" "opt --dump-opt"; do
 	suite=${pair%% *}
 	flag=${pair##* }
 	for src in tests/$suite/*_src.r2; do

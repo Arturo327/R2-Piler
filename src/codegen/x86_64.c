@@ -224,10 +224,12 @@ static void clasf_def (X86Fn *f, IRInstr *in)
 		return;
 	}
 	if (in->op != IR_MOVE || !same_rep(f, d, s)) return;
+
 	if (f->cstate[s] == VR_CONST) {
 		f->cstate[d] = VR_CONST;
 		f->cval[d] = f->cval[s];
-	} else if (f->cstate[s] == VR_MEM && f->defs[s] == 1) {
+	} else if (s < f->fn->param_count && f->cstate[s] == VR_MEM
+			&& f->defs[s] == 1) {
 		f->cstate[d] = VR_ALIAS;
 		f->slots[d] = s;
 	}

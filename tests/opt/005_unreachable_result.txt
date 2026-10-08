@@ -1,0 +1,11 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn tick(0 params, 0 regs) : void
+    ret
+
+fn main(0 params, 1 regs) : i64
+    r0 = const.i64 0
+    ret.i64 r0
+    ret
+

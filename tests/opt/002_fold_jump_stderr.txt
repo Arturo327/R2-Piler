@@ -1,0 +1,3 @@
+tests/opt/002_fold_jump_src.r2:2:7: WARNING: condition is always true
+      2 |   if (1) {
+        |       ^

@@ -2,7 +2,7 @@
 
 Especificación completa de R2-Lang, el lenguaje que compila R2-Piler.
 
-Estado: lexer, parser, sema e IR implementados y testeados con fixtures. Codegen: el backend x86-64 emite assembly AT&T completo y tiene suite propia de ejecución (`tests/asm/`, comprueba el exit code del binario); aplica optimizaciones locales de codegen (A1–A5 en `comp_pending.md`: stores diferidos, const/alias, RMW, strength reduction con magia de división, fusión cmp+jcc, DCE, tail calls); `arm`, `riscv` y el intérprete se rechazan con "backend is not implemented". `optimize_ir` pendiente.
+Estado: lexer, parser, sema, IR y `optimize_ir` implementados y testeados con fixtures. Codegen: el backend x86-64 emite assembly AT&T completo y tiene suite propia de ejecución (`tests/asm/`, comprueba el exit code del binario, más diferencial `-O0`/`-O2`); aplica optimizaciones locales de codegen (A1–A5 en `comp_pending.md`: stores diferidos, const/alias, RMW, strength reduction con magia de división, fusión cmp+jcc, DCE, tail calls); `arm`, `riscv` y el intérprete se rechazan con "backend is not implemented".
 
 ---
 
@@ -230,7 +230,13 @@ Plegado de constantes: una subexpresión hecha solo de literales se evalúa en c
 
 - La IR está implementada y testeada (`--dump-ir`, suite `tests/ir/`). Toda la AST válida se baja a IR, incluido el código inalcanzable tras un `return`.
 - La IR se genera solo si no hay errores en las fases anteriores; los warnings no la bloquean.
-- `optimize_ir` es una pasada posterior (pendiente) que hará poda de código muerto, eliminación de código inalcanzable y optimizaciones.
+- `optimize_ir` (`src/ir/opt.c`, suite `tests/opt/` con `--dump-opt`) corre sobre la IR lineal antes del codegen (salvo `-O0`). Es independiente de la arquitectura: bloques básicos + CFG + conteo de defs/usos por función, hasta 8 rondas hasta punto fijo y compactado final de `NOP`s (sin renumerar: las cabeceras `(N regs)` conservan el conteo original). Niveles: `-O0` desactiva, `-O1` (defecto) activa todo menos `coalesce`, `-O2` lo activa todo; `--dump-opt` sin `-O` fuerza `FULL`.
+  - Propagación de copias intra-bloque (`t = move x`, una sola def, mismo tamaño/signo).
+  - Plegado de constantes (aritmética/bitwise/comparaciones/unarios sobre `const`, sin plegar `div`/`mod` por cero ni shifts con cuenta `>= 64`) y saltos constantes (`jz`/`jnz` sobre `const` → `jmp` o nada).
+  - `coalesce` (solo `-O2`): `op; move` adyacente con def/uso únicos se fusiona renombrando el `dst`.
+  - DCE local con `liveness` global por conteo (solo borra `is_deletable`; `div`/`mod`/`call`/`arg`/`param`/`ret`/saltos/labels se conservan).
+  - Bloques inalcanzables desde la entrada (conservando la última instrucción de la función para no dejarla sin `ret`).
+  - Limpieza de saltos (`jmp` a la etiqueta inmediata, `jz L1; jmp L2; L1:` → `jnz L2`, labels sin refs).
 
 ---
 
@@ -342,11 +348,13 @@ fn <nombre>(<n> params, <m> regs) : <ret>
 | `call` | r si ret `!= void`, si no `NO_REG` | - | - | target=fn, más `argc` | tipo de retorno |
 | `ret` | - | r si hay valor, si no `NO_REG` | - | - | tipo del valor (`void` si no hay) |
 
+La IR optimizada se vuelca con `--dump-opt` (`-D`): mismo formato que `--dump-ir`, tras correr `optimize_ir` (ver sección 13). Sin `-O` fuerza `FULL`; con `-O0` muestra la IR sin optimizar.
+
 ---
 
 ## Backend x86-64
 
-Modelo con optimizaciones locales de codegen (A1–A5, ver `comp_pending.md`); todavía no hay allocator de registros ni `optimize_ir`.
+Modelo con `optimize_ir` previo (B0–B2, ver `comp_pending.md`) más optimizaciones locales de codegen (A1–A5); todavía no hay allocator de registros.
 
 - **Homes en memoria**: cada registro virtual superviviente ocupa `types[t].size` bytes en el frame, en `-N(%rbp)` (o `(%rsp)` en hojas red-zone). Los temporales de un solo uso de 8 bytes se quedan en `%rax` sin slot ni store (A1); los `MOVE`s de definición única no emiten nada (const → inmediato, alias → slot del origen, A2). Los slots se reparten de mayor a menor tamaño (8, 4, 2, 1) para mantener la alineación natural, y el área de salida para llamadas queda al fondo del frame. El frame siempre es múltiplo de 16.
 - **Cada instrucción IR es autocontenida salvo A1**: carga sus operandos, calcula y guarda el resultado en el home del destino (o lo deja en `%rax` si es diferido). Solo se usan `rax`, `rcx`, `rdx` (más los registros de argumentos al preparar una llamada). No se usa ningún registro callee-saved. La caché `rax_v` evita recargas (invalidada en `call`, `div/mod`, labels y stores narrow).
@@ -371,6 +379,8 @@ make
 | `-A` / `--dump-ast` | Vuelca el AST a stdout |
 | `-S` / `--dump-symbols` | Vuelca la tabla de símbolos resuelta a stdout |
 | `-I` / `--dump-ir` | Vuelca la IR generada a stdout |
+| `-D` / `--dump-opt` | Vuelca la IR optimizada a stdout (sin `-O` fuerza `FULL`) |
+| `-O[LEVEL]` / `--opt[=LEVEL]` | Nivel `0`, `1` o `2` (sin espacio; `-O` solo = `1`). Defecto: `1` |
 | `-o` / `--out` | Ruta del assembly de salida (por defecto `<fuente>.s`; `-` = stdout) |
 | `-a` / `--arch` | Arquitectura del assembly generado|
 | `-e` / `--execute` | Modo intérprete |
@@ -385,7 +395,7 @@ gcc prog.s -o prog       # ensambla y enlaza
 ./prog; echo $?          # el exit code es el valor que devuelve main
 ```
 
-`make test` ejecuta las cinco suites de fixtures (lexer, parser, sema, ir y asm), cada una contra `build/r2p`. La suite `asm` (`tests/asm/`, runner `tests/run_asm.sh`) compila cada `<nombre>_src.r2`, lo ensambla con `gcc`, lo ejecuta y compara su exit code con `<nombre>_exit.txt` (más `<nombre>_stderr.txt` opcional para warnings de compilación).
+`make test` ejecuta las seis suites de fixtures (lexer, parser, sema, ir, opt y asm), cada una contra `build/r2p`. La suite `opt` (`tests/opt/`, runner `tests/run_suite.sh` con `--dump-opt`) comprueba la IR optimizada. La suite `asm` (`tests/asm/`, runner `tests/run_asm.sh`) compila cada `<nombre>_src.r2`, lo ensambla con `gcc`, lo ejecuta y compara su exit code con `<nombre>_exit.txt` (más `<nombre>_stderr.txt` opcional para warnings de compilación); además recompila cada test con `-O0` y `-O2` y exige el mismo exit code (diferencial del optimizador).
 
 Ejemplo de programa completo:
 

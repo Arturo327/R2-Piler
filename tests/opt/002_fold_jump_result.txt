@@ -1,0 +1,8 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn main(0 params, 3 regs) : i64
+    r1 = const.i64 10
+    ret.i64 r1
+    ret
+
