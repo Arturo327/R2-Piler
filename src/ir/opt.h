@@ -35,6 +35,13 @@ typedef struct OptFn {
 	int64_t *kval;
 	uint32_t epoch;
 
+	uint32_t *gval;
+	uint32_t *gstamp;
+	uint32_t gepoch;
+
+	uint32_t *dstamp;
+	uint32_t depoch;
+
 	uint32_t block_count;
 } OptFn;
 

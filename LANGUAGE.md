@@ -175,7 +175,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
   - Un `return` garantiza.
   - Un bloque garantiza si alguno de sus statements garantiza.
   - Un `if` garantiza solo si tiene `else` final y todas las ramas (then/elif/else) garantizan.
-  - `while`/`for` nunca garantizan: un `while (1) { return x; }` sigue reportando "may reach the end without returning".
+  - `while`/`for` garantizan solo si su condición es constante verdadera (`while (1)`, `for (;;)`): sin `break`, el bucle solo sale con `return`. Con condición no constante nunca garantizan.
 
 ---
 

@@ -116,7 +116,7 @@ static void build_cfg (IR *ir, OptFn *f)
 		if (!jumps) continue;
 
 		uint32_t t = label_block(ir, f, last->target);
-		blk->succ[blk->succ_count++] = t;
+		if (t != OPT_NO_BLOCK) blk->succ[blk->succ_count++] = t;
 	}
 }
 
@@ -616,13 +616,61 @@ static int opt_jumps (Optimizer *opt, OptFn *f)
 	return changed;
 }
 
+static int64_t ir_norm (uint64_t v, uint8_t type)
+{
+	const Type *t = types + type;
+	unsigned sh = 64u - t->size * 8u;
+	v <<= sh;
+	return t->sign ? (int64_t)v >> sh : (int64_t)(v >> sh);
+}
+
+static int strength_instr (Optimizer *opt, OptFn *f, IRInstr *in)
+{
+	IRInstr *k;
+	uint64_t v;
+
+	if (in->dst == NO_REG || in->src2 == NO_REG) return 0;
+	if (in->op != IR_MUL && in->op != IR_DIV && in->op != IR_MOD) return 0;
+	if (f->defs[in->src2] != 1 || f->uses[in->src2] != 1) return 0;
+
+	k = opt->ir->instrs + f->def_at[in->src2];
+	if (k->op != IR_CONST) return 0;
+	v = (uint64_t)ir_norm((uint64_t)k->imm64, f->fn->reg_types[in->src2]);
+	if (v < 2 || (v & (v - 1)) != 0) return 0;
+	if (in->op != IR_MUL && types[in->data_type].sign) return 0;
+
+	if (in->op == IR_MUL) {
+		in->op = IR_LS;
+		k->imm64 = __builtin_ctzll(v);
+	} else if (in->op == IR_DIV) {
+		in->op = IR_RS;
+		k->imm64 = __builtin_ctzll(v);
+	} else {
+		in->op = IR_AND_A;
+		k->imm64 = (int64_t)(v - 1);
+	}
+	return 1;
+}
+
+static int opt_strength (Optimizer *opt, OptFn *f)
+{
+	IRInstr *code = opt->ir->instrs + f->fn->start;
+	int changed = 0;
+
+	for (uint32_t i = 0; i < f->fn->count; i++)
+		changed |= strength_instr(opt, f, code + i);
+
+	return changed;
+}
+
 static const OptPassDesc passes[] = {
 	{ opt_propagate, OPT_BASIC },
 	{ opt_fold, OPT_BASIC },
 	{ opt_coalesce, OPT_FULL },
 	{ opt_dce, OPT_BASIC },
 	{ opt_unreachable, OPT_BASIC },
-	{ opt_jumps, OPT_BASIC }
+	{ opt_jumps, OPT_BASIC },
+	{ opt_strength, OPT_BASIC },
 };
 
 static void optimize_fn (Optimizer *opt, OptFn *f)
@@ -658,6 +706,19 @@ static void compact_ir (IR *ir)
 	ir->instr_count = out;
 }
 
+static void init_caches (OptFn *f, IR *ir, Arena *a, size_t max_regs)
+{
+	size_t globals = (size_t)ir->global_count + 1;
+
+	f->gval = arena_alloc(a, globals * sizeof(uint32_t));
+	f->gstamp = arena_alloc(a, globals * sizeof(uint32_t));
+	f->dstamp = arena_alloc(a, max_regs * sizeof(uint32_t));
+	memset(f->gstamp, 0, globals * sizeof(uint32_t));
+	memset(f->dstamp, 0, max_regs * sizeof(uint32_t));
+	f->gepoch = 1;
+	f->depoch = 1;
+}
+
 static void init_opt (Optimizer *opt, IR *ir, Arena *a, OptLevel level)
 {
 	size_t max_regs = 1;
@@ -687,6 +748,8 @@ static void init_opt (Optimizer *opt, IR *ir, Arena *a, OptLevel level)
 	opt->cur.kval = arena_alloc(a, max_regs * sizeof(int64_t));
 	memset(opt->cur.kstamp, 0, max_regs * sizeof(uint32_t));
 	opt->cur.epoch = 1;
+
+	init_caches(&opt->cur, ir, a, max_regs);
 }
 
 static const uint8_t stops_static[IR_COUNT] = {
@@ -703,7 +766,9 @@ static int bind_static (Optimizer *opt, OptFn *f, IRInstr *st)
 	cst = st - 1;
 	while (cst > first && cst->op == IR_NOP) cst--;
 	if (cst->op != IR_CONST || cst->dst != st->src1) return 0;
-	if (cst->data_type != g->type) return 0;
+
+	if (types[cst->data_type].size != types[g->type].size) return 0;
+	if (types[g->type].size < 8 && cst->data_type != g->type) return 0;
 
 	g->has_init = 1;
 	g->init = cst->imm64;
