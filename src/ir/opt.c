@@ -663,6 +663,57 @@ static int opt_strength (Optimizer *opt, OptFn *f)
 	return changed;
 }
 
+static int fwd_global (OptFn *f, IRInstr *in)
+{
+	if (f->gstamp[in->target] != f->gepoch) return 0;
+
+	uint32_t r = f->gval[in->target];
+	if (f->fn->reg_types[in->dst] != f->fn->reg_types[r]) return 0;
+
+	in->op = IR_MOVE;
+	in->src1 = r;
+	in->src2 = NO_REG;
+	in->data_type = f->fn->reg_types[r];
+	return 1;
+}
+
+static void note_global (OptFn *f, IRInstr *in, uint32_t reg)
+{
+	uint32_t g = in->target;
+
+	f->gstamp[g] = 0;
+	if (f->defs[reg] != 1) return;
+	if (f->fn->reg_types[reg] != in->data_type) return;
+	f->gval[g] = reg;
+	f->gstamp[g] = f->gepoch;
+}
+
+static int globals_block (Optimizer *opt, OptFn *f, OptBlock *blk)
+{
+	IRInstr *code = opt->ir->instrs + blk->start;
+	int changed = 0;
+
+	f->gepoch++;
+	for (uint32_t i = 0; i < blk->count; i++) {
+		IRInstr *in = code + i;
+
+		if (in->op == IR_CALL) f->gepoch++;
+		else if (in->op == IR_STR_GLOBAL) note_global(f, in, in->src1);
+		else if (in->op == IR_LD_GLOBAL && fwd_global(f, in)) changed = 1;
+		else if (in->op == IR_LD_GLOBAL) note_global(f, in, in->dst);
+	}
+	return changed;
+}
+
+static int opt_globals (Optimizer *opt, OptFn *f)
+{
+	int changed = 0;
+
+	for (uint32_t b = 0; b < f->block_count; b++)
+		changed |= globals_block(opt, f, f->blocks + b);
+	return changed;
+}
+
 static const OptPassDesc passes[] = {
 	{ opt_propagate, OPT_BASIC },
 	{ opt_fold, OPT_BASIC },
@@ -671,6 +722,7 @@ static const OptPassDesc passes[] = {
 	{ opt_unreachable, OPT_BASIC },
 	{ opt_jumps, OPT_BASIC },
 	{ opt_strength, OPT_BASIC },
+	{ opt_globals, OPT_BASIC },
 };
 
 static void optimize_fn (Optimizer *opt, OptFn *f)
