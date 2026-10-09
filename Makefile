@@ -13,7 +13,7 @@ SRC := $(shell find src -name '*.c')
 OBJ := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SRC))
 DEP := $(OBJ:.o=.d)
 
-.PHONY: all clean test test_lexer test_parser test_sema test_ir test_opt test_asm
+.PHONY: all clean test test_lexer test_parser test_sema test_ir test_opt bench
 
 all: $(TARGET)
 
@@ -25,7 +25,7 @@ $(BUILD_DIR)/%.o: src/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CPP_FLAGS) $(CFLAGS) -MMD -MP -c $< -o $@
 
-test: test_lexer test_parser test_sema test_ir test_opt test_asm
+test: test_lexer test_parser test_sema test_ir test_opt
 
 test_lexer: $(TARGET)
 	@tests/run_suite.sh $(TARGET) --dump-tokens tests/lexer
@@ -42,7 +42,7 @@ test_ir: $(TARGET)
 test_opt: $(TARGET)
 	@tests/run_suite.sh $(TARGET) --dump-opt tests/opt
 
-test_asm: $(TARGET)
+bench: $(TARGET)
 	@tests/run_asm.sh $(TARGET) tests/asm
 
 -include $(DEP)

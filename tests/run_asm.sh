@@ -8,50 +8,42 @@
 # Differential: each test is compiled with -O0, -O1 and -O2 and must exit
 # with the same code (optimizer must preserve semantics).
 
-# Timing: one run of these tiny programs takes <1ms, below the noise floor
-# of a single `date` call (~0.5ms fork+exec each). So each test is compiled
-# COMPILE_REPS times and executed RUN_REPS times per opt level (-O0/-O1/-O2);
-# the reported numbers are per-run means (batch wall time / reps), which
-# amortizes timer overhead and scheduler jitter. Override with e.g.
-# RUN_REPS=50 COMPILE_REPS=10 tests/run_asm.sh <r2p> <dir> (gcc is untimed).
-# Per-test rows show execution means; the footer shows compile+run totals.
+# Bench: wall-clock timing of these tiny programs (<1ms) sits below the noise
+# floor of a single `date` call and depends heavily on the OS scheduler, so
+# each test binary is executed once per opt level under valgrind callgrind
+# and the reported numbers are deterministic instruction counts, not times.
+# Requires valgrind in PATH. (gcc is untimed.)
+# Only user code is counted: the dynamic loader and libc startup cost ~130k
+# Ir on every run and would drown the signal (an empty main is 2 Ir), so
+# collection starts off and is toggled on only inside __r2_main (the user
+# main) and __r2.init (global initializers), via --toggle-collect. Callees
+# count while inside; loader/libc and the tiny main wrapper stay excluded.
+# Per-test rows show run Ir; the footer shows run totals.
 # O1 is the default (plain r2p == -O1); O0 = sin optimizar, O2 = full.
 
 bin="$1"; dir="$2"
-RUN_REPS=${RUN_REPS:-20}
-COMPILE_REPS=${COMPILE_REPS:-5}
+command -v valgrind >/dev/null 2>&1 || { echo "valgrind not found in PATH"; exit 1; }
 passed=0; failed=0
-c0_tot=0; c1_tot=0; c2_tot=0
 r0_tot=0; r1_tot=0; r2_tot=0
-tmp_out=$(mktemp); tmp_err=$(mktemp); tmp_gcc=$(mktemp)
+tmp_out=$(mktemp); tmp_err=$(mktemp); tmp_gcc=$(mktemp); tmp_vg=$(mktemp)
 tmp_asm=$(mktemp --suffix=.s); tmp_exe=$(mktemp)
-trap 'rm -f "$tmp_out" "$tmp_err" "$tmp_gcc" "$tmp_asm" "$tmp_exe"' EXIT
+trap 'rm -f "$tmp_out" "$tmp_err" "$tmp_gcc" "$tmp_vg" "$tmp_asm" "$tmp_exe"' EXIT
 
-fmt_ms() { printf "%d.%03dms" $(($1 / 1000000)) $((($1 % 1000000) / 1000)); }
-time_compile() {
-	# $1 = src, $2 = olev: COMPILE_REPS compiles, echo mean ns.
-	t0=$(date +%s%N)
-	i=0
-	while [ "$i" -lt "$COMPILE_REPS" ]; do
-		"$bin" -O$2 "$1" -o "$tmp_asm" >/dev/null 2>&1
-		i=$((i + 1))
-	done
-	t1=$(date +%s%N)
-	echo $(( (t1 - t0) / COMPILE_REPS ))
-}
-time_run() {
-	# RUN_REPS executions of $tmp_exe, echo mean ns.
-	t0=$(date +%s%N)
-	i=0
-	while [ "$i" -lt "$RUN_REPS" ]; do
-		"$tmp_exe" >/dev/null 2>&1
-		i=$((i + 1))
-	done
-	t1=$(date +%s%N)
-	echo $(( (t1 - t0) / RUN_REPS ))
+fmt_irefs() { echo "$1" | sed ':a;s/\B[0-9]\{3\}\>/,&/;ta'; }
+vg_run() {
+	# Single callgrind run of $tmp_exe, collecting only inside __r2_main /
+	# __r2.init. Sets VG_COUNT to the raw Ir and returns the program exit
+	# code (valgrind propagates it).
+	valgrind --tool=callgrind --collect-atstart=no \
+		--toggle-collect=__r2_main --toggle-collect='__r2.init' \
+		--callgrind-out-file=/dev/null \
+		"$tmp_exe" >/dev/null 2>"$tmp_vg"
+	code=$?
+	VG_COUNT=$(sed -n 's/.*Collected : *//p' "$tmp_vg" | tr -d ' ,')
+	return $code
 }
 
-printf "%-30s %10s %10s %10s\n" "test" "O0 run" "O1 run" "O2 run"
+printf "%-30s %12s %12s %12s\n" "test" "O0 run" "O1 run" "O2 run"
 
 for src in "$dir"/*_src.r2; do
 	[ -e "$src" ] || { echo "No tests found in $dir"; exit 1; }
@@ -60,7 +52,7 @@ for src in "$dir"/*_src.r2; do
 	want_exit=0
 	[ -f "${base}_exit.txt" ] && want_exit=$(cat "${base}_exit.txt")
 	ok=1
-	c0=0; c1=0; c2=0; r0=0; r1=0; r2=0
+	r0=0; r1=0; r2=0
 	"$bin" "$src" -o "$tmp_asm" >"$tmp_out" 2>"$tmp_err"
 	cstat=$?
 	if [ "$cstat" -ne 0 ]; then
@@ -78,25 +70,24 @@ for src in "$dir"/*_src.r2; do
 			if [ $? -ne 0 ]; then
 				echo "FAIL $src: r2p -O$olev exited nonzero"; ok=0; break
 			fi
-			c=$(time_compile "$src" $olev)
-			case $olev in 0) c0=$c;; 1) c1=$c;; 2) c2=$c;; esac
 			gcc "$tmp_asm" -o "$tmp_exe" 2>"$tmp_gcc"
 			if [ $? -ne 0 ]; then
 				echo "FAIL $src: gcc -O$olev failed:"; cat "$tmp_gcc"; ok=0; break
 			fi
-			"$tmp_exe" >/dev/null 2>&1
+			vg_run
 			code_opt=$?
+			case "$VG_COUNT" in ''|*[!0-9]*)
+				echo "FAIL $src: -O$olev could not parse Ir:"; cat "$tmp_vg"; ok=0; break;;
+			esac
 			if [ "$code_opt" -ne "$want_exit" ]; then
 				echo "FAIL $src: -O$olev exit $code_opt, want $want_exit"; ok=0; break
 			fi
-			r=$(time_run)
-			case $olev in 0) r0=$r;; 1) r1=$r;; 2) r2=$r;; esac
+			case $olev in 0) r0=$VG_COUNT;; 1) r1=$VG_COUNT;; 2) r2=$VG_COUNT;; esac
 		done
 	fi
 	if [ "$ok" -eq 1 ]; then
-		printf "%-30s %10s %10s %10s\n" "$name" \
-			"$(fmt_ms "$r0")" "$(fmt_ms "$r1")" "$(fmt_ms "$r2")"
-		c0_tot=$((c0_tot + c0)); c1_tot=$((c1_tot + c1)); c2_tot=$((c2_tot + c2))
+		printf "%-30s %12s %12s %12s\n" "$name" \
+			"$(fmt_irefs "$r0")" "$(fmt_irefs "$r1")" "$(fmt_irefs "$r2")"
 		r0_tot=$((r0_tot + r0)); r1_tot=$((r1_tot + r1)); r2_tot=$((r2_tot + r2))
 		passed=$((passed+1))
 	else
@@ -104,9 +95,7 @@ for src in "$dir"/*_src.r2; do
 		failed=$((failed+1))
 	fi
 done
-printf "%-30s %10s %10s %10s\n" "TOTAL run" \
-	"$(fmt_ms "$r0_tot")" "$(fmt_ms "$r1_tot")" "$(fmt_ms "$r2_tot")"
-printf "%-30s %10s %10s %10s\n" "TOTAL compile" \
-	"$(fmt_ms "$c0_tot")" "$(fmt_ms "$c1_tot")" "$(fmt_ms "$c2_tot")"
-echo "$passed passed, $failed failed (totals are per-run means x tests, gcc excluded)"
+printf "%-30s %12s %12s %12s\n" "TOTAL run" \
+	"$(fmt_irefs "$r0_tot")" "$(fmt_irefs "$r1_tot")" "$(fmt_irefs "$r2_tot")"
+echo "$passed passed, $failed failed (binary-only Ir via valgrind callgrind, gcc excluded)"
 [ "$failed" -eq 0 ]

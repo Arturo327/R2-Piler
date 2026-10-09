@@ -717,7 +717,7 @@ static int opt_globals (Optimizer *opt, OptFn *f)
 static const OptPassDesc passes[] = {
 	{ opt_propagate, OPT_BASIC },
 	{ opt_fold, OPT_BASIC },
-	{ opt_coalesce, OPT_FULL },
+	{ opt_coalesce, OPT_BASIC },
 	{ opt_dce, OPT_BASIC },
 	{ opt_unreachable, OPT_BASIC },
 	{ opt_jumps, OPT_BASIC },
