@@ -5,9 +5,7 @@
 
 void kill_instr (IRInstr *in);
 IRInstr *next_real (IRInstr *code, uint32_t from, uint32_t count);
-int same_rep (IRFn *fn, uint32_t a, uint32_t b);
 int64_t norm_val (uint64_t v, uint8_t type);
-int get_srcs (IRInstr *in, uint32_t *out[3]);
 int try_move (OptFn *f, IRInstr *in, uint32_t src);
 
 void analyze_fn (Optimizer *opt, OptFn *f);

@@ -86,14 +86,6 @@ const uint8_t is_deletable[IR_COUNT] =
 	[IR_LT] = 1, [IR_LE] = 1, [IR_LD_GLOBAL] = 1
 };
 
-const uint8_t has_side_effect[IR_COUNT] =
-{
-	[IR_STR_GLOBAL] = 1, [IR_CALL] = 1, [IR_RET] = 1,
-	[IR_LABEL] = 1, [IR_JMP] = 1, [IR_JZ] = 1, [IR_JNZ] = 1,
-	[IR_ARG] = 1, [IR_PARAM] = 1,
-	[IR_DIV] = 1, [IR_MOD] = 1
-};
-
 static uint32_t new_reg (IR *ir, uint8_t type)
 {
 	uint32_t r = ir->reg_count++;

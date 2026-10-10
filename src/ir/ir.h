@@ -95,8 +95,25 @@ typedef struct IR {
 	SymbolTable *symtab;
 } IR;
 
+static inline int get_srcs (IRInstr *in, uint32_t *out[3])
+{
+	int n = 0;
+
+	if (in->src1 != NO_REG) out[n++] = &in->src1;
+	if (in->src2 != NO_REG) out[n++] = &in->src2;
+	if (in->op == IR_SELECT) out[n++] = &in->cond;
+	return n;
+}
+
+static inline int same_rep (IRFn *fn, uint32_t a, uint32_t b)
+{
+	const Type *ta = types + fn->reg_types[a];
+	const Type *tb = types + fn->reg_types[b];
+
+	return ta->size == tb->size && (ta->size == 8 || ta->sign == tb->sign);
+}
+
 extern const uint8_t is_deletable[IR_COUNT];
-extern const uint8_t has_side_effect[IR_COUNT];
 
 void ir_init (IR *ir, Arena *arena, Sema *sema);
 void ir_gen (IR *ir);

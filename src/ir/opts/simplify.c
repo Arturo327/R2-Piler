@@ -58,26 +58,10 @@ static int simplify_rhs (OptFn *f, IRInstr *in, int64_t b)
 
 static int simplify_lhs (OptFn *f, IRInstr *in, int64_t a)
 {
-	switch (in->op)
-	{
-	case IR_ADD: case IR_OR_A: case IR_XOR:
-		return a == 0 && try_move(f, in, in->src2);
-	case IR_MUL:
-		if (a != 0) return a == 1 && try_move(f, in, in->src2);
-		to_const(f, in, 0);
-		return 1;
-	case IR_AND_A:
-		if (a != 0) return a == norm_val(~(uint64_t)0, in->data_type)
-				&& try_move(f, in, in->src2);
-		to_const(f, in, 0);
-		return 1;
-	case IR_LS: case IR_RS:
-		if (a != 0) return 0;
-		to_const(f, in, 0);
-		return 1;
-	default:
-		return 0;
-	}
+	if (in->op != IR_LS && in->op != IR_RS) return 0;
+	if (a != 0) return 0;
+	to_const(f, in, 0);
+	return 1;
 }
 
 static const uint8_t swap_op[IR_COUNT] = {

@@ -69,6 +69,18 @@ static void cse_add (OptFn *f, IRInstr *in)
 	e->type = in->data_type;
 }
 
+static void cse_replace (OptFn *f, IRInstr *in, const CseEntry *e)
+{
+	if (in->dst == e->dst) {
+		kill_instr(in);
+		return;
+	}
+	in->op = IR_MOVE;
+	in->src1 = e->dst;
+	in->src2 = NO_REG;
+	in->data_type = f->fn->reg_types[in->dst];
+}
+
 static int cse_block (Optimizer *opt, OptFn *f, OptBlock *blk)
 {
 	IRInstr *code = opt->ir->instrs + blk->start;
@@ -83,13 +95,11 @@ static int cse_block (Optimizer *opt, OptFn *f, OptBlock *blk)
 		CseEntry *e = cand ? cse_find(f, in) : NULL;
 
 		if (e && same_rep(f->fn, in->dst, e->dst)) {
-			in->op = IR_MOVE;
-			in->src1 = e->dst;
-			in->src2 = NO_REG;
-			in->data_type = f->fn->reg_types[in->dst];
+			cse_replace(f, in, e);
 			changed = 1;
 			cand = 0;
 		}
+
 		if (in->dst != NO_REG) cse_kill(f, in->dst);
 		if (cand) cse_add(f, in);
 	}

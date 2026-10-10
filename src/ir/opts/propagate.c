@@ -6,15 +6,14 @@ static int forward_copy (IRInstr *code, uint32_t n, IRInstr *mv, uint32_t pendin
 
 	for (uint32_t k = 0; k < n && pending; k++) {
 		IRInstr *in = code + k;
+		uint32_t *src[3];
+		int cnt;
 
 		if (in->op == IR_NOP) continue;
-		if (in->src1 == mv->dst) {
-			in->src1 = mv->src1;
-			changed = 1;
-			pending--;
-		}
-		if (in->src2 == mv->dst) {
-			in->src2 = mv->src1;
+		cnt = get_srcs(in, src);
+		for (int j = 0; j < cnt; j++) {
+			if (*src[j] != mv->dst) continue;
+			*src[j] = mv->src1;
 			changed = 1;
 			pending--;
 		}

@@ -126,16 +126,6 @@ static void mark_deferred (X86Fn *f)
 		if (can_defer(f, i, end)) f->cstate[i->dst] = VR_REG;
 }
 
-static int same_rep (X86Fn *f, uint32_t a, uint32_t b)
-{
-	const Type *ta = types + f->fn->reg_types[a];
-	const Type *tb = types + f->fn->reg_types[b];
-
-	return ta->size == tb->size && (ta->size == 8 || ta->sign == tb->sign);
-}
-
-int get_srcs (IRInstr *in, uint32_t *out[3]);
-
 static void count_defs (X86Fn *f)
 {
 	IR *ir = f->cg->ir;
@@ -167,7 +157,7 @@ static void clasf_def (X86Fn *f, IRInstr *in)
 		f->cval[d] = in->imm64;
 		return;
 	}
-	if (in->op != IR_MOVE || !same_rep(f, d, s)) return;
+	if (in->op != IR_MOVE || !same_rep(f->fn, d, s)) return;
 
 	if (f->cstate[s] == VR_CONST) {
 		f->cstate[d] = VR_CONST;

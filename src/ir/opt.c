@@ -4,7 +4,6 @@
 #include <string.h>
 
 #define OPT_MAX_ROUNDS 8
-#define OPT_MAX_HOPS 8
 
 typedef int (*OptPass) (Optimizer *opt, OptFn *f);
 

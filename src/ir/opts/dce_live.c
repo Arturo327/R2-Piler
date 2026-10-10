@@ -23,16 +23,6 @@ int opt_dce (Optimizer *opt, OptFn *f)
 	return changed;
 }
 
-int get_srcs (IRInstr *in, uint32_t *out[3])
-{
-	int n = 0;
-
-	if (in->src1 != NO_REG) out[n++] = &in->src1;
-	if (in->src2 != NO_REG) out[n++] = &in->src2;
-	if (in->op == IR_SELECT) out[n++] = &in->cond;
-	return n;
-}
-
 static int live_step (IRInstr *in, uint64_t *live)
 {
 	uint32_t *src[3];
