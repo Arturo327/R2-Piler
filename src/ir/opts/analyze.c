@@ -46,6 +46,7 @@ static void build_lmap (IR *ir, OptFn *f)
 static void count_regs (IR *ir, OptFn *f)
 {
 	IRFn *fn = f->fn;
+
 	memset(f->defs, 0, (size_t)fn->reg_count * sizeof(uint32_t));
 	memset(f->uses, 0, (size_t)fn->reg_count * sizeof(uint32_t));
 
@@ -57,10 +58,11 @@ static void count_regs (IR *ir, OptFn *f)
 			f->defs[in->dst]++;
 			f->def_at[in->dst] = fn->start + j;
 		}
-		if (in->src1 != NO_REG)
-			f->uses[in->src1]++;
-		if (in->src2 != NO_REG)
-			f->uses[in->src2]++;
+
+		uint32_t *src[3];
+		int n = get_srcs(in, src);
+		for (int k = 0; k < n; k++)
+			f->uses[*src[k]]++;
 	}
 }
 

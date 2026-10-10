@@ -78,7 +78,7 @@ static const uint8_t leaves_in_rax[IR_COUNT] = {
 	[IR_LD_GLOBAL] = 1, [IR_MOVE] = 1, [IR_EXTEND] = 1, [IR_CALL] = 1,
 	[IR_ADD] = 1, [IR_SUB] = 1, [IR_MUL] = 1, [IR_DIV] = 1, [IR_MOD] = 1,
 	[IR_AND_A] = 1, [IR_OR_A] = 1, [IR_XOR] = 1, [IR_RS] = 1, [IR_LS] = 1,
-	[IR_NEG] = 1, [IR_NOT_A] = 1, [IR_NOT_L] = 1,
+	[IR_NEG] = 1, [IR_NOT_A] = 1, [IR_NOT_L] = 1, [IR_SELECT] = 1,
 	[IR_EQ] = 1, [IR_NE] = 1, [IR_GT] = 1, [IR_GE] = 1, [IR_LT] = 1, [IR_LE] = 1
 };
 
@@ -86,7 +86,7 @@ static const uint8_t reads_src1_first[IR_COUNT] = {
 	[IR_MOVE] = 1, [IR_EXTEND] = 1, [IR_STR_GLOBAL] = 1,
 	[IR_ADD] = 1, [IR_SUB] = 1, [IR_MUL] = 1, [IR_DIV] = 1, [IR_MOD] = 1,
 	[IR_AND_A] = 1, [IR_OR_A] = 1, [IR_XOR] = 1, [IR_RS] = 1, [IR_LS] = 1,
-	[IR_NEG] = 1, [IR_NOT_A] = 1, [IR_NOT_L] = 1,
+	[IR_NEG] = 1, [IR_NOT_A] = 1, [IR_NOT_L] = 1, [IR_SELECT] = 1,
 	[IR_EQ] = 1, [IR_NE] = 1, [IR_GT] = 1, [IR_GE] = 1, [IR_LT] = 1, [IR_LE] = 1,
 	[IR_JZ] = 1, [IR_JNZ] = 1, [IR_RET] = 1
 };
@@ -134,6 +134,8 @@ static int same_rep (X86Fn *f, uint32_t a, uint32_t b)
 	return ta->size == tb->size && (ta->size == 8 || ta->sign == tb->sign);
 }
 
+int get_srcs (IRInstr *in, uint32_t *out[3]);
+
 static void count_defs (X86Fn *f)
 {
 	IR *ir = f->cg->ir;
@@ -143,10 +145,12 @@ static void count_defs (X86Fn *f)
 	memset(f->defs, 0, fn->reg_count);
 	for (uint32_t i = 0; i < fn->count; i++) {
 		IRInstr *in = ir->instrs + fn->start + i;
+		uint32_t *src[3];
 
 		if (in->op == IR_NOP) continue;
-		if (in->src1 != NO_REG) f->uses[in->src1]++;
-		if (in->src2 != NO_REG) f->uses[in->src2]++;
+		int n = get_srcs(in, src);
+
+		for (int k = 0; k < n; k++) f->uses[*src[k]]++;
 		if (in->dst != NO_REG && f->defs[in->dst] < 2) f->defs[in->dst]++;
 	}
 }
@@ -1045,6 +1049,15 @@ static int make_tail_call (X86Fn *f, IRInstr *i)
 	return ret == i + 1 ? 2 : 1;
 }
 
+static void make_select (X86Fn *f, IRInstr *i)
+{
+	load_reg(f, 0, i->src1);
+	load_reg(f, 1, i->src2);
+	load_reg(f, 2, i->cond);
+	cg_printf(f->cg, "\ttestq %%rdx, %%rdx\n\tcmove %%rcx, %%rax\n");
+	store_reg(f, 0, i->dst);
+}
+
 static int make_instr (X86Fn *f, IRInstr *i)
 {
 	if (is_silent(f, i)) return 1;
@@ -1080,6 +1093,7 @@ static int make_instr (X86Fn *f, IRInstr *i)
 	case IR_NEG: make_unary(f, i, "neg"); return 1;
 	case IR_NOT_A: make_unary(f, i, "not"); return 1;
 	case IR_NOT_L: make_not_l(f, i); return 1;
+	case IR_SELECT: make_select(f, i); return 1;
 
 	case IR_EQ: case IR_NE: case IR_GT: case IR_GE: case IR_LT: case IR_LE:
 		if (!fuses_with_next(f, i)) {

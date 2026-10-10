@@ -107,9 +107,13 @@ static int dse_block (Optimizer *opt, OptFn *f, OptBlock *blk)
 			changed = 1;
 			continue;
 		}
+
 		if (in->dst != NO_REG) f->dstamp[in->dst] = f->depoch;
-		if (in->src1 != NO_REG) f->dstamp[in->src1] = 0;
-		if (in->src2 != NO_REG) f->dstamp[in->src2] = 0;
+
+		uint32_t *src[3];
+		int n = get_srcs(in, src);
+		for (int k = 0; k < n; k++)
+			f->dstamp[*src[k]] = 0;
 	}
 	return changed;
 }

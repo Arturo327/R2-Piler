@@ -142,6 +142,7 @@ int compile (Compiler *c, CompilerOpts *opts)
 	if (c->err.err_count) return 1;
 
 	ir_init(&c->ir, &c->ir_arena, &c->sema);
+	c->ir.use_select = opts->opt_level == OPT_FULL && !opts->dump_ir;
 	ir_gen(&c->ir);
 	if (opts->dump_ir) {
 		dump_ir(&c->ir);

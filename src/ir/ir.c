@@ -411,6 +411,66 @@ static int is_pure (IR *ir, uint32_t idx, int *budget)
 	return 1;
 }
 
+static void make_select (IR *ir, uint32_t dst, uint32_t a,
+		uint32_t b, uint32_t c, uint8_t type)
+{
+	IRInstr i = blank_instr;
+
+	i.op = IR_SELECT;
+	i.dst = dst;
+	i.src1 = a;
+	i.src2 = b;
+	i.cond = c;
+	i.data_type = type;
+	push_instr(ir, i);
+}
+
+static ASTNode *lone_assign (IR *ir, uint32_t idx)
+{
+	ASTNode *nodes = ir->ast->nodes;
+	ASTNode *n = nodes + idx;
+	int budget = LOGIC_BUDGET;
+
+	if (n->type == NODE_BLOCK) {
+		if (n->child == NO_NODE || nodes[n->child].next_bro != NO_NODE) return NULL;
+		n = nodes + n->child;
+	}
+	if (n->type != NODE_ASSIGN) return NULL;
+	if (!ir->symtab->symbols[nodes[n->child].sym].depth) return NULL;
+	return is_pure(ir, nodes[n->child].next_bro, &budget) ? n : NULL;
+}
+
+static int select_arms (IR *ir, ASTNode *n, ASTNode **a, ASTNode **b)
+{
+	ASTNode *nodes = ir->ast->nodes;
+	uint32_t body = nodes[n->child].next_bro;
+	uint32_t other = nodes[body].next_bro;
+
+	*b = NULL;
+	*a = lone_assign(ir, body);
+	if (!*a) return 0;
+	if (other == NO_NODE) return 1;
+	if (nodes[other].type != NODE_ELSE || nodes[other].next_bro != NO_NODE) return 0;
+	*b = lone_assign(ir, nodes[other].child);
+	return *b && nodes[(*b)->child].sym == nodes[(*a)->child].sym;
+}
+
+static int gen_select (IR *ir, ASTNode *n)
+{
+	ASTNode *nodes = ir->ast->nodes;
+	ASTNode *a;
+	ASTNode *b;
+	if (!select_arms(ir, n, &a, &b)) return 0;
+
+	Symbol *s = ir->symtab->symbols + nodes[a->child].sym;
+	uint32_t vc = gen_expr(ir, nodes + n->child);
+	uint32_t va = gen_expr(ir, nodes + nodes[a->child].next_bro);
+	uint32_t vb = b ? gen_expr(ir, nodes + nodes[b->child].next_bro) : s->ir_id;
+
+	make_select(ir, s->ir_id, va, vb, vc, s->type);
+	return 1;
+}
+
 static uint32_t gen_bool (IR *ir, ASTNode *n)
 {
 	uint32_t val = gen_expr(ir, n);
@@ -523,6 +583,8 @@ static void gen_branch (IR *ir, uint32_t cond, uint32_t body, uint32_t end, int 
 
 static void gen_if (IR *ir, ASTNode *n)
 {
+	if (ir->use_select && gen_select(ir, n)) return;
+
 	ASTNode *nodes = ir->ast->nodes;
 	uint32_t cond = n->child;
 	uint32_t body = nodes[cond].next_bro;
@@ -743,6 +805,8 @@ static void dump_instr (IR *ir, IRInstr *i)
 		printf(" r%u", i->src1);
 	if (i->src2 != NO_REG)
 		printf(", r%u", i->src2);
+	if (i->op == IR_SELECT)
+		printf(", r%u", i->cond);
 	dump_extra(ir, i);
 	printf("\n");
 }

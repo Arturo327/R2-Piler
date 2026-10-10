@@ -1,6 +1,6 @@
 #include "ir/opts/common.h"
 
-static int try_move (OptFn *f, IRInstr *in, uint32_t src)
+int try_move (OptFn *f, IRInstr *in, uint32_t src)
 {
 	if (!same_rep(f->fn, in->dst, src)) return 0;
 	if (in->dst == src) {

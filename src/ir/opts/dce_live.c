@@ -11,8 +11,12 @@ int opt_dce (Optimizer *opt, OptFn *f)
 		IRInstr *in = code + i;
 
 		if (in->dst == NO_REG || f->uses[in->dst] || !is_deletable[in->op]) continue;
-		if (in->src1 != NO_REG) f->uses[in->src1]--;
-		if (in->src2 != NO_REG) f->uses[in->src2]--;
+
+		uint32_t *src[3];
+		int n = get_srcs(in, src);
+		for (int k = 0; k < n; k++)
+			f->uses[*src[k]]--;
+
 		kill_instr(in);
 		changed = 1;
 	}

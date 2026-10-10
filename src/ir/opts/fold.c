@@ -110,6 +110,13 @@ static int fold_instr (Optimizer *opt, OptFn *f, IRInstr *in)
 	return 1;
 }
 
+static int fold_select (Optimizer *opt, OptFn *f, IRInstr *in)
+{
+	int64_t c;
+	if (!reg_const(opt, f, in->cond, &c)) return 0;
+	return try_move(f, in, c != 0 ? in->src1 : in->src2);
+}
+
 static int fold_jump (Optimizer *opt, OptFn *f, IRInstr *in)
 {
 	int64_t v;
@@ -144,7 +151,10 @@ static int fold_block (Optimizer *opt, OptFn *f, OptBlock *blk)
 
 		if (in->op == IR_JZ || in->op == IR_JNZ)
 			changed |= fold_jump(opt, f, in);
+		else if (in->op == IR_SELECT)
+			changed |= fold_select(opt, f, in);
 		else changed |= fold_instr(opt, f, in) || simplify_instr(opt, f, in);
+
 		track_const(f, in);
 	}
 	return changed;
