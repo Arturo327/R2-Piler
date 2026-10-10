@@ -1,0 +1,10 @@
+global g : i64
+
+fn __r2_init(0 params, 1 regs) : void
+    ret
+
+fn main(0 params, 1 regs) : i64
+    r0 = ld_global.i64 @g
+    ret.i64 r0
+    ret
+

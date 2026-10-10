@@ -2,7 +2,7 @@
 
 Especificación completa de R2-Lang, el lenguaje que compila R2-Piler.
 
-Estado: lexer, parser, sema, IR y `optimize_ir` implementados y testeados con fixtures. Codegen: el backend x86-64 emite assembly AT&T completo y tiene suite propia de ejecución (`tests/asm/`, comprueba el exit code del binario, más diferencial `-O0`/`-O2`); aplica optimizaciones locales de codegen (A1–A5 en `comp_pending.md`: stores diferidos, const/alias, RMW, strength reduction con magia de división, fusión cmp+jcc, DCE, tail calls); `arm`, `riscv` y el intérprete se rechazan con "backend is not implemented".
+Estado: lexer, parser, sema, IR y `optimize_ir` implementados y testeados con fixtures (11 pases en `src/ir/opt.c:29-41`, suite `tests/opt/` con 15 fixtures). Codegen: el backend x86-64 emite assembly AT&T completo y tiene suite propia de ejecución (`tests/asm/`, 51 fixtures: comprueba el exit code del binario en `-O0`/`-O1`/`-O2` más conteo Ir con valgrind callgrind); aplica optimizaciones locales de codegen (A1–A5: stores diferidos, const/alias, RMW incl. inplace, strength reduction con magia de división, fusión cmp+jcc, DCE local, tail calls; más `cmp_mem_imm`, `op_rax`, caché `rax_v`, red-zone); `arm`, `riscv` y el intérprete se rechazan con "backend is not implemented".
 
 ---
 
@@ -230,13 +230,24 @@ Plegado de constantes: una subexpresión hecha solo de literales se evalúa en c
 
 - La IR está implementada y testeada (`--dump-ir`, suite `tests/ir/`). Toda la AST válida se baja a IR, incluido el código inalcanzable tras un `return`.
 - La IR se genera solo si no hay errores en las fases anteriores; los warnings no la bloquean.
-- `optimize_ir` (`src/ir/opt.c`, suite `tests/opt/` con `--dump-opt`) corre sobre la IR lineal antes del codegen (salvo `-O0`). Es independiente de la arquitectura: bloques básicos + CFG + conteo de defs/usos por función, hasta 8 rondas hasta punto fijo y compactado final de `NOP`s (sin renumerar: las cabeceras `(N regs)` conservan el conteo original). Niveles: `-O0` desactiva, `-O1` (defecto) activa todo, `-O2` lo activa todo; `--dump-opt` sin `-O` fuerza `FULL`.
-  - Propagación de copias intra-bloque (`t = move x`, una sola def, mismo tamaño/signo).
-  - Plegado de constantes (aritmética/bitwise/comparaciones/unarios sobre `const`, sin plegar `div`/`mod` por cero ni shifts con cuenta `>= 64`) y saltos constantes (`jz`/`jnz` sobre `const` → `jmp` o nada).
-  - `coalesce` (solo `-O2`): `op; move` adyacente con def/uso únicos se fusiona renombrando el `dst`.
-  - DCE local con `liveness` global por conteo (solo borra `is_deletable`; `div`/`mod`/`call`/`arg`/`param`/`ret`/saltos/labels se conservan).
-  - Bloques inalcanzables desde la entrada (conservando la última instrucción de la función para no dejarla sin `ret`).
-  - Limpieza de saltos (`jmp` a la etiqueta inmediata, `jz L1; jmp L2; L1:` → `jnz L2`, labels sin refs).
+- `optimize_ir` (`src/ir/opt.c` + `src/ir/opts/`, declaraciones compartidas en `src/ir/common.h`, suite `tests/opt/` con `--dump-opt`, 15 fixtures: `001`–`006` clásicos más `007_simplify`, `008_fold_const`, `009_cse_mul`, `010_live_dce`, `011_strength`, `012_globals_fwd`, `013_dse`, `014_static_init`, `015_thread_jump`) corre sobre la IR lineal antes del codegen (salvo `-O0`). Es independiente de la arquitectura: bloques básicos + CFG + conteo de defs/usos por función, hasta 8 rondas hasta punto fijo (`analyze_fn` solo si el pase anterior ensució) y compactado final de `NOP`s (sin renumerar: las cabeceras `(N regs)` conservan el conteo original). Niveles: `-O0` desactiva (`NO_OPT`), `-O1` (defecto, `BASIC`) activa todo salvo `cse` y `live_dce`, `-O2` (`FULL`) lo activa todo; `--dump-opt` sin `-O` fuerza `FULL`, `--dump-opt -O0` muestra sin optimizar, `--dump-ir` nunca optimiza. O1 vs O2 solo difieren en `009`/`010` (los dos pases `FULL`).
+- Tabla de pases (`passes[]` en `src/ir/opt.c:29-41`, en orden):
+
+| Pase | Fichero | Nivel | Qué hace |
+|------|---------|-------|----------|
+| `propagate` | `opts/propagate.c` | BASIC | Copias/constantes intra-bloque (`t = move x`, una sola def, mismo tamaño/signo vía `same_rep`). |
+| `fold` | `opts/fold.c` (`reg_const`/`eval_*`/`fold_instr`/`fold_jump`/`track_const`/`fold_block`) | BASIC | Plegado de constantes (aritmética/bitwise/comparaciones/unarios sobre `const`) y saltos constantes (`jz`/`jnz` sobre `const` → `jmp` o nada). Guards: no pliega `div`/`mod` por 0, `INT64_MIN` div/mod `-1`, ni shifts con cuenta `>= 64`. |
+| `simplify` | `opts/simplify.c` (`simplify_same`/`rhs`/`lhs`/`swap_op`) | BASIC | Algebraicos: `x-x`/`x^x`/`x!=x`/`x<x`/`x>x`→`0`, `x==x`/`x<=x`/`x>=x`→`1`, `+0`/`-0`/`\|0`/`^0`/`<<0`/`>>0`→`MOVE`, `/1`→`MOVE`, `%1`→`0`, `*0`→`0`, `*1`→`MOVE`, `&0`→`0`, `&all1`→`MOVE`; mueve la constante a la derecha (`swap_op`). |
+| `cse` | `opts/cse_coalesce.c` | FULL | CSE local solo de `MUL`/`DIV`/`MOD` con `src2` no constante (swap solo `MUL`), tope 32 entradas (`OPT_CSE_MAX`). |
+| `coalesce` | `opts/cse_coalesce.c` | BASIC | Cualquier `is_deletable` no-`MOVE` más `CALL`/`DIV`/`MOD` con def/uso únicos, más `MOVE` posterior, se fusiona renombrando el `dst`. |
+| `dce` | `opts/dce_live.c` | BASIC | DCE local por conteo de usos (solo borra `is_deletable`; `div`/`mod`/`call`/`arg`/`param`/`ret`/saltos/labels se conservan). |
+| `live_dce` | `opts/dce_live.c` (`live_*`) | FULL | DCE con liveness global por CFG. |
+| `unreachable` | `opts/cfg.c` | BASIC | Bloques inalcanzables desde la entrada (conservando la última instrucción de la función para no dejarla sin `ret`). |
+| `jumps` | `opts/cfg.c` (`thread_jump`/`flip_branch`/`jump_to_next`) | BASIC | Threading de saltos hasta 8 hops, `jmp` a la etiqueta inmediata, `jz L1; jmp L2; L1:` → `jnz L2`, labels sin refs. |
+| `strength` | `opts/extra.c` | BASIC | `MUL`/`DIV`/`MOD` por potencia de 2 `>= 2`; `DIV`/`MOD` solo sin signo. |
+| `globals` | `opts/extra.c` | BASIC | Forwarding intra-bloque de `ld_global` (`CALL` invalida lo cacheado). |
+| `dse` | `opts/extra.c` | BASIC | Stores muertos a variables/globals. |
+| `static_init` | `opts/static.c` (siempre, fuera de `passes[]`) | siempre si `level != NO_OPT` y hay globales | `CONST`+`STR_GLOBAL` del mismo tamaño/tipo se enlaza a `.data` (vía `has_init` del IR); para tras `CALL`/`JMP`/`JZ`/`JNZ`/`LABEL`; qué globals toca cada función se calcula con `gtouch` transitivo (interprocedural), así las llamadas que no tocan un global no bloquean su `.data`. |
 
 ---
 
@@ -354,16 +365,16 @@ La IR optimizada se vuelca con `--dump-opt` (`-D`): mismo formato que `--dump-ir
 
 ## Backend x86-64
 
-Modelo con `optimize_ir` previo (B0–B2, ver `comp_pending.md`) más optimizaciones locales de codegen (A1–A5); todavía no hay allocator de registros.
+Modelo con `optimize_ir` previo (11 pases + `static_init`) más optimizaciones locales de codegen (A1–A5 y extras); todavía no hay allocator de registros.
 
-- **Homes en memoria**: cada registro virtual superviviente ocupa `types[t].size` bytes en el frame, en `-N(%rbp)` (o `(%rsp)` en hojas red-zone). Los temporales de un solo uso de 8 bytes se quedan en `%rax` sin slot ni store (A1); los `MOVE`s de definición única no emiten nada (const → inmediato, alias → slot del origen, A2). Los slots se reparten de mayor a menor tamaño (8, 4, 2, 1) para mantener la alineación natural, y el área de salida para llamadas queda al fondo del frame. El frame siempre es múltiplo de 16.
-- **Cada instrucción IR es autocontenida salvo A1**: carga sus operandos, calcula y guarda el resultado en el home del destino (o lo deja en `%rax` si es diferido). Solo se usan `rax`, `rcx`, `rdx` (más los registros de argumentos al preparar una llamada). No se usa ningún registro callee-saved. La caché `rax_v` evita recargas (invalidada en `call`, `div/mod`, labels y stores narrow).
+- **Homes en memoria**: cada registro virtual superviviente ocupa `types[t].size` bytes en el frame, en `-N(%rbp)` (o `(%rsp)` en hojas red-zone). Los temporales de un solo uso de 8 bytes producidos como `src1` se quedan en `%rax` sin slot ni store diferido (A1, `VR_REG`); los `MOVE`s de definición única no emiten nada (const → inmediato, alias → slot del origen, A2, `VR_CONST`/`VR_ALIAS` vía `same_rep`). Los slots se reparten de mayor a menor tamaño (8, 4, 2, 1) para mantener la alineación natural, y el área de salida para llamadas queda al fondo del frame (`8*max(argc-6)` por fn, excluyendo tail calls). El frame siempre es múltiplo de 16.
+- **Cada instrucción IR es autocontenida salvo A1**: carga sus operandos, calcula y guarda el resultado en el home del destino (o lo deja en `%rax` si es diferido). Solo se usan `rax`, `rcx`, `rdx` (más los registros de argumentos al preparar una llamada). No se usa ningún registro callee-saved. La caché `rax_v` evita recargas (emite `testq %rax` en `jz`/`jnz`; se invalida en `call` void, `div`/`mod`, labels y stores narrow).
 - **Extensión al cargar**: leer un vreg emite `movzx`/`movsx` (o `movl`/`movq`) según el tipo del vreg, así que el valor en el registro de trabajo es el valor de 64 bits con su signo correcto. Guardar escribe solo `types[t].size` bytes.
-- **Aritmética y fuerza**: `add sub and or xor imul neg not shl` se calculan a 64 bits sobre el valor extendido (los bits bajos coinciden con la operación nativa del ancho). `x = x op K` con `K` constante se emite como una sola instrucción RMW en memoria (`addq $K, mem`, también `sub/and/or/xor`, `shl`, `neg`/`not`). `*2^k` → `shl`, `*3/5/9` → `lea`, `*(2^k±1)` → `shl+add/sub`; `/`/`%` por constante → `shrq`/`andq` si es potencia de 2 (con signo vía `bias`) o magia con `mulq`/`imulq` + shifts en otro caso; shifts con cuenta constante usan inmediato. `shr`/`sar` y las comparaciones usan el signo de `data_type`. `div`/`mod` con divisor no constante corren al **ancho nativo** del tipo (`idivb/w/l/q`, `divb/w/l/q`); el resto de un tipo de 1 byte sale de `%ah`.
-- **Comparaciones y saltos**: `cmp` + `setcc` + `movzbl`, con resultado `i64` 0/1; si la comparación alimenta directamente a un `jz`/`jnz` se fusiona en un solo `cmp+jcc`. `jz`/`jnz` sobre constante se resuelven (`jmp`/nada); si no, emiten `cmp $0, <home>` + `je`/`jne` (con atajo `testq %rax` si el valor ya está en `%rax`). Las etiquetas son `.L<n>` con los ids únicos del IR. Defs puras sin usos no emiten nada (DCE local).
+- **Aritmética y fuerza**: `add sub and or xor imul neg not shl` se calculan a 64 bits sobre el valor extendido (los bits bajos coinciden con la operación nativa del ancho). `x = x op K` con `K` constante se emite como una sola instrucción RMW en memoria (`addq $K, mem`, también `sub/and/or/xor`, `shl`, `neg`/`not`; patrón de 3 instrucciones más formas inplace). `*2^k` → `shl`, `*3/5/9` → `lea`, `*(2^k±1)` → `shl+add/sub`; `/`/`%` por constante → `shrq`/`andq` si es potencia de 2 (con signo vía `bias`) o magia con `mulq`/`imulq` + shifts en otro caso (baila con `v<=0` y con `/1` con signo); shifts con cuenta constante usan inmediato, si no `%cl`. `shr`/`sar` y las comparaciones usan el signo de `data_type`. `div`/`mod` con divisor no constante corren al **ancho nativo** del tipo (`idivb/w/l/q`, `divb/w/l/q` con `cbw`/`cwd`/`cdq`/`cqo`; el resto de un tipo de 1 byte sale de `%ah`).
+- **Comparaciones y saltos**: `cmp` + `setcc` + `movzbl`, con resultado `i64` 0/1; si la comparación alimenta directamente a un `jz`/`jnz` se fusiona en un solo `cmp+jcc` (más atajos `cmp_mem_imm` y `op_rax`). `jz`/`jnz` sobre constante se resuelven (`jmp`/nada); si no, emiten `cmp $0, <home>` + `je`/`jne` (con atajo `testq %rax` si el valor ya está cacheado en `%rax`). Las etiquetas son `.L<n>` con los ids únicos del IR. Defs puras sin usos no emiten nada (DCE local `is_silent`, incluido código muerto tras `RET`/`JMP`).
 - **Llamadas (System V AMD64)**: los args 0..5 van en `rdi rsi rdx rcx r8 r9`; el resto, en el área de salida (`(%rsp)`, `8(%rsp)`, …). El callee los lee de `16(%rbp)`, `24(%rbp)`, … y el retorno va en `rax`.
-- **Globals**: se accede a ellos con `nombre(%rip)`. Si el **primer acceso** a un global dentro de `__r2_init` es un `const` seguido de su `str_global` (mismo reg y mismo tipo), y todavía no ha habido ninguna llamada ni salto, el global se emite en `.data` con ese valor; el resto va a `.bss`. Cuando el init se optimiza a `.data`, su `const`+`str_global` se borran (`NOP`) y si el init queda vacío no se emite `__r2.init` ni la llamada desde `main`.
-- **Prólogo/epílogo**: `pushq %rbp; movq %rsp, %rbp; subq $frame, %rsp` y `leave; ret` (hojas en red-zone sin nada). Todo `ret` del IR (incluido el implícito de final de función) emite su epílogo. `return f()` con ≤6 args y mismo tipo de retorno es tail call (`leave; jmp`).
+- **Globals**: se accede a ellos con `nombre(%rip)`. El IR marca `has_init` cuando un global se inicializa con `CONST`+`STR_GLOBAL` del mismo tamaño/tipo (decidido por `static_init` en el optimizador, con `gtouch` interprocedural); esos van a `.data`, el resto a `.bss`. Cuando el init se baja a `.data`, su `const`+`str_global` se borran (`NOP`) y si el init queda vacío no se emite `__r2.init` ni la llamada desde `main`.
+- **Prólogo/epílogo**: `pushq %rbp; movq %rsp, %rbp; subq $frame, %rsp` y `leave; ret` (hojas en red-zone ≤128 sin nada). Todo `ret` del IR (incluido el implícito de final de función) emite su epílogo. `return f()` con ≤6 args y mismo tipo de retorno (o 8 bytes) es tail call (`leave; jmp`; autocall → `jmp .LSn`).
 - **Entry**: ver la sección 11 (`main` del usuario como `__r2_main` y wrapper `main`).
 
 ## 15. Uso del compilador
@@ -379,8 +390,8 @@ make
 | `-A` / `--dump-ast` | Vuelca el AST a stdout |
 | `-S` / `--dump-symbols` | Vuelca la tabla de símbolos resuelta a stdout |
 | `-I` / `--dump-ir` | Vuelca la IR generada a stdout |
-| `-D` / `--dump-opt` | Vuelca la IR optimizada a stdout (sin `-O` fuerza `FULL`) |
-| `-O[LEVEL]` / `--opt[=LEVEL]` | Nivel `0`, `1` o `2` (sin espacio; `-O` solo = `1`). Defecto: `1` |
+| `-D` / `--dump-opt` | Vuelca la IR optimizada a stdout (sin `-O` fuerza `FULL`; `-O0` la muestra sin optimizar) |
+| `-O[LEVEL]` / `--opt[=LEVEL]` | Nivel `0` (`NO_OPT`), `1` (`BASIC`) o `2` (`FULL`) (sin espacio; `-O` solo = `1`). Defecto: `1` |
 | `-o` / `--out` | Ruta del assembly de salida (por defecto `<fuente>.s`; `-` = stdout) |
 | `-a` / `--arch` | Arquitectura del assembly generado|
 | `-e` / `--execute` | Modo intérprete |
@@ -395,7 +406,7 @@ gcc prog.s -o prog       # ensambla y enlaza
 ./prog; echo $?          # el exit code es el valor que devuelve main
 ```
 
-`make test` ejecuta las seis suites de fixtures (lexer, parser, sema, ir, opt y asm), cada una contra `build/r2p`. La suite `opt` (`tests/opt/`, runner `tests/run_suite.sh` con `--dump-opt`) comprueba la IR optimizada. La suite `asm` (`tests/asm/`, runner `tests/run_asm.sh`) compila cada `<nombre>_src.r2`, lo ensambla con `gcc`, lo ejecuta y compara su exit code con `<nombre>_exit.txt` (más `<nombre>_stderr.txt` opcional para warnings de compilación); además recompila cada test con `-O0` y `-O2` y exige el mismo exit code (diferencial del optimizador).
+`make test` ejecuta las cinco suites de fixtures dump (lexer, parser, sema, ir, opt), cada una contra `build/r2p`. La suite `opt` (`tests/opt/`, 15 fixtures, runner `tests/run_suite.sh` con `--dump-opt`) comprueba la IR optimizada siempre en `FULL`. `make bench` ejecuta la suite `asm` (`tests/asm/`, 51 fixtures, runner `tests/run_asm.sh`): compila cada `<nombre>_src.r2` en defecto `-O1`, lo ensambla con `gcc`, lo ejecuta y compara su exit code con `<nombre>_exit.txt` (más `<nombre>_stderr.txt` opcional para warnings de compilación); además recompila cada test con `-O0`/`-O1`/`-O2` bajo valgrind callgrind (`--toggle-collect=__r2_main,__r2.init`, solo código de usuario, Ir deterministas en vez de tiempos) y exige el mismo exit code en los tres niveles — solo falla si el exit difiere. Al final imprime la tabla `O0/O1/O2 Ir` por test más `TOTAL` (orden aproximado: O0 ~1.75B, O1 ~1.02B, O2 ~1.00B Ir). Requiere `valgrind` en el `PATH`.
 
 Ejemplo de programa completo:
 

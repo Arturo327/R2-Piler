@@ -1,0 +1,29 @@
+global g : i64
+
+fn __r2_init(0 params, 1 regs) : void
+    ret
+
+fn tick(0 params, 0 regs) : void
+    ret
+
+fn f(0 params, 3 regs) : i64
+    r0 = const.i64 5
+    str_global.i64 r0 @g
+    ret.i64 r0
+    ret
+
+fn h(0 params, 3 regs) : i64
+    r0 = const.i64 5
+    str_global.i64 r0 @g
+    call tick
+    r1 = ld_global.i64 @g
+    ret.i64 r1
+    ret
+
+fn main(0 params, 3 regs) : i64
+    r0 = call.i64 f
+    r1 = call.i64 h
+    r2 = add.i64 r0, r1
+    ret.i64 r2
+    ret
+
