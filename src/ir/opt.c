@@ -401,6 +401,12 @@ static int simplify_lhs (OptFn *f, IRInstr *in, int64_t a)
 	}
 }
 
+static const uint8_t swap_op[IR_COUNT] = {
+	[IR_ADD] = IR_ADD, [IR_MUL] = IR_MUL, [IR_AND_A] = IR_AND_A,
+	[IR_OR_A] = IR_OR_A, [IR_XOR] = IR_XOR, [IR_EQ] = IR_EQ, [IR_NE] = IR_NE,
+	[IR_GT] = IR_LT, [IR_LT] = IR_GT, [IR_GE] = IR_LE, [IR_LE] = IR_GE
+};
+
 static int simplify_instr (Optimizer *opt, OptFn *f, IRInstr *in)
 {
 	if (in->dst == NO_REG || in->src1 == NO_REG || in->src2 == NO_REG) return 0;
@@ -414,6 +420,14 @@ static int simplify_instr (Optimizer *opt, OptFn *f, IRInstr *in)
 
 	if (ca && cb) return 0;
 	if (cb) return simplify_rhs(f, in, b);
+	if (ca && swap_op[in->op]) {
+		uint32_t tmp = in->src1;
+
+		in->src1 = in->src2;
+		in->src2 = tmp;
+		in->op = swap_op[in->op];
+		return 1;
+	}
 	if (ca) return simplify_lhs(f, in, a);
 	return 0;
 }

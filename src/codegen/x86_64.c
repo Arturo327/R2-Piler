@@ -735,13 +735,37 @@ static const char *comp_names[12] = {
 	"e", "ne", "a", "ae", "b", "be"
 };
 
+static int cmp_mem_imm (X86Fn *f, IRInstr *i)
+{
+	uint32_t a = i->src1;
+	uint8_t s = types[f->fn->reg_types[a]].size;
+	int64_t v;
+
+	if (f->cstate[i->src2] != VR_CONST || a == f->rax_v) return 0;
+	if (f->cstate[a] != VR_MEM && f->cstate[a] != VR_ALIAS) return 0;
+	v = const_ext(f, i->src2);
+	if (s == 8 && v != (int32_t)v) return 0;
+	if (s == 4) v = (int32_t)v;
+	else if (s == 2) v = (int16_t)v;
+	else if (s == 1) v = (int8_t)v;
+	cg_printf(f->cg, "\tcmp%c $%lld, -%u(%s)\n", mem_suf[s],
+			(long long)v, f->slots[a], f->base);
+	return 1;
+}
+
+static void write_cmp (X86Fn *f, IRInstr *i)
+{
+	if (cmp_mem_imm(f, i)) return;
+	load_reg(f, 0, i->src1);
+	op_rax(f, "cmp", i->src2);
+}
+
 static void make_cmp (X86Fn *f, IRInstr *i)
 {
 	int base = types[i->data_type].sign ? 0 : 6;
 	const char *comp_name = comp_names[base + (i->op - IR_EQ)];
 
-	load_reg(f, 0, i->src1);
-	op_rax(f, "cmp", i->src2);
+	write_cmp(f, i);
 	cg_printf(f->cg, "\tset%s %%al\n\tmovzbl %%al, %%eax\n", comp_name);
 	store_reg(f, 0, i->dst);
 }
@@ -762,8 +786,7 @@ static void make_cmp_jump (X86Fn *f, IRInstr *cmp, IRInstr *jmp)
 	int cc = cmp->op - IR_EQ;
 
 	if (jmp->op == IR_JZ) cc = inv_cmp[cc];
-	load_reg(f, 0, cmp->src1);
-	op_rax(f, "cmp", cmp->src2);
+	write_cmp(f, cmp);
 	cg_printf(f->cg, "\tj%s .L%u\n", comp_names[base + cc], jmp->target);
 }
 
