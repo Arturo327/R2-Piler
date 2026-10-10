@@ -859,10 +859,90 @@ static int opt_live_dce (Optimizer *opt, OptFn *f)
 	return changed;
 }
 
+static const uint8_t cse_cost[IR_COUNT] = {
+	[IR_MUL] = 1, [IR_DIV] = 1, [IR_MOD] = 1
+};
+
+static void cse_kill (OptFn *f, uint32_t reg)
+{
+	uint32_t keep = 0;
+
+	for (uint32_t k = 0; k < f->cse_count; k++) {
+		CseEntry *e = f->cse + k;
+
+		if (e->dst == reg || e->src1 == reg || e->src2 == reg) continue;
+		f->cse[keep++] = *e;
+	}
+	f->cse_count = keep;
+}
+
+static CseEntry *cse_find (OptFn *f, IRInstr *in)
+{
+	for (uint32_t k = 0; k < f->cse_count; k++) {
+		CseEntry *e = f->cse + k;
+		int same = e->src1 == in->src1 && e->src2 == in->src2;
+		int swapped = in->op == IR_MUL && e->src1 == in->src2 && e->src2 == in->src1;
+
+		if (e->op == in->op && e->type == in->data_type && (same || swapped))
+			return e;
+	}
+	return NULL;
+}
+
+static void cse_add (OptFn *f, IRInstr *in)
+{
+	CseEntry *e;
+
+	if (f->cse_count >= OPT_CSE_MAX) return;
+	if (in->dst == in->src1 || in->dst == in->src2) return;
+	e = f->cse + f->cse_count++;
+	e->dst = in->dst;
+	e->src1 = in->src1;
+	e->src2 = in->src2;
+	e->op = in->op;
+	e->type = in->data_type;
+}
+
+static int cse_block (Optimizer *opt, OptFn *f, OptBlock *blk)
+{
+	IRInstr *code = opt->ir->instrs + blk->start;
+	int changed = 0;
+
+	f->cse_count = 0;
+	for (uint32_t i = 0; i < blk->count; i++) {
+		IRInstr *in = code + i;
+		int64_t k;
+		int cand = cse_cost[in->op] && in->dst != NO_REG
+				&& !reg_const(opt, f, in->src2, &k);
+		CseEntry *e = cand ? cse_find(f, in) : NULL;
+
+		if (e && same_rep(f->fn, in->dst, e->dst)) {
+			in->op = IR_MOVE;
+			in->src1 = e->dst;
+			in->src2 = NO_REG;
+			in->data_type = f->fn->reg_types[in->dst];
+			changed = 1;
+			cand = 0;
+		}
+		if (in->dst != NO_REG) cse_kill(f, in->dst);
+		if (cand) cse_add(f, in);
+	}
+	return changed;
+}
+
+static int opt_cse (Optimizer *opt, OptFn *f)
+{
+	int changed = 0;
+
+	for (uint32_t b = 0; b < f->block_count; b++)
+		changed |= cse_block(opt, f, f->blocks + b);
+	return changed;
+}
+
 static const OptPassDesc passes[] = {
 	{ opt_propagate, OPT_BASIC },
 	{ opt_fold, OPT_BASIC },
-//	{ opt_cse, OPT_FULL },
+	{ opt_cse, OPT_FULL },
 	{ opt_coalesce, OPT_BASIC },
 	{ opt_dce, OPT_BASIC },
 	{ opt_live_dce, OPT_FULL },
@@ -923,6 +1003,8 @@ static void init_caches (OptFn *f, IR *ir, Arena *a, size_t max_regs)
 	f->live = NULL;
 	f->live_cap = 0;
 	f->live_tmp = arena_alloc(a, (((max_regs + 63) >> 6) + 1) * sizeof(uint64_t));
+	f->cse = arena_alloc(a, OPT_CSE_MAX * sizeof(CseEntry));
+	f->cse_count = 0;
 }
 
 static void init_opt (Optimizer *opt, IR *ir, Arena *a, OptLevel level)

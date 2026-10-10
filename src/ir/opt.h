@@ -13,6 +13,14 @@ typedef enum {
 	OPT_FULL
 } OptLevel;
 
+typedef struct CseEntry {
+	uint32_t dst;
+	uint32_t src1;
+	uint32_t src2;
+	uint8_t op;
+	uint8_t type;
+} CseEntry;
+
 typedef struct OptBlock {
 	uint64_t *live_in;
 	uint32_t start;
@@ -47,6 +55,9 @@ typedef struct OptFn {
 	uint64_t *live;
 	uint64_t *live_tmp;
 	size_t live_cap;
+
+	CseEntry *cse;
+	uint32_t cse_count;
 
 	uint32_t block_count;
 } OptFn;

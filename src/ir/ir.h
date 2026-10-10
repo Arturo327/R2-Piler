@@ -44,6 +44,8 @@ typedef struct IRFn {
 	char *name;
 	uint8_t *reg_types;
 
+	uint64_t *gtouch;
+
 	uint32_t start;
 	uint32_t count;
 
@@ -85,6 +87,8 @@ typedef struct IR {
 
 	uint8_t *reg_types;
 	uint32_t reg_type_cap;
+
+	uint8_t use_select;
 
 	Arena *arena;
 	AST *ast;
