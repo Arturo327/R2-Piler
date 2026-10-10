@@ -14,14 +14,8 @@ fn f(3 params, 11 regs) : i64
     ret.i64 r6
     ret
 
-fn main(0 params, 4 regs) : i64
-    r0 = const.i64 1
-    r1 = const.i64 2
-    r2 = const.i64 3
-    arg r0 #0
-    arg r1 #1
-    arg r2 #2
-    r3 = call.i64 f
-    ret.i64 r3
+fn main(0 params, 15 regs) : i64
+    r10 = const.i64 1
+    ret.i64 r10
     ret
 

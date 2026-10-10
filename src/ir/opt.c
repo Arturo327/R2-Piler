@@ -114,16 +114,30 @@ static void init_opt (Optimizer *opt, IR *ir, Arena *a, OptLevel level)
 	init_caches(&opt->cur, ir, a, max_regs);
 }
 
+static void optimize_all (Optimizer *opt)
+{
+	for (uint32_t i = 0; i < opt->ir->fn_count; i++) {
+		opt->cur.fn = opt->ir->fns + i;
+		optimize_fn(opt, &opt->cur);
+	}
+}
+
 void optimize_ir (IR *ir, Arena *a, OptLevel level)
 {
 	Optimizer opt;
 
 	if (level == NO_OPT) return;
 	init_opt(&opt, ir, a, level);
-	for (uint32_t i = 0; i < ir->fn_count; i++) {
-		opt.cur.fn = ir->fns + i;
-		optimize_fn(&opt, &opt.cur);
+	optimize_all(&opt);
+
+	if (level == OPT_FULL) {
+		compact_ir(ir);
+		if (inline_ir(ir, a)) {
+			init_opt(&opt, ir, a, level);
+			optimize_all(&opt);
+		}
 	}
+
 	run_static_init(&opt);
 	compact_ir(ir);
 }

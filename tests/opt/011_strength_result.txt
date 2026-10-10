@@ -29,22 +29,8 @@ fn n(1 params, 4 regs) : i64
     ret.i64 r3
     ret
 
-fn main(0 params, 12 regs) : i64
-    r0 = const.u64 16
-    arg r0 #0
-    r1 = call.u64 f
-    r2 = const.u64 16
-    arg r2 #0
-    r3 = call.u64 g
-    r4 = add.u64 r1, r3
-    r5 = const.u64 16
-    arg r5 #0
-    r6 = call.u64 h
-    r7 = add.u64 r4, r6
-    r9 = const.i64 16
-    arg r9 #0
-    r10 = call.i64 n
-    r11 = add.i64 r7, r10
+fn main(0 params, 31 regs) : i64
+    r11 = const.i64 132
     ret.i64 r11
     ret
 

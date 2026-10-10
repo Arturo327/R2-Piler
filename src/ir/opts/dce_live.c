@@ -19,7 +19,7 @@ int opt_dce (Optimizer *opt, OptFn *f)
 	return changed;
 }
 
-static inline int get_srcs (IRInstr *in, uint32_t *out[3])
+int get_srcs (IRInstr *in, uint32_t *out[3])
 {
 	int n = 0;
 

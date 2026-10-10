@@ -15,15 +15,15 @@ fn f(0 params, 3 regs) : i64
 fn h(0 params, 3 regs) : i64
     r0 = const.i64 5
     str_global.i64 r0 @g
-    call tick
-    r1 = ld_global.i64 @g
-    ret.i64 r1
+    ret.i64 r0
     ret
 
-fn main(0 params, 3 regs) : i64
-    r0 = call.i64 f
+fn main(0 params, 6 regs) : i64
+    r3 = const.i64 5
+    str_global.i64 r3 @g
+    r0 = const.i64 5
     r1 = call.i64 h
-    r2 = add.i64 r0, r1
+    r2 = add.i64 r1, r0
     ret.i64 r2
     ret
 

@@ -6,8 +6,8 @@ fn f(0 params, 8 regs) : i64
     ret.i64 r6
     ret
 
-fn main(0 params, 1 regs) : i64
-    r0 = call.i64 f
+fn main(0 params, 9 regs) : i64
+    r0 = const.i64 50
     ret.i64 r0
     ret
 
