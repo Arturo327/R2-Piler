@@ -230,7 +230,7 @@ Plegado de constantes: una subexpresión hecha solo de literales se evalúa en c
 
 - La IR está implementada y testeada (`--dump-ir`, suite `tests/ir/`). Toda la AST válida se baja a IR, incluido el código inalcanzable tras un `return`.
 - La IR se genera solo si no hay errores en las fases anteriores; los warnings no la bloquean.
-- `optimize_ir` (`src/ir/opt.c`, suite `tests/opt/` con `--dump-opt`) corre sobre la IR lineal antes del codegen (salvo `-O0`). Es independiente de la arquitectura: bloques básicos + CFG + conteo de defs/usos por función, hasta 8 rondas hasta punto fijo y compactado final de `NOP`s (sin renumerar: las cabeceras `(N regs)` conservan el conteo original). Niveles: `-O0` desactiva, `-O1` (defecto) activa todo menos `coalesce`, `-O2` lo activa todo; `--dump-opt` sin `-O` fuerza `FULL`.
+- `optimize_ir` (`src/ir/opt.c`, suite `tests/opt/` con `--dump-opt`) corre sobre la IR lineal antes del codegen (salvo `-O0`). Es independiente de la arquitectura: bloques básicos + CFG + conteo de defs/usos por función, hasta 8 rondas hasta punto fijo y compactado final de `NOP`s (sin renumerar: las cabeceras `(N regs)` conservan el conteo original). Niveles: `-O0` desactiva, `-O1` (defecto) activa todo, `-O2` lo activa todo; `--dump-opt` sin `-O` fuerza `FULL`.
   - Propagación de copias intra-bloque (`t = move x`, una sola def, mismo tamaño/signo).
   - Plegado de constantes (aritmética/bitwise/comparaciones/unarios sobre `const`, sin plegar `div`/`mod` por cero ni shifts con cuenta `>= 64`) y saltos constantes (`jz`/`jnz` sobre `const` → `jmp` o nada).
   - `coalesce` (solo `-O2`): `op; move` adyacente con def/uso únicos se fusiona renombrando el `dst`.

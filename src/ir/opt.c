@@ -616,14 +616,6 @@ static int opt_jumps (Optimizer *opt, OptFn *f)
 	return changed;
 }
 
-static int64_t ir_norm (uint64_t v, uint8_t type)
-{
-	const Type *t = types + type;
-	unsigned sh = 64u - t->size * 8u;
-	v <<= sh;
-	return t->sign ? (int64_t)v >> sh : (int64_t)(v >> sh);
-}
-
 static int strength_instr (Optimizer *opt, OptFn *f, IRInstr *in)
 {
 	IRInstr *k;
@@ -635,7 +627,7 @@ static int strength_instr (Optimizer *opt, OptFn *f, IRInstr *in)
 
 	k = opt->ir->instrs + f->def_at[in->src2];
 	if (k->op != IR_CONST) return 0;
-	v = (uint64_t)ir_norm((uint64_t)k->imm64, f->fn->reg_types[in->src2]);
+	v = (uint64_t)norm_val((uint64_t)k->imm64, f->fn->reg_types[in->src2]);
 	if (v < 2 || (v & (v - 1)) != 0) return 0;
 	if (in->op != IR_MUL && types[in->data_type].sign) return 0;
 
@@ -714,6 +706,39 @@ static int opt_globals (Optimizer *opt, OptFn *f)
 	return changed;
 }
 
+static int dse_block (Optimizer *opt, OptFn *f, OptBlock *blk)
+{
+	IRInstr *code = opt->ir->instrs + blk->start;
+	int changed = 0;
+
+	f->depoch++;
+	uint32_t i = blk->count;
+	while (i-- > 0) {
+		IRInstr *in = code + i;
+
+		if (in->op == IR_NOP) continue;
+		if (in->dst != NO_REG && f->dstamp[in->dst] == f->depoch
+				&& is_deletable[in->op]) {
+			kill_instr(in);
+			changed = 1;
+			continue;
+		}
+		if (in->dst != NO_REG) f->dstamp[in->dst] = f->depoch;
+		if (in->src1 != NO_REG) f->dstamp[in->src1] = 0;
+		if (in->src2 != NO_REG) f->dstamp[in->src2] = 0;
+	}
+	return changed;
+}
+
+static int opt_dse (Optimizer *opt, OptFn *f)
+{
+	int changed = 0;
+
+	for (uint32_t b = 0; b < f->block_count; b++)
+		changed |= dse_block(opt, f, f->blocks + b);
+	return changed;
+}
+
 static const OptPassDesc passes[] = {
 	{ opt_propagate, OPT_BASIC },
 	{ opt_fold, OPT_BASIC },
@@ -723,6 +748,7 @@ static const OptPassDesc passes[] = {
 	{ opt_jumps, OPT_BASIC },
 	{ opt_strength, OPT_BASIC },
 	{ opt_globals, OPT_BASIC },
+	{ opt_dse, OPT_BASIC },
 };
 
 static void optimize_fn (Optimizer *opt, OptFn *f)

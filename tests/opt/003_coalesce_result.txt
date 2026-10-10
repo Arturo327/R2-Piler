@@ -4,7 +4,6 @@ fn __r2_init(0 params, 0 regs) : void
 fn f(2 params, 8 regs) : i64
     r0 = param.i64 #0
     r1 = param.i64 #1
-    r5 = add.i64 r0, r1
     r5 = const.i64 99
     ret.i64 r5
     ret
