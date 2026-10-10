@@ -784,6 +784,34 @@ static void make_cmp_jump (X86Fn *f, IRInstr *cmp, IRInstr *jmp)
 	cg_printf(f->cg, "\tj%s .L%u\n", comp_names[base + cc], jmp->target);
 }
 
+static void make_cmp_select (X86Fn *f, IRInstr *cmp, IRInstr *sel)
+{
+	int base = types[cmp->data_type].sign ? 0 : 6;
+	int cc = inv_cmp[cmp->op - IR_EQ];
+
+	write_cmp(f, cmp);
+	load_reg(f, 0, sel->src1);
+	load_reg(f, 1, sel->src2);
+	cg_printf(f->cg, "\tcmov%s %%rcx, %%rax\n", comp_names[base + cc]);
+	store_reg(f, 0, sel->dst);
+}
+
+static int make_cmp_instr (X86Fn *f, IRInstr *i)
+{
+	IRInstr *n = i + 1;
+
+	if (fuses_with_next(f, i)) {
+		make_cmp_jump(f, i, n);
+		return 2;
+	}
+	if (n->op == IR_SELECT && n->cond == i->dst && f->uses[i->dst] == 1) {
+		make_cmp_select(f, i, n);
+		return 2;
+	}
+	make_cmp(f, i);
+	return 1;
+}
+
 static void make_jump (X86Fn *f, IRInstr *i)
 {
 	CodeGen *c = f->cg;
@@ -911,6 +939,18 @@ static int rmw_operand (X86Fn *f, IRInstr *b, uint8_t s, const char **op, int64_
 	}
 }
 
+static int rmw_reg_op (X86Fn *f, IRInstr *b, uint8_t s, const char **op)
+{
+	uint32_t y = b->src2;
+
+	if (rmw_kind[b->op] != RMW_ARITH) return 0;
+	if (y == NO_REG) return 0;
+	if (f->cstate[y] == VR_CONST) return 0;
+	if (types[f->fn->reg_types[y]].size != s) return 0;
+	*op = rmw_names[b->op];
+	return 1;
+}
+
 static int rmw_closes (IRInstr *a, IRInstr *c)
 {
 	if (a->op == IR_LD_GLOBAL)
@@ -966,16 +1006,22 @@ static int make_rmw (X86Fn *f, IRInstr *a)
 	IRInstr *c = rmw_find(f, a, &b);
 	const char *op = NULL;
 	int64_t v = 0;
+	uint8_t s;
 
 	if (!c || !rmw_shape_ok(f, a, b)) return 0;
-	uint8_t s = rmw_width(f, a);
-	if (!rmw_operand(f, b, s, &op, &v)) return 0;
-
-	cg_printf(f->cg, "\t%s%c ", op, mem_suf[s]);
-	if (rmw_kind[b->op] != RMW_UNARY)
-		cg_printf(f->cg, "$%lld, ", (long long)v);
+	s = rmw_width(f, a);
+	if (rmw_operand(f, b, s, &op, &v)) {
+		cg_printf(f->cg, "\t%s%c ", op, mem_suf[s]);
+		if (rmw_kind[b->op] != RMW_UNARY)
+			cg_printf(f->cg, "$%lld, ", (long long)v);
+		print_rmw_loc(f, a);
+		if (f->rax_v == a->src1) f->rax_v = NO_REG;
+		return (int)(c - a) + 1;
+	}
+	if (!rmw_reg_op(f, b, s, &op)) return 0;
+	load_reg(f, 1, b->src2);
+	cg_printf(f->cg, "\t%s%c %s, ", op, mem_suf[s], reg_name(1, s));
 	print_rmw_loc(f, a);
-
 	if (f->rax_v == a->src1) f->rax_v = NO_REG;
 	return (int)(c - a) + 1;
 }
@@ -990,13 +1036,18 @@ static int try_rmw_inplace (X86Fn *f, IRInstr *i)
 	if (!rmw_kind[i->op] || i->dst != i->src1 || f->cstate[x] != VR_MEM)
 		return 0;
 	s = types[f->fn->reg_types[x]].size;
-	if (!rmw_operand(f, i, s, &op, &v)) return 0;
-
-	cg_printf(f->cg, "\t%s%c ", op, mem_suf[s]);
-	if (rmw_kind[i->op] != RMW_UNARY)
-		cg_printf(f->cg, "$%lld, ", (long long)v);
-	cg_printf(f->cg, "-%u(%s)\n", f->slots[x], f->base);
-
+	if (rmw_operand(f, i, s, &op, &v)) {
+		cg_printf(f->cg, "\t%s%c ", op, mem_suf[s]);
+		if (rmw_kind[i->op] != RMW_UNARY)
+			cg_printf(f->cg, "$%lld, ", (long long)v);
+		cg_printf(f->cg, "-%u(%s)\n", f->slots[x], f->base);
+		if (f->rax_v == x) f->rax_v = NO_REG;
+		return 1;
+	}
+	if (!rmw_reg_op(f, i, s, &op)) return 0;
+	load_reg(f, 1, i->src2);
+	cg_printf(f->cg, "\t%s%c %s, -%u(%s)\n", op, mem_suf[s],
+			reg_name(1, s), f->slots[x], f->base);
 	if (f->rax_v == x) f->rax_v = NO_REG;
 	return 1;
 }
@@ -1083,15 +1134,10 @@ static int make_instr (X86Fn *f, IRInstr *i)
 	case IR_NEG: make_unary(f, i, "neg"); return 1;
 	case IR_NOT_A: make_unary(f, i, "not"); return 1;
 	case IR_NOT_L: make_not_l(f, i); return 1;
-	case IR_SELECT: make_select(f, i); return 1;
 
+	case IR_SELECT: make_select(f, i); return 1;
 	case IR_EQ: case IR_NE: case IR_GT: case IR_GE: case IR_LT: case IR_LE:
-		if (!fuses_with_next(f, i)) {
-			make_cmp(f, i);
-			return 1;
-		}
-		make_cmp_jump(f, i, i + 1);
-		return 2;
+		return make_cmp_instr(f, i);
 
 	case IR_LABEL: case IR_JMP: case IR_JZ: case IR_JNZ: make_jump(f, i); return 1;
 

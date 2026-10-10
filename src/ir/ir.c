@@ -452,12 +452,17 @@ static int gen_select (IR *ir, ASTNode *n)
 	ASTNode *nodes = ir->ast->nodes;
 	ASTNode *a;
 	ASTNode *b;
-	if (!select_arms(ir, n, &a, &b)) return 0;
+	int budget = LOGIC_BUDGET;
 
+	if (!select_arms(ir, n, &a, &b)) return 0;
 	Symbol *s = ir->symtab->symbols + nodes[a->child].sym;
-	uint32_t vc = gen_expr(ir, nodes + n->child);
+	int late = is_pure(ir, n->child, &budget);
+
+	uint32_t vc = NO_REG;
+	if (!late) vc = gen_expr(ir, nodes + n->child);
 	uint32_t va = gen_expr(ir, nodes + nodes[a->child].next_bro);
 	uint32_t vb = b ? gen_expr(ir, nodes + nodes[b->child].next_bro) : s->ir_id;
+	if (late) vc = gen_expr(ir, nodes + n->child);
 
 	make_select(ir, s->ir_id, va, vb, vc, s->type);
 	return 1;
