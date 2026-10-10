@@ -14,7 +14,7 @@ typedef enum {
 	IR_NOP = 0,
 	IR_CONST, IR_PARAM,
 	IR_LD_GLOBAL, IR_STR_GLOBAL,
-	IR_MOVE, IR_EXTEND,
+	IR_MOVE, IR_EXTEND, IR_SELECT,
 	IR_ADD, IR_SUB, IR_MUL, IR_DIV, IR_MOD,
 	IR_AND_A, IR_OR_A, IR_XOR, IR_RS, IR_LS,
 	IR_NEG, IR_NOT_A, IR_NOT_L,
@@ -28,6 +28,7 @@ typedef struct IRInstr {
 	union {
 		int64_t imm64;
 		uint32_t target;
+		uint32_t cond;
 	};
 
 	uint32_t dst;

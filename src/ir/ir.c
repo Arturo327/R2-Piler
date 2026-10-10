@@ -77,7 +77,7 @@ static const uint8_t node_to_ir[NODE_COUNT] = {
 
 const uint8_t is_deletable[IR_COUNT] =
 {
-	[IR_CONST] = 1, [IR_MOVE] = 1, [IR_EXTEND] = 1,
+	[IR_CONST] = 1, [IR_MOVE] = 1, [IR_EXTEND] = 1, [IR_SELECT] = 1,
 	[IR_ADD] = 1, [IR_SUB] = 1, [IR_MUL] = 1,
 	[IR_AND_A] = 1, [IR_OR_A] = 1, [IR_XOR] = 1,
 	[IR_RS] = 1, [IR_LS] = 1, [IR_NEG] = 1,
@@ -689,7 +689,7 @@ void ir_gen (IR *ir)
 static const char *const op_names[IR_COUNT] = {
 	[IR_NOP] = "nop", [IR_CONST] = "const", [IR_PARAM] = "param",
 	[IR_LD_GLOBAL] = "ld_global", [IR_STR_GLOBAL] = "str_global",
-	[IR_MOVE] = "move", [IR_EXTEND] = "extend",
+	[IR_MOVE] = "move", [IR_EXTEND] = "extend", [IR_SELECT] = "select",
 	[IR_ADD] = "add", [IR_SUB] = "sub", [IR_MUL] = "mul",
 	[IR_DIV] = "div", [IR_MOD] = "mod",
 	[IR_AND_A] = "and", [IR_OR_A] = "or", [IR_XOR] = "xor",

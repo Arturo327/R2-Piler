@@ -753,11 +753,119 @@ static int opt_dse (Optimizer *opt, OptFn *f)
 	return changed;
 }
 
+static inline int get_srcs (IRInstr *in, uint32_t *out[3])
+{
+	int n = 0;
+
+	if (in->src1 != NO_REG) out[n++] = &in->src1;
+	if (in->src2 != NO_REG) out[n++] = &in->src2;
+	if (in->op == IR_SELECT) out[n++] = &in->cond;
+	return n;
+}
+
+static int live_step (IRInstr *in, uint64_t *live)
+{
+	uint32_t *src[3];
+	int n = get_srcs(in, src);
+
+	if (in->dst != NO_REG) {
+		uint64_t bit = 1ull << (in->dst & 63);
+
+		if (!(live[in->dst >> 6] & bit) && is_deletable[in->op]) return 1;
+		live[in->dst >> 6] &= ~bit;
+	}
+	for (int k = 0; k < n; k++)
+		live[*src[k] >> 6] |= 1ull << (*src[k] & 63);
+	return 0;
+}
+
+static void live_out (OptFn *f, OptBlock *blk, uint32_t words)
+{
+	memset(f->live_tmp, 0, (size_t)words * sizeof(uint64_t));
+	for (uint32_t k = 0; k < blk->succ_count; k++) {
+		uint64_t *src = f->blocks[blk->succ[k]].live_in;
+
+		for (uint32_t w = 0; w < words; w++)
+			f->live_tmp[w] |= src[w];
+	}
+}
+
+static int live_block (Optimizer *opt, OptFn *f, OptBlock *blk, uint32_t words)
+{
+	IRInstr *code = opt->ir->instrs + blk->start;
+	int changed = 0;
+
+	live_out(f, blk, words);
+	for (uint32_t i = blk->count; i-- > 0;)
+		live_step(code + i, f->live_tmp);
+	for (uint32_t w = 0; w < words; w++) {
+		changed |= f->live_tmp[w] != blk->live_in[w];
+		blk->live_in[w] = f->live_tmp[w];
+	}
+	return changed;
+}
+
+static int live_sweep (Optimizer *opt, OptFn *f, OptBlock *blk, uint32_t words)
+{
+	IRInstr *code = opt->ir->instrs + blk->start;
+	int changed = 0;
+
+	live_out(f, blk, words);
+	for (uint32_t i = blk->count; i-- > 0;) {
+		if (!live_step(code + i, f->live_tmp)) continue;
+		kill_instr(code + i);
+		changed = 1;
+	}
+	return changed;
+}
+
+static void live_setup (Optimizer *opt, OptFn *f, uint32_t words)
+{
+	size_t need = (size_t)f->block_count * words;
+
+	if (need > f->live_cap) {
+		f->live = arena_alloc(opt->arena, need * sizeof(uint64_t));
+		f->live_cap = need;
+	}
+	memset(f->live, 0, need * sizeof(uint64_t));
+
+	uint64_t *p = f->live;
+	for (uint32_t b = 0; b < f->block_count; b++, p += words)
+		f->blocks[b].live_in = p;
+}
+
+static void live_solve (Optimizer *opt, OptFn *f, uint32_t words)
+{
+	int again = 1;
+
+	while (again) {
+		again = 0;
+		for (uint32_t b = f->block_count; b-- > 0;)
+			again |= live_block(opt, f, f->blocks + b, words);
+	}
+}
+
+static int opt_live_dce (Optimizer *opt, OptFn *f)
+{
+	uint32_t words = (f->fn->reg_count + 63) >> 6;
+	int changed = 0;
+
+	if (!words) return 0;
+	build_cfg(opt->ir, f);
+	live_setup(opt, f, words);
+	live_solve(opt, f, words);
+	for (uint32_t b = 0; b < f->block_count; b++)
+		changed |= live_sweep(opt, f, f->blocks + b, words);
+	return changed;
+}
+
 static const OptPassDesc passes[] = {
 	{ opt_propagate, OPT_BASIC },
 	{ opt_fold, OPT_BASIC },
+//	{ opt_cse, OPT_FULL },
 	{ opt_coalesce, OPT_BASIC },
 	{ opt_dce, OPT_BASIC },
+	{ opt_live_dce, OPT_FULL },
 	{ opt_unreachable, OPT_BASIC },
 	{ opt_jumps, OPT_BASIC },
 	{ opt_strength, OPT_BASIC },
@@ -768,14 +876,16 @@ static const OptPassDesc passes[] = {
 static void optimize_fn (Optimizer *opt, OptFn *f)
 {
 	size_t n = sizeof(passes) / sizeof(passes[0]);
+	int dirty = 1;
 
 	for (int round = 0; round < OPT_MAX_ROUNDS; round++) {
 		int changed = 0;
 
 		for (size_t p = 0; p < n; p++) {
 			if (passes[p].min_level > opt->level) continue;
-			analyze_fn(opt, f);
-			changed |= passes[p].run(opt, f);
+			if (dirty) analyze_fn(opt, f);
+			dirty = passes[p].run(opt, f);
+			changed |= dirty;
 		}
 		if (!changed) break;
 	}
@@ -809,6 +919,10 @@ static void init_caches (OptFn *f, IR *ir, Arena *a, size_t max_regs)
 	memset(f->dstamp, 0, max_regs * sizeof(uint32_t));
 	f->gepoch = 1;
 	f->depoch = 1;
+
+	f->live = NULL;
+	f->live_cap = 0;
+	f->live_tmp = arena_alloc(a, (((max_regs + 63) >> 6) + 1) * sizeof(uint64_t));
 }
 
 static void init_opt (Optimizer *opt, IR *ir, Arena *a, OptLevel level)

@@ -5,6 +5,7 @@
 #include "ir/ir.h"
 
 #define OPT_NO_BLOCK 0xFFFFFFFFu
+#define OPT_CSE_MAX 32
 
 typedef enum {
 	NO_OPT = 0,
@@ -13,6 +14,7 @@ typedef enum {
 } OptLevel;
 
 typedef struct OptBlock {
+	uint64_t *live_in;
 	uint32_t start;
 	uint32_t count;
 	uint32_t succ[2];
@@ -41,6 +43,10 @@ typedef struct OptFn {
 
 	uint32_t *dstamp;
 	uint32_t depoch;
+
+	uint64_t *live;
+	uint64_t *live_tmp;
+	size_t live_cap;
 
 	uint32_t block_count;
 } OptFn;
