@@ -110,6 +110,13 @@ static int scan_digits (Lexer *l, int base, uint64_t *value, int *overflow)
 	int consumed = 0;
 
 	while (1) {
+		if (*l->cursor == '_' && consumed) {
+			int next = digit_value(*(l->cursor + 1));
+			if (next < 0 || next >= base) break;
+			l->cursor++;
+			continue;
+		}
+
 		int digit = digit_value(*l->cursor);
 		if (digit < 0 || digit >= base) break;
 
