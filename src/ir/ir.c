@@ -107,16 +107,18 @@ static uint8_t result_type (uint8_t op, uint8_t type)
 	return type;
 }
 
-void ir_init (IR *ir, Arena *arena, Sema *sema)
+void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select)
 {
 	ir->arena = arena;
 	ir->ast = sema->ast;
 	ir->symtab = &sema->table;
 	ir->init_order = sema->init_order;
 	ir->init_order_count = sema->init_order_count;
+
 	ir->init_fn = 0;
 	ir->reg_count = 0;
 	ir->label_count = 0;
+	ir->use_select = use_select;
 
 	ir->reg_types = NULL;
 	ir->reg_type_cap = 0;
@@ -417,11 +419,25 @@ static void make_select (IR *ir, uint32_t dst, uint32_t a,
 	push_instr(ir, i);
 }
 
+static int is_simple_val (IR *ir, uint32_t idx)
+{
+	ASTNode *n = ir->ast->nodes + idx;
+
+	switch (n->type)
+	{
+	case NODE_LIT_i64: case NODE_LIT_u64: case NODE_LIT_CHAR:
+		return 1;
+	case NODE_ID:
+		return ir->symtab->symbols[n->sym].depth != 0;
+	default:
+		return 0;
+	}
+}
+
 static ASTNode *lone_assign (IR *ir, uint32_t idx)
 {
 	ASTNode *nodes = ir->ast->nodes;
 	ASTNode *n = nodes + idx;
-	int budget = LOGIC_BUDGET;
 
 	if (n->type == NODE_BLOCK) {
 		if (n->child == NO_NODE || nodes[n->child].next_bro != NO_NODE) return NULL;
@@ -429,7 +445,7 @@ static ASTNode *lone_assign (IR *ir, uint32_t idx)
 	}
 	if (n->type != NODE_ASSIGN) return NULL;
 	if (!ir->symtab->symbols[nodes[n->child].sym].depth) return NULL;
-	return is_pure(ir, nodes[n->child].next_bro, &budget) ? n : NULL;
+	return is_simple_val(ir, nodes[n->child].next_bro) ? n : NULL;
 }
 
 static int select_arms (IR *ir, ASTNode *n, ASTNode **a, ASTNode **b)

@@ -103,6 +103,7 @@ int opt_jumps (Optimizer *opt, OptFn *f)
 		} else if (in->op == IR_JZ || in->op == IR_JNZ) {
 			changed |= thread_jump(opt, f, in);
 			changed |= flip_branch(f, code, i);
+			changed |= jump_to_next(f, code, i);
 		}
 	}
 	return changed;

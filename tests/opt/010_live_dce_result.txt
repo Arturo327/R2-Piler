@@ -5,17 +5,14 @@ fn f(3 params, 11 regs) : i64
     r0 = param.i64 #0
     r1 = param.i64 #1
     r2 = param.i64 #2
-    jz r2 -> L1
-    r6 = const.i64 1
-    jmp -> L0
-  L1:
-    r6 = const.i64 2
-  L0:
+    r7 = const.i64 1
+    r8 = const.i64 2
+    r6 = select.i64 r7, r8, r2
     ret.i64 r6
     ret
 
 fn main(0 params, 15 regs) : i64
-    r10 = const.i64 1
-    ret.i64 r10
+    r11 = const.i64 1
+    ret.i64 r11
     ret
 

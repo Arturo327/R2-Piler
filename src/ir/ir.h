@@ -115,7 +115,7 @@ static inline int same_rep (IRFn *fn, uint32_t a, uint32_t b)
 
 extern const uint8_t is_deletable[IR_COUNT];
 
-void ir_init (IR *ir, Arena *arena, Sema *sema);
+void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select);
 void ir_gen (IR *ir);
 void dump_ir (IR *ir);
 

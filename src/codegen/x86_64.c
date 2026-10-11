@@ -100,6 +100,8 @@ static IRInstr *deferred_use (X86Fn *f, IRInstr *in, IRInstr *end)
 	return use;
 }
 
+static int rmw_src2_use (X86Fn *f, IRInstr *use, uint32_t d);
+
 static int can_defer (X86Fn *f, IRInstr *in, IRInstr *end)
 {
 	uint32_t d = in->dst;
@@ -113,7 +115,8 @@ static int can_defer (X86Fn *f, IRInstr *in, IRInstr *end)
 		return 0;
 
 	IRInstr *use = deferred_use(f, in, end);
-	if (use == end || use->src1 != d) return 0;
+	if (use == end) return 0;
+	if (use->src1 != d) return rmw_src2_use(f, use, d);
 	return use->op == IR_ARG ? use->target < 6 : reads_src1_first[use->op];
 }
 
@@ -951,6 +954,24 @@ static int rmw_reg_op (X86Fn *f, IRInstr *b, uint8_t s, const char **op)
 	return 1;
 }
 
+static int rmw_src2_use (X86Fn *f, IRInstr *use, uint32_t d)
+{
+	const char *op;
+	uint8_t s;
+
+	if (rmw_kind[use->op] != RMW_ARITH || use->src2 != d) return 0;
+	if (use->dst != use->src1 || f->cstate[use->dst] != VR_MEM) return 0;
+	s = types[f->fn->reg_types[use->dst]].size;
+	return rmw_reg_op(f, use, s, &op);
+}
+
+static uint8_t rmw_src_reg (X86Fn *f, uint32_t y)
+{
+	if (y == f->rax_v) return 0;
+	load_reg(f, 1, y);
+	return 1;
+}
+
 static int rmw_closes (IRInstr *a, IRInstr *c)
 {
 	if (a->op == IR_LD_GLOBAL)
@@ -1006,10 +1027,10 @@ static int make_rmw (X86Fn *f, IRInstr *a)
 	IRInstr *c = rmw_find(f, a, &b);
 	const char *op = NULL;
 	int64_t v = 0;
-	uint8_t s;
 
 	if (!c || !rmw_shape_ok(f, a, b)) return 0;
-	s = rmw_width(f, a);
+	uint8_t s = rmw_width(f, a);
+
 	if (rmw_operand(f, b, s, &op, &v)) {
 		cg_printf(f->cg, "\t%s%c ", op, mem_suf[s]);
 		if (rmw_kind[b->op] != RMW_UNARY)
@@ -1018,10 +1039,12 @@ static int make_rmw (X86Fn *f, IRInstr *a)
 		if (f->rax_v == a->src1) f->rax_v = NO_REG;
 		return (int)(c - a) + 1;
 	}
+
 	if (!rmw_reg_op(f, b, s, &op)) return 0;
-	load_reg(f, 1, b->src2);
-	cg_printf(f->cg, "\t%s%c %s, ", op, mem_suf[s], reg_name(1, s));
+	uint8_t r = rmw_src_reg(f, b->src2);
+	cg_printf(f->cg, "\t%s%c %s, ", op, mem_suf[s], reg_name(r, s));
 	print_rmw_loc(f, a);
+
 	if (f->rax_v == a->src1) f->rax_v = NO_REG;
 	return (int)(c - a) + 1;
 }
@@ -1031,11 +1054,11 @@ static int try_rmw_inplace (X86Fn *f, IRInstr *i)
 	const char *op = NULL;
 	int64_t v = 0;
 	uint32_t x = i->dst;
-	uint8_t s;
 
 	if (!rmw_kind[i->op] || i->dst != i->src1 || f->cstate[x] != VR_MEM)
 		return 0;
-	s = types[f->fn->reg_types[x]].size;
+	uint8_t s = types[f->fn->reg_types[x]].size;
+
 	if (rmw_operand(f, i, s, &op, &v)) {
 		cg_printf(f->cg, "\t%s%c ", op, mem_suf[s]);
 		if (rmw_kind[i->op] != RMW_UNARY)
@@ -1044,10 +1067,12 @@ static int try_rmw_inplace (X86Fn *f, IRInstr *i)
 		if (f->rax_v == x) f->rax_v = NO_REG;
 		return 1;
 	}
+
 	if (!rmw_reg_op(f, i, s, &op)) return 0;
-	load_reg(f, 1, i->src2);
+	uint8_t r = rmw_src_reg(f, i->src2);
 	cg_printf(f->cg, "\t%s%c %s, -%u(%s)\n", op, mem_suf[s],
-			reg_name(1, s), f->slots[x], f->base);
+			reg_name(r, s), f->slots[x], f->base);
+
 	if (f->rax_v == x) f->rax_v = NO_REG;
 	return 1;
 }
