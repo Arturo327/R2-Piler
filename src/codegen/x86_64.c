@@ -818,7 +818,6 @@ static int make_cmp_instr (X86Fn *f, IRInstr *i)
 static void make_jump (X86Fn *f, IRInstr *i)
 {
 	CodeGen *c = f->cg;
-	uint8_t s;
 
 	if (i->op == IR_LABEL) {
 		cg_printf(c, ".L%u:\n", i->target);
@@ -840,7 +839,7 @@ static void make_jump (X86Fn *f, IRInstr *i)
 	if (i->src1 == f->rax_v) {
 		cg_printf(c, "\ttestq %%rax, %%rax\n");
 	} else {
-		s = types[f->fn->reg_types[i->src1]].size;
+		uint8_t s = types[f->fn->reg_types[i->src1]].size;
 		cg_printf(c, "\tcmp%c $0, -%u(%s)\n", mem_suf[s], f->slots[i->src1], f->base);
 	}
 
@@ -956,12 +955,11 @@ static int rmw_reg_op (X86Fn *f, IRInstr *b, uint8_t s, const char **op)
 
 static int rmw_src2_use (X86Fn *f, IRInstr *use, uint32_t d)
 {
-	const char *op;
-	uint8_t s;
-
 	if (rmw_kind[use->op] != RMW_ARITH || use->src2 != d) return 0;
 	if (use->dst != use->src1 || f->cstate[use->dst] != VR_MEM) return 0;
-	s = types[f->fn->reg_types[use->dst]].size;
+
+	uint8_t s = types[f->fn->reg_types[use->dst]].size;
+	const char *op;
 	return rmw_reg_op(f, use, s, &op);
 }
 
