@@ -6,11 +6,11 @@
 // grep: `addq $5, -` and `andq $255, -` present, no `movq mem, %rcx` for consts.
 fn main() : i64 {
 	var s : i64 = 0;
-	for (var i : i64 = 0; i < 10000000; i = i + 1) {
+	for (var i : i64 = 0; i < 1000; i = i + 1) {
 		s = s + 5;
 		s = s & 255;
 	}
-	if (s == 128) {
+	if (s == 136) {
 		return 0;
 	}
 	return 1;

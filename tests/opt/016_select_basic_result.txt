@@ -1,0 +1,16 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn f(1 params, 6 regs) : i64
+    r0 = param.i64 #0
+    r2 = const.i64 1
+    r3 = const.i64 2
+    r1 = select.i64 r2, r3, r0
+    ret.i64 r1
+    ret
+
+fn main(0 params, 8 regs) : i64
+    r4 = const.i64 1
+    ret.i64 r4
+    ret
+

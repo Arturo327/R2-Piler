@@ -1,0 +1,92 @@
+global g : i64
+
+fn __r2_init(0 params, 1 regs) : void
+    ret
+
+fn inner(1 params, 5 regs) : i64
+    r0 = param.i64 #0
+    r2 = const.i64 1
+    r3 = add.i64 r0, r2
+    ret.i64 r3
+    ret
+
+fn bump(1 params, 11 regs) : i64
+    r0 = param.i64 #0
+    r8 = const.i64 1
+    r2 = add.i64 r0, r8
+    r4 = const.i64 2
+    r5 = add.i64 r2, r4
+    ret.i64 r5
+    ret
+
+fn f_global(1 params, 5 regs) : i64
+    r0 = param.i64 #0
+    jz r0 -> L1
+    r2 = const.i64 1
+    str_global.i64 r2 @g
+    jmp -> L0
+  L1:
+    r3 = const.i64 2
+    str_global.i64 r3 @g
+  L0:
+    r4 = ld_global.i64 @g
+    ret.i64 r4
+    ret
+
+fn f_arith(3 params, 10 regs) : i64
+    r0 = param.i64 #0
+    r1 = param.i64 #1
+    r2 = param.i64 #2
+    jz r0 -> L3
+    r3 = add.i64 r1, r2
+    jmp -> L2
+  L3:
+    r3 = const.i64 1
+  L2:
+    ret.i64 r3
+    ret
+
+fn f_call(2 params, 8 regs) : i64
+    r0 = param.i64 #0
+    r1 = param.i64 #1
+    jz r0 -> L5
+    arg r1 #0
+    r2 = call.i64 bump
+    jmp -> L4
+  L5:
+    r2 = const.i64 2
+  L4:
+    ret.i64 r2
+    ret
+
+fn f_elif(2 params, 9 regs) : i64
+    r0 = param.i64 #0
+    r1 = param.i64 #1
+    jz r0 -> L7
+    r2 = const.i64 1
+    jmp -> L6
+  L7:
+    jz r1 -> L8
+    r2 = const.i64 2
+    jmp -> L6
+  L8:
+    r2 = const.i64 3
+  L6:
+    ret.i64 r2
+    ret
+
+fn main(0 params, 39 regs) : i64
+    r17 = const.i64 1
+    str_global.i64 r17 @g
+    r6 = const.i64 6
+    r7 = const.i64 1
+    r8 = const.i64 4
+    arg r7 #0
+    arg r8 #1
+    r9 = call.i64 f_call
+    r10 = add.i64 r9, r6
+    r32 = const.i64 1
+    r14 = add.i64 r10, r32
+    ret.i64 r14
+    ret
+

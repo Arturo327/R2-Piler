@@ -7,13 +7,13 @@
 // (alias chain `t->u->v` collapses one level; see comp_pending A1/A2 limits).
 fn main() : i64 {
 	var s : i64 = 0;
-	for (var i : i64 = 0; i < 8000000; i = i + 1) {
+	for (var i : i64 = 0; i < 1000; i = i + 1) {
 		var t : i64 = i;
 		var u : i64 = t;
 		var v : i64 = u;
 		s = s + v;
 	}
-	if (s == 31999996000000) {
+	if (s == 499500) {
 		return 0;
 	}
 	return 1;

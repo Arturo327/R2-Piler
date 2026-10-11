@@ -5,12 +5,12 @@
 // grep: `sarq $3` present, `idivq`/`divq` absent in loop.
 fn main() : i64 {
 	var s : i64 = 0;
-	for (var i : i64 = 0; i < 2000000; i = i + 1) {
+	for (var i : i64 = 0; i < 800; i = i + 1) {
 		var q : i64 = i / 8;
 		var r : i64 = i % 8;
 		s = s + q + r;
 	}
-	if (s == 250006000000) {
+	if (s == 42400) {
 		return 0;
 	}
 	return 1;

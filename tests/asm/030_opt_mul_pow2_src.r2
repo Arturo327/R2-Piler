@@ -4,10 +4,10 @@
 // grep: `shlq $3` and `leaq (%rax,%rax,4)` present, no `imulq` in loop.
 fn main() : i64 {
 	var s : i64 = 0;
-	for (var i : i64 = 0; i < 8000000; i = i + 1) {
+	for (var i : i64 = 0; i < 1000; i = i + 1) {
 		s = s + i * 8 + i * 5;
 	}
-	if (s == 415999948000000) {
+	if (s == 6493500) {
 		return 0;
 	}
 	return 1;

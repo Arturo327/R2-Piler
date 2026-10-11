@@ -1,0 +1,3 @@
+tests/opt/018_select_fold_src.r2:3:7: WARNING: condition is always true
+      3 |   if (1) {
+        |       ^

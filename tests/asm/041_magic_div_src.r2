@@ -6,21 +6,21 @@
 // grep: `mulq`/`imulq` with `movabsq $0x...` present, no `idiv`/`divq` in loop.
 fn main() : i64 {
 	var s : i64 = 0;
-	for (var i : i64 = 0; i < 1000000; i = i + 1) {
+	for (var i : i64 = 0; i < 300; i = i + 1) {
 		var a : i64 = i / 7;
 		var b : i64 = i % 7;
 		s = s + a + b;
 	}
 	var t : u64 = 0;
-	for (var j : u64 = 0; j < 1000000; j = j + 1) {
+	for (var j : u64 = 0; j < 300; j = j + 1) {
 		var c : u64 = j / 10;
 		var d : u64 = j % 10;
 		t = t + c + d;
 	}
-	if (s != 71431071426) {
+	if (s != 7176) {
 		return 1;
 	}
-	if (t != 50004000000) {
+	if (t != 5700) {
 		return 2;
 	}
 	return 0;

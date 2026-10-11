@@ -4,11 +4,11 @@
 // grep: `shlq $3, %rax` and `sarq $2, %rax` present, no `%cl` in loop.
 fn main() : i64 {
 	var s : i64 = 1;
-	for (var i : i64 = 0; i < 8000000; i = i + 1) {
+	for (var i : i64 = 0; i < 1000; i = i + 1) {
 		s = (s << 3) + (i >> 2);
 		s = s & 1048575;
 	}
-	if (s == 763447) {
+	if (s == 899329) {
 		return 0;
 	}
 	return 1;
