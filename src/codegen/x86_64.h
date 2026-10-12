@@ -17,12 +17,7 @@ typedef struct X86Fn {
 	CodeGen *cg;
 	IRFn *fn;
 
-	uint32_t *slots;
 	const char *base;
-	uint32_t *uses;
-	int64_t *cval;
-	uint8_t *cstate;
-	uint8_t *defs;
 
 	Reg *regs;
 	RegCtx ctx;
