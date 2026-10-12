@@ -122,7 +122,7 @@ int compile (Compiler *c, CompilerOpts *opts)
 
 	if (compiler_load_file(c, opts->path)) return 1;
 	if (!dumping && init_codegen(&c->codegen, opts->arch, &c->gen_arena,
-			&c->ir, opts->out))
+			&c->ir, opts->out, opts->opt_level))
 		return 1;
 	if (opts->dump_tokens)
 		return dump_tokens(&c->lexer) ? 1 : 0;
@@ -149,7 +149,7 @@ int compile (Compiler *c, CompilerOpts *opts)
 	}
 	release_frontend(c);
 
-	if (opts->opt_level)
+	if (opts->opt_level >= OPT_BASIC)
 		optimize_ir(&c->ir, &c->opt_arena, opts->opt_level);
 
 	if (opts->dump_opt) {

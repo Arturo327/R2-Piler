@@ -9,6 +9,7 @@
 
 typedef enum {
 	NO_OPT = 0,
+	OPT_REG,
 	OPT_BASIC,
 	OPT_FULL
 } OptLevel;

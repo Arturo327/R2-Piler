@@ -22,7 +22,7 @@ static const Backend backends[ARCH_COUNT] = {
 	[ARCH_INTERP] = { "interpreter", NULL }
 };
 
-int init_codegen (CodeGen *codegen, Arch arch, Arena *arena, IR *ir, const char *out)
+int init_codegen (CodeGen *codegen, Arch arch, Arena *arena, IR *ir, const char *out, OptLevel level)
 {
 	const Backend *b = backends + arch;
 
@@ -33,6 +33,7 @@ int init_codegen (CodeGen *codegen, Arch arch, Arena *arena, IR *ir, const char 
 	codegen->arena = arena;
 	codegen->ir = ir;
 	codegen->out = out;
+	codegen->opt_level = level;
 	codegen->generate = b->generate;
 	codegen->len = 0;
 	codegen->cap = CG_BUF_INIT;

@@ -23,7 +23,7 @@ static void print_help (const char *build)
 	printf("    -o|--out FILE           Output assembly path (default: <source>.s). '-' for stdout\n");
 	printf("    -a|--arch ARCH          Indicates the architecture. Default: x86-64.\n");
 	printf("    -e|--execute            Runs the program with the interpreter instead of generating assembly (not implemented yet).\n");
-	printf("    -O[LEVEL]|--opt[=LEVEL] Optimization level 0, 1 or 2 (no space; plain -O means 1). Default: 1\n");
+	printf("    -O[LEVEL]|--opt[=LEVEL] Optimization level 0, 1, 2 or 3 (no space; plain -O means 2). Default: 2\n");
 	printf("    -T|--dump-tokens        Prints your code tokens to stdout\n");
 	printf("    -A|--dump-ast           Prints the parsed AST to stdout\n");
 	printf("    -S|--dump-symbols       Prints the resolved symbol table to stdout\n");
@@ -72,15 +72,16 @@ static Arch get_arch (const char *s)
 static OptLevel get_opt_level (const char *s)
 {
 	if (!s || !s[0] || s[1] != '\0') {
-		fprintf(stderr, "Unknown optimization level '%s'. Use 0, 1 or 2\n", s ? s : "(null)");
+		fprintf(stderr, "Unknown optimization level '%s'. Use 0, 1, 2 or 3\n", s ? s : "(null)");
 		exit(1);
 	}
 
 	if (s[0] == '0') return NO_OPT;
-	if (s[0] == '1') return OPT_BASIC;
-	if (s[0] == '2') return OPT_FULL;
+	if (s[0] == '1') return OPT_REG;
+	if (s[0] == '2') return OPT_BASIC;
+	if (s[0] == '3') return OPT_FULL;
 
-	fprintf(stderr, "Unknown optimization level '%s'. Use 0, 1 or 2\n", s ? s : "(null)");
+	fprintf(stderr, "Unknown optimization level '%s'. Use 0, 1, 2 or 3\n", s ? s : "(null)");
 	exit(1);
 }
 
