@@ -155,7 +155,7 @@ static int fold_compare (uint8_t op, uint64_t a, uint64_t b, uint8_t t, uint64_t
 
 static uint8_t neg_result_type (ASTNode *c)
 {
-	if (c->type == NODE_LIT_u64) return TYPE_UNTYPED_UINT;
+	if (c->type == NODE_LIT_u64 && c->data_type == TYPE_UNTYPED_UINT) return TYPE_UNTYPED_UINT;
 	if (c->type == NODE_LIT_i64 && c->data_type == TYPE_UNTYPED_UINT) return TYPE_UNTYPED_INT;
 	return c->data_type;
 }
