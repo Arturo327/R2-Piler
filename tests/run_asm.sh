@@ -5,8 +5,8 @@
 # assemble with gcc, run the binary and check its exit code.
 # Expected exit code lives in <name>_exit.txt (default 0).
 # Expected compiler stderr lives in <name>_stderr.txt (default: must be empty).
-# Differential: each test is compiled with -O0, -O1 and -O2 and must exit
-# with the same code (optimizer must preserve semantics).
+# Differential: each test is compiled with -O0, -O1, -O2 and -O3 and must
+# exit with the same code (optimizer must preserve semantics).
 
 # Bench: wall-clock timing of these tiny programs (<1ms) sits below the noise
 # floor of a single `date` call and depends heavily on the OS scheduler, so
@@ -19,12 +19,13 @@
 # main) and __r2.init (global initializers), via --toggle-collect. Callees
 # count while inside; loader/libc and the tiny main wrapper stay excluded.
 # Per-test rows show run Ir; the footer shows run totals.
-# O1 is the default (plain r2p == -O1); O0 = sin optimizar, O2 = full.
+# O2 is the default (plain r2p == -O2); O0 = spill-all sin optimizar,
+# O1 = regalloc sin optimize_ir, O2 = basic+regalloc, O3 = full+regalloc.
 
 bin="$1"; dir="$2"
 command -v valgrind >/dev/null 2>&1 || { echo "valgrind not found in PATH"; exit 1; }
 passed=0; failed=0
-r0_tot=0; r1_tot=0; r2_tot=0
+r0_tot=0; r1_tot=0; r2_tot=0; r3_tot=0
 tmp_out=$(mktemp); tmp_err=$(mktemp); tmp_gcc=$(mktemp); tmp_vg=$(mktemp)
 tmp_asm=$(mktemp --suffix=.s); tmp_exe=$(mktemp)
 trap 'rm -f "$tmp_out" "$tmp_err" "$tmp_gcc" "$tmp_vg" "$tmp_asm" "$tmp_exe"' EXIT
@@ -43,7 +44,7 @@ vg_run() {
 	return $code
 }
 
-printf "%-30s %12s %12s %12s\n" "test" "O0 run" "O1 run" "O2 run"
+printf "%-30s %12s %12s %12s %12s\n" "test" "O0 run" "O1 run" "O2 run" "O3 run"
 
 for src in "$dir"/*_src.r2; do
 	[ -e "$src" ] || { echo "No tests found in $dir"; exit 1; }
@@ -52,7 +53,7 @@ for src in "$dir"/*_src.r2; do
 	want_exit=0
 	[ -f "${base}_exit.txt" ] && want_exit=$(cat "${base}_exit.txt")
 	ok=1
-	r0=0; r1=0; r2=0
+	r0=0; r1=0; r2=0; r3=0
 	"$bin" "$src" -o "$tmp_asm" >"$tmp_out" 2>"$tmp_err"
 	cstat=$?
 	if [ "$cstat" -ne 0 ]; then
@@ -65,7 +66,7 @@ for src in "$dir"/*_src.r2; do
 		echo "FAIL $src: unexpected stderr:"; cat "$tmp_err"; ok=0
 	fi
 	if [ "$ok" -eq 1 ]; then
-		for olev in 0 1 2; do
+		for olev in 0 1 2 3; do
 			"$bin" -O$olev "$src" -o "$tmp_asm" >/dev/null 2>&1
 			if [ $? -ne 0 ]; then
 				echo "FAIL $src: r2p -O$olev exited nonzero"; ok=0; break
@@ -82,20 +83,20 @@ for src in "$dir"/*_src.r2; do
 			if [ "$code_opt" -ne "$want_exit" ]; then
 				echo "FAIL $src: -O$olev exit $code_opt, want $want_exit"; ok=0; break
 			fi
-			case $olev in 0) r0=$VG_COUNT;; 1) r1=$VG_COUNT;; 2) r2=$VG_COUNT;; esac
+			case $olev in 0) r0=$VG_COUNT;; 1) r1=$VG_COUNT;; 2) r2=$VG_COUNT;; 3) r3=$VG_COUNT;; esac
 		done
 	fi
 	if [ "$ok" -eq 1 ]; then
-		printf "%-30s %12s %12s %12s\n" "$name" \
-			"$(fmt_irefs "$r0")" "$(fmt_irefs "$r1")" "$(fmt_irefs "$r2")"
-		r0_tot=$((r0_tot + r0)); r1_tot=$((r1_tot + r1)); r2_tot=$((r2_tot + r2))
+		printf "%-30s %12s %12s %12s %12s\n" "$name" \
+			"$(fmt_irefs "$r0")" "$(fmt_irefs "$r1")" "$(fmt_irefs "$r2")" "$(fmt_irefs "$r3")"
+		r0_tot=$((r0_tot + r0)); r1_tot=$((r1_tot + r1)); r2_tot=$((r2_tot + r2)); r3_tot=$((r3_tot + r3))
 		passed=$((passed+1))
 	else
 		printf "%-30s %s\n" "$name" "FAIL (see above)"
 		failed=$((failed+1))
 	fi
 done
-printf "%-30s %12s %12s %12s\n" "TOTAL run" \
-	"$(fmt_irefs "$r0_tot")" "$(fmt_irefs "$r1_tot")" "$(fmt_irefs "$r2_tot")"
+printf "%-30s %12s %12s %12s %12s\n" "TOTAL run" \
+	"$(fmt_irefs "$r0_tot")" "$(fmt_irefs "$r1_tot")" "$(fmt_irefs "$r2_tot")" "$(fmt_irefs "$r3_tot")"
 echo "$passed passed, $failed failed (binary-only Ir via valgrind callgrind, gcc excluded)"
 [ "$failed" -eq 0 ]
