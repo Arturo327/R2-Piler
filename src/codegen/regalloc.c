@@ -28,7 +28,7 @@ static void count_defs (IR *ir, IRFn *fn, Reg *regs)
 	}
 }
 
-static void handle_alias (IRFn *fn, Reg *regs, IRInstr *in)
+static void handle_alias (IRFn *fn, Reg *regs, IRInstr *in, int spill_all)
 {
 	uint32_t d = in->dst;
 	uint32_t s = in->src1;
@@ -39,6 +39,7 @@ static void handle_alias (IRFn *fn, Reg *regs, IRInstr *in)
 		regs[d].cval = regs[s].cval;
 		return;
 	}
+	if (spill_all) return;
 
 	if (s >= fn->param_count || regs[s].cstate != RA_MEM) return;
 	if (regs[s].defs != 1) return;
@@ -53,6 +54,7 @@ static void clasf_regs (IR *ir, IRFn *fn, Reg *regs, int spill_all)
 		IRInstr *in = ir->instrs + fn->start + i;
 
 		if (in->op == IR_NOP || in->dst == NO_REG) continue;
+		regs[in->dst].cstate = RA_MEM;
 		if (regs[in->dst].defs != 1) continue;
 
 		if (in->op == IR_CONST) {
@@ -60,13 +62,9 @@ static void clasf_regs (IR *ir, IRFn *fn, Reg *regs, int spill_all)
 			regs[in->dst].cval = in->imm64;
 			continue;
 		}
-		if (spill_all) {
-			regs[in->dst].cstate = RA_MEM;
-			continue;
-		}
 
 		regs[in->dst].cstate = RA_MEM;
-		handle_alias(fn, regs, in);
+		handle_alias(fn, regs, in, spill_all);
 	}
 }
 
@@ -106,13 +104,13 @@ static void lay_sizes (IRFn *fn, Reg *regs)
 	lay_size(fn, regs, c, 1);
 }
 
-static void make_meta (IRFn *fn, RaMeta *m)
+static void make_meta (IRFn *fn, RegCtx *ctx)
 {
 	for (uint32_t i = 0; i < fn->count; i++)
-		m->ins_block[i] = 0;
-	m->block_count = 1;
-	m->save[0] = 0;
-	m->callee_used = 0;
+		ctx->ins_block[i] = 0;
+	ctx->block_count = 1;
+	ctx->save[0] = 0;
+	ctx->callee_used = 0;
 }
 
 static void resolve (IRFn *fn, Reg *regs)
@@ -124,7 +122,7 @@ static void resolve (IRFn *fn, Reg *regs)
 }
 
 void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs,
-		RaMeta *meta, uint32_t reg_num, int spill_all)
+		RegCtx *ctx, uint32_t reg_num, int spill_all)
 {
 	(void)arena;
 	(void)reg_num;
@@ -137,5 +135,5 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs,
 	lay_sizes(fn, regs);
 
 	resolve(fn, regs);
-	make_meta(fn, meta);
+	make_meta(fn, ctx);
 }

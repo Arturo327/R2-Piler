@@ -5,6 +5,7 @@
 #define SYM_PREFIX "__r2_"
 #define INIT_SYM "__r2.init"
 #define RED_ZONE 128
+#define X86_REG_NUM 14
 
 static const char *asm_size_name[9] =
 {
@@ -240,6 +241,20 @@ static void resolve_alias (X86Fn *f)
 			f->slots[r] = f->slots[f->slots[r]];
 }
 
+static void fill_regalloc (X86Fn *f)
+{
+	IRFn *fn = f->fn;
+	int spill_all = f->cg->opt_level == NO_OPT;
+
+	for (uint32_t r = 0; r < fn->reg_count; r++)
+		f->regs[r].home = f->homes + r;
+
+	f->ctx.ins_block = f->blocks;
+	f->ctx.save = f->saves;
+	regalloc(f->cg->arena, f->cg->ir, fn, f->regs, &f->ctx,
+			X86_REG_NUM, spill_all);
+}
+
 static void layout_fn (X86Fn *f)
 {
 	uint32_t c;
@@ -249,6 +264,7 @@ static void layout_fn (X86Fn *f)
 	c = lay_size(f, c, 2);
 	c = lay_size(f, c, 1);
 	resolve_alias(f);
+	fill_regalloc(f);
 
 	f->outgoing = scan_outg(f);
 	c += f->outgoing;
@@ -1248,9 +1264,13 @@ int gen_x86_64 (CodeGen *c)
 	IR *ir = c->ir;
 
 	uint32_t max_regs = 1;
-	for (uint32_t i = 0; i < ir->fn_count; i++)
+	uint32_t max_instrs = 1;
+	for (uint32_t i = 0; i < ir->fn_count; i++) {
 		if (ir->fns[i].reg_count > max_regs)
 			max_regs = ir->fns[i].reg_count;
+		if (ir->fns[i].count > max_instrs)
+			max_instrs = ir->fns[i].count;
+	}
 
 	X86Fn f = {0};
 	f.slots = arena_alloc(c->arena, (size_t)max_regs * sizeof(uint32_t));
@@ -1260,6 +1280,11 @@ int gen_x86_64 (CodeGen *c)
 	f.cval = arena_alloc(c->arena, (size_t)max_regs * sizeof(int64_t));
 	f.cstate = arena_alloc(c->arena, max_regs);
 	f.defs = arena_alloc(c->arena, max_regs);
+
+	f.regs = arena_alloc(c->arena, (size_t)max_regs * sizeof(Reg));
+	f.homes = arena_alloc(c->arena, max_regs);
+	f.blocks = arena_alloc(c->arena, (size_t)max_instrs * sizeof(uint32_t));
+	f.saves = arena_alloc(c->arena, (size_t)(max_instrs + 1) * sizeof(uint16_t));
 
 	int init_empty = ir->fns[ir->init_fn].count <= 1;
 	make_globals(c);

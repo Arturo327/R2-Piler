@@ -28,14 +28,14 @@ typedef struct Reg {
 	uint8_t spill;
 } Reg;
 
-typedef struct RaMeta {
+typedef struct RegCtx {
 	uint32_t *ins_block;
 	uint16_t *save;
 	uint32_t block_count;
 	uint16_t callee_used;
-} RaMeta;
+} RegCtx;
 
 void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs,
-		RaMeta *meta, uint32_t reg_num, int spill_all);
+		RegCtx *ctx, uint32_t reg_num, int spill_all);
 
 #endif

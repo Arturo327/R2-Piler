@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "codegen/codegen.h"
+#include "codegen/regalloc.h"
 
 enum {
 	VR_NONE = 0,
@@ -22,6 +23,12 @@ typedef struct X86Fn {
 	int64_t *cval;
 	uint8_t *cstate;
 	uint8_t *defs;
+
+	Reg *regs;
+	RegCtx ctx;
+	int8_t *homes;
+	uint32_t *blocks;
+	uint16_t *saves;
 
 	uint32_t rax_v;
 	uint32_t outgoing;
