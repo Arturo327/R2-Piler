@@ -104,20 +104,28 @@ static void lay_sizes (IRFn *fn, Reg *regs)
 	lay_size(fn, regs, c, 1);
 }
 
-static void make_meta (IRFn *fn, RegCtx *ctx)
+static void make_ctx (IRFn *fn, RegCtx *ctx, uint32_t reg_num)
 {
-	for (uint32_t i = 0; i < fn->count; i++)
+	uint16_t all = (uint16_t)((1u << reg_num) - 1);
+
+	for (uint32_t i = 0; i < fn->count; i++) {
 		ctx->ins_block[i] = 0;
+		ctx->save[i] = 0;
+		ctx->free_regs[i] = all & (uint16_t)~ctx->callee_mask;
+	}
 	ctx->block_count = 1;
-	ctx->save[0] = 0;
 	ctx->callee_used = 0;
 }
 
 static void resolve (IRFn *fn, Reg *regs)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
+		uint32_t t;
+
 		if (regs[r].cstate != RA_ALIAS) continue;
-		regs[r].slot = regs[regs[r].slot].slot;
+		t = regs[r].slot;
+		regs[r].slot = regs[t].slot;
+		regs[r].home[0] = regs[t].home[0];
 	}
 }
 
@@ -125,9 +133,10 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs,
 		RegCtx *ctx, uint32_t reg_num, int spill_all)
 {
 	(void)arena;
-	(void)reg_num;
 
 	reset_regalloc(fn, regs);
+	make_ctx(fn, ctx, reg_num);
+
 	count_defs(ir, fn, regs);
 	clasf_regs(ir, fn, regs, spill_all);
 
@@ -135,5 +144,4 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs,
 	lay_sizes(fn, regs);
 
 	resolve(fn, regs);
-	make_meta(fn, ctx);
 }

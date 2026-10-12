@@ -31,8 +31,11 @@ typedef struct Reg {
 typedef struct RegCtx {
 	uint32_t *ins_block;
 	uint16_t *save;
+	uint16_t *free_regs;
+
 	uint32_t block_count;
 	uint16_t callee_used;
+	uint16_t callee_mask;
 } RegCtx;
 
 void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs,
