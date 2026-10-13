@@ -141,7 +141,7 @@ static uint32_t max_slot (X86Fn *f)
 	uint32_t m = 0;
 
 	for (uint32_t r = 0; r < f->fn->reg_count; r++)
-		if (f->regs[r].home[0] == VR_SPILL && f->regs[r].slot > m)
+		if (f->regs[r].slot != 0 && f->regs[r].slot > m)
 			m = f->regs[r].slot;
 	return m;
 }
@@ -453,12 +453,27 @@ static int arg_clobbered (X86Fn *f, IRInstr *first, IRInstr *a)
 	return 0;
 }
 
-static void check_arg_group (X86Fn *f, IRInstr *first)
+static void check_arg_group (X86Fn *f, IRInstr *first, IRInstr *end)
 {
-	for (IRInstr *a = first; a->op == IR_ARG; a++) {
-		if (!arg_clobbered(f, first, a)) continue;
-		f->at = (uint32_t)(a - (f->cg->ir->instrs + f->fn->start));
-		regalloc_violation(f, "ARG source clobbered by an earlier ARG of its group");
+	IRInstr *base = f->cg->ir->instrs + f->fn->start;
+	IRInstr *a = first;
+	uint32_t k = 0;
+
+	while (a < end && a->op == IR_ARG) {
+		if (a->target != k) {
+			f->at = (uint32_t)(a - base);
+			regalloc_violation(f, "ARG targets must ascend from 0 without gaps");
+		}
+		if (arg_clobbered(f, first, a)) {
+			f->at = (uint32_t)(a - base);
+			regalloc_violation(f, "ARG source clobbered by an earlier ARG of its group");
+		}
+		k++;
+		a++;
+	}
+	if (a >= end || a->op != IR_CALL || a->argc != k) {
+		f->at = (uint32_t)(first - base);
+		regalloc_violation(f, "ARG group must end in CALL with argc == length");
 	}
 }
 
@@ -483,6 +498,19 @@ static void make_move (X86Fn *f, IRInstr *i)
 		return;
 	}
 	int p = phys_reg(f, i->src1);
+	int pd = phys_reg(f, i->dst);
+
+	if (p >= 0 && pd >= 0) {
+		if (!f->regs[i->dst].uses) return;
+		if (same_rep(f->fn, i->dst, i->src1)) {
+			if (p == pd) return;
+			cg_printf(f->cg, "\tmovq %s, %s\n",
+					reg_name((uint8_t)p, 8), reg_name((uint8_t)pd, 8));
+			return;
+		}
+		store_reg(f, (uint8_t)p, i->dst);
+		return;
+	}
 	if (p >= 0) {
 		store_reg(f, (uint8_t)p, i->dst);
 		return;
@@ -619,6 +647,18 @@ static int make_mul_const (X86Fn *f, IRInstr *i)
 static void make_arith (X86Fn *f, IRInstr *i)
 {
 	if (i->op == IR_MUL && make_mul_const(f, i)) return;
+	if (i->op == IR_ADD && types[i->data_type].size == 8) {
+		int pa = phys_reg(f, i->src1);
+		int pb = phys_reg(f, i->src2);
+		int pd = phys_reg(f, i->dst);
+
+		if (pa >= 0 && pb >= 0 && pd >= 0 && pd != pa && pd != pb) {
+			cg_printf(f->cg, "\tleaq (%s,%s), %s\n",
+					reg_name((uint8_t)pa, 8), reg_name((uint8_t)pb, 8),
+					reg_name((uint8_t)pd, 8));
+			return;
+		}
+	}
 	uint8_t w = work_reg(f, i->dst, home_bit(f, i->src2));
 
 	load_reg(f, w, i->src1);
@@ -879,8 +919,10 @@ static const uint8_t inv_cmp[6] = { 1, 0, 5, 4, 3, 2 };
 
 static int fuses_with_next (X86Fn *f, IRInstr *i)
 {
-	IRInstr *n = i + 1;
+	IRInstr *end = f->cg->ir->instrs + f->fn->start + f->fn->count;
+	IRInstr *n = next_live(f, i, end);
 
+	if (n == end) return 0;
 	if (n->op != IR_JZ && n->op != IR_JNZ) return 0;
 	return n->src1 == i->dst && f->regs[i->dst].uses == 1;
 }
@@ -928,15 +970,17 @@ static void make_cmp_select (X86Fn *f, IRInstr *cmp, IRInstr *sel)
 
 static int make_cmp_instr (X86Fn *f, IRInstr *i)
 {
-	IRInstr *n = i + 1;
+	IRInstr *end = f->cg->ir->instrs + f->fn->start + f->fn->count;
+	IRInstr *n = next_live(f, i, end);
 
-	if (fuses_with_next(f, i)) {
+	if (n != end && fuses_with_next(f, i)) {
 		make_cmp_jump(f, i, n);
-		return 2;
+		return (int)(n - i) + 1;
 	}
-	if (n->op == IR_SELECT && n->cond == i->dst && f->regs[i->dst].uses == 1) {
+	if (n != end && n->op == IR_SELECT && n->cond == i->dst
+			&& f->regs[i->dst].uses == 1) {
 		make_cmp_select(f, i, n);
-		return 2;
+		return (int)(n - i) + 1;
 	}
 	make_cmp(f, i);
 	return 1;
@@ -983,9 +1027,9 @@ static void make_jump (X86Fn *f, IRInstr *i)
 	cg_printf(c, "\t%s .L%u\n", i->op == IR_JZ ? "je" : "jne", i->target);
 }
 
-static IRInstr *group_call (IRInstr *arg)
+static IRInstr *group_call (IRInstr *arg, IRInstr *end)
 {
-	while (arg->op == IR_ARG) arg++;
+	while (arg < end && arg->op == IR_ARG) arg++;
 	return arg;
 }
 
@@ -1004,9 +1048,10 @@ static void make_arg (X86Fn *f, IRInstr *i)
 	int p = phys_reg(f, i->src1);
 
 	if (i->target == 0) {
-		IRInstr *call = group_call(i);
+		IRInstr *end = f->cg->ir->instrs + f->fn->start + f->fn->count;
+		IRInstr *call = group_call(i, end);
 
-		check_arg_group(f, i);
+		check_arg_group(f, i, end);
 		if (!tail_match(f, call, tail_ret(call)))
 			move_call_live(f, call, 0);
 	}
@@ -1021,8 +1066,9 @@ static void make_arg (X86Fn *f, IRInstr *i)
 		return;
 	}
 
-	uint8_t w = p >= 0 ? (uint8_t)p : grab(f);
+	uint8_t w = 0;
 	f->busy |= ARG_REGS_MASK;
+	w = p >= 0 ? (uint8_t)p : grab(f);
 	if (p < 0) load_reg(f, w, i->src1);
 	cg_printf(f->cg, "\tmovq %s, %u(%%rsp)\n", reg_name(w, 8), (i->target - 6) << 3);
 }
