@@ -6,7 +6,7 @@ static void reset_regalloc (IRFn *fn, Reg *regs)
 		regs[r].uses = 0;
 		regs[r].slot = 0;
 		regs[r].cval = 0;
-		regs[r].cstate = RA_NONE;
+		regs[r].cstate = VR_NONE;
 		regs[r].defs = 0;
 		regs[r].spill = 0;
 	}
@@ -34,17 +34,17 @@ static void handle_alias (IRFn *fn, Reg *regs, IRInstr *in, int spill_all)
 	uint32_t s = in->src1;
 
 	if (in->op != IR_MOVE || !same_rep(fn, d, s)) return;
-	if (regs[s].cstate == RA_CONST) {
-		regs[d].cstate = RA_CONST;
+	if (regs[s].cstate == VR_CONST) {
+		regs[d].cstate = VR_CONST;
 		regs[d].cval = regs[s].cval;
 		return;
 	}
 	if (spill_all) return;
 
-	if (s >= fn->param_count || regs[s].cstate != RA_MEM) return;
+	if (s >= fn->param_count || regs[s].cstate != VR_MEM) return;
 	if (regs[s].defs != 1) return;
 
-	regs[d].cstate = RA_ALIAS;
+	regs[d].cstate = VR_ALIAS;
 	regs[d].slot = s;
 }
 
@@ -54,16 +54,16 @@ static void clasf_regs (IR *ir, IRFn *fn, Reg *regs, int spill_all)
 		IRInstr *in = ir->instrs + fn->start + i;
 
 		if (in->op == IR_NOP || in->dst == NO_REG) continue;
-		regs[in->dst].cstate = RA_MEM;
+		regs[in->dst].cstate = VR_MEM;
 		if (regs[in->dst].defs != 1) continue;
 
 		if (in->op == IR_CONST) {
-			regs[in->dst].cstate = RA_CONST;
+			regs[in->dst].cstate = VR_CONST;
 			regs[in->dst].cval = in->imm64;
 			continue;
 		}
 
-		regs[in->dst].cstate = RA_MEM;
+		regs[in->dst].cstate = VR_MEM;
 		handle_alias(fn, regs, in, spill_all);
 	}
 }
@@ -71,15 +71,15 @@ static void clasf_regs (IR *ir, IRFn *fn, Reg *regs, int spill_all)
 static void assign_homes (IRFn *fn, Reg *regs)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
-		if (regs[r].cstate == RA_CONST || regs[r].cstate == RA_ALIAS) {
-			regs[r].home[0] = RA_NO_HOME;
+		if (regs[r].cstate == VR_CONST || regs[r].cstate == VR_ALIAS) {
+			regs[r].home[0] = VR_NO_HOME;
 			continue;
 		}
 		if (!regs[r].uses) {
-			regs[r].home[0] = RA_NO_HOME;
+			regs[r].home[0] = VR_NO_HOME;
 			continue;
 		}
-		regs[r].home[0] = RA_SPILL;
+		regs[r].home[0] = VR_SPILL;
 		regs[r].spill = 1;
 	}
 }
@@ -87,7 +87,7 @@ static void assign_homes (IRFn *fn, Reg *regs)
 static uint32_t lay_size (IRFn *fn, Reg *regs, uint32_t c, uint8_t s)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
-		if (regs[r].home[0] != RA_SPILL) continue;
+		if (regs[r].home[0] != VR_SPILL) continue;
 		if (types[fn->reg_types[r]].size != s) continue;
 		c += s;
 		regs[r].slot = c;
@@ -120,10 +120,8 @@ static void make_ctx (IRFn *fn, RegCtx *ctx, uint32_t reg_num)
 static void resolve (IRFn *fn, Reg *regs)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
-		uint32_t t;
-
-		if (regs[r].cstate != RA_ALIAS) continue;
-		t = regs[r].slot;
+		if (regs[r].cstate != VR_ALIAS) continue;
+		uint32_t t = regs[r].slot;
 		regs[r].slot = regs[t].slot;
 		regs[r].home[0] = regs[t].home[0];
 	}

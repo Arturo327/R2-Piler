@@ -113,9 +113,10 @@ static uint32_t save_area (X86Fn *f, uint32_t c)
 		mask |= f->ctx.save[i];
 
 	f->regsave = 0;
+	f->savemask = mask;
 	if (!mask) return c;
 	f->regsave = (c + 7) & ~7u;
-	return f->regsave + 8 * (32u - (unsigned)__builtin_clz((unsigned)mask));
+	return f->regsave + 8u * (uint32_t)__builtin_popcount(mask);
 }
 
 static void fill_regalloc (X86Fn *f)
@@ -139,7 +140,7 @@ static uint32_t max_slot (X86Fn *f)
 	uint32_t m = 0;
 
 	for (uint32_t r = 0; r < f->fn->reg_count; r++)
-		if (f->regs[r].home[0] == RA_SPILL && f->regs[r].slot > m)
+		if (f->regs[r].home[0] == VR_SPILL && f->regs[r].slot > m)
 			m = f->regs[r].slot;
 	return m;
 }
@@ -210,8 +211,10 @@ static void move_saved (X86Fn *f, uint16_t mask, int restore)
 	uint32_t off = f->regsave;
 
 	for (uint32_t k = 0; k < X86_REG_NUM; k++) {
+		if (!(f->savemask >> k & 1)) continue;
 		off += 8;
 		if (!(mask >> k & 1)) continue;
+
 		if (restore)
 			cg_printf(f->cg, "\tmovq -%u(%s), %s\n", off, f->base, reg_name(k, 8));
 		else cg_printf(f->cg, "\tmovq %s, -%u(%s)\n", reg_name(k, 8), off, f->base);
@@ -383,8 +386,84 @@ static void store_imm (X86Fn *f, uint32_t vreg, int64_t v)
 			mem_suf[s], (long long)v, f->regs[vreg].slot, f->base);
 }
 
+static void check_homes (X86Fn *f)
+{
+	for (uint32_t r = 0; r < f->fn->reg_count; r++) {
+		int h = f->regs[r].home[0];
+
+		if (h < VR_SPILL || h >= X86_REG_NUM)
+			regalloc_violation(f, "vreg home out of range");
+		else if (h >= 0 && (X86_CALLEE_MASK >> h & 1)
+				&& !(f->ctx.callee_used >> h & 1))
+			regalloc_violation(f, "callee-saved home missing from callee_used");
+	}
+}
+
+static void check_ctx (X86Fn *f)
+{
+	IRInstr *code = f->cg->ir->instrs + f->fn->start;
+
+	for (uint32_t i = 0; i < f->fn->count; i++) {
+		f->at = i;
+		if (f->frees[i] & X86_CALLEE_MASK & (uint16_t)~f->ctx.callee_used)
+			regalloc_violation(f, "free_regs lists a callee-saved reg not in callee_used");
+		if (code[i].op == IR_CALL && (f->saves[i] & home_bit(f, code[i].dst)))
+			regalloc_violation(f, "save[] contains the home of the call's dst");
+	}
+}
+
+static int param_clobbers (X86Fn *f, IRInstr *code, uint32_t j, uint32_t n)
+{
+	int h = phys_reg(f, code[j].dst);
+
+	for (uint32_t m = j + 1; m < n; m++)
+		if (h == arg_regs[code[m].target] && f->regs[code[m].dst].uses) return 1;
+	return 0;
+}
+
+static void check_params (X86Fn *f)
+{
+	IRInstr *code = f->cg->ir->instrs + f->fn->start;
+	uint32_t n = f->fn->param_count < 6 ? f->fn->param_count : 6;
+
+	for (uint32_t j = 0; j < n && code[j].op == IR_PARAM; j++) {
+		if (!param_clobbers(f, code, j, n)) continue;
+		f->at = j;
+		regalloc_violation(f, "PARAM overwrites a later incoming argument");
+	}
+}
+
+static void check_regalloc (X86Fn *f)
+{
+	f->at = 0;
+	if (f->ctx.block_count != 1)
+		regalloc_violation(f, "backend supports block_count == 1 only");
+	check_homes(f);
+	check_ctx(f);
+	check_params(f);
+}
+
+static int arg_clobbered (X86Fn *f, IRInstr *first, IRInstr *a)
+{
+	int h = phys_reg(f, a->src1);
+
+	for (IRInstr *b = first; b < a && b->target < 6; b++)
+		if (h == arg_regs[b->target] && b->src1 != a->src1) return 1;
+	return 0;
+}
+
+static void check_arg_group (X86Fn *f, IRInstr *first)
+{
+	for (IRInstr *a = first; a->op == IR_ARG; a++) {
+		if (!arg_clobbered(f, first, a)) continue;
+		f->at = (uint32_t)(a - (f->cg->ir->instrs + f->fn->start));
+		regalloc_violation(f, "ARG source clobbered by an earlier ARG of its group");
+	}
+}
+
 static void make_param (X86Fn *f, IRInstr *i)
 {
+	if (!f->regs[i->dst].uses) return;
 	if (i->target < 6) {
 		store_reg(f, arg_regs[i->target], i->dst);
 		return;
@@ -398,7 +477,7 @@ static void make_param (X86Fn *f, IRInstr *i)
 static void make_move (X86Fn *f, IRInstr *i)
 {
 	if (i->dst == i->src1) return;
-	if (f->regs[i->src1].cstate == 1) {
+	if (f->regs[i->src1].cstate == VR_CONST) {
 		store_imm(f, i->dst, const_ext(f, i->src1));
 		return;
 	}
@@ -433,7 +512,7 @@ static void make_str_global (X86Fn *f, IRInstr *i)
 	uint8_t s = types[g->type].size;
 	int p = phys_reg(f, i->src1);
 
-	if (f->regs[i->src1].cstate == 1) {
+	if (f->regs[i->src1].cstate == VR_CONST) {
 		int64_t v = const_ext(f, i->src1);
 
 		if (s == 8 && v != (int32_t)v) {
@@ -461,7 +540,7 @@ static void make_str_global (X86Fn *f, IRInstr *i)
 
 static void op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg)
 {
-	int is_const = f->regs[vreg].cstate == 1;
+	int is_const = f->regs[vreg].cstate == VR_CONST;
 	int64_t v = is_const ? const_ext(f, vreg) : 0;
 	int p = phys_reg(f, vreg);
 	uint16_t keep = f->pool;
@@ -515,7 +594,7 @@ static void make_mul_pm1 (X86Fn *f, uint8_t w, uint64_t k, int plus)
 
 static int make_mul_const (X86Fn *f, IRInstr *i)
 {
-	if (f->regs[i->src2].cstate != 1) return 0;
+	if (f->regs[i->src2].cstate != VR_CONST) return 0;
 	int64_t v = const_ext(f, i->src2);
 	uint8_t w = work_reg(f, i->dst, 0);
 	const char *wn = reg_name(w, 8);
@@ -673,8 +752,8 @@ static void make_divmod (X86Fn *f, IRInstr *i)
 	uint8_t s = types[i->data_type].size;
 	int sign = types[i->data_type].sign;
 
-	take_fixed(f, RAX, NO_REG);
-	take_fixed(f, RDX, NO_REG);
+	take_fixed(f, RAX, i->src1);
+	take_fixed(f, RDX, i->src2);
 	if (make_divmod_const(f, i)) return;
 
 	int p = phys_reg(f, i->src2);
@@ -700,11 +779,10 @@ static void make_shift (X86Fn *f, IRInstr *i)
 {
 	const char *op = "shl";
 	int imm = f->regs[i->src2].cstate == VR_CONST;
-	int64_t v = imm ? const_ext(f, i->src2) : 0;
+	int64_t v = imm ? const_ext(f, i->src2) & 63 : 0;
 	uint16_t avoid = 0;
 
 	if (i->op == IR_RS) op = types[i->data_type].sign ? "sar" : "shr";
-	imm = imm && v >= 0 && v < 64;
 	if (!imm) {
 		take_fixed(f, RCX, i->src2);
 		avoid = (uint16_t)(home_bit(f, i->src2) | (1u << RCX));
@@ -895,7 +973,7 @@ static void make_jump (X86Fn *f, IRInstr *i)
 		cg_printf(c, "\tjmp .L%u\n", i->target);
 		return;
 	}
-	if (f->regs[i->src1].cstate == 1) {
+	if (f->regs[i->src1].cstate == VR_CONST) {
 		int taken = (const_ext(f, i->src1) != 0) == (i->op == IR_JNZ);
 		if (taken) cg_printf(c, "\tjmp .L%u\n", i->target);
 		return;
@@ -904,13 +982,30 @@ static void make_jump (X86Fn *f, IRInstr *i)
 	cg_printf(c, "\t%s .L%u\n", i->op == IR_JZ ? "je" : "jne", i->target);
 }
 
+static IRInstr *group_call (IRInstr *arg)
+{
+	while (arg->op == IR_ARG) arg++;
+	return arg;
+}
+
+static void move_call_live (X86Fn *f, IRInstr *call, int restore)
+{
+	uint32_t at = (uint32_t)(call - (f->cg->ir->instrs + f->fn->start));
+	uint16_t keep = f->ctx.save[at] & (uint16_t)~X86_CALLEE_MASK;
+
+	move_saved(f, keep, restore);
+}
+
 static void make_arg (X86Fn *f, IRInstr *i)
 {
-	int is_const = f->regs[i->src1].cstate == 1;
+	int is_const = f->regs[i->src1].cstate == VR_CONST;
 	int64_t v = is_const ? const_ext(f, i->src1) : 0;
 	int p = phys_reg(f, i->src1);
-	uint8_t w;
 
+	if (i->target == 0) {
+		check_arg_group(f, i);
+		move_call_live(f, group_call(i), 0);
+	}
 	if (i->target < 6) {
 		take_fixed(f, arg_regs[i->target], i->src1);
 		load_reg(f, arg_regs[i->target], i->src1);
@@ -921,7 +1016,8 @@ static void make_arg (X86Fn *f, IRInstr *i)
 				(long long)v, (i->target - 6) << 3);
 		return;
 	}
-	w = p >= 0 ? (uint8_t)p : grab(f);
+
+	uint8_t w = p >= 0 ? (uint8_t)p : grab(f);
 	if (p < 0) load_reg(f, w, i->src1);
 	cg_printf(f->cg, "\tmovq %s, %u(%%rsp)\n", reg_name(w, 8), (i->target - 6) << 3);
 }
@@ -929,16 +1025,15 @@ static void make_arg (X86Fn *f, IRInstr *i)
 static void make_call (X86Fn *f, IRInstr *i)
 {
 	CodeGen *c = f->cg;
-	uint16_t keep = f->ctx.save[f->at] & (uint16_t)~X86_CALLEE_MASK;
 
-	move_saved(f, keep, 0);
+	if (i->argc == 0) move_call_live(f, i, 0);
 	cg_printf(c, "\tcall ");
 	print_fn_name(c, c->ir->fns + i->target);
 	cg_printf(c, "\n");
 
 	if (i->dst != NO_REG)
 		store_reg(f, RAX, i->dst);
-	move_saved(f, keep, 1);
+	move_call_live(f, i, 1);
 }
 
 static void make_ret (X86Fn *f, IRInstr *i)
@@ -1055,7 +1150,7 @@ static int rmw_shape_ok (X86Fn *f, IRInstr *a, IRInstr *b)
 
 	if (f->regs[a->dst].uses != 1 || f->regs[b->dst].uses != 1) return 0;
 	if (a->op != IR_LD_GLOBAL && (f->regs[a->src1].cstate != VR_MEM
-				|| f->regs[a->src1].home[0] != RA_SPILL)) return 0;
+				|| f->regs[a->src1].home[0] != VR_SPILL)) return 0;
 	return types[rt[a->dst]].size == s && types[rt[b->dst]].size == s;
 }
 
@@ -1104,7 +1199,7 @@ static int try_rmw_inplace (X86Fn *f, IRInstr *i)
 	uint32_t x = i->dst;
 
 	if (!rmw_kind[i->op] || i->dst != i->src1 || f->regs[x].cstate != VR_MEM
-			|| f->regs[x].home[0] != RA_SPILL)
+			|| f->regs[x].home[0] != VR_SPILL)
 		return 0;
 	uint8_t s = types[f->fn->reg_types[x]].size;
 
@@ -1178,7 +1273,7 @@ static int make_instr (X86Fn *f, IRInstr *i)
 	switch (i->op)
 	{
 	case IR_CONST:
-		if (f->regs[i->dst].cstate != 1) store_imm(f, i->dst, i->imm64);
+		if (f->regs[i->dst].cstate != VR_CONST) store_imm(f, i->dst, i->imm64);
 		return 1;
 	case IR_PARAM: make_param(f, i); return 1;
 
@@ -1321,6 +1416,7 @@ int gen_x86_64 (CodeGen *c)
 		if (init_empty && i == ir->init_fn) continue;
 		f.fn = ir->fns + i;
 		layout_fn(&f);
+		check_regalloc(&f);
 		make_fn(&f);
 	}
 	make_entry(c, !init_empty);

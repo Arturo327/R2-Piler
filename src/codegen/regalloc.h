@@ -6,14 +6,14 @@
 #include "arena/arena.h"
 #include "ir/ir.h"
 
-#define RA_NO_HOME -1
-#define RA_SPILL -2
+#define VR_NO_HOME -1
+#define VR_SPILL -2
 
 enum {
-	RA_NONE = 0,
-	RA_CONST = 1,
-	RA_MEM = 2,
-	RA_ALIAS = 3
+	VR_NONE = 0,
+	VR_CONST = 1,
+	VR_MEM = 2,
+	VR_ALIAS = 3
 };
 
 typedef struct Reg {

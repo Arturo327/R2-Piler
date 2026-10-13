@@ -5,13 +5,6 @@
 #include "codegen/codegen.h"
 #include "codegen/regalloc.h"
 
-enum {
-	VR_NONE = 0,
-	VR_CONST = 1,
-	VR_MEM = 2,
-	VR_ALIAS = 3
-};
-
 typedef struct X86Fn {
 	CodeGen *cg;
 	IRFn *fn;
@@ -33,6 +26,7 @@ typedef struct X86Fn {
 
 	uint32_t outgoing;
 	uint32_t frame;
+	uint16_t savemask;
 	uint8_t leaf;
 } X86Fn;
 
