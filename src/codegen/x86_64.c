@@ -11,6 +11,7 @@
 #define RED_ZONE 128
 #define X86_REG_NUM 14
 #define X86_CALLEE_MASK 0x3E00u
+#define ARG_REGS_MASK 0x7Eu
 
 static const char *asm_size_name[9] =
 {
@@ -1003,8 +1004,11 @@ static void make_arg (X86Fn *f, IRInstr *i)
 	int p = phys_reg(f, i->src1);
 
 	if (i->target == 0) {
+		IRInstr *call = group_call(i);
+
 		check_arg_group(f, i);
-		move_call_live(f, group_call(i), 0);
+		if (!tail_match(f, call, tail_ret(call)))
+			move_call_live(f, call, 0);
 	}
 	if (i->target < 6) {
 		take_fixed(f, arg_regs[i->target], i->src1);
@@ -1018,6 +1022,7 @@ static void make_arg (X86Fn *f, IRInstr *i)
 	}
 
 	uint8_t w = p >= 0 ? (uint8_t)p : grab(f);
+	f->busy |= ARG_REGS_MASK;
 	if (p < 0) load_reg(f, w, i->src1);
 	cg_printf(f->cg, "\tmovq %s, %u(%%rsp)\n", reg_name(w, 8), (i->target - 6) << 3);
 }
