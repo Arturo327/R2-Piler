@@ -1,0 +1,64 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn d8(0 params, 5 regs) : i8
+    r0 = const.i64 -128
+    r1 = extend.i8 r0
+    r2 = const.i64 -1
+    r3 = extend.i8 r2
+    r4 = div.i8 r1, r3
+    ret.i8 r4
+    ret
+
+fn d8b(0 params, 4 regs) : i8
+    r0 = const.i64 -128
+    r1 = extend.i8 r0
+    r2 = const.i8 -1
+    r3 = div.i8 r1, r2
+    ret.i8 r3
+    ret
+
+fn m8(0 params, 5 regs) : i8
+    r0 = const.i64 -128
+    r1 = extend.i8 r0
+    r2 = const.i64 -1
+    r3 = extend.i8 r2
+    r4 = mod.i8 r1, r3
+    ret.i8 r4
+    ret
+
+fn ok8(0 params, 1 regs) : i8
+    r0 = const.i8 127
+    ret.i8 r0
+    ret
+
+fn d16(0 params, 5 regs) : i16
+    r0 = const.i64 -32768
+    r1 = extend.i16 r0
+    r2 = const.i64 -1
+    r3 = extend.i16 r2
+    r4 = div.i16 r1, r3
+    ret.i16 r4
+    ret
+
+fn d64(0 params, 3 regs) : i64
+    r0 = const.u64 9223372036854775808
+    r1 = const.i64 -1
+    r2 = div.i64 r0, r1
+    ret.i64 r2
+    ret
+
+fn u8div(0 params, 1 regs) : u8
+    r0 = const.u8 1
+    ret.u8 r0
+    ret
+
+fn rt(1 params, 5 regs) : i16
+    r0 = param.i16 #0
+    r1 = move.i16 r0
+    r2 = const.i64 -1
+    r3 = extend.i16 r2
+    r4 = div.i16 r1, r3
+    ret.i16 r4
+    ret
+

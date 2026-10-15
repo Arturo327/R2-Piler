@@ -1,0 +1,15 @@
+fn lit [1:4] depth=0 type=i64
+fn modz [4:4] depth=0 type=i64
+fn folded [7:4] depth=0 type=i64
+fn casted [10:4] depth=0 type=u8
+fn ok_two [13:4] depth=0 type=i64
+fn ok_zero_num [16:4] depth=0 type=i64
+fn ok_var_div [19:4] depth=0 type=i64
+param a [1:8] depth=1 type=i64
+param a [4:9] depth=1 type=i64
+param a [7:11] depth=1 type=i64
+param a [10:11] depth=1 type=u8
+param a [13:11] depth=1 type=i64
+param a [16:16] depth=1 type=i64
+param b [19:15] depth=1 type=i64
+param c [19:24] depth=1 type=i64

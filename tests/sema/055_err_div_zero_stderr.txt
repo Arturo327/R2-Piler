@@ -1,0 +1,12 @@
+tests/sema/055_err_div_zero_src.r2:2:14: ERROR: division by zero
+      2 |   return a / 0;
+        |              ^
+tests/sema/055_err_div_zero_src.r2:5:14: ERROR: division by zero
+      5 |   return a % 0;
+        |              ^
+tests/sema/055_err_div_zero_src.r2:8:17: ERROR: division by zero
+      8 |   return a / (3 - 3);
+        |                 ^
+tests/sema/055_err_div_zero_src.r2:11:17: ERROR: division by zero
+     11 |   return a / (0 as u8);
+        |                 ^~
