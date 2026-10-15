@@ -68,26 +68,48 @@ static void clasf_regs (IR *ir, IRFn *fn, Reg *regs, int spill_all)
 	}
 }
 
-static void assign_homes (IRFn *fn, Reg *regs)
+static void alloc_homes (Arena *arena, IRFn *fn, Reg *regs, uint32_t block_count)
+{
+	if (!fn->reg_count) return;
+	int8_t *homes = arena_alloc(arena, (size_t)fn->reg_count * block_count);
+	for (uint32_t r = 0; r < fn->reg_count; r++)
+		regs[r].home = homes + (size_t)r * block_count;
+}
+
+static void set_home (Reg *reg, uint32_t block_count, int h)
+{
+	for (uint32_t b = 0; b < block_count; b++)
+		reg->home[b] = (int8_t)h;
+}
+
+static void assign_homes (IRFn *fn, Reg *regs, uint32_t block_count)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
 		if (regs[r].cstate == VR_CONST || regs[r].cstate == VR_ALIAS) {
-			regs[r].home[0] = VR_NO_HOME;
+			set_home(regs + r, block_count, VR_NO_HOME);
 			continue;
 		}
 		if (!regs[r].uses) {
-			regs[r].home[0] = VR_NO_HOME;
+			set_home(regs + r, block_count, VR_NO_HOME);
 			continue;
 		}
-		regs[r].home[0] = VR_SPILL;
+		set_home(regs + r, block_count, VR_SPILL);
 		regs[r].spill = 1;
 	}
 }
 
-static uint32_t lay_size (IRFn *fn, Reg *regs, uint32_t c, uint8_t s)
+static int is_spilled (Reg *reg, uint32_t block_count)
+{
+	for (uint32_t b = 0; b < block_count; b++)
+		if (reg->home[b] == VR_SPILL) return 1;
+	return 0;
+}
+
+static uint32_t lay_size (IRFn *fn, Reg *regs, uint32_t c, uint8_t s,
+		uint32_t block_count)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
-		if (regs[r].home[0] != VR_SPILL) continue;
+		if (!is_spilled(regs + r, block_count)) continue;
 		if (types[fn->reg_types[r]].size != s) continue;
 		c += s;
 		regs[r].slot = c;
@@ -95,13 +117,13 @@ static uint32_t lay_size (IRFn *fn, Reg *regs, uint32_t c, uint8_t s)
 	return c;
 }
 
-static void lay_sizes (IRFn *fn, Reg *regs)
+static void lay_sizes (IRFn *fn, Reg *regs, uint32_t block_count)
 {
 	uint32_t c = 0;
-	c = lay_size(fn, regs, c, 8);
-	c = lay_size(fn, regs, c, 4);
-	c = lay_size(fn, regs, c, 2);
-	lay_size(fn, regs, c, 1);
+	c = lay_size(fn, regs, c, 8, block_count);
+	c = lay_size(fn, regs, c, 4, block_count);
+	c = lay_size(fn, regs, c, 2, block_count);
+	lay_size(fn, regs, c, 1, block_count);
 }
 
 static void make_ctx (IRFn *fn, RegCtx *ctx, uint32_t reg_num)
@@ -117,29 +139,29 @@ static void make_ctx (IRFn *fn, RegCtx *ctx, uint32_t reg_num)
 	ctx->callee_used = 0;
 }
 
-static void resolve (IRFn *fn, Reg *regs)
+static void resolve (IRFn *fn, Reg *regs, uint32_t block_count)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
 		if (regs[r].cstate != VR_ALIAS) continue;
 		uint32_t t = regs[r].slot;
 		regs[r].slot = regs[t].slot;
-		regs[r].home[0] = regs[t].home[0];
+		for (uint32_t b = 0; b < block_count; b++)
+			regs[r].home[b] = regs[t].home[b];
 	}
 }
 
 void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs,
 		RegCtx *ctx, uint32_t reg_num, int spill_all)
 {
-	(void)arena;
-
 	reset_regalloc(fn, regs);
 	make_ctx(fn, ctx, reg_num);
+	alloc_homes(arena, fn, regs, ctx->block_count);
 
 	count_defs(ir, fn, regs);
 	clasf_regs(ir, fn, regs, spill_all);
 
-	assign_homes(fn, regs);
-	lay_sizes(fn, regs);
+	assign_homes(fn, regs, ctx->block_count);
+	lay_sizes(fn, regs, ctx->block_count);
 
-	resolve(fn, regs);
+	resolve(fn, regs, ctx->block_count);
 }
