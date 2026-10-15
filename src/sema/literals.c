@@ -96,11 +96,28 @@ static void make_fold_lit (ASTNode *n, uint64_t bits, uint8_t t)
 	n->child = NO_NODE;
 }
 
+static uint64_t type_min (uint8_t t)
+{
+	if (is_untyped(t)) return ~(uint64_t)0 << 63;
+	return ~(uint64_t)0 << (types[t].size * 8u - 1);
+}
+
+static int div_overflows (uint64_t a, uint64_t b, uint8_t t)
+{
+	if (!types[t].sign) return 0;
+	if (!is_untyped(t)) {
+		a = trunc_sext(a, t);
+		b = trunc_sext(b, t);
+	}
+	if ((int64_t)b != -1) return 0;
+	return a == type_min(t);
+}
+
 static int fold_divmod (uint8_t op, uint64_t a, uint64_t b, uint8_t t, uint64_t *out)
 {
 	if (b == 0) return 0;
+	if (div_overflows(a, b, t)) return 0;
 	if (types[t].sign) {
-		if ((int64_t)a == INT64_MIN && (int64_t)b == -1) return 0;
 		if (op == NODE_DIV) *out = (uint64_t)((int64_t)a / (int64_t)b);
 		else *out = (uint64_t)((int64_t)a % (int64_t)b);
 		return 1;
@@ -193,26 +210,33 @@ uint8_t try_fold_unary (Sema *s, uint32_t idx)
 void try_fold_binary (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
-	ASTNode *l;
-	ASTNode *r;
-	uint64_t a, b, v;
-	uint8_t t;
 
 	if (n->child == NO_NODE) return;
-	l = &s->ast->nodes[n->child];
+	ASTNode *l = &s->ast->nodes[n->child];
 	if (l->next_bro == NO_NODE) return;
-	r = &s->ast->nodes[l->next_bro];
+	ASTNode *r = &s->ast->nodes[l->next_bro];
 
-	if (!lit_node_bits(s, l, &a) || !lit_node_bits(s, r, &b)) return;
 	if (l->data_type == TYPE_ERROR || r->data_type == TYPE_ERROR) return;
 
+	uint64_t a;
+	int l_lit = lit_node_bits(s, l, &a);
+	uint64_t b;
+	if (!lit_node_bits(s, r, &b)) return;
+
+	if ((n->type == NODE_DIV || n->type == NODE_MOD) && b == 0 && !l_lit) {
+		error_report(s->err, ERR_ERROR, node_loc(r), "division by zero");
+		n->data_type = TYPE_ERROR;
+		return;
+	}
+	if (!l_lit) return;
+
 	if (n->type == NODE_AND_L || n->type == NODE_OR_L) {
-		v = n->type == NODE_AND_L ? (a != 0 && b != 0) : (a != 0 || b != 0);
+		uint64_t v = n->type == NODE_AND_L ? (a != 0 && b != 0) : (a != 0 || b != 0);
 		make_fold_lit(n, v, TYPE_i64);
 		return;
 	}
 
-	t = l->data_type;
+	uint8_t t = l->data_type;
 
 	if ((n->type == NODE_DIV || n->type == NODE_MOD) && b == 0) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
@@ -221,14 +245,13 @@ void try_fold_binary (Sema *s, uint32_t idx)
 		return;
 	}
 
+	uint64_t v;
 	if (fold_compare(n->type, a, b, t, &v)) {
 		make_fold_lit(n, v, TYPE_i64);
 		return;
 	}
-
 	if (fold_value(n->type, a, b, t, &v)) {
 		uint64_t bits = is_untyped(t) ? v : trunc_sext(v, t);
-
 		make_fold_lit(n, bits, t);
 	}
 }
