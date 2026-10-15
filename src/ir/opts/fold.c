@@ -125,7 +125,7 @@ static int fold_jump (Optimizer *opt, OptFn *f, IRInstr *in)
 	if ((v != 0) == (in->op == IR_JNZ)) {
 		in->op = IR_JMP;
 		in->src1 = NO_REG;
-	} else kill_instr(in);
+	} else kill_branch(f, in);
 	return 1;
 }
 

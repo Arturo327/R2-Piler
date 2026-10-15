@@ -61,6 +61,31 @@ static void inl_measure (Inliner *n, IRFn *fn, uint32_t *instrs, uint32_t *regs)
 	}
 }
 
+static int args_ok (IRInstr *first, uint32_t argc)
+{
+	for (uint32_t k = 0; k < argc; k++)
+		if (first[k].op != IR_ARG || first[k].target != k) return 0;
+	return 1;
+}
+
+static uint32_t count_sites (Inliner *n)
+{
+	uint32_t sites = 0;
+
+	for (uint32_t i = 0; i < n->ir->fn_count; i++) {
+		IRFn *fn = n->fns + i;
+
+		for (uint32_t j = 0; j < fn->count; j++) {
+			IRInstr *in = n->src + fn->start + j;
+
+			if (in->op != IR_CALL || !n->elig[in->target]) continue;
+			if (j < in->argc) continue;
+			if (args_ok(n->src + fn->start + j - in->argc, in->argc)) sites++;
+		}
+	}
+	return sites;
+}
+
 static void label_span (Inliner *n, IRFn *fn, uint32_t *lo, uint32_t *hi)
 {
 	*lo = UINT32_MAX;
@@ -145,10 +170,9 @@ static int inl_call (Inliner *n, IRInstr *call)
 
 	if (n->count < argc) return 0;
 	first = n->out + (n->count - argc);
-	for (uint32_t k = 0; k < argc; k++) {
-		if (first[k].op != IR_ARG || first[k].target != k) return 0;
+	if (!args_ok(first, argc)) return 0;
+	for (uint32_t k = 0; k < argc; k++)
 		args[k] = first[k].src1;
-	}
 
 	n->count -= argc;
 	inl_site(n, call, args);
@@ -193,11 +217,12 @@ int inline_ir (IR *ir, Arena *a)
 	n.elig = arena_alloc(a, ir->fn_count);
 	mark_eligible(&n);
 
+	if (!count_sites(&n)) return 0;
+
 	for (uint32_t i = 0; i < ir->fn_count; i++) {
 		inl_measure(&n, n.fns + i, &instrs, &regs);
 		total += instrs;
 	}
-	if (total == ir->instr_count) return 0;
 
 	n.out = arena_alloc(a, (size_t)total * sizeof(IRInstr));
 	for (uint32_t i = 0; i < ir->fn_count; i++)

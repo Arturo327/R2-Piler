@@ -9,6 +9,13 @@ void kill_instr (IRInstr *in)
 	in->argc = 0;
 }
 
+void kill_branch (OptFn *f, IRInstr *in)
+{
+	if (in->op == IR_JMP || in->op == IR_JZ || in->op == IR_JNZ)
+		f->lrefs[in->target]--;
+	kill_instr(in);
+}
+
 IRInstr *next_real (IRInstr *code, uint32_t from, uint32_t count)
 {
 	while (from < count && code[from].op == IR_NOP) from++;
