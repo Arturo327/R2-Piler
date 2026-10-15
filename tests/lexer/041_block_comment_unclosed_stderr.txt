@@ -1,0 +1,3 @@
+tests/lexer/041_block_comment_unclosed_src.r2:5:1: ERROR: block comment is not closed
+      5 | /*
+        | ^~

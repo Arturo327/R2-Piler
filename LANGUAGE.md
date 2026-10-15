@@ -31,7 +31,7 @@ Un error en cualquier fase aborta la compilación antes de la siguiente. Los war
 
 ### 2.1 Comentarios
 
-`//` hasta el fin de línea. No existen comentarios de bloque. Solo `\n` termina un comentario: un `\r` solitario no es fin de línea y el comentario lo consume como un carácter más.
+`//` hasta el fin de línea y `/* ... */` para bloques (no anidados: cierran en el primer `*/`). Solo `\n` termina un comentario de línea: un `\r` solitario no es fin de línea y lo consume como un carácter más. Un `/*` sin cerrar es error (`block comment is not closed`).
 
 ### 2.2 Identificadores y keywords
 
@@ -85,7 +85,7 @@ while  return  as
 
 Reglas de tipos (estrictas; el único implícito es el que no puede perder valor):
 
-- **Literales flexibles**: un literal (o `-literal`, o una expresión hecha solo de literales) adopta en silencio el tipo que le pide el contexto si su valor cabe en él: `var u : u64 = 1`, `take_i64('a')`, `c > 5` (el `5` se vuelve `i8`), `var v : u64 = 9223372036854775808` (sin sufijo, cabe en `u64`). Las subexpresiones puramente literales se **pliegan en compilación** con semántica de wrap, y el chequeo de rango se hace sobre el valor plegado: `var w : char = 100 * 100` es error (`literal 10000 does not fit in type i8`, reportado en el operador). Los casts de literales también pliegan (el valor se trunca al tipo del cast antes de plegar): `-(5 as u64)` es la constante `u64` exacta, `(300 as u8) > 200` pliega a `0`. No se pliega (se deja al hardware): división/módulo por cero, `INT64_MIN / -1` y shifts con cuenta `>= 64`.
+- **Literales flexibles**: un literal (o `-literal`, o una expresión hecha solo de literales) adopta en silencio el tipo que le pide el contexto si su valor cabe en él: `var u : u64 = 1`, `take_i64('a')`, `c > 5` (el `5` se vuelve `i8`), `var v : u64 = 9223372036854775808` (sin sufijo, cabe en `u64`). Las subexpresiones puramente literales se **pliegan en compilación** con semántica de wrap, y el chequeo de rango se hace sobre el valor plegado: `var w : char = 100 * 100` es error (`literal 10000 does not fit in type i8`, reportado en el operador). Los casts de literales también pliegan (el valor se trunca al tipo del cast antes de plegar): `-(5 as u64)` es la constante `u64` exacta, `(300 as u8) > 200` pliega a `0`. El divisor cero conocido (literal, plegado o tras un cast) es **error de compilación** (`division by zero`, reportado en el divisor; `division by zero in constant expression`, reportado en el operador, si ambos operandos son literales). No se pliegan y se dejan al hardware: `div`/`mod` con signo por `-1` sobre el mínimo del tipo (`INT64_MIN / -1`, `(-128 as i8) / (-1 as i8)`) y los shifts con cuenta `>= 64`.
 - **Ancho del plegado**: toda subexpresión hecha solo de literales (untyped) pliega con wrap a **64 bits**, sea cual sea el sabor del literal: `var x : i64 = 'a' + 'b';` da **195**. Solo los pares de operandos con tipo concreto narrow (p. ej. dos casts) pliegan con truncado al ancho de ese tipo (`(250 as u8) + 10` pliega a `4`, lo mismo que haría `add.u8` en runtime). Consecuencia: una constante que no cabe en el tipo destino es error aunque "envolvería" bien en un tipo más ancho (`var a : i8 = 1 << 7;` → `literal 128 does not fit in type i8`).
 - **Locación de los errores de rango**: un literal suelto se reporta **en el literal** (`c + 300` marca el `300`); un `-literal` marca el `-literal` **completo**; una subexpresión plegada se reporta **en el operador** (el nodo plegado hereda la posición del operador), y un init en el nombre declarado.
 - **Shifts con izquierda untyped**: si la cuenta es un literal, la constante plegada queda flexible y adopta el tipo del contexto (`var v : u64 = 1 << 2;` vale). Si la cuenta **no** es un literal, la izquierda finaliza a su tipo por defecto (`1 << x` es `i64`, `'a' << x` es `i8`) y el shift ya no adopta el contexto: `var a : i8 = 1 << x;` es un error de estrechamiento, igual que `var a : i8 = 1 << 7;`. Migración: `var v : u64 = 1 << x;` → `var v : u64 = (1 << x) as u64;` (la misma regla que ya aplicaba a `var v : u64 = 5 + x;`).
@@ -216,13 +216,13 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 No se añade ninguna lógica para evitarlo; el resultado es lo que haga el hardware:
 
 - Shifts con cuenta `>= 64` (una cuenta negativa se interpreta como un valor sin signo enorme, así que cae en este caso).
-- División o módulo por cero: fault del hardware (`SIGFPE`).
-- División o módulo con el mínimo negativo de un narrow (`INT8_MIN / -1`, `INT16_MIN / -1` y análogos): fault del hardware (`#DE`), porque la división corre al ancho nativo del tipo.
+- División o módulo por cero en runtime (divisor no conocido en compilación): fault del hardware (`SIGFPE`). Un divisor cero conocido en compilación (literal, plegado o tras un cast) es error de compilación.
+- División o módulo con el mínimo negativo de un narrow (`INT8_MIN / -1`, `INT16_MIN / -1` y análogos): fault del hardware (`#DE`), porque la división corre al ancho nativo del tipo. También cuando es constante: sema no la pliega (a diferencia de otras constantes, que sí se pliegan), así que el fault es el mismo que en runtime.
 - Leer una local sin asignar: valor indefinido.
 
 El **wrap** aritmético NO es indefinido: está definido como complemento a 2 (y módulo 2^64 para `u64`). Tampoco lo son los shifts con cuenta menor que 64: se calculan a 64 bits sobre el valor extendido y el resultado se trunca al tipo del operando izquierdo (p. ej. `u8 << 9` vale 0 y `i8 >> 9` rellena con el signo).
 
-Plegado de constantes: una subexpresión hecha solo de literales se evalúa en compilación con esa misma semántica de wrap, siempre a 64 bits (ver "Ancho del plegado"), incluida la negación: `-5u` es la constante `u64` exacta, sin warning. Los literales detrás de un cast explícito también pliegan, truncando primero al tipo del cast (`-(300 as u8)` es la constante `212`). No se pliega y se deja al hardware: división/módulo por cero, `INT64_MIN / -1` (o `%`) y shifts con cuenta `>= 64`.
+Plegado de constantes: una subexpresión hecha solo de literales se evalúa en compilación con esa misma semántica de wrap, siempre a 64 bits (ver "Ancho del plegado"), incluida la negación: `-5u` es la constante `u64` exacta, sin warning. Los literales detrás de un cast explícito también pliegan, truncando primero al tipo del cast (`-(300 as u8)` es la constante `212`). El divisor cero conocido (literal, plegado o tras un cast) es error de compilación (`division by zero`; `division by zero in constant expression` si ambos operandos son literales). No se pliegan y se dejan al hardware: `INT64_MIN / -1` (o `%`), el mínimo de un narrow dividido por `-1` y los shifts con cuenta `>= 64`.
 
 ---
 
@@ -236,7 +236,7 @@ Plegado de constantes: una subexpresión hecha solo de literales se evalúa en c
 | Pase | Fichero | Nivel | Qué hace |
 |------|---------|-------|----------|
 | `propagate` | `opts/propagate.c` | BASIC | Copias/constantes intra-bloque (`t = move x`, una sola def, mismo tamaño/signo vía `same_rep`). |
-| `fold` | `opts/fold.c` (`reg_const`/`eval_*`/`fold_instr`/`fold_jump`/`fold_select`/`track_const`/`fold_block`) | BASIC | Plegado de constantes (aritmética/bitwise/comparaciones/unarios sobre `const`), saltos constantes (`jz`/`jnz` sobre `const` → `jmp` o nada) y `select` con condición constante → `MOVE`. Guards: no pliega `div`/`mod` por 0, `INT64_MIN` div/mod `-1`, ni shifts con cuenta `>= 64`. |
+| `fold` | `opts/fold.c` (`reg_const`/`eval_*`/`fold_instr`/`fold_jump`/`fold_select`/`track_const`/`fold_block`) | BASIC | Plegado de constantes (aritmética/bitwise/comparaciones/unarios sobre `const`), saltos constantes (`jz`/`jnz` sobre `const` → `jmp` o nada) y `select` con condición constante → `MOVE`. Guards: no pliega `div`/`mod` por 0, `div`/`mod` con signo por `-1` (cualquier dividendo), ni shifts con cuenta `>= 64`. |
 | `simplify` | `opts/simplify.c` (`simplify_same`/`rhs`/`lhs`/`swap_op`) | BASIC | Algebraicos: `x-x`/`x^x`/`x!=x`/`x<x`/`x>x`→`0`, `x==x`/`x<=x`/`x>=x`→`1`, `+0`/`-0`/`\|0`/`^0`/`<<0`/`>>0`→`MOVE`, `/1`→`MOVE`, `%1`→`0`, `*0`→`0`, `*1`→`MOVE`, `&0`→`0`, `&all1`→`MOVE`; mueve la constante a la derecha (`swap_op`). |
 | `cse` | `opts/cse_coalesce.c` | FULL | CSE local solo de `MUL`/`DIV`/`MOD` con `src2` no constante (swap solo `MUL`), tope 32 entradas (`OPT_CSE_MAX`). |
 | `coalesce` | `opts/cse_coalesce.c` | BASIC | Cualquier `is_deletable` no-`MOVE` más `CALL`/`DIV`/`MOD` con def/uso únicos, más `MOVE` posterior, se fusiona renombrando el `dst`. |

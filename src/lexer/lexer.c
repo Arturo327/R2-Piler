@@ -62,14 +62,24 @@ static void skip_line_comment (Lexer *l)
 
 static void skip_block_comment (Lexer *l)
 {
+	char *start = l->cursor;
+	int start_line = l->line;
+	int start_col = (int)(start - l->line_start) + 1;
+
 	l->cursor += 2;
 	while (*l->cursor != '\0') {
 		if (*l->cursor == '*' && *(l->cursor + 1) == '/') {
 			l->cursor += 2;
 			return;
 		}
+		if (*l->cursor == '\n') {
+			l->line++;
+			l->line_start = l->cursor + 1;
+		}
 		l->cursor++;
 	}
+	error_report(l->err, ERR_ERROR, loc_at(start_line, start_col,
+			(int)(l->cursor - start)), "block comment is not closed");
 }
 
 static void skip_whitespace (Lexer *l)
