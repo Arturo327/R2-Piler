@@ -13,13 +13,13 @@ typedef struct X86Fn {
 
 	Reg *regs;
 	RegCtx ctx;
-	int8_t *homes;
 	uint32_t *blocks;
 	uint16_t *saves;
 
 	uint16_t *frees;
 
 	uint32_t at;
+	uint32_t blk;
 	uint32_t regsave;
 	uint16_t pool;
 	uint16_t busy;

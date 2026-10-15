@@ -125,9 +125,6 @@ static void fill_regalloc (X86Fn *f)
 	IRFn *fn = f->fn;
 	int spill_all = f->cg->opt_level == NO_OPT;
 
-	for (uint32_t r = 0; r < fn->reg_count; r++)
-		f->regs[r].home = f->homes + r;
-
 	f->ctx.ins_block = f->blocks;
 	f->ctx.save = f->saves;
 	f->ctx.free_regs = f->frees;
@@ -224,7 +221,7 @@ static void move_saved (X86Fn *f, uint16_t mask, int restore)
 
 static int phys_reg (X86Fn *f, uint32_t vreg)
 {
-	int8_t h = f->regs[vreg].home[0];
+	int8_t h = f->regs[vreg].home[f->blk];
 
 	if (h < 0 || f->regs[vreg].cstate == VR_CONST) return -1;
 	return h;
@@ -243,6 +240,7 @@ static void begin_instr (X86Fn *f, IRInstr *i)
 	int n = get_srcs(i, src);
 
 	f->at = (uint32_t)(i - (f->cg->ir->instrs + f->fn->start));
+	f->blk = f->ctx.ins_block[f->at];
 	f->pool = f->ctx.free_regs[f->at];
 	f->busy = home_bit(f, i->dst);
 	for (int k = 0; k < n; k++)
@@ -389,14 +387,16 @@ static void store_imm (X86Fn *f, uint32_t vreg, int64_t v)
 
 static void check_homes (X86Fn *f)
 {
-	for (uint32_t r = 0; r < f->fn->reg_count; r++) {
-		int h = f->regs[r].home[0];
+	for (uint32_t b = 0; b < f->ctx.block_count; b++) {
+		for (uint32_t r = 0; r < f->fn->reg_count; r++) {
+			int h = f->regs[r].home[b];
 
-		if (h < VR_SPILL || h >= X86_REG_NUM)
-			regalloc_violation(f, "vreg home out of range");
-		else if (h >= 0 && (X86_CALLEE_MASK >> h & 1)
-				&& !(f->ctx.callee_used >> h & 1))
-			regalloc_violation(f, "callee-saved home missing from callee_used");
+			if (h < VR_SPILL || h >= X86_REG_NUM)
+				regalloc_violation(f, "vreg home out of range");
+			else if (h >= 0 && (X86_CALLEE_MASK >> h & 1)
+					&& !(f->ctx.callee_used >> h & 1))
+				regalloc_violation(f, "callee-saved home missing from callee_used");
+		}
 	}
 }
 
@@ -406,6 +406,7 @@ static void check_ctx (X86Fn *f)
 
 	for (uint32_t i = 0; i < f->fn->count; i++) {
 		f->at = i;
+		f->blk = f->ctx.ins_block[i];
 		if (f->frees[i] & X86_CALLEE_MASK & (uint16_t)~f->ctx.callee_used)
 			regalloc_violation(f, "free_regs lists a callee-saved reg not in callee_used");
 		if (code[i].op == IR_CALL && (f->saves[i] & home_bit(f, code[i].dst)))
@@ -428,6 +429,7 @@ static void check_params (X86Fn *f)
 	uint32_t n = f->fn->param_count < 6 ? f->fn->param_count : 6;
 
 	for (uint32_t j = 0; j < n && code[j].op == IR_PARAM; j++) {
+		f->blk = f->ctx.ins_block[j];
 		if (!param_clobbers(f, code, j, n)) continue;
 		f->at = j;
 		regalloc_violation(f, "PARAM overwrites a later incoming argument");
@@ -437,8 +439,7 @@ static void check_params (X86Fn *f)
 static void check_regalloc (X86Fn *f)
 {
 	f->at = 0;
-	if (f->ctx.block_count != 1)
-		regalloc_violation(f, "backend supports block_count == 1 only");
+	f->blk = 0;
 	check_homes(f);
 	check_ctx(f);
 	check_params(f);
@@ -460,6 +461,7 @@ static void check_arg_group (X86Fn *f, IRInstr *first, IRInstr *end)
 	uint32_t k = 0;
 
 	while (a < end && a->op == IR_ARG) {
+		f->blk = f->ctx.ins_block[a - base];
 		if (a->target != k) {
 			f->at = (uint32_t)(a - base);
 			regalloc_violation(f, "ARG targets must ascend from 0 without gaps");
@@ -1201,7 +1203,7 @@ static int rmw_shape_ok (X86Fn *f, IRInstr *a, IRInstr *b)
 
 	if (f->regs[a->dst].uses != 1 || f->regs[b->dst].uses != 1) return 0;
 	if (a->op != IR_LD_GLOBAL && (f->regs[a->src1].cstate != VR_MEM
-				|| f->regs[a->src1].home[0] != VR_SPILL)) return 0;
+				|| f->regs[a->src1].home[f->blk] != VR_SPILL)) return 0;
 	return types[rt[a->dst]].size == s && types[rt[b->dst]].size == s;
 }
 
@@ -1250,7 +1252,7 @@ static int try_rmw_inplace (X86Fn *f, IRInstr *i)
 	uint32_t x = i->dst;
 
 	if (!rmw_kind[i->op] || i->dst != i->src1 || f->regs[x].cstate != VR_MEM
-			|| f->regs[x].home[0] != VR_SPILL)
+			|| f->regs[x].home[f->blk] != VR_SPILL)
 		return 0;
 	uint8_t s = types[f->fn->reg_types[x]].size;
 
@@ -1454,7 +1456,6 @@ int gen_x86_64 (CodeGen *c)
 	f.cg = c;
 
 	f.regs = arena_alloc(c->arena, (size_t)max_regs * sizeof(Reg));
-	f.homes = arena_alloc(c->arena, max_regs);
 	f.blocks = arena_alloc(c->arena, (size_t)max_instrs * sizeof(uint32_t));
 	f.saves = arena_alloc(c->arena, (size_t)(max_instrs + 1) * sizeof(uint16_t));
 	f.frees = arena_alloc(c->arena, (size_t)(max_instrs + 1) * sizeof(uint16_t));
