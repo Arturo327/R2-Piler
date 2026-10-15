@@ -46,7 +46,7 @@ static inline Token make_token (TokenType type, char *text, size_t len, uint16_t
 	return token;
 }
 
-static void skip_comment (Lexer *l)
+static void skip_line_comment (Lexer *l)
 {
 	l->cursor += 2;
 	while (*l->cursor != '\0') {
@@ -54,6 +54,18 @@ static void skip_comment (Lexer *l)
 			l->line++;
 			l->cursor++;
 			l->line_start = l->cursor;
+			return;
+		}
+		l->cursor++;
+	}
+}
+
+static void skip_block_comment (Lexer *l)
+{
+	l->cursor += 2;
+	while (*l->cursor != '\0') {
+		if (*l->cursor == '*' && *(l->cursor + 1) == '/') {
+			l->cursor += 2;
 			return;
 		}
 		l->cursor++;
@@ -71,7 +83,9 @@ static void skip_whitespace (Lexer *l)
 			l->line++;
 			l->line_start = l->cursor;
 		} else if (c == '/' && *(l->cursor + 1) == '/') {
-			skip_comment(l);
+			skip_line_comment(l);
+		} else if (c == '/' && *(l->cursor + 1) == '*') {
+			skip_block_comment(l);
 		} else break;
 	}
 }
