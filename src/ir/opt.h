@@ -2,6 +2,7 @@
 #define OPT_H
 
 #include "arena/arena.h"
+#include "ir/cfg.h"
 #include "ir/ir.h"
 
 #define OPT_NO_BLOCK 0xFFFFFFFFu
@@ -22,18 +23,9 @@ typedef struct CseEntry {
 	uint8_t type;
 } CseEntry;
 
-typedef struct OptBlock {
-	uint64_t *live_in;
-	uint32_t start;
-	uint32_t count;
-	uint32_t succ[2];
-	uint32_t succ_count;
-	uint8_t reachable;
-} OptBlock;
-
 typedef struct OptFn {
 	IRFn *fn;
-	OptBlock *blocks;
+	CfgBlock *blocks;
 
 	uint32_t *lmap;
 	uint32_t *lrefs;
@@ -67,6 +59,8 @@ typedef struct Optimizer {
 	Arena *arena;
 	IR *ir;
 	OptFn cur;
+	Cfg cfg;
+
 	uint32_t *lmap;
 	uint32_t *lrefs;
 	OptLevel level;

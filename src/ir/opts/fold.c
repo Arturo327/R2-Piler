@@ -140,7 +140,7 @@ static void track_const (OptFn *f, IRInstr *in)
 	f->kval[in->dst] = norm_val((uint64_t)in->imm64, f->fn->reg_types[in->dst]);
 }
 
-static int fold_block (Optimizer *opt, OptFn *f, OptBlock *blk)
+static int fold_block (Optimizer *opt, OptFn *f, CfgBlock *blk)
 {
 	IRInstr *code = opt->ir->instrs + blk->start;
 	int changed = 0;

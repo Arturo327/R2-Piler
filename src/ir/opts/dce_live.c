@@ -1,7 +1,5 @@
 #include "ir/opts/common.h"
 
-#include <string.h>
-
 int opt_dce (Optimizer *opt, OptFn *f)
 {
 	IRInstr *code = opt->ir->instrs + f->fn->start;
@@ -23,98 +21,39 @@ int opt_dce (Optimizer *opt, OptFn *f)
 	return changed;
 }
 
-static int live_step (IRInstr *in, uint64_t *live)
+static int live_sweep (Optimizer *opt, OptFn *f, Cfg *cfg, uint32_t b, uint32_t words)
 {
-	uint32_t *src[3];
-	int n = get_srcs(in, src);
-
-	if (in->dst != NO_REG) {
-		uint64_t bit = 1ull << (in->dst & 63);
-
-		if (!(live[in->dst >> 6] & bit) && is_deletable[in->op]) return 1;
-		live[in->dst >> 6] &= ~bit;
-	}
-	for (int k = 0; k < n; k++)
-		live[*src[k] >> 6] |= 1ull << (*src[k] & 63);
-	return 0;
-}
-
-static void live_out (OptFn *f, OptBlock *blk, uint32_t words)
-{
-	memset(f->live_tmp, 0, (size_t)words * sizeof(uint64_t));
-	for (uint32_t k = 0; k < blk->succ_count; k++) {
-		uint64_t *src = f->blocks[blk->succ[k]].live_in;
-
-		for (uint32_t w = 0; w < words; w++)
-			f->live_tmp[w] |= src[w];
-	}
-}
-
-static int live_block (Optimizer *opt, OptFn *f, OptBlock *blk, uint32_t words)
-{
-	IRInstr *code = opt->ir->instrs + blk->start;
+	IRInstr *code = opt->ir->instrs + cfg->blocks[b].start;
 	int changed = 0;
 
-	live_out(f, blk, words);
-	for (uint32_t i = blk->count; i-- > 0;)
-		live_step(code + i, f->live_tmp);
-	for (uint32_t w = 0; w < words; w++) {
-		changed |= f->live_tmp[w] != blk->live_in[w];
-		blk->live_in[w] = f->live_tmp[w];
-	}
-	return changed;
-}
-
-static int live_sweep (Optimizer *opt, OptFn *f, OptBlock *blk, uint32_t words)
-{
-	IRInstr *code = opt->ir->instrs + blk->start;
-	int changed = 0;
-
-	live_out(f, blk, words);
-	for (uint32_t i = blk->count; i-- > 0;) {
-		if (!live_step(code + i, f->live_tmp)) continue;
+	cfg_live_out(cfg, b, f->live_tmp, words);
+	for (uint32_t i = cfg->blocks[b].count; i-- > 0;) {
+		if (!cfg_live_step(code + i, f->live_tmp)) continue;
 		kill_instr(code + i);
 		changed = 1;
 	}
 	return changed;
 }
 
-static void live_setup (Optimizer *opt, OptFn *f, uint32_t words)
+static void live_setup (Optimizer *opt, OptFn *f, size_t need)
 {
-	size_t need = (size_t)f->block_count * words;
-
 	if (need > f->live_cap) {
 		f->live = arena_alloc(opt->arena, need * sizeof(uint64_t));
 		f->live_cap = need;
-	}
-	memset(f->live, 0, need * sizeof(uint64_t));
-
-	uint64_t *p = f->live;
-	for (uint32_t b = 0; b < f->block_count; b++, p += words)
-		f->blocks[b].live_in = p;
-}
-
-static void live_solve (Optimizer *opt, OptFn *f, uint32_t words)
-{
-	int again = 1;
-
-	while (again) {
-		again = 0;
-		for (uint32_t b = f->block_count; b-- > 0;)
-			again |= live_block(opt, f, f->blocks + b, words);
 	}
 }
 
 int opt_live_dce (Optimizer *opt, OptFn *f)
 {
 	uint32_t words = (f->fn->reg_count + 63) >> 6;
+	Cfg *cfg = &opt->cfg;
 	int changed = 0;
 
 	if (!words) return 0;
-	build_cfg(opt->ir, f);
-	live_setup(opt, f, words);
-	live_solve(opt, f, words);
-	for (uint32_t b = 0; b < f->block_count; b++)
-		changed |= live_sweep(opt, f, f->blocks + b, words);
+	cfg_build_edges(opt->ir, cfg);
+	live_setup(opt, f, (size_t)cfg->block_count * words);
+	cfg_live_solve(opt->ir, cfg, f->live, f->live_tmp, words);
+	for (uint32_t b = 0; b < cfg->block_count; b++)
+		changed |= live_sweep(opt, f, cfg, b, words);
 	return changed;
 }

@@ -102,7 +102,7 @@ static void init_opt (Optimizer *opt, IR *ir, Arena *a, OptLevel level)
 	opt->cur.defs = arena_alloc(a, max_regs * sizeof(uint32_t));
 	opt->cur.uses = arena_alloc(a, max_regs * sizeof(uint32_t));
 	opt->cur.def_at = arena_alloc(a, max_regs * sizeof(uint32_t));
-	opt->cur.blocks = arena_alloc(a, max_instrs * sizeof(OptBlock));
+	opt->cur.blocks = arena_alloc(a, max_instrs * sizeof(CfgBlock));
 	opt->cur.work = arena_alloc(a, max_instrs * sizeof(uint32_t));
 
 	opt->cur.kstamp = arena_alloc(a, max_regs * sizeof(uint32_t));

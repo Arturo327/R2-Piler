@@ -7,8 +7,8 @@ int opt_unreachable (Optimizer *opt, OptFn *f)
 	IRInstr *last = opt->ir->instrs + f->fn->start + f->fn->count - 1;
 	int changed = 0;
 
-	build_cfg(opt->ir, f);
-	mark_reachable(f);
+	cfg_build_edges(opt->ir, &opt->cfg);
+	cfg_mark_reachable(&opt->cfg);
 	for (uint32_t b = 1; b < f->block_count; b++) {
 		IRInstr *code = opt->ir->instrs + f->blocks[b].start;
 
@@ -54,7 +54,7 @@ static int thread_jump (Optimizer *opt, OptFn *f, IRInstr *br)
 	uint32_t label = br->target;
 
 	for (int hops = 0; hops < OPT_MAX_HOPS; hops++) {
-		uint32_t b = label_block(opt->ir, f, label);
+		uint32_t b = cfg_label_block(opt->ir, &opt->cfg, label);
 		IRInstr *nx;
 
 		if (b == OPT_NO_BLOCK) break;

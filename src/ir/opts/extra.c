@@ -64,7 +64,7 @@ static void note_global (OptFn *f, IRInstr *in, uint32_t reg)
 	f->gstamp[g] = f->gepoch;
 }
 
-static int globals_block (Optimizer *opt, OptFn *f, OptBlock *blk)
+static int globals_block (Optimizer *opt, OptFn *f, CfgBlock *blk)
 {
 	IRInstr *code = opt->ir->instrs + blk->start;
 	int changed = 0;
@@ -90,7 +90,7 @@ int opt_globals (Optimizer *opt, OptFn *f)
 	return changed;
 }
 
-static int dse_block (Optimizer *opt, OptFn *f, OptBlock *blk)
+static int dse_block (Optimizer *opt, OptFn *f, CfgBlock *blk)
 {
 	IRInstr *code = opt->ir->instrs + blk->start;
 	int changed = 0;

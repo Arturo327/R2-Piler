@@ -81,7 +81,7 @@ static void cse_replace (OptFn *f, IRInstr *in, const CseEntry *e)
 	in->data_type = f->fn->reg_types[in->dst];
 }
 
-static int cse_block (Optimizer *opt, OptFn *f, OptBlock *blk)
+static int cse_block (Optimizer *opt, OptFn *f, CfgBlock *blk)
 {
 	IRInstr *code = opt->ir->instrs + blk->start;
 	int changed = 0;
