@@ -10,8 +10,8 @@
 
 #define RED_ZONE 128
 #define X86_REG_NUM 14
-#define X86_CALLEE_MASK 0x3E00u
-#define ARG_REGS_MASK 0x7Eu
+#define X86_CALLEE_MASK 0x3E00ull
+#define ARG_REGS_MASK 0x7Eull
 
 static const char *asm_size_name[9] =
 {
@@ -108,7 +108,7 @@ static uint32_t scan_outg (X86Fn *f)
 
 static uint32_t save_area (X86Fn *f, uint32_t c)
 {
-	uint16_t mask = f->ctx.callee_used;
+	uint64_t mask = f->ctx.callee_used;
 
 	for (uint32_t i = 0; i < f->fn->count; i++)
 		mask |= f->ctx.save[i];
@@ -117,7 +117,7 @@ static uint32_t save_area (X86Fn *f, uint32_t c)
 	f->savemask = mask;
 	if (!mask) return c;
 	f->regsave = (c + 7) & ~7u;
-	return f->regsave + 8u * (uint32_t)__builtin_popcount(mask);
+	return f->regsave + 8u * (uint32_t)__builtin_popcountll(mask);
 }
 
 static void fill_regalloc (X86Fn *f)
@@ -204,7 +204,7 @@ static inline const char *reg_name (uint8_t reg, uint8_t size)
 	return regs_names[(size_idx[size] << 4) + reg];
 }
 
-static void move_saved (X86Fn *f, uint16_t mask, int restore)
+static void move_saved (X86Fn *f, uint64_t mask, int restore)
 {
 	uint32_t off = f->regsave;
 
@@ -227,11 +227,11 @@ static int phys_reg (X86Fn *f, uint32_t vreg)
 	return h;
 }
 
-static uint16_t home_bit (X86Fn *f, uint32_t vreg)
+static uint64_t home_bit (X86Fn *f, uint32_t vreg)
 {
 	int p = vreg == NO_REG ? -1 : phys_reg(f, vreg);
 
-	return p < 0 ? 0 : (uint16_t)(1u << p);
+	return p < 0 ? 0 : 1ull << p;
 }
 
 static void begin_instr (X86Fn *f, IRInstr *i)
@@ -256,11 +256,11 @@ static void regalloc_violation (X86Fn *f, const char *what)
 
 static uint8_t grab (X86Fn *f)
 {
-	uint16_t m = f->pool & (uint16_t)~f->busy;
+	uint64_t m = f->pool & ~f->busy;
 	if (!m) regalloc_violation(f, "no scratch register available");
 
-	uint8_t r = (uint8_t)__builtin_ctz(m);
-	f->pool &= (uint16_t)~(1u << r);
+	uint8_t r = (uint8_t)__builtin_ctzll(m);
+	f->pool &= ~(1ull << r);
 	return r;
 }
 
@@ -268,10 +268,10 @@ static void take_fixed (X86Fn *f, uint8_t r, uint32_t keeps)
 {
 	if (keeps != NO_REG && phys_reg(f, keeps) == r) return;
 	if (!(f->pool >> r & 1)) regalloc_violation(f, "fixed register is not free");
-	f->pool &= (uint16_t)~(1u << r);
+	f->pool &= ~(1ull << r);
 }
 
-static uint8_t work_reg (X86Fn *f, uint32_t dst, uint16_t avoid)
+static uint8_t work_reg (X86Fn *f, uint32_t dst, uint64_t avoid)
 {
 	int d = phys_reg(f, dst);
 
@@ -407,7 +407,7 @@ static void check_ctx (X86Fn *f)
 	for (uint32_t i = 0; i < f->fn->count; i++) {
 		f->at = i;
 		f->blk = f->ctx.ins_block[i];
-		if (f->frees[i] & X86_CALLEE_MASK & (uint16_t)~f->ctx.callee_used)
+		if (f->frees[i] & X86_CALLEE_MASK & ~f->ctx.callee_used)
 			regalloc_violation(f, "free_regs lists a callee-saved reg not in callee_used");
 		if (code[i].op == IR_CALL && (f->saves[i] & home_bit(f, code[i].dst)))
 			regalloc_violation(f, "save[] contains the home of the call's dst");
@@ -574,7 +574,7 @@ static void op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg)
 	int is_const = f->regs[vreg].cstate == VR_CONST;
 	int64_t v = is_const ? const_ext(f, vreg) : 0;
 	int p = phys_reg(f, vreg);
-	uint16_t keep = f->pool;
+	uint64_t keep = f->pool;
 
 	if (is_const && v == (int32_t)v) {
 		cg_printf(f->cg, "\t%sq $%lld, %s\n", op, (long long)v, reg_name(w, 8));
@@ -823,12 +823,12 @@ static void make_shift (X86Fn *f, IRInstr *i)
 	const char *op = "shl";
 	int imm = f->regs[i->src2].cstate == VR_CONST;
 	int64_t v = imm ? const_ext(f, i->src2) & 63 : 0;
-	uint16_t avoid = 0;
+	uint64_t avoid = 0;
 
 	if (i->op == IR_RS) op = types[i->data_type].sign ? "sar" : "shr";
 	if (!imm) {
 		take_fixed(f, RCX, i->src2);
-		avoid = (uint16_t)(home_bit(f, i->src2) | (1u << RCX));
+		avoid = home_bit(f, i->src2) | (1ull << RCX);
 	}
 
 	uint8_t w = work_reg(f, i->dst, avoid);
@@ -891,11 +891,10 @@ static int cmp_mem_imm (X86Fn *f, IRInstr *i)
 
 static void write_cmp (X86Fn *f, IRInstr *i)
 {
-	uint16_t keep = f->pool;
-	int p;
-
+	uint64_t keep = f->pool;
 	if (cmp_mem_imm(f, i)) return;
-	p = phys_reg(f, i->src1);
+
+	int p = phys_reg(f, i->src1);
 	if (p < 0) {
 		p = grab(f);
 		load_reg(f, (uint8_t)p, i->src1);
@@ -992,7 +991,7 @@ static void test_zero (X86Fn *f, uint32_t vreg)
 {
 	int p = phys_reg(f, vreg);
 	uint8_t s = types[f->fn->reg_types[vreg]].size;
-	uint16_t keep = f->pool;
+	uint64_t keep = f->pool;
 	uint8_t t;
 
 	if (f->regs[vreg].cstate == VR_CONST) {
@@ -1038,7 +1037,7 @@ static IRInstr *group_call (IRInstr *arg, IRInstr *end)
 static void move_call_live (X86Fn *f, IRInstr *call, int restore)
 {
 	uint32_t at = (uint32_t)(call - (f->cg->ir->instrs + f->fn->start));
-	uint16_t keep = f->ctx.save[at] & (uint16_t)~X86_CALLEE_MASK;
+	uint64_t keep = f->ctx.save[at] & ~X86_CALLEE_MASK;
 
 	move_saved(f, keep, restore);
 }
@@ -1457,8 +1456,8 @@ int gen_x86_64 (CodeGen *c)
 
 	f.regs = arena_alloc(c->arena, (size_t)max_regs * sizeof(Reg));
 	f.blocks = arena_alloc(c->arena, (size_t)max_instrs * sizeof(uint32_t));
-	f.saves = arena_alloc(c->arena, (size_t)(max_instrs + 1) * sizeof(uint16_t));
-	f.frees = arena_alloc(c->arena, (size_t)(max_instrs + 1) * sizeof(uint16_t));
+	f.saves = arena_alloc(c->arena, (size_t)(max_instrs + 1) * sizeof(uint64_t));
+	f.frees = arena_alloc(c->arena, (size_t)(max_instrs + 1) * sizeof(uint64_t));
 
 	int init_empty = ir->fns[ir->init_fn].count <= 1;
 	make_globals(c);

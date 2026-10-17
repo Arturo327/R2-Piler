@@ -131,12 +131,12 @@ static void lay_sizes (IRFn *fn, Reg *regs, uint32_t block_count)
 
 static void make_ctx (IRFn *fn, RegCtx *ctx, uint32_t reg_num)
 {
-	uint16_t all = (uint16_t)((1u << reg_num) - 1);
+	uint64_t all = ~0ull >> (64 - reg_num);
 
 	for (uint32_t i = 0; i < fn->count; i++) {
 		ctx->ins_block[i] = 0;
 		ctx->save[i] = 0;
-		ctx->free_regs[i] = all & (uint16_t)~ctx->callee_mask;
+		ctx->free_regs[i] = all & ~ctx->callee_mask;
 	}
 	ctx->block_count = 1;
 	ctx->callee_used = 0;
@@ -167,7 +167,7 @@ typedef struct RegAlloc {
 	uint64_t *tmp;
 
 	Cfg cfg;
-	uint16_t all;
+	uint64_t all;
 	uint32_t words;
 } RegAlloc;
 
@@ -199,36 +199,36 @@ static void build_cfg (RegAlloc *ra)
 	cfg_live_solve(ra->ir, cfg, ra->live, ra->tmp, ra->words);
 }
 
-static uint16_t homes_word (RegAlloc *ra, uint64_t bits, uint32_t w, uint32_t blk)
+static uint64_t homes_word (RegAlloc *ra, uint64_t bits, uint32_t w, uint32_t blk)
 {
-	uint16_t m = 0;
+	uint64_t m = 0;
 
 	while (bits) {
 		uint32_t r = (w << 6) + (uint32_t)__builtin_ctzll(bits);
 		int h = ra->regs[r].home[blk];
 
-		if (h >= 0) m |= (uint16_t)(1u << h);
+		if (h >= 0) m |= 1ull << h;
 		bits &= bits - 1;
 	}
 	return m;
 }
 
-static uint16_t homes_live (RegAlloc *ra, const uint64_t *live, uint32_t blk)
+static uint64_t homes_live (RegAlloc *ra, const uint64_t *live, uint32_t blk)
 {
-	uint16_t m = 0;
+	uint64_t m = 0;
 	for (uint32_t w = 0; w < ra->words; w++)
 		m |= homes_word(ra, live[w], w, blk);
 	return m;
 }
 
-static uint16_t callee_homes (RegAlloc *ra)
+static uint64_t callee_homes (RegAlloc *ra)
 {
-	uint16_t m = 0;
+	uint64_t m = 0;
 
 	for (uint32_t r = 0; r < ra->fn->reg_count; r++) {
 		for (uint32_t b = 0; b < ra->ctx->block_count; b++) {
 			int h = ra->regs[r].home[b];
-			if (h >= 0) m |= (uint16_t)(1u << h);
+			if (h >= 0) m |= 1ull << h;
 		}
 	}
 	return m & ra->ctx->callee_mask;
@@ -239,8 +239,8 @@ static void sweep_block (RegAlloc *ra, uint32_t b)
 	CfgBlock *blk = ra->cfg.blocks + b;
 	IRInstr *code = ra->ir->instrs + blk->start;
 	uint32_t base = blk->start - ra->fn->start;
-	uint16_t caller = (uint16_t)~ra->ctx->callee_mask;
-	uint16_t allowed = (uint16_t)(caller | ra->ctx->callee_used);
+	uint64_t caller = ~ra->ctx->callee_mask;
+	uint64_t allowed = caller | ra->ctx->callee_used;
 
 	cfg_live_out(&ra->cfg, b, ra->tmp, ra->words);
 	for (uint32_t i = blk->count; i-- > 0;) {
@@ -251,8 +251,8 @@ static void sweep_block (RegAlloc *ra, uint32_t b)
 
 		if (in->dst != NO_REG)
 			ra->tmp[in->dst >> 6] &= ~(1ull << (in->dst & 63));
-		uint16_t hm = homes_live(ra, ra->tmp, ra->ctx->ins_block[at]);
-		ra->ctx->free_regs[at] = ra->all & (uint16_t)~hm & allowed;
+		uint64_t hm = homes_live(ra, ra->tmp, ra->ctx->ins_block[at]);
+		ra->ctx->free_regs[at] = ra->all & ~hm & allowed;
 
 		if (in->op == IR_CALL) ra->ctx->save[at] = hm & caller;
 		for (int k = 0; k < n; k++)
@@ -279,7 +279,7 @@ static void fill_ctx (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, ui
 	ra.ctx = ctx;
 
 	ra.words = words;
-	ra.all = (uint16_t)((1u << reg_num) - 1);
+	ra.all = ~0ull >> (64 - reg_num);
 
 	alloc_regalloc(&ra);
 	build_cfg(&ra);
