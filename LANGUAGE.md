@@ -2,8 +2,6 @@
 
 Especificación completa de R2-Lang, el lenguaje que compila R2-Piler.
 
-Estado: Genera assembly x86 correcto y optimizado. Falta regalloc real y varias carácteristicas del lenguaje, como los punteros. Arquitecturas `arm`, `riscv` y el intérprete se rechazan con "backend is not implemented".
-
 ---
 
 ## 1. Panorama
@@ -63,7 +61,7 @@ while  return  as
 
 - `"..."` con los mismos escapes que char, más `\<newline>` como continuación de línea.
 - Un string no puede contener un newline real sin escapar.
-- **Hoy:** se lexan y parsean, pero el type checker los rechaza. Su semántica se define cuando exista punteros.
+- Se lexan y parsean, pero el type checker los rechaza: su semántica se define cuando existan los punteros.
 
 ---
 
@@ -91,7 +89,7 @@ Reglas de tipos (estrictas; el único implícito es el que no puede perder valor
 - **Shifts con izquierda untyped**: si la cuenta es un literal, la constante plegada queda flexible y adopta el tipo del contexto (`var v : u64 = 1 << 2;` vale). Si la cuenta **no** es un literal, la izquierda finaliza a su tipo por defecto (`1 << x` es `i64`, `'a' << x` es `i8`) y el shift ya no adopta el contexto: `var a : i8 = 1 << x;` es un error de estrechamiento, igual que `var a : i8 = 1 << 7;`. Migración: `var v : u64 = 1 << x;` → `var v : u64 = (1 << x) as u64;` (la misma regla que ya aplicaba a `var v : u64 = 5 + x;`).
 - **Literal fuera de rango**: error (`literal 300 does not fit in type i8; use an explicit cast with 'as' to reinterpret the bits`). Si además el destino es con signo y el valor supera `INT64_MAX`, el mensaje añade que el sufijo `u` lo convierte en literal `u64`. Un literal negativo hacia un destino sin signo es error, también dentro de binarios (`var u : u64 = -5;`, `5u + -1`); los mensajes siempre usan el nombre público del tipo (`u64`, nunca el interno). Un literal fuera de rango produce exactamente un diagnóstico, sin cascadas.
 - **Literal `u` usado como tipo con signo**: solo un **warning** (`unsigned literal used as signed type i64; remove the 'u' suffix`); compila igual.
-- **Ensanchar sin cambiar el valor es silencioso**: mismo signo a mayor tamaño (`i8`→`i64`, `u8`→`u32`), o sin signo a con signo mayor (`u8`→`i64`). Vale en binarios, init, asignación, args y `return`, sin emitir código (los regs ya guardan el valor extendido).
+- **Ensanchar sin cambiar el valor es silencioso**: mismo signo a mayor tamaño (`i8`→`i64`, `u8`→`u32`), o sin signo a con signo mayor (`u8`→`i64`). Vale en binarios, init, asignación, args y `return`, sin generar conversión.
 - **Todo lo demás entre tipos distintos es error** con sufijo `'as'` en el mensaje: estrechar (`i64`→`i8`), cambiar de signo (`i8`→`u64`, `u64`→`i64`), o mezclar dos variables de tipos distintos en un binario (`type mismatch: i64 vs u64 (use 'as' to convert explicitly)`).
 - Operadores aritméticos y bitwise (`+ - * / % & | ^`): ambos operandos del **mismo tipo** (tras lo anterior), resultado del tipo de los operandos.
 - Shifts (`<< >>`): el resultado es el tipo del operando **izquierdo**; el derecho puede ser cualquier numérico (`a << b` con `a : i64`, `b : u64` vale).
@@ -135,7 +133,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 - Literales enteros, char y string; identificadores; llamadas `f(a, b)`; expresiones entre paréntesis.
 - **Cast `expr as type`** (cualquier tipo numérico, `char` = `i8`): conversión explícita que acepta cualquier operando no-`void` y devuelve exactamente el tipo escrito. Todas las combinaciones están permitidas (incluido el cast identidad `x as i64` con `x : i64`). Entre 64 bits (`i64<->u64`) es reinterpretación de bits (wrap/módulo 2^64); hacia un tipo narrow es truncado al ancho; hacia 64 bits desde un narrow es extensión con el signo del origen (`i8`→`i64` extiende con signo, `u8`→`u64` con ceros). El cast no es asignable: `(x as i64) = 1` es error (`left side of '=' must be a variable`). Como cualquier expresión, puede aparecer en inits, args, `return` y condiciones.
 - **Asignación `=`**: es una expresión. El lado izquierdo debe ser una variable; el derecho debe ser del mismo tipo o ensanchar a él en silencio (ver punto 3; si no, error `cannot assign X to a variable of type Y; use an explicit cast with 'as'`, reportado en el `=`). Devuelve **el valor asignado**, por lo que puede encadenarse (`x = y = 1`) y usarse como expresión, incluso como condición.
-- **`&&` y `||`**: short-circuit. Si el resultado queda decidido por el operando izquierdo, el derecho no se evalúa. Compilan a una serie de saltos, no a operaciones aritméticas. Un operando constante emite un **warning** (`constant operand of '&&' is always true/false`), también a través de un cast (`(1 as i64) && x` advierte).
+- **`&&` y `||`**: short-circuit. Si el resultado queda decidido por el operando izquierdo, el derecho no se evalúa. Un operando constante emite un **warning** (`constant operand of '&&' is always true/false`), también a través de un cast (`(1 as i64) && x` advierte).
 
 ---
 
@@ -181,7 +179,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 
 ## 9. Globals
 
-- `var ID : type (= expr)? ;` a nivel top-level. Otra cosa a nivel top-level es error (el parser acepta cualquier statement suelto como test de parser puro, pero sema lo rechaza: `only variable and function declarations are allowed at the top level`).
+- `var ID : type (= expr)? ;` a nivel top-level. Cualquier otra cosa a nivel top-level es error: `only variable and function declarations are allowed at the top level`.
 - Todas se declaran antes de chequear los inits: las **forward references están permitidas**.
 - Referencias a variables globales futuras permitido, ej: `var x:i64 = y; var y:i64 = 73` es válido
 - Una global **sin init vale 0** en runtime (vive en `.bss`), pero su lectura **sí advierte** igual que una local sin asignar: solo la evitan un init o una asignación previa en el flujo (una asignación en una función chequeada antes también la silencia, en orden fuente).
@@ -205,8 +203,9 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 ## 11. Entry point y salida
 
 - El entry point es exactamente `fn main() : i64`, sin parámetros. Su valor de retorno es el exit code del programa.
-- En el assembly, el `main` del usuario se emite como `__r2_main` y se genera un wrapper `main` que llama a `__r2.init` (solo si el init no está vacío, es decir, si hay inits dinámicos que ejecutar) y después a `__r2_main`, devolviendo su valor como exit code. El prefijo `__r2_` está reservado a nivel top-level y lo rechaza el compilador (`identifiers starting with '__r2_' are reserved`). Una global/fn de usuario llamada `init` es legal (se emite como `__r2_init`); la fn de init usa `__r2.init` con punto a propósito para no colisionar con ella.
-- Si el programa no define `main`: se genera assembly igualmente, sin wrapper. Todas las funciones se emiten con `.globl` para poder linkearse desde otros archivos en el futuro (las globals quedan como símbolos locales del objeto).
+- Los inits dinámicos de las globales se ejecutan antes de `main` (ver la sección 9).
+- El prefijo `__r2_` está reservado a nivel top-level y lo rechaza el compilador (`identifiers starting with '__r2_' are reserved`).
+- Si el programa no define `main`, se genera assembly igualmente.
 - La salida del compilador es **assembly x86-64** AT&T, no un binario. El binario final se produce ensamblando (p. ej. `gcc prog.s -o prog`).
 
 ---
@@ -226,29 +225,35 @@ Plegado de constantes: una subexpresión hecha solo de literales se evalúa en c
 
 ---
 
-## 13. IR y optimizaciones
+## 13. Optimizaciones
 
-- La IR está implementada y testeada (`--dump-ir`, suite `tests/ir/`). Toda la AST válida se baja a IR, incluido el código inalcanzable tras un `return`.
-- La IR se genera solo si no hay errores en las fases anteriores; los warnings no la bloquean.
-- `optimize_ir` (`src/ir/opt.c` + `src/ir/opts/`, declaraciones compartidas en `src/ir/opts/common.h`, suite `tests/opt/` con `--dump-opt`, 19 fixtures: `001`–`006` clásicos más `007_simplify`, `008_fold_const`, `009_cse_mul`, `010_live_dce`, `011_strength`, `012_globals_fwd`, `013_dse`, `014_static_init`, `015_thread_jump`, `016_select_basic`, `017_select_no_else`, `018_select_fold`, `019_select_guard`) corre sobre la IR lineal antes del codegen solo a partir de `-O2` (en `-O0`/`-O1` no corre). Es independiente de la arquitectura: bloques básicos + CFG + conteo de defs/usos por función, hasta 8 rondas hasta punto fijo (`analyze_fn` solo si el pase anterior ensució) y compactado final de `NOP`s (sin renumerar: las cabeceras `(N regs)` conservan el conteo original). Niveles: `-O0` (`NO_OPT`) desactiva el optimizador y además fuerza spill-all en el codegen; `-O1` (`OPT_REG`) usa el regalloc sin spill-all pero tampoco ejecuta `optimize_ir`; `-O2` (defecto, `OPT_BASIC`) activa todo salvo `cse`, `live_dce` e `inline`; `-O3` (`OPT_FULL`) lo activa todo y además genera `select` en el IR (if-conversion, ver uso de la IR); `--dump-opt` sin `-O` fuerza `FULL`, `--dump-opt -O0`/`-O1` muestra sin optimizar, `--dump-ir` nunca optimiza ni muestra `select`. `-O2` vs `-O3` difieren en todo efecto solo-FULL (`cse`, `live_dce`, `inline`, `select`); el exit code debe coincidir igual en todos los niveles.
-- Tabla de pases (`passes[]` en `src/ir/opt.c:29-41`, en orden):
+`-O` selecciona el nivel (defecto `2`):
 
-| Pase | Fichero | Nivel | Qué hace |
-|------|---------|-------|----------|
-| `propagate` | `opts/propagate.c` | BASIC | Copias/constantes intra-bloque (`t = move x`, una sola def, mismo tamaño/signo vía `same_rep`). |
-| `fold` | `opts/fold.c` (`reg_const`/`eval_*`/`fold_instr`/`fold_jump`/`fold_select`/`track_const`/`fold_block`) | BASIC | Plegado de constantes (aritmética/bitwise/comparaciones/unarios sobre `const`), saltos constantes (`jz`/`jnz` sobre `const` → `jmp` o nada) y `select` con condición constante → `MOVE`. Guards: no pliega `div`/`mod` por 0, `div`/`mod` con signo por `-1` (cualquier dividendo), ni shifts con cuenta `>= 64`. |
-| `simplify` | `opts/simplify.c` (`simplify_same`/`rhs`/`lhs`/`swap_op`) | BASIC | Algebraicos: `x-x`/`x^x`/`x!=x`/`x<x`/`x>x`→`0`, `x==x`/`x<=x`/`x>=x`→`1`, `+0`/`-0`/`\|0`/`^0`/`<<0`/`>>0`→`MOVE`, `/1`→`MOVE`, `%1`→`0`, `*0`→`0`, `*1`→`MOVE`, `&0`→`0`, `&all1`→`MOVE`; mueve la constante a la derecha (`swap_op`). |
-| `cse` | `opts/cse_coalesce.c` | FULL | CSE local solo de `MUL`/`DIV`/`MOD` con `src2` no constante (swap solo `MUL`), tope 32 entradas (`OPT_CSE_MAX`). |
-| `coalesce` | `opts/cse_coalesce.c` | BASIC | Cualquier `is_deletable` no-`MOVE` más `CALL`/`DIV`/`MOD` con def/uso únicos, más `MOVE` posterior, se fusiona renombrando el `dst`. |
-| `dce` | `opts/dce_live.c` | BASIC | DCE local por conteo de usos (solo borra `is_deletable`; `div`/`mod`/`call`/`arg`/`param`/`ret`/saltos/labels se conservan). |
-| `live_dce` | `opts/dce_live.c` (`live_*`) | FULL | DCE con liveness global por CFG. |
-| `unreachable` | `opts/cfg.c` | BASIC | Bloques inalcanzables desde la entrada (conservando la última instrucción de la función para no dejarla sin `ret`). |
-| `jumps` | `opts/cfg.c` (`thread_jump`/`flip_branch`/`jump_to_next`) | BASIC | Threading de saltos hasta 8 hops, `jmp` a la etiqueta inmediata, `jz L1; jmp L2; L1:` → `jnz L2`, labels sin refs. |
-| `strength` | `opts/extra.c` | BASIC | `MUL`/`DIV`/`MOD` por potencia de 2 `>= 2`; `DIV`/`MOD` solo sin signo. |
-| `globals` | `opts/extra.c` | BASIC | Forwarding intra-bloque de `ld_global` (`CALL` invalida lo cacheado). |
-| `dse` | `opts/extra.c` | BASIC | Stores muertos a variables/globals. |
-| `inline` | `opts/inline.c` (`inline_ir`) | FULL | Inlining de funciones hoja pequeñas (tras el primer punto fijo; luego se re-optimiza). Sin recursión; los `param` pasan a ser `move`. |
-| `static_init` | `opts/static.c` (siempre, fuera de `passes[]`) | siempre si `level != NO_OPT` y hay globales | `CONST`+`STR_GLOBAL` del mismo tamaño/tipo se enlaza a `.data` (vía `has_init` del IR); para tras `CALL`/`JMP`/`JZ`/`JNZ`/`LABEL`; qué globals toca cada función se calcula con `gtouch` transitivo (interprocedural), así las llamadas que no tocan un global no bloquean su `.data`. |
+- `-O0`: sin optimizar; todos los valores viven en pila.
+- `-O1`: IR sin optimizar; los valores más usados viven en registros.
+- `-O2`: optimiza la IR antes del codegen.
+- `-O3`: como `-O2` más las optimizaciones caras.
+
+Optimizaciones de la IR (activas en `-O2` y `-O3`):
+
+- **Propagación**: sustituye copias y constantes por su valor.
+- **Plegado de constantes**: evalúa en compilación aritmética, bitwise, comparaciones y saltos con condición constante.
+- **Simplificación algebraica**: `x - x` → `0`, `x * 0` → `0`, `x * 1` → `x`, `x % 1` → `0`, `x + 0` → `x`, `x ^ x` → `0`, etc.
+- **Strength reduction**: convierte `*`, `/` y `%` por potencias de 2 en shifts y máscaras.
+- **Eliminación de código muerto**: instrucciones cuyo resultado no se usa.
+- **Bloques inalcanzables y saltos**: quita bloques inalcanzables, encadena saltos, invierte ramas y elimina etiquetas sin referencias.
+- **Globales**: forwarding de lecturas dentro del mismo bloque y eliminación de stores muertos.
+- **Coalescing**: fusiona una operación con la copia que la sigue.
+- **Inits estáticos**: una global inicializada con una constante pasa a `.data` (sin código de arranque).
+
+Solo en `-O3`:
+
+- **CSE**: reutiliza `*`, `/` y `%` repetidos con el mismo divisor no constante.
+- **DCE global**: eliminación de código muerto con liveness global, no solo local.
+- **Inlining**: inlinea pequeñas funciones hoja.
+- **`select`**: if-conversion de `if (c) x = a; else x = b;` con ramas simples (no aparece en `--dump-ir`; sí en `--dump-opt`).
+
+El codegen aplica además optimizaciones locales (operaciones read-modify-write, fusión de comparación con salto, tail calls) en todos los niveles; `-O0` fuerza que los valores vivan en pila.
 
 ---
 
@@ -298,91 +303,6 @@ Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se d
 
 ---
 
-## Uso de la IR
-
-La IR se vuelca con `--dump-ir` (`-I`). Solo se genera si lexer, parser y sema no reportan errores; con errores el compilador aborta antes (stdout vacío, exit distinto de cero). Los warnings no la bloquean: la IR se emite igual y el exit sigue siendo `0`.
-
-Modelo:
-
-- Un stream lineal por función (`IRFn.start`/`count`). Registros virtuales de 64 bits, numerados desde `0` en cada función (`reg_count` se reinicia por función; `label_count` es único en todo el módulo).
-- No es SSA: un reg puede tener varias definiciones (variables, resultado de `&&` y `||`).
-- Campos no usados = `NO_REG`. `imm64`/`target` comparten unión y nunca son registros.
-- `data_type` = tipo de los OPERANDOS (tras las conversiones: mismo tipo en aritmética/comparaciones salvo `&&`/`||`/`<<`/`>>`, que no unifican; en `<<`/`>>` es el tipo del operando izquierdo y el derecho conserva el suyo; decide signed/unsigned en `DIV`, `MOD`, `RSHIFT` y comparaciones). El resultado de comparaciones (`EQ..LE`), `NOT_L` (`lnot`), `&&` y `||` es siempre `i64` (0 o 1, canónico en cualquier tipo).
-- Un reg por tipo: cada reg virtual tiene un tipo (`IRFn.reg_types`), igual al tipo semántico del valor que guarda; en el codegen su home es un slot de stack de exactamente `types[t].size` bytes (un `u8` ocupa 1 byte, no 8) o — desde `-O1` — un registro callee-saved con imagen canónica extendida a 64 bits según su signo. No hay canonical-64-bit en los slots: cada consumidor carga con extensión de signo/cero a 64 bits (`movzbl`/`movsbq`/…) y la aritmética narrow (`add`/`sub`/`mul`/`and`/`or`/`xor`/`neg`/`not`/`shl`) se calcula a 64 bits sobre el valor extendido y se trunca al guardar; solo `div`/`mod` corren al ancho nativo del tipo. Los literales ya llegan con el tipo de destino (sema los reetiqueta) y se emiten como `const.<tipo>`.
-- Cast (`NODE_CAST`, `expr as type`): emite `extend.<tipo>` siempre que el tipo cambia, salvo entre los dos tipos de 64 bits (`i64<->u64`, reinterpretación pura de bits) y el cast identidad (se reutiliza el reg del operando). Aquí `extend` significa "redimensionar al ancho destino": leer el origen a su ancho con la extensión de su signo (`movsx`/`movzx`) y guardar `types[destino].size` bytes. Cubre ensanchar (`u8`→`u64`), truncar (`i64`→`i8`) y re-etiquetar el signo al mismo ancho (`u8`→`i8`, copia de bytes que fija la extensión de las lecturas posteriores). Las conversiones implícitas que inserta sema (init/asignación/arg/`return`/unificación de binarios) generan ese mismo `extend`, así que todo consumidor ve operandos del tipo de la instrucción (salvo el src2 de shifts, que conserva el suyo). Como condición (`if`/`while`/`for`), el cast se evalúa a un reg y se salta con `JZ`/`JNZ` como cualquier otro valor.
-- `gen_expr` nunca devuelve el reg de una variable: leer una global emite `LD_GLOBAL` a un temporal; leer una local copia con `MOVE` a un temporal. Declarar una local con init reutiliza el reg del resultado; sin init reserva un reg sin emitir nada.
-- La asignación (`=`) evalúa primero el RHS, luego emite `MOVE` (local) o `STR_GLOBAL` (global), y devuelve el reg del RHS, por lo que `x = y = 5` comparte el mismo reg.
-- Llamadas: los args se evalúan de izquierda a derecha a temporales, luego se emiten los `ARG` `0..argc-1` contiguos justo antes de su `CALL`. `CALL` a función `void` no tiene `dst` (se imprime sin `rN =`); con retorno, `dst` es un reg fresco.
-- `&&` y `||` como valores se materializan a `0`/`1` (`i64`) con dos etiquetas (`l_false`/`l_end`); como condiciones (en `if`/`while`/`for`) compilan solo a saltos (`JZ`/`JNZ` + etiquetas auxiliares), sin materializar. `!` como condición invierte el sentido del salto.
-- `if`/`elif`/`else`: cada condición salta a su `next` si es falsa; cada rama con más ramas detrás salta al `end` común. Un `if` sin `else` emite igualmente `next` y `end` (adyacentes si no hay `else`). Excepción solo-FULL: `if (c) x = <simple>; [else x = <simple>;]` sobre una local se convierte en `select` sin ramas (ver `select` abajo); cualquier otra forma (global, RHS no literal/local, `elif`, varias sentencias por rama) conserva los saltos.
-- `while (cond) body`: `L_cond:`, salta a `L_end` si `cond` es falsa, cuerpo, `jmp L_cond`, `L_end:`.
-- `for (init; cond; updt) body`: `init`, `L_cond:`, si `cond` no es vacía salta a `L_end` si es falsa, cuerpo, `updt`, `jmp L_cond`, `L_end:`. Un slot vacío no emite nada (`for(;;)` no emite ningún salto de condición).
-- Etiquetas con id único en todo el módulo. `JZ`/`JNZ` saltan si `src1 == 0` / `!= 0` (cualquier valor distinto de cero es verdadero).
-- Toda función acaba en `RET` implícito `void` (aunque ya tenga `return` explícito). El código tras un `RET` se conserva (inalcanzable).
-- `select` (solo FULL, `gen_select` en `src/ir/ir.c`): `rD = select.<tipo> rA, rB, rC` vale `rC ? rA : rB` (condición distinta de cero elige `rA`). Solo cubre `if (c) x = <simple>; [else x = <simple>;]` donde `x` es local, cada rama es una única asignación (un bloque con 1 sentencia vale), el RHS es literal o local, ambas ramas asignan la misma `x` y no hay `elif`; sin `else`, el brazo `rB` es el valor previo de `x` (`dst == src2`). Si la condición es pura (presupuesto 8 nodos) se evalúa DESPUÉS de los brazos para que un `cmp` quede justo antes del `select` y el backend los fusione; si no, se evalúa antes (no se reordenan efectos). En el optimizador `select` es `is_deletable` (DCE/coalesce), su `cond` cuenta como uso (`get_srcs`) y `propagate` sustituye en sus 3 operandos; con condición constante se pliega a `MOVE` (`fold_select`). `--dump-ir` nunca lo muestra (`use_select` es falso ahí).
-- Globals: se declaran en orden fuente pero sus inits se emiten en `init_order` (orden de resolución: una forward-ref fuerza el init referenciado antes). La función sintética `__r2_init` (siempre la primera, `: void`, `0 params`) contiene todos los inits (`gen_expr` + `STR_GLOBAL`) en ese orden. Sin globals, solo contiene `ret`.
-
-Nombres en el volcado (`dump_ir`): `const`, `param`, `ld_global`, `str_global`, `move`, `extend`, `select` (solo FULL/`--dump-opt`), `add`, `sub`, `mul`, `div`, `mod`, `and`, `or`, `xor`, `rshift`, `lshift`, `neg`, `not`, `lnot`, `eq`, `ne`, `gt`, `ge`, `lt`, `le`, `jmp`, `jz`, `jnz`, `arg`, `call`, `ret` (las etiquetas se imprimen como `Lx:`). El sufijo `.tipo` es el `data_type` (`ARG`, `JMP`/`JZ`/`JNZ` y `LABEL` no llevan sufijo; `CALL`/`RET` llevan el tipo de retorno). `char` nunca aparece como sufijo: el frontend lo convierte a `i8`. Formato:
-
-```
-global <nombre> : <tipo>
-...
-fn <nombre>(<n> params, <m> regs) : <ret>
-    rN = const.<tipo> <imm>
-    rN = param.<tipo> #indice
-    rN = move.<tipo> rM
-    rN = extend.<tipo> rM
-    rN = select.<tipo> rA, rB, rC   // rC ? rA : rB (solo FULL)
-    rN = ld_global.<tipo> @global
-    str_global.<tipo> rM @global
-    rN = <op>.<tipo> rA, rB
-    rN = <op-un>.<tipo> rA
-    arg rM #indice
-    [rN = ]call[.<ret>] <fn>
-    [ret[.<tipo>] [rM]]
-    jmp -> Lx / jz|jnz rC -> Lx / Lx:
-```
-
-| op (dump) | dst | src1 | src2 | target/imm | type |
-| --- | --- | --- | --- | --- | --- |
-| `const` | r | - | - | imm64 | tipo del literal |
-| `param` | r | - | - | target=índice | tipo del parámetro |
-| `move` | r | r | - | - | tipo del valor |
-| `extend` | r | r | - | - | narrow destino (trunca + extiende) |
-| `select` | r | a | b | cond=rC | tipo del valor (`rC ? rA : rB`; solo FULL) |
-| `ld_global` | r | - | - | target=global | tipo de la global |
-| `str_global` | - | r | - | target=global | tipo de la global |
-| `add` `sub` `mul` `div` `mod` `and` `or` `xor` `rshift` `lshift` | r | a | b | - | tipo de los operandos |
-| `neg` `not` | r | a | - | - | tipo del operando |
-| `lnot` | r | a | - | - | tipo del operando (resultado `i64`) |
-| `eq` `ne` `gt` `ge` `lt` `le` | r | a | b | - | tipo de los operandos (resultado `i64`) |
-| `label` | - | - | - | target=label | - |
-| `jmp` | - | - | - | target=label | - |
-| `jz` `jnz` | - | cond | - | target=label | - |
-| `arg` | - | r | - | target=índice | - |
-| `call` | r si ret `!= void`, si no `NO_REG` | - | - | target=fn, más `argc` | tipo de retorno |
-| `ret` | - | r si hay valor, si no `NO_REG` | - | - | tipo del valor (`void` si no hay) |
-
-La IR optimizada se vuelca con `--dump-opt` (`-D`): mismo formato que `--dump-ir`, tras correr `optimize_ir` (ver sección 13). Sin `-O` fuerza `FULL`; con `-O0`/`-O1` muestra la IR sin optimizar.
-
----
-
-## Backend x86-64
-
-Modelo con `optimize_ir` previo (11 pases + `inline` FULL + `static_init`) y un regalloc (M1: los cinco vregs más usados reciben un home callee-saved) más optimizaciones locales de codegen.
-
-- **Homes en memoria**: cada registro virtual superviviente sin home de registro ocupa `types[t].size` bytes en el frame, en `-N(%rbp)` (o `(%rsp)` en hojas red-zone). Los `MOVE`s de definición única no emiten nada (const → inmediato, alias → slot del origen, `VR_CONST`/`VR_ALIAS` vía `same_rep`), pero solo si el def domina sus lecturas: prefijo de entrada de la función o, en codegen, todas las lecturas en el mismo bloque después del def. Los slots se reparten de mayor a menor tamaño (8, 4, 2, 1) para mantener la alineación natural, y el área de salida para llamadas queda al fondo del frame (`8*max(argc-6)` por fn, excluyendo tail calls). El frame siempre es múltiplo de 16.
-- **Homes en registros callee-saved** (`-O1`+): `regalloc` elige como home a los cinco vregs con más usos entre los `VR_MEM` con usos (`pick_callee`, empates por índice menor) y les asigna un registro callee-saved (`rbx`, `r12`–`r15`, derivado de `callee_mask` con `callee_list`) como home único de función — el mismo registro en todos los bloques, sin `MOVE`s. Un home callee-saved sobrevive a las llamadas sin `save` (el callee los preserva en su propio prólogo). `-O0` mantiene spill-all y no emite ningún home físico, así que sus prólogos no salvan nada. En las hojas en red zone los saves comparten `(%rsp)`, y en las no-hojas van bajo el frame (`-N(%rbp)`); los tail calls no restauran los homes que no usan después del salto.
-- **Cada instrucción IR es autocontenida**: carga sus operandos, calcula y guarda el resultado en el home del destino (slot o registro). El scratch es solo caller-saved (`rax`, `rcx`, `rdx`, más los registros de argumentos al preparar una llamada); los homes callee-saved cruzando una instrucción salen del pool de scratch vacante (`homes_live`), y un home cuyo dueño no está vivo se puede reusar como scratch.
-- **Extensión al cargar**: leer un vreg emite `movzx`/`movsx` (o `movl`/`movq`) según el tipo del vreg, así que el valor en el registro de trabajo es el valor de 64 bits con su signo correcto. Guardar escribe solo `types[t].size` bytes.
-- **Aritmética y fuerza**: `add sub and or xor imul neg not shl` se calculan a 64 bits sobre el valor extendido (los bits bajos coinciden con la operación nativa del ancho). `x = x op K` con `K` constante se emite como una sola instrucción RMW (`addq $K, mem` o el equivalente sobre el home de registro, `addq $K, %rbx`; también `sub/and/or/xor`, `shl`, `neg`/`not`; patrón de 3 instrucciones más formas inplace). Sobre un home de registro la op corre al ancho nativo del tipo (el valor se preserva) y los estrechos **con signo** reextienden la imagen tras la op (`movsbq`/`movswq`/`movslq`), manteniendo la imagen canónica. `*2^k` → `shl`, `*3/5/9` → `lea`, `*(2^k±1)` → `shl+add/sub`; `/`/`%` por constante → `shrq`/`andq` si es potencia de 2 (con signo vía `bias`) o magia con `mulq`/`imulq` + shifts en otro caso (baila con `v<=0` y con `/1` con signo); shifts con cuenta constante usan inmediato, si no `%cl`. `shr`/`sar` y las comparaciones usan el signo de `data_type`. `div`/`mod` con divisor no constante corren al **ancho nativo** del tipo (`idivb/w/l/q`, `divb/w/l/q` con `cbw`/`cwd`/`cdq`/`cqo`; el resto de un tipo de 1 byte sale de `%ah`).
-- **Comparaciones y saltos**: `cmp` + `setcc` + `movzbl`, con resultado `i64` 0/1; si la comparación alimenta directamente a un `jz`/`jnz` se fusiona en un solo `cmp+jcc` (más atajos `cmp_mem_imm` y `op_rax`). `jz`/`jnz` sobre constante se resuelven (`jmp`/nada); si no, emiten `testq` (home física) o `cmp $0, <home>` + `je`/`jne`. Las etiquetas son `.L<n>` con los ids únicos del IR. Defs puras sin usos no emiten nada (DCE local `is_silent`, incluido código muerto tras `RET`/`JMP`/saltos tomados por condición constante).
-- **`select`**: genérico → `testq cond, cond` + `cmove` (el brazo else sobre el brazo then); si lo alimenta directamente un `cmp` de un solo uso se fusiona a `cmp` + `cmovcc` con la condición invertida (el `rax` ya trae el brazo then y solo se mueve el else si el `cmp` es falso), sin materializar 0/1. Le aplican los peepholes generales (`VR_CONST`/`VR_ALIAS`/DCE local).
-- **Llamadas (System V AMD64)**: los args 0..5 van en `rdi rsi rdx rcx r8 r9`; el resto, en el área de salida (`(%rsp)`, `8(%rsp)`, …). El callee los lee de `16(%rbp)`, `24(%rbp)`, … y el retorno va en `rax`.
-- **Globals**: se accede a ellos con `nombre(%rip)`. El IR marca `has_init` cuando un global se inicializa con `CONST`+`STR_GLOBAL` del mismo tamaño/tipo (decidido por `static_init` en el optimizador, con `gtouch` interprocedural); esos van a `.data`, el resto a `.bss`. Cuando el init se baja a `.data`, su `const`+`str_global` se borran (`NOP`) y si el init queda vacío no se emite `__r2.init` ni la llamada desde `main`.
-- **Prólogo/epílogo**: `pushq %rbp; movq %rsp, %rbp; subq $frame, %rsp` y `leave; ret` (hojas en red-zone ≤128 sin nada). Todo `ret` del IR (incluido el implícito de final de función) emite su epílogo. `return f()` con ≤6 args y mismo tipo de retorno (o 8 bytes) es tail call (`leave; jmp`; autocall → `jmp .LSn`).
-- **Entry**: ver la sección 11 (`main` del usuario como `__r2_main` y wrapper `main`).
-
 ## 15. Uso del compilador
 
 ```bash
@@ -396,8 +316,8 @@ make
 | `-A` / `--dump-ast` | Vuelca el AST a stdout |
 | `-S` / `--dump-symbols` | Vuelca la tabla de símbolos resuelta a stdout |
 | `-I` / `--dump-ir` | Vuelca la IR generada a stdout |
-| `-D` / `--dump-opt` | Vuelca la IR optimizada a stdout (sin `-O` fuerza `FULL`; `-O0`/`-O1` la muestra sin optimizar) |
-| `-O[LEVEL]` / `--opt[=LEVEL]` | Nivel `0` (`NO_OPT`), `1` (`OPT_REG`), `2` (`OPT_BASIC`) o `3` (`OPT_FULL`) (sin espacio; `-O` solo = `2`). Defecto: `2`; `optimize_ir` solo corre a partir de `2` |
+| `-D` / `--dump-opt` | Vuelca la IR optimizada a stdout (sin `-O`, optimiza al nivel máximo; con `-O0`/`-O1` la muestra sin optimizar) |
+| `-O[LEVEL]` / `--opt[=LEVEL]` | Nivel de optimización de `0` a `3` (sin espacio; `-O` solo = `2`). Defecto: `2`; ver la sección 13 |
 | `-o` / `--out` | Ruta del assembly de salida (por defecto `<fuente>.s`; `-` = stdout) |
 | `-a` / `--arch` | Arquitectura del assembly generado|
 | `-e` / `--execute` | Modo intérprete |
@@ -411,8 +331,6 @@ Para ejecutar un programa:
 gcc prog.s -o prog       # ensambla y enlaza
 ./prog; echo $?          # el exit code es el valor que devuelve main
 ```
-
-`make test` ejecuta las cinco suites de fixtures dump (lexer, parser, sema, ir, opt), cada una contra `build/r2p`. La suite `opt` (`tests/opt/`, 19 fixtures, runner `tests/run_suite.sh` con `--dump-opt`) comprueba la IR optimizada siempre en `FULL` (incluidos `016`–`019` de `select`: básico, sin `else`, plegado con cond constante y guards sin `select`). `make bench` ejecuta la suite `asm` (`tests/asm/`, 55 fixtures, runner `tests/run_asm.sh`): compila cada `<nombre>_src.r2` en el nivel por defecto (`-O2`), lo ensambla con `gcc`, lo ejecuta y compara su exit code con `<nombre>_exit.txt` (más `<nombre>_stderr.txt` opcional para warnings de compilación); además recompila cada test con `-O0`/`-O1`/`-O2`/`-O3` bajo valgrind callgrind (`--toggle-collect=__r2_main,__r2.init`, solo código de usuario, Ir deterministas en vez de tiempos) y exige el mismo exit code en los cuatro niveles — solo falla si el exit difiere. Al final imprime la tabla `O0/O1/O2/O3 Ir` por test más `TOTAL` (orden aproximado: O0 ~431k, O1 ~416k, O2 ~203k, O3 ~194k Ir; los bucles calientes usan ~1000 iteraciones para que ningún test domine el bench). `-O2` vs `-O3` difieren en todo efecto solo-FULL (`cse`, `live_dce`, `inline`, `select`: p.ej. `046`/`047`, fixtures con llamadas inlining a `-O3` y `052`–`055`). Requiere `valgrind` en el `PATH`.
 
 Ejemplo de programa completo:
 

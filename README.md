@@ -4,41 +4,16 @@ A small compiler for the (invented) **R2-Lang** language, written in C.
 
 ---
 
-## Current Status
-
-The x86-64 backend lowers every IR instruction to AT&T assembly, so a plain compile produces a `.s` file that `gcc` can assemble and run. It does peephole codegen opts (const/alias propagation, read-modify-write incl. inplace unary, mul/div/mod/shift strength reduction incl. signed-pow2 bias + magic division, cmp+jcc fusion, select→`test`+`cmov` plus cmp+`cmov` fusion, local DCE + dead code after `RET`/`JMP`/constant-taken jumps, tail calls); the register allocator gives the up-to-five busiest surviving virtual registers a callee-saved home (`rbx`, `r12`-`r15`, saved/restored around calls) and the rest live in stack slots (`-O0` keeps everything spilled). The front end, the IR and the 11-pass IR optimizer (plus FULL-only function inline and `select` if-conversion) are implemented and tested.
-
-**Work in progress.**
-
-- Lexer — implemented and tested
-- Parser — implemented and tested
-- Type checker — implemented and tested
-- IR — implemented and tested
-- Code generation — x86-64 implemented (callee-saved register homes for the busiest vregs plus stack slots, System V ABI) and tested with the `tests/asm/` return-code suite (56 fixtures, incl. `052`-`055` for `select` and `056` for the narrow RMW canonical-image repair); ARM, RISC-V and the interpreter are still pending
-- IR optimizer (`optimize_ir`) — implemented and tested (`--dump-opt`, suite `tests/opt/`, 19 fixtures: `001`-`006` plus `007_simplify`, `008_fold_const`, `009_cse_mul`, `010_live_dce`, `011_strength`, `012_globals_fwd`, `013_dse`, `014_static_init`, `015_thread_jump`, `016_select_basic`, `017_select_no_else`, `018_select_fold`, `019_select_guard`)
-- Tests — 5 dump suites via `make test` (lexer, parser, sema, ir, opt); asm execution + callgrind bench via `make bench`
-
-`--dump-tokens`, `--dump-ast`, `--dump-symbols`, `--dump-ir` and `--dump-opt` show what each stage produces; a plain compile now generates runnable assembly.
-
----
-
 ## Features
 
-- Lexer: identifiers, keywords, integer/char/string literals (with escape sequences), `//` line and `/* */` block comments (non-nested; an unclosed `/*` is an error), and the full set of operators (arithmetic, bitwise, logical, comparison).
-- Parser: expressions, variable declarations, blocks, if statements, functions, for and while loops.
-- Sema: strict type checking, uninitialized and undeclared variable detector (flow-sensitive definite assignment, uninitialized globals, constant-condition warnings), symbol table, allow forward-calls
-- IR: linear per-function stream with virtual registers, short-circuit `&&`/`||`, global init function (`__r2_init`), full lowering of expressions, calls, `if`/`while`/`for` and `return`. At `-O3` (FULL only), `if (c) x = a; [else x = b;]` with single-assign pure arms lowers branchlessly to `select` (`r = select c ? a : b`); `--dump-ir` never shows it.
-- IR optimizer: 11 architecture-independent passes over the linear IR in `passes[]` order (`src/ir/opt.c:29-41`): propagate (BASIC), fold (BASIC, no fold of div/mod by zero or of signed div/mod by `-1`, shifts `>= 64`; `select` over a constant condition folds to `MOVE`), cse (FULL only: `MUL`/`DIV`/`MOD` with non-const src2, swap only `MUL`, cap 32), coalesce (BASIC), dce (BASIC, refcount), live_dce (FULL, CFG liveness), unreachable (BASIC, keeps last instr), jumps (BASIC: threading up to 8 hops + `flip_branch` + `jump_to_next` + unreferenced labels), strength (BASIC: `MUL`/`DIV`/`MOD` by pow2 `>= 2`, `DIV`/`MOD` unsigned only), globals (BASIC intra-block forwarding, `CALL` invalidates), dse (BASIC), plus FULL-only `inline_ir` (small leaf functions, re-optimized afterwards) and `static_init` always (when level != `NO_OPT` and globals exist; interprocedural `gtouch`, `CONST`+`STR` bind of same size/type feeds `.data`). Fixpoint up to 8 rounds, `analyze_fn` only when dirty, `compact_ir` without renumbering (`N regs` headers keep the original count). Runs by default at `-O2` (`OPT_BASIC`) before codegen (`-O0`/`-O1` disable it, `-O3` enables the full set); `--dump-opt` prints the optimized IR (forces `FULL` unless `-O` is given; `--dump-opt -O0`/`-O1` shows unoptimized; `--dump-ir` never optimizes). Extra: `simplify` algebraics (`x-x`/`x^x`/`x!=x`/`x<x`/`x>x`→`0`, `x==x`/`x<=x`/`x>=x`→`1`, `+0`/`-0`/`|0`/`^0`/`<<0`/`>>0`→`MOVE`, `/1`→`MOVE`, `%1`→`0`, `*0`→`0`, `*1`→`MOVE`, `&0`→`0`, `&all1`→`MOVE`, const swapped right).
-- Codegen: x86-64 AT&T assembly (System V AMD64 ABI). Surviving virtual registers get callee-saved register homes — the five busiest unless `-O0` (spill-all) — with prologue/epilogue saves incl. cross-call preservation, sized stack slots; operands load with sign/zero extension, arithmetic runs on 64 bits and the store truncates, division runs at the native width (except constant divisors, lowered via shifts/magic), globals are `.data`/`.bss` via the IR `has_init` flag (no textual scan) and RIP-relative. Peephole opts: single-def `CONST`/`MOVE`s propagate consts/aliases as immediates/slot reuse (`VR_CONST`/`VR_ALIAS`, classified only when the def dominates its reads: entry prefix, or all uses in the def's block after it), `x = x op K` becomes one RMW (3-instr pattern plus inplace `add`/`sub`/`and`/`or`/`xor`/`shl`/`sar`/`shr`/`neg`/`not`; a memory slot, or an in-place op on the register home with signed narrow images re-extended `movsbq`/`movswq`/`movslq`), `*2^k`→`shl`, `*3/5/9`→`lea`, `*(2^k±1)`→`shl+add/sub`, `/`/`%` by const → pow2 `shr`/`and` (signed via bias) or magic `mulq`/`imulq`+shifts (bails on `v<=0`, signed `/1`), shifts take immediates else `%cl`, `cmp` fuses with the next `jz`/`jnz` (plus `cmp_mem_imm` and `op_rax` fast paths), `select` lowers to `test`+`cmove` or — when directly fed by a single-use `cmp` — to a fused `cmp`+`cmovcc` with no `0`/`1` materialization, unused pure defs are skipped (local `is_silent` DCE, incl. dead code after `RET`/`JMP`/constant-taken jumps), `return f()` with ≤6 args and same/8-byte ret becomes `leave; jmp` (self-call → `jmp .LSn`). Frames are `align16(outgoing + slots)` with slots grouped 8/4/2/1, leaf fns ≤128 bytes stay in the red zone with no prologue, stack args live in an outgoing area of `8*max(argc-6)` excluding tail calls. The synthetic `__r2_init` holds global inits (emitted as `__r2.init` only when non-empty, with a dot to avoid colliding with a user global/fn named `init`) and a `main` wrapper calls it before `__r2_main`.
-- Precise error reporting with `file:line:column` locations.
-- Arena allocator — all compiler memory is freed in a single call at program exit instead of scattered `malloc`/`free` calls.
-- `--dump-tokens` flag to inspect exactly what the lexer produces for a given source file.
-- `--dump-ast` flag to inspect exactly the AST produced by the parser for a given source file.
-- `--dump-symbols` flag to inspect the resolved symbol table for a given source file.
-- `--dump-ir` flag to inspect the generated IR for a given source file.
-- `--dump-opt` flag to inspect the optimized IR for a given source file.
-- `-O0` / `-O1` / `-O2` / `-O3` (or `--opt[=LEVEL]`) to select the optimization level (default: `2`; plain `-O` means `-O2`; `-O0` = `NO_OPT`, `-O1` = `OPT_REG` (no `optimize_ir`), `-O2` = `OPT_BASIC`, `-O3` = `OPT_FULL`; the optimizer only runs at `-O2` and above).
-- Fixture-based test runner (`make test`, 5 dump suites) plus asm bench runner (`make bench`, exit codes + callgrind Ir table).
+- A small, statically and strongly typed imperative language: eight integer types (`i8` to `u64`, with `char` as an alias of `i8`), explicit casts with `as`, and implicit widening only when no value can be lost.
+- Full statement set: `var` declarations, blocks, `if`/`elif`/`else`, `while`, `for` and `return`, plus top-level functions with parameters by value, recursion and forward references.
+- Top-level globals with well-defined initialization order; cyclic initializers are diagnosed.
+- Short-circuit `&&` and `||`.
+- Strict diagnostics with `file:line:column` locations: uninitialized-variable warnings, missing-`return` checks and constant conditions.
+- Compiles to x86-64 AT&T assembly (System V AMD64 ABI) that links with `gcc`.
+- Four optimization levels: `-O0` to `-O3` (default `-O2`).
+- Stage-inspection flags: `--dump-tokens`, `--dump-ast`, `--dump-symbols`, `--dump-ir` and `--dump-opt`.
 
 ---
 
@@ -55,21 +30,6 @@ gcc prog.s -o prog
 
 A plain compile (no dump flag) writes assembly to `<source>.s` (or the `-o` target; `-` for stdout). Assemble with gcc and run it.
 
-`-a arm`, `-a riscv` and `-e` (interpreter) are rejected with "backend is not implemented".
-
-Run the test suites:
-
-```bash
-make test    # 5 dump suites: lexer, parser, sema, ir, opt (opt always FULL)
-make bench   # asm suite: default -O2 compile (stderr checked) + -O0..-O3 loop,
-             # gcc + run; exit code must match at every level; valgrind callgrind
-             # counts Ir per level
-```
-
-`make test` runs `test_lexer` (`--dump-tokens` over `tests/lexer/*_src.r2`), `test_parser` (`--dump-ast` over `tests/parser/*_src.r2`), `test_sema` (`--dump-symbols` over `tests/sema/*_src.r2`), `test_ir` (`--dump-ir` over `tests/ir/*_src.r2`) and `test_opt` (`--dump-opt` over `tests/opt/*_src.r2`, 19 fixtures, always `FULL`). `make bench` runs `tests/run_asm.sh` over `tests/asm/*_src.r2` (55 fixtures): compiles each at the default level (checking its stderr against `<name>_stderr.txt` when present), assembles with `gcc`, runs the binary and checks the exit code in `<name>_exit.txt`; each test is then recompiled with `-O0`/`-O1`/`-O2`/`-O3` under valgrind callgrind (`--toggle-collect=__r2_main,__r2.init`, user-code Ir only) and must exit with the same code — the run only fails on exit mismatch, printing an `O0/O1/O2/O3 Ir + TOTAL` table (approx totals: O0 ~431k, O1 ~416k, O2 ~203k, O3 ~194k Ir; hot loops use ~1000 iterations so no single test dominates). `-O2` vs `-O3` differ wherever FULL-only effects apply (`cse`, `live_dce`, `inline`, `select`: e.g. `046_cse_full`, `047_live_full`, call-heavy fixtures inlined at `-O3`, `052`-`055` using `select`).
-
-`tests/regen_fixtures.sh build/r2p` regenerates every `_stderr.txt` fixture from actual binary output (verifying stdout and exit status did not change); useful whenever diagnostics change.
-
 Some debug flags:
 ```bash
 ./build/r2p --dump-tokens path/to/file.r2
@@ -83,7 +43,7 @@ Some debug flags:
 
 ## Language
 
-R2-Lang is an invented language, see LANGUAGE.md for more info.
+R2-Lang is an invented language; see LANGUAGE.md for the full specification and compiler usage.
 
 ---
 
@@ -134,7 +94,7 @@ src/
     └── lexer.c/h    # Tokenizer: keywords, literals, operators
 ```
 
-Source is auto-discovered (`find src -name '*.c'` in the Makefile); no new `.h` was added for the optimizer split. Tests live under `tests/`: dump fixtures as `<name>_src.r2` plus expected `<name>_result.txt` (and optional `<name>_stderr.txt` / `<name>_status.txt`), checked by `tests/run_suite.sh` (lexer, parser, sema, ir and opt suites; opt uses `--dump-opt`, always `FULL`); assembler fixtures as `tests/asm/<name>_src.r2` plus expected `<name>_exit.txt` (and optional `<name>_stderr.txt`), checked by `tests/run_asm.sh` (default `-O2` compile with stderr check + `-O0`–`-O3` loop with `gcc` + valgrind callgrind Ir counts, compare exit code at every level, fail only on exit mismatch).
+Source is auto-discovered (`find src -name '*.c'` in the Makefile).
 
 ---
 
