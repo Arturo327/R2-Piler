@@ -4,8 +4,10 @@
 
 int opt_unreachable (Optimizer *opt, OptFn *f)
 {
-	IRInstr *last = opt->ir->instrs + f->fn->start + f->fn->count - 1;
 	int changed = 0;
+
+	if (!f->fn->count) return 0;
+	IRInstr *last = opt->ir->instrs + f->fn->start + f->fn->count - 1;
 
 	cfg_build_edges(opt->ir, &opt->cfg);
 	cfg_mark_reachable(&opt->cfg);
@@ -26,10 +28,9 @@ static int flip_branch (OptFn *f, IRInstr *code, uint32_t i)
 {
 	IRInstr *br = code + i;
 	IRInstr *jmp = next_real(code, i + 1, f->fn->count);
-	IRInstr *lab;
 
 	if (!jmp || jmp->op != IR_JMP) return 0;
-	lab = next_real(code, (uint32_t)(jmp - code) + 1, f->fn->count);
+	IRInstr *lab = next_real(code, (uint32_t)(jmp - code) + 1, f->fn->count);
 	if (!lab || lab->op != IR_LABEL || lab->target != br->target) return 0;
 
 	f->lrefs[br->target]--;

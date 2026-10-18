@@ -53,6 +53,7 @@ typedef struct OptFn {
 	uint32_t cse_count;
 
 	uint32_t block_count;
+	uint32_t entry_end;
 } OptFn;
 
 typedef struct Optimizer {

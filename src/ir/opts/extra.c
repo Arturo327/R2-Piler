@@ -8,6 +8,7 @@ static int strength_instr (Optimizer *opt, OptFn *f, IRInstr *in)
 	if (in->dst == NO_REG || in->src2 == NO_REG) return 0;
 	if (in->op != IR_MUL && in->op != IR_DIV && in->op != IR_MOD) return 0;
 	if (f->defs[in->src2] != 1 || f->uses[in->src2] != 1) return 0;
+	if (f->def_at[in->src2] - f->fn->start >= f->entry_end) return 0;
 
 	k = opt->ir->instrs + f->def_at[in->src2];
 	if (k->op != IR_CONST) return 0;

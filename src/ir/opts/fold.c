@@ -9,6 +9,7 @@ int reg_const (Optimizer *opt, OptFn *f, uint32_t reg, int64_t *val)
 		return 1;
 	}
 	if (f->defs[reg] != 1) return 0;
+	if (f->def_at[reg] - f->fn->start >= f->entry_end) return 0;
 	def = opt->ir->instrs + f->def_at[reg];
 	if (def->op != IR_CONST) return 0;
 
