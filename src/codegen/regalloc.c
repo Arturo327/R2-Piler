@@ -4,6 +4,8 @@
 #include <string.h>
 
 #define MAX_HOMES_SIZE (4u << 20)
+#define LOOP_WEIGHT 8u
+#define MIN_HOME_SCORE 3u
 
 typedef struct RegAlloc {
 	Arena *arena;
@@ -28,6 +30,7 @@ static void reset_regalloc (IRFn *fn, Reg *regs)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
 		regs[r].uses = 0;
+		regs[r].wscore = 0;
 		regs[r].slot = 0;
 		regs[r].cval = 0;
 		regs[r].cstate = VR_NONE;
@@ -50,6 +53,84 @@ static void count_defs (IR *ir, IRFn *fn, Reg *regs)
 		if (in->dst != NO_REG && regs[in->dst].defs < 2)
 			regs[in->dst].defs++;
 	}
+}
+
+static int tail_self (RegAlloc *ra, uint32_t i)
+{
+	IR *ir = ra->ir;
+	IRFn *fn = ra->fn;
+	IRInstr *in = ir->instrs + fn->start + i;
+	IRInstr *end = ir->instrs + fn->start + fn->count;
+	IRInstr *n = in + 1;
+	uint8_t from = ir->fns[in->target].ret_type;
+	uint8_t to = fn->ret_type;
+
+	while (n < end && n->op == IR_LABEL) n++;
+	if (n >= end || n->op != IR_RET) return 0;
+	if (n->src1 != in->dst || in->argc > 6) return 0;
+	if (in->dst != NO_REG && ra->regs[in->dst].uses != 1) return 0;
+	return from == to || (types[from].size == 8 && types[to].size == 8);
+}
+
+static void loop_weights (RegAlloc *ra, int16_t *w)
+{
+	IR *ir = ra->ir;
+	IRFn *fn = ra->fn;
+	uint32_t labels = ir->label_count + 1;
+	uint32_t *lpos = arena_alloc(ra->arena, labels * sizeof(uint32_t));
+	uint32_t self = (uint32_t)(fn - ir->fns);
+
+	for (uint32_t i = 0; i < labels; i++)
+		lpos[i] = UINT32_MAX;
+	for (uint32_t i = 0; i < fn->count; i++) {
+		IRInstr *in = ir->instrs + fn->start + i;
+		if (in->op == IR_LABEL && in->target < labels)
+			lpos[in->target] = i;
+	}
+	for (uint32_t i = 0; i < fn->count; i++) {
+		IRInstr *in = ir->instrs + fn->start + i;
+		uint32_t t = UINT32_MAX;
+
+		if (in->op == IR_JMP || in->op == IR_JZ || in->op == IR_JNZ)
+			t = in->target < labels ? lpos[in->target] : UINT32_MAX;
+		else if (in->op == IR_CALL && in->target == self && tail_self(ra, i))
+			t = 0;
+		if (t == UINT32_MAX || t > i) continue;
+		w[t]++;
+		if (i + 1 < fn->count) w[i + 1]--;
+	}
+	int16_t d = 0;
+	for (uint32_t i = 0; i < fn->count; i++) {
+		d = (int16_t)(d + w[i]);
+		w[i] = d > 0 ? LOOP_WEIGHT : 1;
+	}
+}
+
+static void weigh_regs (RegAlloc *ra, const int16_t *w)
+{
+	IR *ir = ra->ir;
+	IRFn *fn = ra->fn;
+
+	for (uint32_t i = 0; i < fn->count; i++) {
+		IRInstr *in = ir->instrs + fn->start + i;
+		uint32_t *src[3];
+		int n = get_srcs(in, src);
+
+		for (int k = 0; k < n; k++)
+			ra->regs[*src[k]].wscore += (uint32_t)w[i];
+		if (in->dst != NO_REG)
+			ra->regs[in->dst].wscore += (uint32_t)w[i];
+	}
+}
+
+static void mark_weighted (RegAlloc *ra)
+{
+	uint32_t count = ra->fn->count ? ra->fn->count : 1;
+	int16_t *w = arena_alloc(ra->arena, count * sizeof(int16_t));
+
+	memset(w, 0, count * sizeof(int16_t));
+	loop_weights(ra, w);
+	weigh_regs(ra, w);
 }
 
 static void handle_alias (RegAlloc *ra, uint32_t i, uint8_t *ok, IRInstr *in, int spill_all)
@@ -171,7 +252,8 @@ static uint32_t pick_callee (IRFn *fn, Reg *regs, uint32_t *pick)
 		uint32_t k = 0;
 
 		if (regs[r].cstate != VR_MEM || !regs[r].uses) continue;
-		while (k < n && regs[pick[k]].uses >= regs[r].uses) k++;
+		if (regs[r].wscore < MIN_HOME_SCORE) continue;
+		while (k < n && regs[pick[k]].wscore >= regs[r].wscore) k++;
 		if (k == MAX_CALLEE_HOMES) continue;
 
 		uint32_t j = n < MAX_CALLEE_HOMES ? n : MAX_CALLEE_HOMES - 1;
@@ -414,6 +496,7 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs,
 
 	alloc_homes(arena, fn, regs, ctx->block_count);
 	count_defs(ir, fn, regs);
+	if (!spill_all && fn->reg_count) mark_weighted(&ra);
 	clasf_regs(&ra, spill_all, cfg_entry_len(ir, fn));
 
 	assign_homes(fn, regs, ctx->block_count, spill_all, ctx->callee_mask);

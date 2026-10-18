@@ -21,6 +21,7 @@ typedef struct Reg {
 	int64_t cval;
 
 	uint32_t uses;
+	uint32_t wscore;
 	uint32_t slot;
 	uint8_t defs;
 
