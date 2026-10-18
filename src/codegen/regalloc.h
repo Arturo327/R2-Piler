@@ -52,6 +52,7 @@ typedef struct RegCtx {
 	uint32_t move_count;
 	uint64_t callee_used;
 	uint64_t callee_mask;
+	uint64_t caller_mask;
 } RegCtx;
 
 void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs,

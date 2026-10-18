@@ -11,6 +11,7 @@
 #define RED_ZONE 128
 #define X86_REG_NUM 14
 #define X86_CALLEE_MASK 0x3E00ull
+#define X86_CALLER_HOME_MASK 0x180ull
 #define ARG_REGS_MASK 0x7Eull
 
 static const char *asm_size_name[9] =
@@ -129,6 +130,7 @@ static void fill_regalloc (X86Fn *f)
 	f->ctx.free_regs = f->frees;
 	f->ctx.edges = f->edges;
 	f->ctx.callee_mask = X86_CALLEE_MASK;
+	f->ctx.caller_mask = X86_CALLER_HOME_MASK;
 	regalloc(f->cg->arena, f->cg->ir, fn, f->regs, &f->ctx,
 			X86_REG_NUM, spill_all);
 }
@@ -408,6 +410,8 @@ static void check_ctx (X86Fn *f)
 		f->blk = f->ctx.ins_block[i];
 		if (f->frees[i] & X86_CALLEE_MASK & ~f->ctx.callee_used)
 			regalloc_violation(f, "free_regs lists a callee-saved reg not in callee_used");
+		if (f->saves[i] & ~X86_CALLEE_MASK)
+			regalloc_violation(f, "save[] lists a caller-saved home");
 		if (code[i].op == IR_CALL && (f->saves[i] & home_bit(f, code[i].dst)))
 			regalloc_violation(f, "save[] contains the home of the call's dst");
 	}
