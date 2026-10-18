@@ -3,6 +3,27 @@
 
 #include <string.h>
 
+#define MAX_HOMES_SIZE (4u << 20)
+
+typedef struct RegAlloc {
+	Arena *arena;
+	IR *ir;
+	IRFn *fn;
+	Reg *regs;
+	RegCtx *ctx;
+
+	CfgBlock *blocks;
+	uint32_t *lmap;
+	uint32_t *lrefs;
+	uint64_t *live;
+	uint64_t *tmp;
+
+	Cfg cfg;
+	uint64_t all;
+	uint32_t words;
+	uint32_t entry;
+} RegAlloc;
+
 static void reset_regalloc (IRFn *fn, Reg *regs)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
@@ -31,13 +52,16 @@ static void count_defs (IR *ir, IRFn *fn, Reg *regs)
 	}
 }
 
-static void handle_alias (IRFn *fn, Reg *regs, IRInstr *in, int spill_all)
+static void handle_alias (RegAlloc *ra, uint32_t i, uint8_t *ok, IRInstr *in, int spill_all)
 {
+	IRFn *fn = ra->fn;
+	Reg *regs = ra->regs;
 	uint32_t d = in->dst;
 	uint32_t s = in->src1;
 
 	if (in->op != IR_MOVE || !same_rep(fn, d, s)) return;
 	if (regs[s].cstate == VR_CONST) {
+		if (i >= ra->entry && !ok[d]) return;
 		regs[d].cstate = VR_CONST;
 		regs[d].cval = regs[s].cval;
 		return;
@@ -51,8 +75,49 @@ static void handle_alias (IRFn *fn, Reg *regs, IRInstr *in, int spill_all)
 	regs[d].slot = s;
 }
 
-static void clasf_regs (IR *ir, IRFn *fn, Reg *regs, int spill_all)
+static void mark_const_ok (RegAlloc *ra, uint32_t entry, uint8_t *ok, uint32_t *def_at)
 {
+	IRFn *fn = ra->fn;
+
+	for (uint32_t r = 0; r < fn->reg_count; r++) {
+		ok[r] = 1;
+		def_at[r] = 0;
+	}
+	for (uint32_t i = 0; i < fn->count; i++) {
+		IRInstr *in = ra->ir->instrs + fn->start + i;
+
+		if (in->op != IR_NOP && in->dst != NO_REG)
+			def_at[in->dst] = i;
+	}
+	for (uint32_t i = 0; i < fn->count; i++) {
+		IRInstr *in = ra->ir->instrs + fn->start + i;
+		uint32_t *src[3];
+		int n = get_srcs(in, src);
+
+		for (int k = 0; k < n; k++) {
+			uint32_t v = *src[k];
+			uint32_t d = def_at[v];
+
+			if (ra->regs[v].defs != 1 || d < entry) continue;
+			if (i > d && ra->ctx->ins_block[i] == ra->ctx->ins_block[d])
+				continue;
+			ok[v] = 0;
+		}
+	}
+}
+
+static void clasf_regs (RegAlloc *ra, int spill_all, uint32_t entry)
+{
+	IR *ir = ra->ir;
+	IRFn *fn = ra->fn;
+	Reg *regs = ra->regs;
+
+	if (!fn->reg_count) return;
+	ra->entry = entry;
+	uint8_t *ok = arena_alloc(ra->arena, fn->reg_count);
+	uint32_t *def_at = arena_alloc(ra->arena, (size_t)fn->reg_count * sizeof(uint32_t));
+	mark_const_ok(ra, entry, ok, def_at);
+
 	for (uint32_t i = 0; i < fn->count; i++) {
 		IRInstr *in = ir->instrs + fn->start + i;
 
@@ -60,14 +125,14 @@ static void clasf_regs (IR *ir, IRFn *fn, Reg *regs, int spill_all)
 		regs[in->dst].cstate = VR_MEM;
 		if (regs[in->dst].defs != 1) continue;
 
-		if (in->op == IR_CONST) {
+		if (in->op == IR_CONST && (i < entry || ok[in->dst])) {
 			regs[in->dst].cstate = VR_CONST;
 			regs[in->dst].cval = in->imm64;
 			continue;
 		}
 
 		regs[in->dst].cstate = VR_MEM;
-		handle_alias(fn, regs, in, spill_all);
+		handle_alias(ra, i, ok, in, spill_all);
 	}
 }
 
@@ -85,20 +150,62 @@ static void set_home (Reg *reg, uint32_t block_count, int h)
 		reg->home[b] = (int8_t)h;
 }
 
-static void assign_homes (IRFn *fn, Reg *regs, uint32_t block_count)
+#define MAX_CALLEE_HOMES 5
+
+static uint32_t callee_list (uint64_t mask, uint8_t *creg)
 {
-	for (uint32_t r = 0; r < fn->reg_count; r++) {
-		if (regs[r].cstate == VR_CONST || regs[r].cstate == VR_ALIAS) {
-			set_home(regs + r, block_count, VR_NO_HOME);
-			continue;
-		}
-		if (!regs[r].uses) {
-			set_home(regs + r, block_count, VR_NO_HOME);
-			continue;
-		}
-		set_home(regs + r, block_count, VR_SPILL);
-		regs[r].spill = 1;
+	uint32_t n = 0;
+
+	while (mask && n < MAX_CALLEE_HOMES) {
+		creg[n++] = (uint8_t)__builtin_ctzll(mask);
+		mask &= mask - 1;
 	}
+	return n;
+}
+
+static uint32_t pick_callee (IRFn *fn, Reg *regs, uint32_t *pick)
+{
+	uint32_t n = 0;
+
+	for (uint32_t r = 0; r < fn->reg_count; r++) {
+		uint32_t k = 0;
+
+		if (regs[r].cstate != VR_MEM || !regs[r].uses) continue;
+		while (k < n && regs[pick[k]].uses >= regs[r].uses) k++;
+		if (k == MAX_CALLEE_HOMES) continue;
+
+		uint32_t j = n < MAX_CALLEE_HOMES ? n : MAX_CALLEE_HOMES - 1;
+		while (j > k) {
+			pick[j] = pick[j - 1];
+			j--;
+		}
+		pick[k] = r;
+		if (n < MAX_CALLEE_HOMES) n++;
+	}
+	return n;
+}
+
+static void assign_homes (IRFn *fn, Reg *regs, uint32_t block_count,
+		int spill_all, uint64_t callee_mask)
+{
+	uint32_t pick[MAX_CALLEE_HOMES];
+	uint8_t creg[MAX_CALLEE_HOMES];
+	uint32_t nc = callee_list(callee_mask, creg);
+	uint32_t n = spill_all ? 0 : pick_callee(fn, regs, pick);
+
+	if (n > nc) n = nc;
+	for (uint32_t r = 0; r < fn->reg_count; r++) {
+		if (regs[r].cstate == VR_CONST || regs[r].cstate == VR_ALIAS)
+			set_home(regs + r, block_count, VR_NO_HOME);
+		else if (!regs[r].uses)
+			set_home(regs + r, block_count, VR_NO_HOME);
+		else {
+			set_home(regs + r, block_count, VR_SPILL);
+			regs[r].spill = 1;
+		}
+	}
+	for (uint32_t k = 0; k < n; k++)
+		set_home(regs + pick[k], block_count, creg[k]);
 }
 
 static int is_spilled (Reg *reg, uint32_t block_count)
@@ -108,8 +215,7 @@ static int is_spilled (Reg *reg, uint32_t block_count)
 	return 0;
 }
 
-static uint32_t lay_size (IRFn *fn, Reg *regs, uint32_t c, uint8_t s,
-		uint32_t block_count)
+static uint32_t lay_size (IRFn *fn, Reg *regs, uint32_t c, uint8_t s, uint32_t block_count)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
 		if (!is_spilled(regs + r, block_count)) continue;
@@ -133,6 +239,7 @@ static void make_ctx (IRFn *fn, RegCtx *ctx, uint32_t reg_num)
 {
 	uint64_t all = ~0ull >> (64 - reg_num);
 
+	memset(ctx->edges, 0, ((size_t)fn->count + 1) * sizeof(EdgeMoves));
 	for (uint32_t i = 0; i < fn->count; i++) {
 		ctx->ins_block[i] = 0;
 		ctx->save[i] = 0;
@@ -140,6 +247,8 @@ static void make_ctx (IRFn *fn, RegCtx *ctx, uint32_t reg_num)
 	}
 	ctx->block_count = 1;
 	ctx->callee_used = 0;
+	ctx->moves = NULL;
+	ctx->move_count = 0;
 }
 
 static void resolve (IRFn *fn, Reg *regs, uint32_t block_count)
@@ -152,24 +261,6 @@ static void resolve (IRFn *fn, Reg *regs, uint32_t block_count)
 			regs[r].home[b] = regs[t].home[b];
 	}
 }
-
-typedef struct RegAlloc {
-	Arena *arena;
-	IR *ir;
-	IRFn *fn;
-	Reg *regs;
-	RegCtx *ctx;
-
-	CfgBlock *blocks;
-	uint32_t *lmap;
-	uint32_t *lrefs;
-	uint64_t *live;
-	uint64_t *tmp;
-
-	Cfg cfg;
-	uint64_t all;
-	uint32_t words;
-} RegAlloc;
 
 static void alloc_regalloc (RegAlloc *ra)
 {
@@ -196,7 +287,28 @@ static void build_cfg (RegAlloc *ra)
 	cfg_fill_blocks(ra->ir, ra->fn, cfg->blocks, &cfg->block_count);
 	cfg_build_lmap(ra->ir, cfg);
 	cfg_build_edges(ra->ir, cfg);
-	cfg_live_solve(ra->ir, cfg, ra->live, ra->tmp, ra->words);
+	cfg_live_solve_full(ra->ir, cfg, ra->live, ra->tmp, ra->words);
+}
+
+static void partition (RegAlloc *ra)
+{
+	RegCtx *ctx = ra->ctx;
+	uint32_t count = ra->fn->count;
+
+	ctx->block_count = ra->cfg.block_count;
+	for (uint32_t b = 0; b < ra->cfg.block_count; b++) {
+		CfgBlock *blk = ra->blocks + b;
+		uint32_t base = blk->start - ra->fn->start;
+
+		for (uint32_t k = 0; k < blk->count; k++)
+			ctx->ins_block[base + k] = b;
+	}
+
+	while (ctx->block_count > 1 && (uint64_t)ra->fn->reg_count * ctx->block_count > MAX_HOMES_SIZE) {
+		ctx->block_count = (ctx->block_count + 1) / 2;
+		for (uint32_t i = 0; i < count; i++)
+			ctx->ins_block[i] /= 2;
+	}
 }
 
 static uint64_t homes_word (RegAlloc *ra, uint64_t bits, uint32_t w, uint32_t blk)
@@ -266,25 +378,29 @@ static void sweep_fn (RegAlloc *ra)
 		sweep_block(ra, b);
 }
 
-static void fill_ctx (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, uint32_t reg_num)
+static void init_state (RegAlloc *ra, Arena *arena, IR *ir,
+		IRFn *fn, Reg *regs, RegCtx *ctx, uint32_t reg_num)
 {
-	uint32_t words = (fn->reg_count + 63) >> 6;
-	if (!words) return;
+	ra->words = (fn->reg_count + 63) >> 6;
+	if (!ra->words) return;
 
-	RegAlloc ra = {0};
-	ra.arena = arena;
-	ra.ir = ir;
-	ra.fn = fn;
-	ra.regs = regs;
-	ra.ctx = ctx;
+	ra->arena = arena;
+	ra->ir = ir;
+	ra->fn = fn;
+	ra->regs = regs;
+	ra->ctx = ctx;
+	ra->all = ~0ull >> (64 - reg_num);
 
-	ra.words = words;
-	ra.all = ~0ull >> (64 - reg_num);
+	alloc_regalloc(ra);
+	build_cfg(ra);
+	partition(ra);
+}
 
-	alloc_regalloc(&ra);
-	build_cfg(&ra);
-	ra.ctx->callee_used = callee_homes(&ra);
-	sweep_fn(&ra);
+static void fill_ctx (RegAlloc *ra)
+{
+	if (!ra->words) return;
+	ra->ctx->callee_used = callee_homes(ra);
+	sweep_fn(ra);
 }
 
 void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs,
@@ -292,14 +408,17 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs,
 {
 	reset_regalloc(fn, regs);
 	make_ctx(fn, ctx, reg_num);
+
+	RegAlloc ra;
+	init_state(&ra, arena, ir, fn, regs, ctx, reg_num);
+
 	alloc_homes(arena, fn, regs, ctx->block_count);
-
 	count_defs(ir, fn, regs);
-	clasf_regs(ir, fn, regs, spill_all);
+	clasf_regs(&ra, spill_all, cfg_entry_len(ir, fn));
 
-	assign_homes(fn, regs, ctx->block_count);
+	assign_homes(fn, regs, ctx->block_count, spill_all, ctx->callee_mask);
 	lay_sizes(fn, regs, ctx->block_count);
 
 	resolve(fn, regs, ctx->block_count);
-	fill_ctx(arena, ir, fn, regs, ctx, reg_num);
+	fill_ctx(&ra);
 }

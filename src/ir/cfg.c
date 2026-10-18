@@ -33,6 +33,21 @@ void cfg_fill_blocks (IR *ir, IRFn *fn, CfgBlock *blocks, uint32_t *block_count)
 	*block_count = b + 1;
 }
 
+uint32_t cfg_entry_len (IR *ir, IRFn *fn)
+{
+	uint32_t n = 0;
+
+	while (n < fn->count) {
+		uint8_t op = ir->instrs[fn->start + n].op;
+
+		if (op == IR_LABEL || op == IR_JMP || op == IR_JZ
+				|| op == IR_JNZ || op == IR_RET)
+			break;
+		n++;
+	}
+	return n;
+}
+
 void cfg_build_lmap (IR *ir, Cfg *cfg)
 {
 	for (uint32_t j = 0; j < cfg->block_count; j++) {
@@ -108,6 +123,17 @@ int cfg_live_step (IRInstr *in, uint64_t *live)
 	return 0;
 }
 
+static void cfg_live_step_full (IRInstr *in, uint64_t *live)
+{
+	uint32_t *src[3];
+	int n = get_srcs(in, src);
+
+	if (in->dst != NO_REG)
+		live[in->dst >> 6] &= ~(1ull << (in->dst & 63));
+	for (int k = 0; k < n; k++)
+		live[*src[k] >> 6] |= 1ull << (*src[k] & 63);
+}
+
 void cfg_live_out (Cfg *cfg, uint32_t b, uint64_t *out, uint32_t words)
 {
 	memset(out, 0, (size_t)words * sizeof(uint64_t));
@@ -126,8 +152,10 @@ static int live_block (IR *ir, Cfg *cfg, uint32_t b, uint64_t *tmp, uint32_t wor
 	int changed = 0;
 
 	cfg_live_out(cfg, b, tmp, words);
-	for (uint32_t i = blk->count; i-- > 0;)
-		cfg_live_step(code + i, tmp);
+	for (uint32_t i = blk->count; i-- > 0;) {
+		if (cfg->live_full) cfg_live_step_full(code + i, tmp);
+		else cfg_live_step(code + i, tmp);
+	}
 	for (uint32_t w = 0; w < words; w++) {
 		changed |= tmp[w] != blk->live_in[w];
 		blk->live_in[w] = tmp[w];
@@ -135,7 +163,7 @@ static int live_block (IR *ir, Cfg *cfg, uint32_t b, uint64_t *tmp, uint32_t wor
 	return changed;
 }
 
-void cfg_live_solve (IR *ir, Cfg *cfg, uint64_t *live, uint64_t *tmp, uint32_t words)
+static void live_solve (IR *ir, Cfg *cfg, uint64_t *live, uint64_t *tmp, uint32_t words)
 {
 	uint64_t *p = live;
 	int again = 1;
@@ -149,6 +177,18 @@ void cfg_live_solve (IR *ir, Cfg *cfg, uint64_t *live, uint64_t *tmp, uint32_t w
 		for (uint32_t b = cfg->block_count; b-- > 0;)
 			again |= live_block(ir, cfg, b, tmp, words);
 	}
+}
+
+void cfg_live_solve (IR *ir, Cfg *cfg, uint64_t *live, uint64_t *tmp, uint32_t words)
+{
+	cfg->live_full = 0;
+	live_solve(ir, cfg, live, tmp, words);
+}
+
+void cfg_live_solve_full (IR *ir, Cfg *cfg, uint64_t *live, uint64_t *tmp, uint32_t words)
+{
+	cfg->live_full = 1;
+	live_solve(ir, cfg, live, tmp, words);
 }
 
 void opt_cfg (OptFn *f, Cfg *cfg)

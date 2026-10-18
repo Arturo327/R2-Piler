@@ -23,9 +23,11 @@ typedef struct Cfg {
 	uint32_t *lrefs;
 	uint32_t *work;
 	uint32_t block_count;
+	uint8_t live_full;
 } Cfg;
 
 void cfg_fill_blocks (IR *ir, IRFn *fn, CfgBlock *blocks, uint32_t *block_count);
+uint32_t cfg_entry_len (IR *ir, IRFn *fn);
 void cfg_build_lmap (IR *ir, Cfg *cfg);
 uint32_t cfg_label_block (IR *ir, Cfg *cfg, uint32_t label);
 void cfg_build_edges (IR *ir, Cfg *cfg);
@@ -34,6 +36,7 @@ void cfg_mark_reachable (Cfg *cfg);
 int cfg_live_step (IRInstr *in, uint64_t *live);
 void cfg_live_out (Cfg *cfg, uint32_t b, uint64_t *out, uint32_t words);
 void cfg_live_solve (IR *ir, Cfg *cfg, uint64_t *live, uint64_t *tmp, uint32_t words);
+void cfg_live_solve_full (IR *ir, Cfg *cfg, uint64_t *live, uint64_t *tmp, uint32_t words);
 
 typedef struct OptFn OptFn;
 void opt_cfg (OptFn *f, Cfg *cfg);

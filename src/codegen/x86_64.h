@@ -14,6 +14,7 @@ typedef struct X86Fn {
 	Reg *regs;
 	RegCtx ctx;
 	uint32_t *blocks;
+	EdgeMoves *edges;
 	uint64_t *saves;
 
 	uint64_t *frees;

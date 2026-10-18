@@ -93,14 +93,13 @@ static uint32_t scan_outg (X86Fn *f)
 	f->leaf = 1;
 	for (uint32_t i = 0; i < fn->count; i++) {
 		IRInstr *instr = ir->instrs + fn->start + i;
-		uint32_t n;
 
 		if (instr->op != IR_CALL) continue;
 		if (tail_match(f, instr, tail_ret(instr))) continue;
 		f->leaf = 0;
 
 		if (instr->argc <= 6) continue;
-		n = (instr->argc - 6) << 3;
+		uint32_t n = (instr->argc - 6) << 3;
 		if (n > out) out = n;
 	}
 	return out;
@@ -128,6 +127,7 @@ static void fill_regalloc (X86Fn *f)
 	f->ctx.ins_block = f->blocks;
 	f->ctx.save = f->saves;
 	f->ctx.free_regs = f->frees;
+	f->ctx.edges = f->edges;
 	f->ctx.callee_mask = X86_CALLEE_MASK;
 	regalloc(f->cg->arena, f->cg->ir, fn, f->regs, &f->ctx,
 			X86_REG_NUM, spill_all);
@@ -145,12 +145,12 @@ static uint32_t max_slot (X86Fn *f)
 
 static void layout_fn (X86Fn *f)
 {
-	uint32_t c;
-
 	fill_regalloc(f);
-	c = save_area(f, max_slot(f));
+
+	uint32_t c = save_area(f, max_slot(f));
 	f->outgoing = scan_outg(f);
 	c += f->outgoing;
+
 	f->leaf = f->leaf && c <= RED_ZONE;
 	f->frame = f->leaf ? 0 : (c + 15) & ~15u;
 	f->base = f->leaf ? "%rsp" : "%rbp";
@@ -365,14 +365,13 @@ static void store_imm (X86Fn *f, uint32_t vreg, int64_t v)
 	uint8_t t = f->fn->reg_types[vreg];
 	uint8_t s = types[t].size;
 	int p = phys_reg(f, vreg);
-	uint8_t w;
 
 	if (p >= 0) {
 		load_const(f, (uint8_t)p, norm_val((uint64_t)v, t));
 		return;
 	}
 	if (s == 8 && v != (int32_t)v) {
-		w = grab(f);
+		uint8_t w = grab(f);
 		cg_printf(c, "\tmovabsq $0x%llx, %s\n", (unsigned long long)v, reg_name(w, 8));
 		store_reg(f, w, vreg);
 		return;
@@ -907,10 +906,9 @@ static void make_cmp (X86Fn *f, IRInstr *i)
 {
 	int base = types[i->data_type].sign ? 0 : 6;
 	const char *cc = comp_names[base + (i->op - IR_EQ)];
-	uint8_t w;
 
 	write_cmp(f, i);
-	w = work_reg(f, i->dst, 0);
+	uint8_t w = work_reg(f, i->dst, 0);
 	cg_printf(f->cg, "\tset%s %s\n\tmovzbl %s, %s\n",
 			cc, reg_name(w, 1), reg_name(w, 1), reg_name(w, 4));
 	store_reg(f, w, i->dst);
@@ -943,17 +941,17 @@ static void select_move (X86Fn *f, IRInstr *sel, const char *yes, const char *no
 	int pa = phys_reg(f, sel->src1);
 	int pb = phys_reg(f, sel->src2);
 	int pd = phys_reg(f, sel->dst);
-	uint8_t w, r;
 
 	if (pd >= 0 && pd == pb) {
-		r = pa >= 0 ? (uint8_t)pa : grab(f);
+		uint8_t r = pa >= 0 ? (uint8_t)pa : grab(f);
 		if (pa < 0) load_reg(f, r, sel->src1);
 		cg_printf(f->cg, "\tcmov%s %s, %s\n", yes, reg_name(r, 8), reg_name(pd, 8));
 		return;
 	}
-	w = work_reg(f, sel->dst, 0);
+	uint8_t w = work_reg(f, sel->dst, 0);
 	load_reg(f, w, sel->src1);
-	r = pb >= 0 ? (uint8_t)pb : grab(f);
+
+	uint8_t r = pb >= 0 ? (uint8_t)pb : grab(f);
 	if (pb < 0) load_reg(f, r, sel->src2);
 	cg_printf(f->cg, "\tcmov%s %s, %s\n", no, reg_name(r, 8), reg_name(w, 8));
 	store_reg(f, w, sel->dst);
@@ -992,19 +990,23 @@ static void test_zero (X86Fn *f, uint32_t vreg)
 	int p = phys_reg(f, vreg);
 	uint8_t s = types[f->fn->reg_types[vreg]].size;
 	uint64_t keep = f->pool;
-	uint8_t t;
 
 	if (f->regs[vreg].cstate == VR_CONST) {
-		t = grab(f);
+		uint8_t t = grab(f);
 		load_reg(f, t, vreg);
 		cg_printf(f->cg, "\ttestq %s, %s\n", reg_name(t, 8), reg_name(t, 8));
 		f->pool = keep;
 		return;
 	}
-	if (p >= 0)
-		cg_printf(f->cg, "\ttestq %s, %s\n", reg_name(p, 8), reg_name(p, 8));
-	else cg_printf(f->cg, "\tcmp%c $0, -%u(%s)\n", mem_suf[s],
-			f->regs[vreg].slot, f->base);
+	if (p >= 0) cg_printf(f->cg, "\ttestq %s, %s\n", reg_name(p, 8), reg_name(p, 8));
+	else cg_printf(f->cg, "\tcmp%c $0, -%u(%s)\n", mem_suf[s], f->regs[vreg].slot, f->base);
+}
+
+static int const_jump (X86Fn *f, IRInstr *i)
+{
+	if (i->op != IR_JZ && i->op != IR_JNZ) return 0;
+	if (f->regs[i->src1].cstate != VR_CONST) return 0;
+	return (const_ext(f, i->src1) != 0) == (i->op == IR_JNZ);
 }
 
 static void make_jump (X86Fn *f, IRInstr *i)
@@ -1020,8 +1022,7 @@ static void make_jump (X86Fn *f, IRInstr *i)
 		return;
 	}
 	if (f->regs[i->src1].cstate == VR_CONST) {
-		int taken = (const_ext(f, i->src1) != 0) == (i->op == IR_JNZ);
-		if (taken) cg_printf(c, "\tjmp .L%u\n", i->target);
+		if (const_jump(f, i)) cg_printf(c, "\tjmp .L%u\n", i->target);
 		return;
 	}
 	test_zero(f, i->src1);
@@ -1098,7 +1099,12 @@ static void make_ret (X86Fn *f, IRInstr *i)
 	cg_printf(f->cg, f->leaf ? "\tret\n" : "\tleave\n\tret\n");
 }
 
-enum { RMW_NONE = 0, RMW_UNARY, RMW_ARITH, RMW_SHIFT };
+enum {
+	RMW_NONE = 0,
+	RMW_UNARY,
+	RMW_ARITH,
+	RMW_SHIFT
+};
 
 static const uint8_t rmw_kind[IR_COUNT] = {
 	[IR_ADD] = RMW_ARITH, [IR_SUB] = RMW_ARITH, [IR_AND_A] = RMW_ARITH,
@@ -1114,15 +1120,14 @@ static const char *const rmw_names[IR_COUNT] = {
 
 static int rmw_shift (X86Fn *f, IRInstr *b, uint8_t s, const char **op, int64_t *v)
 {
-	int64_t k;
-
 	if (f->regs[b->src2].cstate != VR_CONST) return 0;
-	k = const_ext(f, b->src2);
+	int64_t k = const_ext(f, b->src2);
 	if (b->op == IR_MUL) {
 		if (k <= 1 || (k & (k - 1))) return 0;
 		k = (int64_t)shift_amt((uint64_t)k);
 	}
 	if (k < 1 || k >= 8 * s) return 0;
+
 	if (b->op == IR_RS) *op = types[b->data_type].sign ? "sar" : "shr";
 	else *op = "shl";
 	*v = k;
@@ -1131,14 +1136,14 @@ static int rmw_shift (X86Fn *f, IRInstr *b, uint8_t s, const char **op, int64_t 
 
 static int rmw_arith (X86Fn *f, IRInstr *b, uint8_t s, const char **op, int64_t *v)
 {
-	int64_t k;
-
 	if (f->regs[b->src2].cstate != VR_CONST) return 0;
-	k = const_ext(f, b->src2);
+	int64_t k = const_ext(f, b->src2);
 	if (s == 8 && k != (int32_t)k) return 0;
+
 	if (s == 4) k = (int32_t)k;
 	else if (s == 2) k = (int16_t)k;
 	else if (s == 1) k = (int8_t)k;
+
 	*op = rmw_names[b->op];
 	*v = k;
 	return 1;
@@ -1199,22 +1204,48 @@ static int rmw_shape_ok (X86Fn *f, IRInstr *a, IRInstr *b)
 {
 	uint8_t *rt = f->fn->reg_types;
 	uint8_t s = rmw_width(f, a);
+	Reg *r = f->regs + a->src1;
 
 	if (f->regs[a->dst].uses != 1 || f->regs[b->dst].uses != 1) return 0;
-	if (a->op != IR_LD_GLOBAL && (f->regs[a->src1].cstate != VR_MEM
-				|| f->regs[a->src1].home[f->blk] != VR_SPILL)) return 0;
+	if (a->op != IR_LD_GLOBAL) {
+		int8_t h = r->home[f->blk];
+
+		if (r->cstate != VR_MEM || (h != VR_SPILL && h < 0)) return 0;
+	}
 	return types[rt[a->dst]].size == s && types[rt[b->dst]].size == s;
 }
 
-static void print_rmw_loc (X86Fn *f, IRInstr *a)
-{
-	IRGlobal *g;
+static const char *const rmw_ext_ops[8] = {
+	[1] = "movsbq", [2] = "movswq", [4] = "movslq"
+};
 
+static void rmw_sext (X86Fn *f, IRInstr *a)
+{
+	if (a->op == IR_LD_GLOBAL) return;
+	int8_t h = f->regs[a->src1].home[f->blk];
+	if (h < 0) return;
+
+	uint8_t t = f->fn->reg_types[a->src1];
+	uint8_t s = types[t].size;
+	if (s == 8 || !types[t].sign) return;
+
+	uint8_t r = (uint8_t)h;
+	cg_printf(f->cg, "\t%s %s, %s\n", rmw_ext_ops[s], reg_name(r, s),
+			reg_name(r, 8));
+}
+
+static void print_rmw_loc (X86Fn *f, IRInstr *a, uint8_t s)
+{
 	if (a->op != IR_LD_GLOBAL) {
+		int h = f->regs[a->src1].home[f->blk];
+		if (h >= 0) {
+			cg_printf(f->cg, "%s\n", reg_name((uint8_t)h, s));
+			return;
+		}
 		cg_printf(f->cg, "-%u(%s)\n", f->regs[a->src1].slot, f->base);
 		return;
 	}
-	g = f->cg->ir->globals + a->target;
+	IRGlobal *g = f->cg->ir->globals + a->target;
 	cg_printf(f->cg, SYM_PREFIX "%.*s(%%rip)\n", (int)g->len, g->name);
 }
 
@@ -1232,14 +1263,16 @@ static int make_rmw (X86Fn *f, IRInstr *a)
 		cg_printf(f->cg, "\t%s%c ", op, mem_suf[s]);
 		if (rmw_kind[b->op] != RMW_UNARY)
 			cg_printf(f->cg, "$%lld, ", (long long)v);
-		print_rmw_loc(f, a);
+		print_rmw_loc(f, a, s);
+		rmw_sext(f, a);
 		return (int)(c - a) + 1;
 	}
 
 	if (!rmw_reg_op(f, b, s, &op)) return 0;
 	uint8_t r = (uint8_t)phys_reg(f, b->src2);
 	cg_printf(f->cg, "\t%s%c %s, ", op, mem_suf[s], reg_name(r, s));
-	print_rmw_loc(f, a);
+	print_rmw_loc(f, a, s);
+	rmw_sext(f, a);
 
 	return (int)(c - a) + 1;
 }
@@ -1247,26 +1280,28 @@ static int make_rmw (X86Fn *f, IRInstr *a)
 static int try_rmw_inplace (X86Fn *f, IRInstr *i)
 {
 	const char *op = NULL;
-	int64_t v = 0;
-	uint32_t x = i->dst;
 
-	if (!rmw_kind[i->op] || i->dst != i->src1 || f->regs[x].cstate != VR_MEM
-			|| f->regs[x].home[f->blk] != VR_SPILL)
-		return 0;
+	if (!rmw_kind[i->op] || i->dst != i->src1) return 0;
+	uint32_t x = i->dst;
+	int8_t h = f->regs[x].home[f->blk];
+	if (f->regs[x].cstate != VR_MEM || (h != VR_SPILL && h < 0)) return 0;
 	uint8_t s = types[f->fn->reg_types[x]].size;
 
+	int64_t v = 0;
 	if (rmw_operand(f, i, s, &op, &v)) {
 		cg_printf(f->cg, "\t%s%c ", op, mem_suf[s]);
 		if (rmw_kind[i->op] != RMW_UNARY)
 			cg_printf(f->cg, "$%lld, ", (long long)v);
-		cg_printf(f->cg, "-%u(%s)\n", f->regs[x].slot, f->base);
+		print_rmw_loc(f, i, s);
+		rmw_sext(f, i);
 		return 1;
 	}
 
 	if (!rmw_reg_op(f, i, s, &op)) return 0;
 	uint8_t r = (uint8_t)phys_reg(f, i->src2);
-	cg_printf(f->cg, "\t%s%c %s, -%u(%s)\n", op, mem_suf[s],
-			reg_name(r, s), f->regs[x].slot, f->base);
+	cg_printf(f->cg, "\t%s%c %s, ", op, mem_suf[s], reg_name(r, s));
+	print_rmw_loc(f, i, s);
+	rmw_sext(f, i);
 
 	return 1;
 }
@@ -1387,7 +1422,8 @@ static void make_body (X86Fn *f)
 		}
 		n = make_instr(f, instr);
 		last = instr + n - 1;
-		dead = last->op == IR_RET || last->op == IR_JMP;
+		dead = last->op == IR_RET || last->op == IR_JMP
+				|| const_jump(f, last);
 		i += n;
 	}
 }
@@ -1456,6 +1492,7 @@ int gen_x86_64 (CodeGen *c)
 
 	f.regs = arena_alloc(c->arena, (size_t)max_regs * sizeof(Reg));
 	f.blocks = arena_alloc(c->arena, (size_t)max_instrs * sizeof(uint32_t));
+	f.edges = arena_alloc(c->arena, (size_t)(max_instrs + 1) * sizeof(EdgeMoves));
 	f.saves = arena_alloc(c->arena, (size_t)(max_instrs + 1) * sizeof(uint64_t));
 	f.frees = arena_alloc(c->arena, (size_t)(max_instrs + 1) * sizeof(uint64_t));
 
