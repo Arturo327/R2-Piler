@@ -131,8 +131,7 @@ static void fill_regalloc (X86Fn *f)
 	f->ctx.edges = f->edges;
 	f->ctx.callee_mask = X86_CALLEE_MASK;
 	f->ctx.caller_mask = X86_CALLER_HOME_MASK;
-	regalloc(f->cg->arena, f->cg->ir, fn, f->regs, &f->ctx,
-			X86_REG_NUM, spill_all);
+	regalloc(f->cg->arena, f->cg->ir, fn, f->regs, &f->ctx, X86_REG_NUM, spill_all);
 }
 
 static uint32_t max_slot (X86Fn *f)
@@ -1283,15 +1282,15 @@ static int make_rmw (X86Fn *f, IRInstr *a)
 
 static int try_rmw_inplace (X86Fn *f, IRInstr *i)
 {
-	const char *op = NULL;
-
 	if (!rmw_kind[i->op] || i->dst != i->src1) return 0;
+
 	uint32_t x = i->dst;
 	int8_t h = f->regs[x].home[f->blk];
 	if (f->regs[x].cstate != VR_MEM || (h != VR_SPILL && h < 0)) return 0;
 	uint8_t s = types[f->fn->reg_types[x]].size;
 
 	int64_t v = 0;
+	const char *op = NULL;
 	if (rmw_operand(f, i, s, &op, &v)) {
 		cg_printf(f->cg, "\t%s%c ", op, mem_suf[s]);
 		if (rmw_kind[i->op] != RMW_UNARY)
@@ -1414,7 +1413,7 @@ static void make_body (X86Fn *f)
 	IR *ir = f->cg->ir;
 	IRFn *fn = f->fn;
 	IRInstr *instr, *last;
-	uint32_t i = 0, n;
+	uint32_t i = 0;
 	int dead = 0;
 
 	while (i < fn->count) {
@@ -1424,7 +1423,7 @@ static void make_body (X86Fn *f)
 			i++;
 			continue;
 		}
-		n = make_instr(f, instr);
+		uint32_t n = make_instr(f, instr);
 		last = instr + n - 1;
 		dead = last->op == IR_RET || last->op == IR_JMP
 				|| const_jump(f, last);

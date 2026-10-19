@@ -1,14 +1,10 @@
 #include "codegen/regalloc.h"
+#include "codegen/color.h"
 #include "ir/cfg.h"
 
 #include <string.h>
 
 #define MAX_HOMES_SIZE (4u << 20)
-#define LOOP_WEIGHT 8u
-#define MIN_HOME_SCORE 3u
-#define MAX_CALLER_HOMES 2
-#define MAX_CALLEE_HOMES 5
-#define MAX_HOMES (MAX_CALLER_HOMES + MAX_CALLEE_HOMES)
 
 typedef struct RegAlloc {
 	Arena *arena;
@@ -22,7 +18,6 @@ typedef struct RegAlloc {
 	uint32_t *lrefs;
 	uint64_t *live;
 	uint64_t *tmp;
-	uint8_t *cross;
 
 	Cfg cfg;
 	uint64_t all;
@@ -57,84 +52,6 @@ static void count_defs (IR *ir, IRFn *fn, Reg *regs)
 		if (in->dst != NO_REG && regs[in->dst].defs < 2)
 			regs[in->dst].defs++;
 	}
-}
-
-static int tail_self (RegAlloc *ra, uint32_t i)
-{
-	IR *ir = ra->ir;
-	IRFn *fn = ra->fn;
-	IRInstr *in = ir->instrs + fn->start + i;
-	IRInstr *end = ir->instrs + fn->start + fn->count;
-	IRInstr *n = in + 1;
-	uint8_t from = ir->fns[in->target].ret_type;
-	uint8_t to = fn->ret_type;
-
-	while (n < end && n->op == IR_LABEL) n++;
-	if (n >= end || n->op != IR_RET) return 0;
-	if (n->src1 != in->dst || in->argc > 6) return 0;
-	if (in->dst != NO_REG && ra->regs[in->dst].uses != 1) return 0;
-	return from == to || (types[from].size == 8 && types[to].size == 8);
-}
-
-static void loop_weights (RegAlloc *ra, int16_t *w)
-{
-	IR *ir = ra->ir;
-	IRFn *fn = ra->fn;
-	uint32_t labels = ir->label_count + 1;
-	uint32_t *lpos = arena_alloc(ra->arena, labels * sizeof(uint32_t));
-	uint32_t self = (uint32_t)(fn - ir->fns);
-
-	for (uint32_t i = 0; i < labels; i++)
-		lpos[i] = UINT32_MAX;
-	for (uint32_t i = 0; i < fn->count; i++) {
-		IRInstr *in = ir->instrs + fn->start + i;
-		if (in->op == IR_LABEL && in->target < labels)
-			lpos[in->target] = i;
-	}
-	for (uint32_t i = 0; i < fn->count; i++) {
-		IRInstr *in = ir->instrs + fn->start + i;
-		uint32_t t = UINT32_MAX;
-
-		if (in->op == IR_JMP || in->op == IR_JZ || in->op == IR_JNZ)
-			t = in->target < labels ? lpos[in->target] : UINT32_MAX;
-		else if (in->op == IR_CALL && in->target == self && tail_self(ra, i))
-			t = 0;
-		if (t == UINT32_MAX || t > i) continue;
-		w[t]++;
-		if (i + 1 < fn->count) w[i + 1]--;
-	}
-	int16_t d = 0;
-	for (uint32_t i = 0; i < fn->count; i++) {
-		d = (int16_t)(d + w[i]);
-		w[i] = d > 0 ? LOOP_WEIGHT : 1;
-	}
-}
-
-static void weigh_regs (RegAlloc *ra, const int16_t *w)
-{
-	IR *ir = ra->ir;
-	IRFn *fn = ra->fn;
-
-	for (uint32_t i = 0; i < fn->count; i++) {
-		IRInstr *in = ir->instrs + fn->start + i;
-		uint32_t *src[3];
-		int n = get_srcs(in, src);
-
-		for (int k = 0; k < n; k++)
-			ra->regs[*src[k]].wscore += (uint32_t)w[i];
-		if (in->dst != NO_REG)
-			ra->regs[in->dst].wscore += (uint32_t)w[i];
-	}
-}
-
-static void mark_weighted (RegAlloc *ra)
-{
-	uint32_t count = ra->fn->count ? ra->fn->count : 1;
-	int16_t *w = arena_alloc(ra->arena, count * sizeof(int16_t));
-
-	memset(w, 0, count * sizeof(int16_t));
-	loop_weights(ra, w);
-	weigh_regs(ra, w);
 }
 
 static void handle_alias (RegAlloc *ra, uint32_t i, uint8_t *ok, IRInstr *in, int spill_all)
@@ -235,71 +152,6 @@ static void set_home (Reg *reg, uint32_t block_count, int h)
 		reg->home[b] = (int8_t)h;
 }
 
-typedef struct HomePicks {
-	uint32_t pick[MAX_HOMES];
-	uint8_t callreg[MAX_CALLER_HOMES];
-	uint8_t calreg[MAX_CALLEE_HOMES];
-	uint32_t count;
-	uint32_t nc;
-	uint32_t nn;
-} HomePicks;
-
-static uint32_t list_mask (uint64_t mask, uint8_t *regs, uint32_t cap)
-{
-	uint32_t n = 0;
-
-	while (mask && n < cap) {
-		regs[n++] = (uint8_t)__builtin_ctzll(mask);
-		mask &= mask - 1;
-	}
-	return n;
-}
-
-static uint32_t rank_picks (IRFn *fn, Reg *regs, uint32_t *pick)
-{
-	uint32_t n = 0;
-
-	for (uint32_t r = 0; r < fn->reg_count; r++) {
-		uint32_t k = 0;
-
-		if (regs[r].cstate != VR_MEM || !regs[r].uses) continue;
-		if (regs[r].wscore < MIN_HOME_SCORE) continue;
-		while (k < n && regs[pick[k]].wscore >= regs[r].wscore) k++;
-		if (k == MAX_HOMES) continue;
-
-		uint32_t j = n < MAX_HOMES ? n : MAX_HOMES - 1;
-		while (j > k) {
-			pick[j] = pick[j - 1];
-			j--;
-		}
-		pick[k] = r;
-		if (n < MAX_HOMES) n++;
-	}
-	return n;
-}
-
-static void pick_homes (IRFn *fn, Reg *regs, RegCtx *ctx, HomePicks *hp)
-{
-	hp->nc = list_mask(ctx->caller_mask, hp->callreg, MAX_CALLER_HOMES);
-	hp->nn = list_mask(ctx->callee_mask, hp->calreg, MAX_CALLEE_HOMES);
-	hp->count = rank_picks(fn, regs, hp->pick);
-}
-
-static void apply_homes (Reg *regs, uint32_t block_count,
-		const uint8_t *cross, const HomePicks *hp)
-{
-	uint32_t ci = 0, li = 0;
-
-	for (uint32_t k = 0; k < hp->count; k++) {
-		uint32_t r = hp->pick[k];
-
-		if (!cross[r] && ci < hp->nc)
-			set_home(regs + r, block_count, hp->callreg[ci++]);
-		else if (li < hp->nn)
-			set_home(regs + r, block_count, hp->calreg[li++]);
-	}
-}
-
 static void default_homes (IRFn *fn, Reg *regs, uint32_t block_count)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
@@ -376,8 +228,7 @@ static void alloc_regalloc (RegAlloc *ra)
 	ra->blocks = arena_alloc(ra->arena, (size_t)count * sizeof(CfgBlock));
 	ra->lmap = arena_alloc(ra->arena, (size_t)labels * sizeof(uint32_t));
 	ra->lrefs = arena_alloc(ra->arena, (size_t)labels * sizeof(uint32_t));
-	ra->live = arena_alloc(ra->arena,
-			(size_t)count * ra->words * sizeof(uint64_t));
+	ra->live = arena_alloc(ra->arena, (size_t)count * ra->words * sizeof(uint64_t));
 	ra->tmp = arena_alloc(ra->arena, (size_t)ra->words * sizeof(uint64_t));
 	memset(ra->lmap, 0xFF, (size_t)labels * sizeof(uint32_t));
 }
@@ -415,51 +266,6 @@ static void partition (RegAlloc *ra)
 		for (uint32_t i = 0; i < count; i++)
 			ctx->ins_block[i] /= 2;
 	}
-}
-
-static void cross_call (RegAlloc *ra, uint8_t *cross, uint32_t v)
-{
-	uint32_t root = ra->regs[v].cstate == VR_ALIAS ? ra->regs[v].slot : v;
-
-	cross[v] = 1;
-	cross[root] = 1;
-}
-
-static void cross_instr (RegAlloc *ra, uint8_t *cross)
-{
-	for (uint32_t w = 0; w < ra->words; w++) {
-		uint64_t bits = ra->tmp[w];
-
-		while (bits) {
-			cross_call(ra, cross, (w << 6) + (uint32_t)__builtin_ctzll(bits));
-			bits &= bits - 1;
-		}
-	}
-}
-
-static void cross_block (RegAlloc *ra, uint32_t b, uint8_t *cross)
-{
-	CfgBlock *blk = ra->cfg.blocks + b;
-	IRInstr *code = ra->ir->instrs + blk->start;
-
-	cfg_live_out(&ra->cfg, b, ra->tmp, ra->words);
-	for (uint32_t i = blk->count; i-- > 0;) {
-		IRInstr *in = code + i;
-		uint32_t *src[3];
-		int n = get_srcs(in, src);
-
-		if (in->dst != NO_REG)
-			ra->tmp[in->dst >> 6] &= ~(1ull << (in->dst & 63));
-		if (in->op == IR_CALL) cross_instr(ra, cross);
-		for (int k = 0; k < n; k++)
-			ra->tmp[*src[k] >> 6] |= 1ull << (*src[k] & 63);
-	}
-}
-
-static void mark_crossing (RegAlloc *ra, uint8_t *cross)
-{
-	for (uint32_t b = 0; b < ra->cfg.block_count; b++)
-		cross_block(ra, b, cross);
 }
 
 static uint64_t homes_word (RegAlloc *ra, uint64_t bits, uint32_t w, uint32_t blk)
@@ -538,7 +344,6 @@ static void init_state (RegAlloc *ra, Arena *arena, IR *ir,
 	ra->regs = regs;
 	ra->ctx = ctx;
 	ra->all = ~0ull >> (64 - reg_num);
-	ra->cross = NULL;
 	ra->words = (fn->reg_count + 63) >> 6;
 	if (!ra->words) return;
 
@@ -565,22 +370,10 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs,
 
 	alloc_homes(arena, fn, regs, ctx->block_count);
 	count_defs(ir, fn, regs);
-	if (!spill_all && fn->reg_count) mark_weighted(&ra);
 	clasf_regs(&ra, spill_all, cfg_entry_len(ir, fn));
 
-	if (!spill_all) {
-		uint32_t csz = fn->reg_count ? fn->reg_count : 1;
-		ra.cross = arena_alloc(arena, csz);
-		memset(ra.cross, 0, csz);
-		if (fn->reg_count) mark_crossing(&ra, ra.cross);
-	}
-
 	default_homes(fn, regs, ctx->block_count);
-	if (!spill_all) {
-		HomePicks hp;
-		pick_homes(fn, regs, ctx, &hp);
-		apply_homes(regs, ctx->block_count, ra.cross, &hp);
-	}
+	if (!spill_all) color_regs(arena, ir, fn, regs, ctx, &ra.cfg, reg_num);
 	lay_sizes(fn, regs, ctx->block_count);
 
 	resolve(fn, regs, ctx->block_count);
