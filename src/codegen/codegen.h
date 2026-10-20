@@ -6,6 +6,7 @@
 #include "arena/arena.h"
 #include "ir/ir.h"
 #include "ir/opt.h"
+#include "codegen/regalloc.h"
 
 typedef enum {
 	ARCH_X86_64 = 0,
@@ -33,5 +34,7 @@ struct CodeGen {
 int init_codegen (CodeGen *codegen, Arch arch, Arena *arena, IR *ir, const char *out, OptLevel level);
 int codegen_run (CodeGen *codegen);
 void cg_printf (CodeGen *c, const char *fmt, ...);
+
+int cg_is_tail_call (IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, IRInstr *call, uint32_t max_args);
 
 #endif

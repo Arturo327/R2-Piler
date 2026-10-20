@@ -86,3 +86,21 @@ void cg_printf (CodeGen *c, const char *fmt, ...)
 	if (n >= CG_LINE_MAX) n = CG_LINE_MAX - 1;
 	c->len += (size_t)n;
 }
+
+int cg_is_tail_call (IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx,
+		IRInstr *call, uint32_t max_args)
+{
+	IRInstr *end = ir->instrs + fn->start + fn->count;
+	IRInstr *ret = call + 1;
+	uint32_t at = (uint32_t)(call - (ir->instrs + fn->start));
+	uint8_t from = ir->fns[call->target].ret_type;
+	uint8_t to = fn->ret_type;
+
+	while (ret < end && ret->op == IR_LABEL) ret++;
+	if (ret >= end || ret->op != IR_RET || call->argc > max_args)
+		return 0;
+	if (ret->src1 != call->dst) return 0;
+	if (call->dst != NO_REG && regs[call->dst].uses != 1) return 0;
+	if (ctx->edges[at].fall) return 0;
+	return from == to || (types[from].size == 8 && types[to].size == 8);
+}

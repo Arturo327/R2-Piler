@@ -78,7 +78,7 @@ int x86_make_arg (X86Fn *f, IRInstr *i)
 	if (i->target != 0) return 1;
 	x86_check_arg_group(f, i, end);
 	f->blk = blk;
-	if (!x86_tail_match(f, call, x86_tail_ret(call)))
+	if (!x86_tail_match(f, call))
 		move_call_live(f, call, 0);
 
 	protect_args(f, i, n);
@@ -123,24 +123,17 @@ IRInstr *x86_tail_ret (IRInstr *call)
 	return n;
 }
 
-int x86_tail_match (X86Fn *f, IRInstr *call, IRInstr *ret)
+int x86_tail_match (X86Fn *f, IRInstr *call)
 {
-	uint8_t from = f->cg->ir->fns[call->target].ret_type;
-	uint8_t to = f->fn->ret_type;
-	uint32_t at = (uint32_t)(call - (f->cg->ir->instrs + f->fn->start));
-
-	if (ret->op != IR_RET || call->argc > 6) return 0;
-	if (ret->src1 != call->dst) return 0;
-	if (call->dst != NO_REG && f->regs[call->dst].uses != 1) return 0;
-	if (f->ctx.edges[at].fall) return 0;
-	return from == to || (types[from].size == 8 && types[to].size == 8);
+	return cg_is_tail_call(f->cg->ir, f->fn, f->regs, &f->ctx, call,
+			f->ctx.tail_argc_max);
 }
 
 int x86_make_tail_call (X86Fn *f, IRInstr *i)
 {
 	CodeGen *c = f->cg;
 	IRInstr *ret = x86_tail_ret(i);
-	if (!x86_tail_match(f, i, ret)) return 0;
+	if (!x86_tail_match(f, i)) return 0;
 
 	if (c->ir->fns + i->target == f->fn) {
 		cg_printf(c, "\tjmp .LS%u\n", i->target);

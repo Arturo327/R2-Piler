@@ -1,5 +1,6 @@
 #include "codegen/regalloc.h"
 #include "codegen/color.h"
+#include "codegen/codegen.h"
 #include "ir/cfg.h"
 
 #include <string.h>
@@ -323,7 +324,9 @@ static void sweep_block (RegAlloc *ra, uint32_t b)
 		uint64_t hm = homes_live(ra, ra->tmp, ra->ctx->ins_block[at]);
 		ra->ctx->free_regs[at] = ra->all & ~hm & allowed;
 
-		if (in->op == IR_CALL) ra->ctx->save[at] = hm & caller;
+		if (in->op == IR_CALL &&
+				!cg_is_tail_call(ra->ir, ra->fn, ra->regs, ra->ctx, in, ra->ctx->tail_argc_max))
+			ra->ctx->save[at] = hm & caller;
 		for (int k = 0; k < n; k++)
 			ra->tmp[*src[k] >> 6] |= 1ull << (*src[k] & 63);
 	}

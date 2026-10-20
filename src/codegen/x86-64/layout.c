@@ -27,7 +27,7 @@ static uint32_t scan_outg (X86Fn *f)
 		IRInstr *instr = ir->instrs + fn->start + i;
 
 		if (instr->op != IR_CALL) continue;
-		if (x86_tail_match(f, instr, x86_tail_ret(instr))) continue;
+		if (x86_tail_match(f, instr)) continue;
 		f->leaf = 0;
 
 		if (instr->argc <= 6) continue;
@@ -62,6 +62,7 @@ static void fill_regalloc (X86Fn *f)
 	f->ctx.edges = f->edges;
 	f->ctx.callee_mask = X86_CALLEE_MASK;
 	f->ctx.caller_mask = X86_CALLER_HOME_MASK;
+	f->ctx.tail_argc_max = X86_TAIL_ARGC_MAX;
 	regalloc(f->cg->arena, f->cg->ir, fn, f->regs, &f->ctx, X86_REG_NUM, spill_all);
 }
 

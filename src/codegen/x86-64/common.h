@@ -16,6 +16,7 @@
 #define X86_CALLEE_MASK 0x3E00ull
 #define X86_CALLER_HOME_MASK 0x180ull
 #define ARG_REGS_MASK 0x7Eull
+#define X86_TAIL_ARGC_MAX 6
 
 enum {
 	RAX = 0,
@@ -112,7 +113,7 @@ int x86_const_jump (X86Fn *f, IRInstr *i);
 void x86_make_jump (X86Fn *f, IRInstr *i);
 
 IRInstr *x86_tail_ret (IRInstr *call);
-int x86_tail_match (X86Fn *f, IRInstr *call, IRInstr *ret);
+int x86_tail_match (X86Fn *f, IRInstr *call);
 int x86_make_tail_call (X86Fn *f, IRInstr *i);
 int x86_make_arg (X86Fn *f, IRInstr *i);
 void x86_make_call (X86Fn *f, IRInstr *i);
