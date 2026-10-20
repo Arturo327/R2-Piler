@@ -87,4 +87,3 @@ void x86_layout_fn (X86Fn *f)
 	f->frame = f->leaf ? 0 : (c + 15) & ~15u;
 	f->base = f->leaf ? "%rsp" : "%rbp";
 }
-

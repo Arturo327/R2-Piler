@@ -206,4 +206,3 @@ int x86_try_rmw_inplace (X86Fn *f, IRInstr *i)
 
 	return 1;
 }
-

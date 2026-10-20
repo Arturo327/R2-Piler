@@ -1,25 +1,19 @@
 #include "codegen/x86-64/common.h"
 
-static void emit_store (X86Fn *f, const PMAction *a)
+static void make_action (X86Fn *f, const PMAction *a)
 {
-	cg_printf(f->cg, "\tmov%c %s, -%u(%s)\n", x86_mem_suf[a->size],
+	switch (a->kind)
+	{
+	case PM_ACT_STORE:
+		cg_printf(f->cg, "\tmov%c %s, -%u(%s)\n", x86_mem_suf[a->size],
 			reg_name(a->from, a->size), a->slot, f->base);
-}
-
-static void emit_load (X86Fn *f, const PMAction *a)
-{
-	uint8_t w;
-	const char *op = x86_load_op_bits(a->size, a->sign, &w);
-
-	cg_printf(f->cg, "\t%s -%u(%s), %s\n", op, a->slot, f->base,
-			reg_name(a->to, w));
-}
-
-static void emit_action (X86Fn *f, const PMAction *a)
-{
-	switch (a->kind) {
-	case PM_ACT_STORE: emit_store(f, a); return;
-	case PM_ACT_LOAD: emit_load(f, a); return;
+		return;
+	case PM_ACT_LOAD:
+		uint8_t w;
+		const char *op = x86_load_op_bits(a->size, a->sign, &w);
+		cg_printf(f->cg, "\t%s -%u(%s), %s\n", op,
+				a->slot, f->base, reg_name(a->to, w));
+		return;
 	case PM_ACT_SWAP:
 		cg_printf(f->cg, "\txchgq %s, %s\n",
 				reg_name(a->from, 8), reg_name(a->to, 8));
@@ -38,7 +32,7 @@ void x86_parallel_move (X86Fn *f, PMove *moves, uint32_t count)
 	uint32_t n = parallel_actions(moves, count, f->acts);
 
 	for (uint32_t i = 0; i < n; i++)
-		emit_action(f, f->acts + i);
+		make_action(f, f->acts + i);
 }
 
 static uint32_t param_group (X86Fn *f, IRInstr *first)
@@ -96,8 +90,8 @@ static void make_stack_param (X86Fn *f, IRInstr *p)
 	uint8_t w = x86_work_reg(f, p->dst, 0);
 
 	cg_printf(f->cg, "\tmovq %u(%s), %s\n",
-			(f->leaf ? 8 : 16) + ((p->target - 6) << 3), f->base,
-			reg_name(w, 8));
+			(f->leaf ? 8 : 16) + ((p->target - 6) << 3),
+			f->base, reg_name(w, 8));
 	x86_store_reg(f, w, p->dst);
 }
 

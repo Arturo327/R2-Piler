@@ -1,6 +1,5 @@
 #include "codegen/x86-64/common.h"
 
-
 const char *x86_regs_names[] =
 {
 	// 1 byte
@@ -160,4 +159,3 @@ void x86_op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg)
 	}
 	f->pool = keep;
 }
-

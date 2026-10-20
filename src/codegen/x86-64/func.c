@@ -112,4 +112,3 @@ void x86_make_fn (X86Fn *f)
 	x86_print_fn_name(c, fn);
 	cg_printf(c, "\n");
 }
-

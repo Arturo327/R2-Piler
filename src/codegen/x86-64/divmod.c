@@ -149,4 +149,3 @@ void x86_make_divmod (X86Fn *f, IRInstr *i)
 		x86_store_reg(f, RAX, i->dst);
 	}
 }
-

@@ -55,18 +55,15 @@ static int make_mul_const (X86Fn *f, IRInstr *i)
 	return 1;
 }
 
-static int arith_commutes (uint8_t op)
-{
-	return op == IR_ADD || op == IR_MUL || op == IR_AND_A ||
-		op == IR_OR_A || op == IR_XOR;
-}
-
 static int make_arith_inplace (X86Fn *f, IRInstr *i)
 {
 	int pb = x86_phys_reg(f, i->src2);
 	int pd = x86_phys_reg(f, i->dst);
 
-	if (pd < 0 || pd != pb || !arith_commutes(i->op)) return 0;
+	if (pd < 0 || pd != pb) return 0;
+	if (!(i->op == IR_ADD || i->op == IR_MUL || i->op == IR_AND_A ||
+		i->op == IR_OR_A || i->op == IR_XOR)) return 0;
+
 	x86_op_reg(f, arith_ops[i->op], (uint8_t)pd, i->src1);
 	x86_store_reg(f, (uint8_t)pd, i->dst);
 	return 1;
@@ -74,13 +71,13 @@ static int make_arith_inplace (X86Fn *f, IRInstr *i)
 
 static int make_lea (X86Fn *f, IRInstr *i)
 {
-	int pa, pb, pd;
-
 	if (i->op != IR_ADD || types[i->data_type].size != 8) return 0;
-	pa = x86_phys_reg(f, i->src1);
-	pb = x86_phys_reg(f, i->src2);
-	pd = x86_phys_reg(f, i->dst);
+
+	int pa = x86_phys_reg(f, i->src1);
+	int pb = x86_phys_reg(f, i->src2);
+	int pd = x86_phys_reg(f, i->dst);
 	if (pa < 0 || pb < 0 || pd < 0) return 0;
+
 	cg_printf(f->cg, "\tleaq (%s,%s), %s\n",
 			reg_name((uint8_t)pa, 8), reg_name((uint8_t)pb, 8),
 			reg_name((uint8_t)pd, 8));
@@ -107,7 +104,6 @@ void x86_make_shift (X86Fn *f, IRInstr *i)
 	int64_t v = imm ? x86_const_ext(f, i->src2) & 63 : 0;
 	int early = !imm && x86_phys_reg(f, i->src1) != RCX;
 	uint64_t avoid = 0;
-	uint8_t w;
 
 	if (i->op == IR_RS) op = types[i->data_type].sign ? "sar" : "shr";
 	if (early) {
@@ -119,12 +115,12 @@ void x86_make_shift (X86Fn *f, IRInstr *i)
 		avoid = x86_home_bit(f, i->src2) | (1ull << RCX);
 	}
 
-	w = x86_work_reg(f, i->dst, avoid);
+	uint8_t w = x86_work_reg(f, i->dst, avoid);
 	x86_load_reg(f, w, i->src1);
 
-	if (imm)
+	if (imm) {
 		cg_printf(f->cg, "\t%sq $%lld, %s\n", op, (long long)v, reg_name(w, 8));
-	else {
+	} else {
 		if (!early) x86_load_reg(f, RCX, i->src2);
 		cg_printf(f->cg, "\t%sq %%cl, %s\n", op, reg_name(w, 8));
 	}
@@ -151,4 +147,3 @@ void x86_make_not_l (X86Fn *f, IRInstr *i)
 			q, q, b, b, reg_name(w, 4));
 	x86_store_reg(f, w, i->dst);
 }
-

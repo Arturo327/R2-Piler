@@ -98,4 +98,3 @@ void x86_make_str_global (X86Fn *f, IRInstr *i)
 	cg_printf(c, "\tmov%c %s, " SYM_PREFIX "%.*s(%%rip)\n", x86_mem_suf[s],
 			reg_name(p, s), (int)g->len, g->name);
 }
-
