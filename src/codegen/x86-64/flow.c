@@ -14,36 +14,80 @@ static void move_call_live (X86Fn *f, IRInstr *call, int restore)
 	x86_move_saved(f, keep, restore);
 }
 
-void x86_make_arg (X86Fn *f, IRInstr *i)
+static void protect_args (X86Fn *f, IRInstr *first, uint32_t n)
 {
-	int is_const = f->regs[i->src1].cstate == VR_CONST;
-	int64_t v = is_const ? x86_const_ext(f, i->src1) : 0;
-	int p = x86_phys_reg(f, i->src1);
-
-	if (i->target == 0) {
-		IRInstr *end = f->cg->ir->instrs + f->fn->start + f->fn->count;
-		IRInstr *call = group_call(i, end);
-
-		x86_check_arg_group(f, i, end);
-		if (!x86_tail_match(f, call, x86_tail_ret(call)))
-			move_call_live(f, call, 0);
-	}
-	if (i->target < 6) {
-		x86_take_fixed(f, x86_arg_regs[i->target], i->src1);
-		x86_load_reg(f, x86_arg_regs[i->target], i->src1);
-		return;
-	}
-	if (is_const && v == (int32_t)v) {
-		cg_printf(f->cg, "\tmovq $%lld, %u(%%rsp)\n",
-				(long long)v, (i->target - 6) << 3);
-		return;
-	}
-
-	uint8_t w = 0;
 	f->busy |= ARG_REGS_MASK;
+	for (uint32_t k = 0; k < n; k++)
+		f->busy |= x86_home_bit(f, first[k].src1);
+}
+
+static void make_stack_arg (X86Fn *f, IRInstr *a)
+{
+	uint32_t off = (a->target - 6) << 3;
+	int is_const = f->regs[a->src1].cstate == VR_CONST;
+	int64_t v = is_const ? x86_const_ext(f, a->src1) : 0;
+	int p = x86_phys_reg(f, a->src1);
+	uint8_t w;
+
+	if (is_const && v == (int32_t)v) {
+		cg_printf(f->cg, "\tmovq $%lld, %u(%%rsp)\n", (long long)v, off);
+		return;
+	}
 	w = p >= 0 ? (uint8_t)p : x86_grab(f);
-	if (p < 0) x86_load_reg(f, w, i->src1);
-	cg_printf(f->cg, "\tmovq %s, %u(%%rsp)\n", reg_name(w, 8), (i->target - 6) << 3);
+	if (p < 0) x86_load_reg(f, w, a->src1);
+	cg_printf(f->cg, "\tmovq %s, %u(%%rsp)\n", reg_name(w, 8), off);
+}
+
+static uint32_t build_arg_moves (X86Fn *f, IRInstr *first, uint32_t n)
+{
+	uint32_t count = 0;
+
+	for (uint32_t k = 0; k < n && k < 6; k++) {
+		IRInstr *a = first + k;
+		uint32_t src = a->src1;
+		int p = x86_phys_reg(f, src);
+
+		if (f->regs[src].cstate == VR_CONST) continue;
+		f->moves[count].from = p >= 0 ? (int8_t)p : PM_SLOT;
+		f->moves[count].to = (int8_t)x86_arg_regs[k];
+		f->moves[count].slot = f->regs[src].slot;
+		f->moves[count].size = types[f->fn->reg_types[src]].size;
+		f->moves[count].sign = types[f->fn->reg_types[src]].sign;
+		count++;
+	}
+	return count;
+}
+
+static void remat_args (X86Fn *f, IRInstr *first, uint32_t n)
+{
+	for (uint32_t k = 0; k < n && k < 6; k++) {
+		IRInstr *a = first + k;
+
+		if (f->regs[a->src1].cstate != VR_CONST) continue;
+		x86_load_imm(f, x86_arg_regs[k], x86_const_ext(f, a->src1));
+	}
+}
+
+int x86_make_arg (X86Fn *f, IRInstr *i)
+{
+	IRInstr *end = f->cg->ir->instrs + f->fn->start + f->fn->count;
+	IRInstr *call = group_call(i, end);
+	uint32_t n = (uint32_t)(call - i);
+	uint32_t blk = f->blk;
+	uint32_t count;
+
+	if (i->target != 0) return 1;
+	x86_check_arg_group(f, i, end);
+	f->blk = blk;
+	if (!x86_tail_match(f, call, x86_tail_ret(call)))
+		move_call_live(f, call, 0);
+	protect_args(f, i, n);
+	for (uint32_t k = 6; k < n; k++)
+		make_stack_arg(f, i + k);
+	count = build_arg_moves(f, i, n);
+	x86_parallel_move(f, f->moves, count);
+	remat_args(f, i, n);
+	return (int)n;
 }
 
 void x86_make_call (X86Fn *f, IRInstr *i)
@@ -107,4 +151,3 @@ int x86_make_tail_call (X86Fn *f, IRInstr *i)
 
 	return ret == i + 1 ? 2 : 1;
 }
-

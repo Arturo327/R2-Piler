@@ -1,16 +1,117 @@
 #include "codegen/x86-64/common.h"
 
-void x86_make_param (X86Fn *f, IRInstr *i)
+static void emit_store (X86Fn *f, const PMAction *a)
 {
-	if (!f->regs[i->dst].uses) return;
-	if (i->target < 6) {
-		x86_store_reg(f, x86_arg_regs[i->target], i->dst);
+	cg_printf(f->cg, "\tmov%c %s, -%u(%s)\n", x86_mem_suf[a->size],
+			reg_name(a->from, a->size), a->slot, f->base);
+}
+
+static void emit_load (X86Fn *f, const PMAction *a)
+{
+	uint8_t w;
+	const char *op = x86_load_op_bits(a->size, a->sign, &w);
+
+	cg_printf(f->cg, "\t%s -%u(%s), %s\n", op, a->slot, f->base,
+			reg_name(a->to, w));
+}
+
+static void emit_action (X86Fn *f, const PMAction *a)
+{
+	switch (a->kind) {
+	case PM_ACT_STORE: emit_store(f, a); return;
+	case PM_ACT_LOAD: emit_load(f, a); return;
+	case PM_ACT_SWAP:
+		cg_printf(f->cg, "\txchgq %s, %s\n",
+				reg_name(a->from, 8), reg_name(a->to, 8));
+		return;
+	case PM_ACT_MOVE:
+		cg_printf(f->cg, "\tmovq %s, %s\n",
+				reg_name(a->from, 8), reg_name(a->to, 8));
+		return;
+	default:
 		return;
 	}
-	uint8_t w = x86_work_reg(f, i->dst, 0);
+}
+
+void x86_parallel_move (X86Fn *f, PMove *moves, uint32_t count)
+{
+	uint32_t n = parallel_actions(moves, count, f->acts);
+
+	for (uint32_t i = 0; i < n; i++)
+		emit_action(f, f->acts + i);
+}
+
+static uint32_t param_group (X86Fn *f, IRInstr *first)
+{
+	IRInstr *end = f->cg->ir->instrs + f->fn->start + f->fn->count;
+	uint32_t n = 0;
+
+	while (first + n < end && first[n].op == IR_PARAM) n++;
+	return n;
+}
+
+static uint32_t build_param_moves (X86Fn *f, IRInstr *first, uint32_t n)
+{
+	uint32_t count = 0;
+
+	for (uint32_t k = 0; k < n; k++) {
+		IRInstr *p = first + k;
+		Reg *r = f->regs + p->dst;
+		int h = r->home[f->blk];
+
+		if (p->target >= 6 || !r->uses || h == VR_NO_HOME) continue;
+		f->moves[count].from = (int8_t)x86_arg_regs[p->target];
+		f->moves[count].to = h >= 0 ? (int8_t)h : PM_SLOT;
+		f->moves[count].slot = r->slot;
+		f->moves[count].size = types[f->fn->reg_types[p->dst]].size;
+		f->moves[count].sign = types[f->fn->reg_types[p->dst]].sign;
+		count++;
+	}
+	return count;
+}
+
+static void extend_home (X86Fn *f, uint8_t reg, uint8_t type)
+{
+	uint8_t size = types[type].size;
+	uint8_t w;
+	const char *op = x86_load_op_bits(size, types[type].sign, &w);
+
+	if (size == 8) return;
+	cg_printf(f->cg, "\t%s %s, %s\n", op, reg_name(reg, size), reg_name(reg, w));
+}
+
+static void normalize_params (X86Fn *f, IRInstr *first, uint32_t n)
+{
+	for (uint32_t k = 0; k < n; k++) {
+		IRInstr *p = first + k;
+		int h = f->regs[p->dst].home[f->blk];
+
+		if (p->target >= 6 || !f->regs[p->dst].uses || h < 0) continue;
+		extend_home(f, (uint8_t)h, f->fn->reg_types[p->dst]);
+	}
+}
+
+static void make_stack_param (X86Fn *f, IRInstr *p)
+{
+	uint8_t w = x86_work_reg(f, p->dst, 0);
+
 	cg_printf(f->cg, "\tmovq %u(%s), %s\n",
-			(f->leaf ? 8 : 16) + ((i->target - 6) << 3), f->base, reg_name(w, 8));
-	x86_store_reg(f, w, i->dst);
+			(f->leaf ? 8 : 16) + ((p->target - 6) << 3), f->base,
+			reg_name(w, 8));
+	x86_store_reg(f, w, p->dst);
+}
+
+int x86_make_param (X86Fn *f, IRInstr *i)
+{
+	uint32_t n = param_group(f, i);
+	uint32_t count = build_param_moves(f, i, n);
+
+	x86_parallel_move(f, f->moves, count);
+	normalize_params(f, i, n);
+	for (uint32_t k = 0; k < n; k++)
+		if (i[k].target >= 6 && f->regs[i[k].dst].uses)
+			make_stack_param(f, i + k);
+	return (int)n;
 }
 
 void x86_make_move (X86Fn *f, IRInstr *i)
@@ -42,4 +143,3 @@ void x86_make_move (X86Fn *f, IRInstr *i)
 	x86_load_reg(f, w, i->src1);
 	x86_store_reg(f, w, i->dst);
 }
-

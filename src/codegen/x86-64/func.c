@@ -18,7 +18,7 @@ static int make_instr (X86Fn *f, IRInstr *i)
 	case IR_CONST:
 		if (f->regs[i->dst].cstate != VR_CONST) x86_store_imm(f, i->dst, i->imm64);
 		return 1;
-	case IR_PARAM: x86_make_param(f, i); return 1;
+	case IR_PARAM: return x86_make_param(f, i);
 
 	case IR_LD_GLOBAL:
 		n = x86_make_rmw(f, i);
@@ -49,7 +49,7 @@ static int make_instr (X86Fn *f, IRInstr *i)
 
 	case IR_LABEL: case IR_JMP: case IR_JZ: case IR_JNZ: x86_make_jump(f, i); return 1;
 
-	case IR_ARG: x86_make_arg(f, i); return 1;
+	case IR_ARG: return x86_make_arg(f, i);
 	case IR_CALL:
 		n = x86_make_tail_call(f, i);
 		if (n) return n;

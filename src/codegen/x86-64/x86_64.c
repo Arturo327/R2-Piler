@@ -33,6 +33,8 @@ int gen_x86_64 (CodeGen *c)
 			max_instrs = ir->fns[i].count;
 	}
 
+	uint32_t max_moves = max_regs > 6 ? max_regs : 6;
+
 	X86Fn f = {0};
 	f.cg = c;
 
@@ -41,6 +43,8 @@ int gen_x86_64 (CodeGen *c)
 	f.edges = arena_alloc(c->arena, (size_t)(max_instrs + 1) * sizeof(EdgeMoves));
 	f.saves = arena_alloc(c->arena, (size_t)(max_instrs + 1) * sizeof(uint64_t));
 	f.frees = arena_alloc(c->arena, (size_t)(max_instrs + 1) * sizeof(uint64_t));
+	f.moves = arena_alloc(c->arena, (size_t)max_moves * sizeof(PMove));
+	f.acts = arena_alloc(c->arena, (size_t)max_moves * sizeof(PMAction));
 
 	int init_empty = ir->fns[ir->init_fn].count <= 1;
 	x86_make_globals(c);

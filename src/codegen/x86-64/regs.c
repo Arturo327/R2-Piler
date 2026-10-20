@@ -108,44 +108,12 @@ static void check_ctx (X86Fn *f)
 	}
 }
 
-static int param_clobbers (X86Fn *f, IRInstr *code, uint32_t j, uint32_t n)
-{
-	int h = x86_phys_reg(f, code[j].dst);
-
-	for (uint32_t m = j + 1; m < n; m++)
-		if (h == x86_arg_regs[code[m].target] && f->regs[code[m].dst].uses) return 1;
-	return 0;
-}
-
-static void check_params (X86Fn *f)
-{
-	IRInstr *code = f->cg->ir->instrs + f->fn->start;
-	uint32_t n = f->fn->param_count < 6 ? f->fn->param_count : 6;
-
-	for (uint32_t j = 0; j < n && code[j].op == IR_PARAM; j++) {
-		f->blk = f->ctx.ins_block[j];
-		if (!param_clobbers(f, code, j, n)) continue;
-		f->at = j;
-		regalloc_violation(f, "PARAM overwrites a later incoming argument");
-	}
-}
-
 void x86_check_regalloc (X86Fn *f)
 {
 	f->at = 0;
 	f->blk = 0;
 	check_homes(f);
 	check_ctx(f);
-	check_params(f);
-}
-
-static int arg_clobbered (X86Fn *f, IRInstr *first, IRInstr *a)
-{
-	int h = x86_phys_reg(f, a->src1);
-
-	for (IRInstr *b = first; b < a && b->target < 6; b++)
-		if (h == x86_arg_regs[b->target] && b->src1 != a->src1) return 1;
-	return 0;
 }
 
 void x86_check_arg_group (X86Fn *f, IRInstr *first, IRInstr *end)
@@ -159,10 +127,6 @@ void x86_check_arg_group (X86Fn *f, IRInstr *first, IRInstr *end)
 		if (a->target != k) {
 			f->at = (uint32_t)(a - base);
 			regalloc_violation(f, "ARG targets must ascend from 0 without gaps");
-		}
-		if (arg_clobbered(f, first, a)) {
-			f->at = (uint32_t)(a - base);
-			regalloc_violation(f, "ARG source clobbered by an earlier ARG of its group");
 		}
 		k++;
 		a++;

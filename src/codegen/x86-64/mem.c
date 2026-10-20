@@ -28,21 +28,24 @@ const char *x86_regs_names[] =
 	"%r14", "%r15", NULL, NULL
 };
 
-static const uint8_t size_idx[9] = { [1] = 0, [2] = 1, [4] = 2, [8] = 3 };
 const char x86_mem_suf[9] = { [1] = 'b', [2] = 'w', [4] = 'l', [8] = 'q' };
 const uint8_t x86_arg_regs[6] = { 4, 3, 2, 1, 5, 6 };
+static const uint8_t size_idx[9] = { [1] = 0, [2] = 1, [4] = 2, [8] = 3 };
 static const char *const load_ops[8] = {
 	"movzbl", "movsbq", "movzwl", "movswq",
 	"movl", "movslq", "movq", "movq"
 };
 
+const char *x86_load_op_bits (uint8_t size, uint8_t sign, uint8_t *w)
+{
+	*w = (size < 8 && !sign) ? 4 : 8;
+	return load_ops[(size_idx[size] << 1) | sign];
+}
+
 const char *x86_load_op (uint8_t t, uint8_t *size)
 {
-	uint8_t s = types[t].size;
-	uint8_t sign = types[t].sign;
-
-	*size = (s < 8 && !sign) ? 4 : 8;
-	return load_ops[(size_idx[s] << 1) | sign];
+	const Type *ty = types + t;
+	return x86_load_op_bits(ty->size, ty->sign, size);
 }
 
 int64_t x86_const_ext (X86Fn *f, uint32_t vreg)
@@ -54,7 +57,7 @@ int64_t x86_const_ext (X86Fn *f, uint32_t vreg)
 	return t->sign ? (int64_t)v >> sh : (int64_t)(v >> sh);
 }
 
-static void load_const (X86Fn *f, uint8_t reg, int64_t v)
+void x86_load_imm (X86Fn *f, uint8_t reg, int64_t v)
 {
 	CodeGen *c = f->cg;
 
@@ -71,7 +74,7 @@ void x86_load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 	int p = x86_phys_reg(f, vreg);
 
 	if (f->regs[vreg].cstate == VR_CONST) {
-		load_const(f, reg, x86_const_ext(f, vreg));
+		x86_load_imm(f, reg, x86_const_ext(f, vreg));
 		return;
 	}
 	if (p >= 0) {
@@ -119,7 +122,7 @@ void x86_store_imm (X86Fn *f, uint32_t vreg, int64_t v)
 	int p = x86_phys_reg(f, vreg);
 
 	if (p >= 0) {
-		load_const(f, (uint8_t)p, norm_val((uint64_t)v, t));
+		x86_load_imm(f, (uint8_t)p, norm_val((uint64_t)v, t));
 		return;
 	}
 	if (s == 8 && v != (int32_t)v) {

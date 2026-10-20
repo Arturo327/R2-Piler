@@ -5,6 +5,7 @@
 
 #include "codegen/x86-64/x86_64.h"
 #include "codegen/regalloc.h"
+#include "codegen/parallel.h"
 #include "ir/opts/common.h"
 
 #define SYM_PREFIX "__r2_"
@@ -33,6 +34,9 @@ typedef struct X86Fn {
 	uint32_t *blocks;
 	EdgeMoves *edges;
 	uint64_t *saves;
+
+	PMove *moves;
+	PMAction *acts;
 
 	uint64_t *frees;
 
@@ -75,7 +79,9 @@ void x86_check_regalloc (X86Fn *f);
 void x86_check_arg_group (X86Fn *f, IRInstr *first, IRInstr *end);
 
 const char *x86_load_op (uint8_t t, uint8_t *size);
+const char *x86_load_op_bits (uint8_t size, uint8_t sign, uint8_t *w);
 int64_t x86_const_ext (X86Fn *f, uint32_t vreg);
+void x86_load_imm (X86Fn *f, uint8_t reg, int64_t v);
 void x86_load_reg (X86Fn *f, uint8_t reg, uint32_t vreg);
 void x86_store_reg (X86Fn *f, uint8_t reg, uint32_t vreg);
 void x86_store_imm (X86Fn *f, uint32_t vreg, int64_t v);
@@ -85,7 +91,8 @@ void x86_make_globals (CodeGen *c);
 void x86_make_ld_global (X86Fn *f, IRInstr *i);
 void x86_make_str_global (X86Fn *f, IRInstr *i);
 
-void x86_make_param (X86Fn *f, IRInstr *i);
+void x86_parallel_move (X86Fn *f, PMove *moves, uint32_t count);
+int x86_make_param (X86Fn *f, IRInstr *i);
 void x86_make_move (X86Fn *f, IRInstr *i);
 
 uint64_t x86_shift_amt (uint64_t v);
@@ -104,7 +111,7 @@ void x86_make_jump (X86Fn *f, IRInstr *i);
 IRInstr *x86_tail_ret (IRInstr *call);
 int x86_tail_match (X86Fn *f, IRInstr *call, IRInstr *ret);
 int x86_make_tail_call (X86Fn *f, IRInstr *i);
-void x86_make_arg (X86Fn *f, IRInstr *i);
+int x86_make_arg (X86Fn *f, IRInstr *i);
 void x86_make_call (X86Fn *f, IRInstr *i);
 void x86_make_ret (X86Fn *f, IRInstr *i);
 
