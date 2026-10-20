@@ -81,7 +81,20 @@ src/
 |   ├── ast.h        # AST definition: nodes, types, AST tree
 |   └── parser.c/h   # Parser: get the tokens and crate an AST tree
 ├── codegen/
-|   ├── x86_64.c/h   # x86_64 backend: lowers the IR to AT&T assembly (System V ABI)
+|   ├── x86-64/
+|   |   ├── common.h   # Shared X86Fn state + cross-file declarations
+|   |   ├── x86_64.c/h # Entry point: exposes only gen_x86_64
+|   |   ├── layout.c   # Frame layout + regalloc wiring
+|   |   ├── regs.c     # Register helpers + regalloc contract checks
+|   |   ├── mem.c      # Loads/stores, register names, scratch allocation
+|   |   ├── globals.c  # .data/.bss emission and global loads/stores
+|   |   ├── move.c     # PARAM/MOVE emission
+|   |   ├── arith.c    # Arithmetic, shifts, unary ops
+|   |   ├── divmod.c   # Constant div/mod lowering
+|   |   ├── cmp.c      # Comparisons, select, jumps
+|   |   ├── flow.c     # Calls, arguments, returns, tail calls
+|   |   ├── rmw.c      # Read-modify-write fusion
+|   |   └── func.c     # Per-function instruction dispatch/body
 |   └── codegen.c/h  # Codegen: wires the different architectures and interpreter mode and manage opening/closing files.
 ├── sema/
 |   ├── sema.c/h      # Semantic analyzer driver: declarations, global inits, symbol dump

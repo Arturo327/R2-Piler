@@ -67,10 +67,13 @@ static void make_cmp_jump (X86Fn *f, IRInstr *cmp, IRInstr *jmp)
 {
 	int base = types[cmp->data_type].sign ? 0 : 6;
 	int cc = cmp->op - IR_EQ;
+	uint32_t at = (uint32_t)(jmp - (f->cg->ir->instrs + f->fn->start));
 
 	if (jmp->op == IR_JZ) cc = inv_cmp[cc];
 	write_cmp(f, cmp);
-	cg_printf(f->cg, "\tj%s .L%u\n", comp_names[base + cc], jmp->target);
+	if (f->ctx.edges[at].taken)
+		cg_printf(f->cg, "\tj%s .LE%u\n", comp_names[base + cc], f->fn->start + at);
+	else cg_printf(f->cg, "\tj%s .L%u\n", comp_names[base + cc], jmp->target);
 }
 
 static void select_move (X86Fn *f, IRInstr *sel, const char *yes, const char *no)
@@ -155,15 +158,20 @@ void x86_make_jump (X86Fn *f, IRInstr *i)
 		return;
 	}
 	if (i->op == IR_JMP) {
+		x86_make_edge(f, f->at, 1);
 		cg_printf(c, "\tjmp .L%u\n", i->target);
 		return;
 	}
 	if (f->regs[i->src1].cstate == VR_CONST) {
-		if (x86_const_jump(f, i)) cg_printf(c, "\tjmp .L%u\n", i->target);
+		if (!x86_const_jump(f, i)) return;
+		x86_make_edge(f, f->at, 1);
+		cg_printf(c, "\tjmp .L%u\n", i->target);
 		return;
 	}
 	test_zero(f, i->src1);
-	cg_printf(c, "\t%s .L%u\n", i->op == IR_JZ ? "je" : "jne", i->target);
+	if (f->ctx.edges[f->at].taken)
+		cg_printf(c, "\t%s .LE%u\n", i->op == IR_JZ ? "je" : "jne", f->fn->start + f->at);
+	else cg_printf(c, "\t%s .L%u\n", i->op == IR_JZ ? "je" : "jne", i->target);
 }
 
 void x86_make_select (X86Fn *f, IRInstr *i)
@@ -171,4 +179,3 @@ void x86_make_select (X86Fn *f, IRInstr *i)
 	test_zero(f, i->cond);
 	select_move(f, i, "ne", "e");
 }
-

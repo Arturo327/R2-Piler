@@ -91,6 +91,9 @@ void x86_make_globals (CodeGen *c);
 void x86_make_ld_global (X86Fn *f, IRInstr *i);
 void x86_make_str_global (X86Fn *f, IRInstr *i);
 
+void x86_make_edge (X86Fn *f, uint32_t at, int taken);
+void x86_make_stubs (X86Fn *f);
+
 void x86_parallel_move (X86Fn *f, PMove *moves, uint32_t count);
 int x86_make_param (X86Fn *f, IRInstr *i);
 void x86_make_move (X86Fn *f, IRInstr *i);

@@ -126,10 +126,12 @@ int x86_tail_match (X86Fn *f, IRInstr *call, IRInstr *ret)
 {
 	uint8_t from = f->cg->ir->fns[call->target].ret_type;
 	uint8_t to = f->fn->ret_type;
+	uint32_t at = (uint32_t)(call - (f->cg->ir->instrs + f->fn->start));
 
 	if (ret->op != IR_RET || call->argc > 6) return 0;
 	if (ret->src1 != call->dst) return 0;
 	if (call->dst != NO_REG && f->regs[call->dst].uses != 1) return 0;
+	if (f->ctx.edges[at].fall) return 0;
 	return from == to || (types[from].size == 8 && types[to].size == 8);
 }
 

@@ -124,6 +124,9 @@ void x86_make_move (X86Fn *f, IRInstr *i)
 	int p = x86_phys_reg(f, i->src1);
 	int pd = x86_phys_reg(f, i->dst);
 
+	if (p < 0 && pd < 0 && f->regs[i->dst].slot != 0 &&
+			f->regs[i->dst].slot == f->regs[i->src1].slot)
+		return;
 	if (p >= 0 && pd >= 0) {
 		if (!f->regs[i->dst].uses) return;
 		if (same_rep(f->fn, i->dst, i->src1)) {

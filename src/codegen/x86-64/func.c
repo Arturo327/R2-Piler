@@ -80,6 +80,7 @@ static void make_body (X86Fn *f)
 		last = instr + n - 1;
 		dead = last->op == IR_RET || last->op == IR_JMP
 				|| x86_const_jump(f, last);
+		if (!dead) x86_make_edge(f, i + n - 1, 0);
 		i += n;
 	}
 }
@@ -103,6 +104,7 @@ void x86_make_fn (X86Fn *f)
 	cg_printf(c, ".LS%u:\n", (uint32_t)(fn - c->ir->fns));
 
 	make_body(f);
+	x86_make_stubs(f);
 
 	cg_printf(c, "\t.size ");
 	x86_print_fn_name(c, fn);

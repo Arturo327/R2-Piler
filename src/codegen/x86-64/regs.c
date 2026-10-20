@@ -77,19 +77,75 @@ uint8_t x86_work_reg (X86Fn *f, uint32_t dst, uint64_t avoid)
 	return x86_grab(f);
 }
 
+static void check_home (X86Fn *f, uint32_t r, int h)
+{
+	if (h < VR_SPILL || h >= X86_REG_NUM)
+		regalloc_violation(f, "vreg home out of range");
+	if (h == VR_SPILL && !f->regs[r].slot)
+		regalloc_violation(f, "spilled vreg has no stack slot");
+	if (h == VR_SPILL && !f->regs[r].spill && f->regs[r].cstate != VR_ALIAS)
+		regalloc_violation(f, "spilled vreg is not flagged in Reg.spill");
+	if (h >= 0 && (X86_CALLEE_MASK >> h & 1)
+			&& !(f->ctx.callee_used >> h & 1))
+		regalloc_violation(f, "callee-saved home missing from callee_used");
+}
+
 static void check_homes (X86Fn *f)
 {
-	for (uint32_t b = 0; b < f->ctx.block_count; b++) {
-		for (uint32_t r = 0; r < f->fn->reg_count; r++) {
-			int h = f->regs[r].home[b];
+	for (uint32_t r = 0; r < f->fn->reg_count; r++)
+		if (!types[f->fn->reg_types[r]].size)
+			regalloc_violation(f, "vreg has an unsized type");
 
-			if (h < VR_SPILL || h >= X86_REG_NUM)
-				regalloc_violation(f, "vreg home out of range");
-			else if (h >= 0 && (X86_CALLEE_MASK >> h & 1)
-					&& !(f->ctx.callee_used >> h & 1))
-				regalloc_violation(f, "callee-saved home missing from callee_used");
-		}
+	for (uint32_t b = 0; b < f->ctx.block_count; b++)
+		for (uint32_t r = 0; r < f->fn->reg_count; r++)
+			check_home(f, r, f->regs[r].home[b]);
+}
+
+static void check_used_home (X86Fn *f, uint32_t v, uint32_t blk)
+{
+	Reg *reg = f->regs + v;
+
+	if (reg->cstate == VR_CONST) return;
+	if (reg->home[blk] == VR_NO_HOME)
+		regalloc_violation(f, "used vreg has no home in this block");
+}
+
+static void check_instr_homes (X86Fn *f, IRInstr *in, uint32_t blk)
+{
+	uint32_t *src[3];
+	int n;
+
+	if (in->op == IR_NOP) return;
+	n = get_srcs(in, src);
+	for (int k = 0; k < n; k++)
+		check_used_home(f, *src[k], blk);
+	if (in->dst == NO_REG || !f->regs[in->dst].uses) return;
+	if (f->regs[in->dst].cstate != VR_MEM) return;
+	check_used_home(f, in->dst, blk);
+}
+
+static void check_cstate (X86Fn *f, IRInstr *in)
+{
+	uint8_t c;
+
+	if (in->dst == NO_REG) return;
+	c = f->regs[in->dst].cstate;
+	if ((c == VR_CONST || c == VR_ALIAS) && !is_deletable[in->op])
+		regalloc_violation(f, "CONST/ALIAS cstate on a non-deletable instruction");
+}
+
+static void check_save (X86Fn *f, IRInstr *in, uint32_t i)
+{
+	uint64_t s = f->saves[i];
+
+	if (s & X86_CALLEE_MASK)
+		regalloc_violation(f, "save[] lists a callee-saved home");
+	if (in->op != IR_CALL) {
+		if (s) regalloc_violation(f, "save[] set outside a call");
+		return;
 	}
+	if (s & x86_home_bit(f, in->dst))
+		regalloc_violation(f, "save[] contains the home of the call's dst");
 }
 
 static void check_ctx (X86Fn *f)
@@ -99,12 +155,13 @@ static void check_ctx (X86Fn *f)
 	for (uint32_t i = 0; i < f->fn->count; i++) {
 		f->at = i;
 		f->blk = f->ctx.ins_block[i];
+		if (f->blk >= f->ctx.block_count)
+			regalloc_violation(f, "ins_block out of range");
 		if (f->frees[i] & X86_CALLEE_MASK & ~f->ctx.callee_used)
 			regalloc_violation(f, "free_regs lists a callee-saved reg not in callee_used");
-		if (f->saves[i] & ~X86_CALLEE_MASK)
-			regalloc_violation(f, "save[] lists a caller-saved home");
-		if (code[i].op == IR_CALL && (f->saves[i] & x86_home_bit(f, code[i].dst)))
-			regalloc_violation(f, "save[] contains the home of the call's dst");
+		check_instr_homes(f, code + i, f->blk);
+		check_cstate(f, code + i);
+		check_save(f, code + i, i);
 	}
 }
 
