@@ -1,0 +1,174 @@
+#include "codegen/x86-64/common.h"
+#include <stdio.h>
+#include <stdlib.h>
+
+void x86_move_saved (X86Fn *f, uint64_t mask, int restore)
+{
+	uint32_t off = f->regsave;
+
+	for (uint32_t k = 0; k < X86_REG_NUM; k++) {
+		if (!(f->savemask >> k & 1)) continue;
+		off += 8;
+		if (!(mask >> k & 1)) continue;
+
+		if (restore)
+			cg_printf(f->cg, "\tmovq -%u(%s), %s\n", off, f->base, reg_name(k, 8));
+		else cg_printf(f->cg, "\tmovq %s, -%u(%s)\n", reg_name(k, 8), off, f->base);
+	}
+}
+
+int x86_phys_reg (X86Fn *f, uint32_t vreg)
+{
+	int8_t h = f->regs[vreg].home[f->blk];
+
+	if (h < 0 || f->regs[vreg].cstate == VR_CONST) return -1;
+	return h;
+}
+
+uint64_t x86_home_bit (X86Fn *f, uint32_t vreg)
+{
+	int p = vreg == NO_REG ? -1 : x86_phys_reg(f, vreg);
+
+	return p < 0 ? 0 : 1ull << p;
+}
+
+void x86_begin_instr (X86Fn *f, IRInstr *i)
+{
+	uint32_t *src[3];
+	int n = get_srcs(i, src);
+
+	f->at = (uint32_t)(i - (f->cg->ir->instrs + f->fn->start));
+	f->blk = f->ctx.ins_block[f->at];
+	f->pool = f->ctx.free_regs[f->at];
+	f->busy = x86_home_bit(f, i->dst);
+	for (int k = 0; k < n; k++)
+		f->busy |= x86_home_bit(f, *src[k]);
+}
+
+static void regalloc_violation (X86Fn *f, const char *what)
+{
+	fprintf(stderr, "internal error: regalloc contract broken in '%.*s', instr %u: %s\n",
+			(int)f->fn->len, f->fn->name, f->at, what);
+	exit(1);
+}
+
+uint8_t x86_grab (X86Fn *f)
+{
+	uint64_t m = f->pool & ~f->busy;
+	if (!m) regalloc_violation(f, "no scratch register available");
+
+	uint8_t r = (uint8_t)__builtin_ctzll(m);
+	f->pool &= ~(1ull << r);
+	return r;
+}
+
+void x86_take_fixed (X86Fn *f, uint8_t r, uint32_t keeps)
+{
+	if (keeps != NO_REG && x86_phys_reg(f, keeps) == r) return;
+	if (!(f->pool >> r & 1)) regalloc_violation(f, "fixed register is not free");
+	f->pool &= ~(1ull << r);
+}
+
+uint8_t x86_work_reg (X86Fn *f, uint32_t dst, uint64_t avoid)
+{
+	int d = x86_phys_reg(f, dst);
+
+	if (d >= 0 && !(avoid >> d & 1)) return (uint8_t)d;
+	return x86_grab(f);
+}
+
+static void check_homes (X86Fn *f)
+{
+	for (uint32_t b = 0; b < f->ctx.block_count; b++) {
+		for (uint32_t r = 0; r < f->fn->reg_count; r++) {
+			int h = f->regs[r].home[b];
+
+			if (h < VR_SPILL || h >= X86_REG_NUM)
+				regalloc_violation(f, "vreg home out of range");
+			else if (h >= 0 && (X86_CALLEE_MASK >> h & 1)
+					&& !(f->ctx.callee_used >> h & 1))
+				regalloc_violation(f, "callee-saved home missing from callee_used");
+		}
+	}
+}
+
+static void check_ctx (X86Fn *f)
+{
+	IRInstr *code = f->cg->ir->instrs + f->fn->start;
+
+	for (uint32_t i = 0; i < f->fn->count; i++) {
+		f->at = i;
+		f->blk = f->ctx.ins_block[i];
+		if (f->frees[i] & X86_CALLEE_MASK & ~f->ctx.callee_used)
+			regalloc_violation(f, "free_regs lists a callee-saved reg not in callee_used");
+		if (f->saves[i] & ~X86_CALLEE_MASK)
+			regalloc_violation(f, "save[] lists a caller-saved home");
+		if (code[i].op == IR_CALL && (f->saves[i] & x86_home_bit(f, code[i].dst)))
+			regalloc_violation(f, "save[] contains the home of the call's dst");
+	}
+}
+
+static int param_clobbers (X86Fn *f, IRInstr *code, uint32_t j, uint32_t n)
+{
+	int h = x86_phys_reg(f, code[j].dst);
+
+	for (uint32_t m = j + 1; m < n; m++)
+		if (h == x86_arg_regs[code[m].target] && f->regs[code[m].dst].uses) return 1;
+	return 0;
+}
+
+static void check_params (X86Fn *f)
+{
+	IRInstr *code = f->cg->ir->instrs + f->fn->start;
+	uint32_t n = f->fn->param_count < 6 ? f->fn->param_count : 6;
+
+	for (uint32_t j = 0; j < n && code[j].op == IR_PARAM; j++) {
+		f->blk = f->ctx.ins_block[j];
+		if (!param_clobbers(f, code, j, n)) continue;
+		f->at = j;
+		regalloc_violation(f, "PARAM overwrites a later incoming argument");
+	}
+}
+
+void x86_check_regalloc (X86Fn *f)
+{
+	f->at = 0;
+	f->blk = 0;
+	check_homes(f);
+	check_ctx(f);
+	check_params(f);
+}
+
+static int arg_clobbered (X86Fn *f, IRInstr *first, IRInstr *a)
+{
+	int h = x86_phys_reg(f, a->src1);
+
+	for (IRInstr *b = first; b < a && b->target < 6; b++)
+		if (h == x86_arg_regs[b->target] && b->src1 != a->src1) return 1;
+	return 0;
+}
+
+void x86_check_arg_group (X86Fn *f, IRInstr *first, IRInstr *end)
+{
+	IRInstr *base = f->cg->ir->instrs + f->fn->start;
+	IRInstr *a = first;
+	uint32_t k = 0;
+
+	while (a < end && a->op == IR_ARG) {
+		f->blk = f->ctx.ins_block[a - base];
+		if (a->target != k) {
+			f->at = (uint32_t)(a - base);
+			regalloc_violation(f, "ARG targets must ascend from 0 without gaps");
+		}
+		if (arg_clobbered(f, first, a)) {
+			f->at = (uint32_t)(a - base);
+			regalloc_violation(f, "ARG source clobbered by an earlier ARG of its group");
+		}
+		k++;
+		a++;
+	}
+	if (a >= end || a->op != IR_CALL || a->argc != k) {
+		f->at = (uint32_t)(first - base);
+		regalloc_violation(f, "ARG group must end in CALL with argc == length");
+	}
+}
