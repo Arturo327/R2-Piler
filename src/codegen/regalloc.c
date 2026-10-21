@@ -26,19 +26,6 @@ typedef struct RegAlloc {
 	uint32_t entry;
 } RegAlloc;
 
-static void reset_regalloc (IRFn *fn, Reg *regs)
-{
-	for (uint32_t r = 0; r < fn->reg_count; r++) {
-		regs[r].uses = 0;
-		regs[r].wscore = 0;
-		regs[r].slot = 0;
-		regs[r].cval = 0;
-		regs[r].cstate = VR_NONE;
-		regs[r].defs = 0;
-		regs[r].spill = 0;
-	}
-}
-
 static void count_defs (IR *ir, IRFn *fn, Reg *regs)
 {
 	for (uint32_t i = 0; i < fn->count; i++) {
@@ -194,22 +181,6 @@ static void lay_sizes (IRFn *fn, Reg *regs, uint32_t block_count)
 	lay_size(fn, regs, c, 1, block_count);
 }
 
-static void make_ctx (IRFn *fn, RegCtx *ctx, uint32_t reg_num)
-{
-	uint64_t all = ~0ull >> (64 - reg_num);
-
-	memset(ctx->edges, 0, ((size_t)fn->count + 1) * sizeof(EdgeMoves));
-	for (uint32_t i = 0; i < fn->count; i++) {
-		ctx->ins_block[i] = 0;
-		ctx->save[i] = 0;
-		ctx->free_regs[i] = all & ~ctx->callee_mask;
-	}
-	ctx->block_count = 1;
-	ctx->callee_used = 0;
-	ctx->moves = NULL;
-	ctx->move_count = 0;
-}
-
 static void resolve (IRFn *fn, Reg *regs, uint32_t block_count)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
@@ -338,9 +309,41 @@ static void sweep_fn (RegAlloc *ra)
 		sweep_block(ra, b);
 }
 
+static void reset_regs (IRFn *fn, Reg *regs)
+{
+	for (uint32_t r = 0; r < fn->reg_count; r++) {
+		regs[r].uses = 0;
+		regs[r].wscore = 0;
+		regs[r].slot = 0;
+		regs[r].cval = 0;
+		regs[r].cstate = VR_NONE;
+		regs[r].defs = 0;
+		regs[r].spill = 0;
+	}
+}
+
+static void make_ctx (IRFn *fn, RegCtx *ctx, uint32_t reg_num)
+{
+	uint64_t all = ~0ull >> (64 - reg_num);
+
+	memset(ctx->edges, 0, ((size_t)fn->count + 1) * sizeof(EdgeMoves));
+	for (uint32_t i = 0; i < fn->count; i++) {
+		ctx->ins_block[i] = 0;
+		ctx->save[i] = 0;
+		ctx->free_regs[i] = all & ~ctx->callee_mask;
+	}
+	ctx->block_count = 1;
+	ctx->callee_used = 0;
+	ctx->moves = NULL;
+	ctx->move_count = 0;
+}
+
 static void init_state (RegAlloc *ra, Arena *arena, IR *ir,
 		IRFn *fn, Reg *regs, RegCtx *ctx, uint32_t reg_num)
 {
+	reset_regs(fn, regs);
+	make_ctx(fn, ctx, reg_num);
+
 	ra->arena = arena;
 	ra->ir = ir;
 	ra->fn = fn;
@@ -365,9 +368,6 @@ static void fill_ctx (RegAlloc *ra)
 void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs,
 		RegCtx *ctx, uint32_t reg_num, int spill_all)
 {
-	reset_regalloc(fn, regs);
-	make_ctx(fn, ctx, reg_num);
-
 	RegAlloc ra;
 	init_state(&ra, arena, ir, fn, regs, ctx, reg_num);
 
