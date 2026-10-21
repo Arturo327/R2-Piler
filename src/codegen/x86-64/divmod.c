@@ -127,8 +127,8 @@ void x86_make_divmod (X86Fn *f, IRInstr *i)
 	uint8_t s = types[i->data_type].size;
 	int sign = types[i->data_type].sign;
 
-	x86_take_fixed(f, RAX, i->src1);
-	x86_take_fixed(f, RDX, i->src2);
+	x86_take_fixed_rw(f, RAX);
+	x86_take_fixed_rw(f, RDX);
 	if (make_divmod_const(f, i)) return;
 
 	int p = x86_phys_reg(f, i->src2);

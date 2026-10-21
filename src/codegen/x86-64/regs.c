@@ -69,6 +69,12 @@ void x86_take_fixed (X86Fn *f, uint8_t r, uint32_t keeps)
 	f->pool &= ~(1ull << r);
 }
 
+void x86_take_fixed_rw (X86Fn *f, uint8_t r)
+{
+	if (!(f->pool >> r & 1)) regalloc_violation(f, "fixed register is not free");
+	f->pool &= ~(1ull << r);
+}
+
 uint8_t x86_work_reg (X86Fn *f, uint32_t dst, uint64_t avoid)
 {
 	int d = x86_phys_reg(f, dst);

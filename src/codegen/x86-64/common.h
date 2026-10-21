@@ -75,6 +75,7 @@ int x86_phys_reg (X86Fn *f, uint32_t vreg);
 uint64_t x86_home_bit (X86Fn *f, uint32_t vreg);
 uint8_t x86_grab (X86Fn *f);
 void x86_take_fixed (X86Fn *f, uint8_t r, uint32_t keeps);
+void x86_take_fixed_rw (X86Fn *f, uint8_t r);
 uint8_t x86_work_reg (X86Fn *f, uint32_t dst, uint64_t avoid);
 void x86_check_regalloc (X86Fn *f);
 void x86_check_arg_group (X86Fn *f, IRInstr *first, IRInstr *end);

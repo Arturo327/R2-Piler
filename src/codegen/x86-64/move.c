@@ -100,6 +100,8 @@ int x86_make_param (X86Fn *f, IRInstr *i)
 	uint32_t n = param_group(f, i);
 	uint32_t count = build_param_moves(f, i, n);
 
+	for (uint32_t k = 0; k < n; k++)
+		f->busy |= x86_home_bit(f, i[k].dst);
 	x86_parallel_move(f, f->moves, count);
 	normalize_params(f, i, n);
 	for (uint32_t k = 0; k < n; k++)
