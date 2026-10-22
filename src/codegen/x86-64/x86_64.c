@@ -20,6 +20,33 @@ static void make_entry (CodeGen *c, int run_init)
 	cg_printf(c, "\t.globl main\nmain:\n\tjmp " SYM_PREFIX "main\n");
 }
 
+OpNeeds x86_64_needs[IR_COUNT] =
+{
+	[IR_DIV] = {
+		.src1 = { .type = REG_COND_FIXED, .reg = RAX },
+		.destroy_mask = (1ull << RAX) | (1ull << RDX)
+	},
+	[IR_MOD] = {
+		.src1 = { .type = REG_COND_FIXED, .reg = RAX },
+		.destroy_mask = (1ull << RAX) | (1ull << RDX)
+	},
+	[IR_LS] = {
+		.src2 = { .type = REG_COND_FIXED, .reg = RCX },
+		.destroy_mask = 1ull << RCX
+	},
+	[IR_RS] = {
+		.src2 = { .type = REG_COND_FIXED, .reg = RCX },
+		.destroy_mask = 1ull << RCX
+	},
+	[IR_ARG] = {
+		.destroy_mask = ARG_REGS_MASK
+	},
+	[IR_RET] = {
+		.src1 = { .type = REG_COND_FIXED, .reg = RAX },
+		.destroy_mask = 1ull << RAX
+	}
+};
+
 int gen_x86_64 (CodeGen *c)
 {
 	IR *ir = c->ir;

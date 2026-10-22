@@ -125,8 +125,7 @@ IRInstr *x86_tail_ret (IRInstr *call)
 
 int x86_tail_match (X86Fn *f, IRInstr *call)
 {
-	return cg_is_tail_call(f->cg->ir, f->fn, f->regs, &f->ctx, call,
-			f->ctx.tail_argc_max);
+	return cg_is_tail_call(f->cg->ir, f->fn, f->regs, &f->ctx, call, f->ctx.arg_reg_max);
 }
 
 int x86_make_tail_call (X86Fn *f, IRInstr *i)

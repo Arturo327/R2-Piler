@@ -16,6 +16,28 @@ enum {
 	VR_ALIAS = 3
 };
 
+typedef enum {
+	REG_COND_ANY = 0,
+	REG_COND_FIXED,
+	REG_COND_CLASSES
+} RegCondType;
+
+typedef struct OpCond {
+	union {
+		int16_t reg;
+		uint64_t mask;
+	};
+	uint8_t type;
+} OpCond;
+
+typedef struct OpNeeds {
+	OpCond src1;
+	OpCond src2;
+	OpCond dst;
+
+	uint64_t destroy_mask;
+} OpNeeds;
+
 typedef struct Reg {
 	int8_t *home;
 	int64_t cval;
@@ -50,13 +72,13 @@ typedef struct RegCtx {
 
 	uint32_t block_count;
 	uint32_t move_count;
-	uint32_t tail_argc_max;
+	uint32_t arg_reg_max;
 	uint64_t callee_used;
 	uint64_t callee_mask;
 	uint64_t caller_mask;
 } RegCtx;
 
-void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs,
-		RegCtx *ctx, uint32_t reg_num, int spill_all);
+void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx,
+		uint32_t reg_num, OpNeeds *needs, int spill_all);
 
 #endif

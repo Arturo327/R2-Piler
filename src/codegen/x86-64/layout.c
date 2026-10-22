@@ -61,9 +61,10 @@ static void fill_regalloc (X86Fn *f)
 	f->ctx.free_regs = f->frees;
 	f->ctx.edges = f->edges;
 	f->ctx.callee_mask = X86_CALLEE_MASK;
-	f->ctx.caller_mask = X86_CALLER_HOME_MASK;
-	f->ctx.tail_argc_max = X86_TAIL_ARGC_MAX;
-	regalloc(f->cg->arena, f->cg->ir, fn, f->regs, &f->ctx, X86_REG_NUM, spill_all);
+	f->ctx.caller_mask = X86_CALLER_MASK;
+	f->ctx.arg_reg_max = X86_ARG_REG_MAX;
+
+	regalloc(f->cg->arena, f->cg->ir, fn, f->regs, &f->ctx, X86_REG_NUM, x86_64_needs, spill_all);
 }
 
 static uint32_t max_slot (X86Fn *f)

@@ -13,6 +13,7 @@ typedef struct RegAlloc {
 	IRFn *fn;
 	Reg *regs;
 	RegCtx *ctx;
+	OpNeeds *needs;
 
 	CfgBlock *blocks;
 	uint32_t *lmap;
@@ -296,7 +297,7 @@ static void sweep_block (RegAlloc *ra, uint32_t b)
 		ra->ctx->free_regs[at] = ra->all & ~hm & allowed;
 
 		if (in->op == IR_CALL &&
-				!cg_is_tail_call(ra->ir, ra->fn, ra->regs, ra->ctx, in, ra->ctx->tail_argc_max))
+				!cg_is_tail_call(ra->ir, ra->fn, ra->regs, ra->ctx, in, ra->ctx->arg_reg_max))
 			ra->ctx->save[at] = hm & caller;
 		for (int k = 0; k < n; k++)
 			ra->tmp[*src[k] >> 6] |= 1ull << (*src[k] & 63);
@@ -338,8 +339,8 @@ static void make_ctx (IRFn *fn, RegCtx *ctx, uint32_t reg_num)
 	ctx->move_count = 0;
 }
 
-static void init_state (RegAlloc *ra, Arena *arena, IR *ir,
-		IRFn *fn, Reg *regs, RegCtx *ctx, uint32_t reg_num)
+static void init_state (RegAlloc *ra, Arena *arena, IR *ir, IRFn *fn,
+		Reg *regs, RegCtx *ctx, OpNeeds *needs, uint32_t reg_num)
 {
 	reset_regs(fn, regs);
 	make_ctx(fn, ctx, reg_num);
@@ -351,8 +352,9 @@ static void init_state (RegAlloc *ra, Arena *arena, IR *ir,
 	ra->ctx = ctx;
 	ra->all = ~0ull >> (64 - reg_num);
 	ra->words = (fn->reg_count + 63) >> 6;
-	if (!ra->words) return;
+	ra->needs = needs;
 
+	if (!ra->words) return;
 	alloc_regalloc(ra);
 	build_cfg(ra);
 	partition(ra);
@@ -365,11 +367,11 @@ static void fill_ctx (RegAlloc *ra)
 	sweep_fn(ra);
 }
 
-void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs,
-		RegCtx *ctx, uint32_t reg_num, int spill_all)
+void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx,
+		uint32_t reg_num, OpNeeds *needs, int spill_all)
 {
 	RegAlloc ra;
-	init_state(&ra, arena, ir, fn, regs, ctx, reg_num);
+	init_state(&ra, arena, ir, fn, regs, ctx, needs, reg_num);
 
 	alloc_homes(arena, fn, regs, ctx->block_count);
 	count_defs(ir, fn, regs);

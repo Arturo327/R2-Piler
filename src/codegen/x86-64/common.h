@@ -14,9 +14,9 @@
 #define RED_ZONE 128
 #define X86_REG_NUM 14
 #define X86_CALLEE_MASK 0x3E00ull
-#define X86_CALLER_HOME_MASK 0x180ull
+#define X86_CALLER_MASK 0x1FFull
 #define ARG_REGS_MASK 0x7Eull
-#define X86_TAIL_ARGC_MAX 6
+#define X86_ARG_REG_MAX 6
 
 enum {
 	RAX = 0,
@@ -56,6 +56,7 @@ typedef struct X86Fn {
 extern const char *x86_regs_names[];
 extern const char x86_mem_suf[9];
 extern const uint8_t x86_arg_regs[6];
+extern OpNeeds x86_64_needs[IR_COUNT];
 
 static inline const char *reg_name (uint8_t reg, uint8_t size)
 {

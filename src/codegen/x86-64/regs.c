@@ -152,7 +152,7 @@ static void check_save (X86Fn *f, IRInstr *in, uint32_t i)
 	}
 	if (s & x86_home_bit(f, in->dst))
 		regalloc_violation(f, "save[] contains the home of the call's dst");
-	if (s && cg_is_tail_call(f->cg->ir, f->fn, f->regs, &f->ctx, in, f->ctx.tail_argc_max))
+	if (s && cg_is_tail_call(f->cg->ir, f->fn, f->regs, &f->ctx, in, f->ctx.arg_reg_max))
 		regalloc_violation(f, "save[] set on a tail call");
 }
 
