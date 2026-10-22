@@ -13,7 +13,6 @@ typedef struct RegAlloc {
 	IRFn *fn;
 	Reg *regs;
 	RegCtx *ctx;
-	OpNeeds *needs;
 
 	CfgBlock *blocks;
 	uint32_t *lmap;
@@ -352,7 +351,7 @@ static void init_state (RegAlloc *ra, Arena *arena, IR *ir, IRFn *fn,
 	ra->ctx = ctx;
 	ra->all = ~0ull >> (64 - reg_num);
 	ra->words = (fn->reg_count + 63) >> 6;
-	ra->needs = needs;
+	ctx->needs = needs;
 
 	if (!ra->words) return;
 	alloc_regalloc(ra);

@@ -52,6 +52,14 @@ static void regalloc_violation (X86Fn *f, const char *what)
 	exit(1);
 }
 
+static void regalloc_fixed_violation (X86Fn *f, uint8_t r)
+{
+	fprintf(stderr, "internal error: regalloc contract broken in '%.*s', instr %u: "
+			"fixed register %s is not free\n",
+			(int)f->fn->len, f->fn->name, f->at, reg_name(r, 8));
+	exit(1);
+}
+
 uint8_t x86_grab (X86Fn *f)
 {
 	uint64_t m = f->pool & ~f->busy;
@@ -65,13 +73,13 @@ uint8_t x86_grab (X86Fn *f)
 void x86_take_fixed (X86Fn *f, uint8_t r, uint32_t keeps)
 {
 	if (keeps != NO_REG && x86_phys_reg(f, keeps) == r) return;
-	if (!(f->pool >> r & 1)) regalloc_violation(f, "fixed register is not free");
+	if (!(f->pool >> r & 1)) regalloc_fixed_violation(f, r);
 	f->pool &= ~(1ull << r);
 }
 
 void x86_take_fixed_rw (X86Fn *f, uint8_t r)
 {
-	if (!(f->pool >> r & 1)) regalloc_violation(f, "fixed register is not free");
+	if (!(f->pool >> r & 1)) regalloc_fixed_violation(f, r);
 	f->pool &= ~(1ull << r);
 }
 

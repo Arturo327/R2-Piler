@@ -87,12 +87,14 @@ static void normalize_params (X86Fn *f, IRInstr *first, uint32_t n)
 
 static void make_stack_param (X86Fn *f, IRInstr *p)
 {
+	uint64_t keep = f->pool;
 	uint8_t w = x86_work_reg(f, p->dst, 0);
 
 	cg_printf(f->cg, "\tmovq %u(%s), %s\n",
 			(f->leaf ? 8 : 16) + ((p->target - 6) << 3),
 			f->base, reg_name(w, 8));
 	x86_store_reg(f, w, p->dst);
+	f->pool = keep;
 }
 
 int x86_make_param (X86Fn *f, IRInstr *i)
