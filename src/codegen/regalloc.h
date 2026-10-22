@@ -75,6 +75,7 @@ typedef struct RegCtx {
 	uint32_t block_count;
 	uint32_t move_count;
 	uint32_t arg_reg_max;
+
 	uint64_t callee_used;
 	uint64_t callee_mask;
 	uint64_t caller_mask;

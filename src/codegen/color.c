@@ -14,8 +14,8 @@ typedef struct ColorRegs {
 	Cfg *cfg;
 
 	uint32_t num_regs;
-	uint32_t callee_regs;
-	uint32_t caller_regs;
+	uint64_t caller_mask;
+	uint64_t callee_mask;
 } ColorRegs;
 
 static int tail_self (ColorRegs *cr, uint32_t i)
@@ -188,6 +188,25 @@ static void set_reg_home (Reg *reg, uint32_t block_count, int h)
 		reg->home[b] = (int8_t)h;
 }
 
+// Temporary: reserve every fixed register of the ops present
+static uint64_t needs_reserved (ColorRegs *cr)
+{
+	IR *ir = cr->ir;
+	IRFn *fn = cr->fn;
+	uint64_t m = 0;
+
+	for (uint32_t i = 0; i < fn->count; i++) {
+		IRInstr *in = ir->instrs + fn->start + i;
+		OpNeeds *n = &cr->ctx->needs[in->op];
+
+		m |= n->destroy_mask;
+		m |= n->src1.type == REG_COND_FIXED ? 1ull << n->src1.reg : 0;
+		m |= n->src2.type == REG_COND_FIXED ? 1ull << n->src2.reg : 0;
+		m |= n->dst.type == REG_COND_FIXED ? 1ull << n->dst.reg : 0;
+	}
+	return m;
+}
+
 static void color_run (ColorRegs *cr)
 {
 	if (!cr->fn->reg_count) return;
@@ -199,12 +218,15 @@ static void color_run (ColorRegs *cr)
 	uint64_t *tmp = arena_alloc(cr->arena, ((cr->fn->reg_count + 63) >> 6) * sizeof(uint64_t));
 	mark_crossing(cr, tmp, cross);
 
-	uint8_t callreg[cr->caller_regs];
-	uint8_t calreg[cr->callee_regs];
+	uint64_t avail = (cr->caller_mask | cr->callee_mask) & ~needs_reserved(cr);
+	uint32_t caller_n = (uint32_t)__builtin_popcountll(cr->caller_mask);
+	uint32_t callee_n = (uint32_t)__builtin_popcountll(cr->callee_mask);
+	uint8_t callreg[caller_n ? caller_n : 1];
+	uint8_t calreg[callee_n ? callee_n : 1];
 	uint32_t pick[cr->num_regs];
 
-	uint32_t nc = list_mask(cr->ctx->caller_mask, callreg, cr->caller_regs);
-	uint32_t nn = list_mask(cr->ctx->callee_mask, calreg, cr->callee_regs);
+	uint32_t nc = list_mask(cr->caller_mask & avail, callreg, caller_n);
+	uint32_t nn = list_mask(cr->callee_mask & avail, calreg, callee_n);
 	uint32_t n = rank_picks(cr, pick);
 
 	uint32_t cidx = 0;
@@ -228,11 +250,10 @@ void color_regs (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, Cfg *cf
 		.regs = regs,
 		.ctx = ctx,
 		.cfg = cfg,
-		.num_regs = reg_num,
 
-		// Hard-coded X86-64 ABI values, change this when implement more backends
-		.caller_regs = 9,
-		.callee_regs = 7
+		.num_regs = reg_num,
+		.caller_mask = ctx->caller_mask,
+		.callee_mask = ctx->callee_mask,
 	};
 	color_run(&cr);
 }
