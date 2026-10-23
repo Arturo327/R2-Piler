@@ -20,6 +20,10 @@ typedef struct RegAlloc {
 	uint64_t *live;
 	uint64_t *tmp;
 
+	EdgeMove *moves;
+	uint32_t move_cap;
+	uint32_t move_count;
+
 	Cfg cfg;
 	uint64_t all;
 	uint32_t words;
@@ -192,6 +196,104 @@ static void resolve (IRFn *fn, Reg *regs, uint32_t block_count)
 	}
 }
 
+static void grow_moves (RegAlloc *ra)
+{
+	uint32_t cap = ra->move_cap ? ra->move_cap * 2 : 64;
+	size_t old_size = (size_t)ra->move_cap * sizeof(EdgeMove);
+	size_t new_size = (size_t)cap * sizeof(EdgeMove);
+
+	ra->moves = arena_realloc(ra->arena, ra->moves, old_size, new_size);
+	ra->move_cap = cap;
+}
+
+static int edge_move_seen (RegAlloc *ra, uint32_t first, int8_t from, int8_t to)
+{
+	for (uint32_t i = first; i < ra->move_count; i++) {
+		EdgeMove *m = ra->moves + i;
+
+		if (m->from == from && m->to == to) return 1;
+	}
+	return 0;
+}
+
+static void add_edge_move (RegAlloc *ra, uint32_t first, uint32_t vreg, int8_t from, int8_t to)
+{
+	if (from == to || from == VR_NO_HOME || to == VR_NO_HOME) return;
+	if (edge_move_seen(ra, first, from, to)) return;
+
+	if (ra->move_count == ra->move_cap) grow_moves(ra);
+
+	EdgeMove *m = ra->moves + ra->move_count++;
+	m->vreg = vreg;
+	m->from = from;
+	m->to = to;
+}
+
+static void live_bit_move (RegAlloc *ra, uint32_t first, uint32_t v, uint32_t from, uint32_t to)
+{
+	if (v >= ra->fn->reg_count || ra->regs[v].cstate == VR_CONST) return;
+	add_edge_move(ra, first, v, ra->regs[v].home[from], ra->regs[v].home[to]);
+}
+
+static uint32_t live_edge_moves (RegAlloc *ra, uint32_t from, uint32_t to, uint32_t cfg_block)
+{
+	uint32_t first = ra->move_count;
+	uint64_t *live = ra->cfg.blocks[cfg_block].live_in;
+
+	for (uint32_t w = 0; w < ra->words; w++) {
+		uint64_t bits = live[w];
+
+		while (bits) {
+			uint32_t v = (w << 6) + (uint32_t)__builtin_ctzll(bits);
+
+			bits &= bits - 1;
+			live_bit_move(ra, first, v, from, to);
+		}
+	}
+	return ra->move_count - first;
+}
+
+static uint32_t edge_to_block (RegAlloc *ra, uint32_t from, uint32_t cfg_block)
+{
+	uint32_t at = ra->cfg.blocks[cfg_block].start - ra->fn->start;
+	uint32_t to = ra->ctx->ins_block[at];
+
+	if (to == from) return 0;
+	return live_edge_moves(ra, from, to, cfg_block);
+}
+
+static void add_taken_edge (RegAlloc *ra, uint32_t at, uint32_t from, IRInstr *last)
+{
+	uint32_t t = cfg_label_block(ra->ir, &ra->cfg, last->target);
+	if (t != CFG_NO_BLOCK) ra->ctx->edges[at].taken = edge_to_block(ra, from, t);
+}
+
+static void build_block_edges (RegAlloc *ra, uint32_t b)
+{
+	CfgBlock *blk = ra->cfg.blocks + b;
+	if (!blk->count) return;
+
+	uint32_t at = blk->start - ra->fn->start + blk->count - 1;
+	IRInstr *last = ra->ir->instrs + blk->start + blk->count - 1;
+	EdgeMoves *e = ra->ctx->edges + at;
+	uint32_t from = ra->ctx->ins_block[at];
+
+	e->first = ra->move_count;
+	if (last->op != IR_JMP && last->op != IR_RET && b + 1 < ra->cfg.block_count)
+		e->fall = edge_to_block(ra, from, b + 1);
+	if (last->op == IR_JMP || last->op == IR_JZ || last->op == IR_JNZ)
+		add_taken_edge(ra, at, from, last);
+}
+
+static void build_edges (RegAlloc *ra)
+{
+	if (!ra->words) return;
+	for (uint32_t b = 0; b < ra->cfg.block_count; b++)
+		build_block_edges(ra, b);
+	ra->ctx->moves = ra->moves;
+	ra->ctx->move_count = ra->move_count;
+}
+
 static void alloc_regalloc (RegAlloc *ra)
 {
 	uint32_t count = ra->fn->count ? ra->fn->count : 1;
@@ -349,6 +451,9 @@ static void init_state (RegAlloc *ra, Arena *arena, IR *ir, IRFn *fn,
 	ra->fn = fn;
 	ra->regs = regs;
 	ra->ctx = ctx;
+	ra->moves = NULL;
+	ra->move_cap = 0;
+	ra->move_count = 0;
 	ra->all = ~0ull >> (64 - reg_num);
 	ra->words = (fn->reg_count + 63) >> 6;
 	ctx->needs = needs;
@@ -381,5 +486,6 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx,
 	lay_sizes(fn, regs, ctx->block_count);
 
 	resolve(fn, regs, ctx->block_count);
+	build_edges(&ra);
 	fill_ctx(&ra);
 }
