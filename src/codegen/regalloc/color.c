@@ -3,7 +3,6 @@
 #include <string.h>
 
 #define LOOP_WEIGHT 8u
-#define MIN_HOME_SCORE 3u
 
 static int tail_self (ColorRegs *cr, uint32_t i)
 {
@@ -85,151 +84,25 @@ static void mark_weighted (ColorRegs *cr)
 	weigh_regs(cr);
 }
 
-static void cross_call (ColorRegs *cr, uint8_t *cross, uint32_t v)
+void color_graph (Graph *g)
 {
-	uint32_t root = cr->regs[v].cstate == VR_ALIAS ? cr->regs[v].slot : v;
+	uint32_t blocks = g->cr->ctx->block_count;
 
-	cross[v] = 1;
-	cross[root] = 1;
-}
-
-static void cross_instr (ColorRegs *cr, const uint64_t *tmp, uint8_t *cross)
-{
-	uint32_t words = (cr->fn->reg_count + 63) >> 6;
-
-	for (uint32_t w = 0; w < words; w++) {
-		uint64_t bits = tmp[w];
-
-		while (bits) {
-			cross_call(cr, cross, (w << 6) + (uint32_t)__builtin_ctzll(bits));
-			bits &= bits - 1;
-		}
+	for (uint32_t i = 0; i < blocks; i++) {
+		g->blk = g->order[i];
+		build_graph(g);
+		if (g->node_num && g->k) paint_graph(g);
 	}
-}
-
-static void cross_block (ColorRegs *cr, uint64_t *tmp, uint32_t b, uint8_t *cross)
-{
-	CfgBlock *blk = cr->cfg->blocks + b;
-	IRInstr *code = cr->ir->instrs + blk->start;
-
-	cfg_live_out(cr->cfg, b, tmp, (cr->fn->reg_count + 63) >> 6);
-	for (uint32_t i = blk->count; i-- > 0;) {
-		IRInstr *in = code + i;
-		uint32_t *src[3];
-		int n = get_srcs(in, src);
-
-		if (in->dst != NO_REG)
-			tmp[in->dst >> 6] &= ~(1ull << (in->dst & 63));
-		if (in->op == IR_CALL) cross_instr(cr, tmp, cross);
-		for (int k = 0; k < n; k++)
-			tmp[*src[k] >> 6] |= 1ull << (*src[k] & 63);
-	}
-}
-
-static void mark_crossing (ColorRegs *cr, uint64_t *tmp, uint8_t *cross)
-{
-	for (uint32_t b = 0; b < cr->cfg->block_count; b++)
-		cross_block(cr, tmp, b, cross);
-}
-
-static uint32_t list_mask (uint64_t mask, uint8_t *regs, uint32_t cap)
-{
-	uint32_t n = 0;
-
-	while (mask && n < cap) {
-		regs[n++] = (uint8_t)__builtin_ctzll(mask);
-		mask &= mask - 1;
-	}
-	return n;
-}
-
-static uint32_t rank_picks (ColorRegs *cr, uint32_t *pick)
-{
-	IRFn *fn = cr->fn;
-	Reg *regs = cr->regs;
-	uint32_t n = 0;
-
-	for (uint32_t r = 0; r < fn->reg_count; r++) {
-		uint32_t k = 0;
-
-		if (regs[r].cstate != VR_MEM || !regs[r].uses) continue;
-		if (regs[r].wscore < MIN_HOME_SCORE) continue;
-		while (k < n && regs[pick[k]].wscore >= regs[r].wscore) k++;
-		if (k == cr->num_regs) continue;
-
-		uint32_t j = n < cr->num_regs ? n : cr->num_regs - 1;
-		while (j > k) {
-			pick[j] = pick[j - 1];
-			j--;
-		}
-		pick[k] = r;
-		if (n < cr->num_regs) n++;
-	}
-	return n;
-}
-
-static void set_reg_home (Reg *reg, uint32_t block_count, int h)
-{
-	for (uint32_t b = 0; b < block_count; b++)
-		reg->home[b] = (int8_t)h;
-}
-
-// Temporary: reserve every fixed register of the ops present
-static uint64_t needs_reserved (ColorRegs *cr)
-{
-	IR *ir = cr->ir;
-	IRFn *fn = cr->fn;
-	uint64_t m = 0;
-
-	for (uint32_t i = 0; i < fn->count; i++) {
-		IRInstr *in = ir->instrs + fn->start + i;
-		OpNeeds *n = &cr->ctx->needs[in->op];
-
-		m |= n->destroy_mask;
-		m |= n->src1.type == REG_COND_FIXED ? 1ull << n->src1.reg : 0;
-		m |= n->src2.type == REG_COND_FIXED ? 1ull << n->src2.reg : 0;
-		m |= n->dst.type == REG_COND_FIXED ? 1ull << n->dst.reg : 0;
-	}
-	return m;
 }
 
 static void color_run (ColorRegs *cr)
 {
 	if (!cr->fn->reg_count) return;
-
 	mark_weighted(cr);
 
-	uint8_t *cross = arena_alloc(cr->arena, cr->fn->reg_count);
-	memset(cross, 0, cr->fn->reg_count);
-	uint64_t *tmp = arena_alloc(cr->arena, ((cr->fn->reg_count + 63) >> 6) * sizeof(uint64_t));
-	mark_crossing(cr, tmp, cross);
-
-	// change this line for real avliable by block
-	uint64_t avail = (cr->ctx->caller_mask | cr->ctx->callee_mask) & ~needs_reserved(cr);
-
-	uint32_t caller_n = (uint32_t)__builtin_popcountll(cr->ctx->caller_mask);
-	uint32_t callee_n = (uint32_t)__builtin_popcountll(cr->ctx->callee_mask);
-	uint8_t callreg[caller_n ? caller_n : 1];
-	uint8_t calreg[callee_n ? callee_n : 1];
-
-
-	uint32_t nc = list_mask(cr->ctx->caller_mask & avail, callreg, caller_n);
-	uint32_t nn = list_mask(cr->ctx->callee_mask & avail, calreg, callee_n);
-
-	// change from here to the function end for the graph coloring algorithm
-	uint32_t pick[cr->num_regs];
-	uint32_t n = rank_picks(cr, pick);
-	uint32_t cidx = 0;
-	uint32_t lidx = 0;
-
-	for (uint32_t k = 0; k < n; k++) {
-		uint32_t r = pick[k];
-
-		if (!cross[r] && cidx < nc)
-			set_reg_home(cr->regs + r, cr->ctx->block_count, callreg[cidx++]);
-		else if (lidx < nn)
-			set_reg_home(cr->regs + r, cr->ctx->block_count, calreg[lidx++]);
-	}
+	Graph graph;
+	make_graph(cr, &graph);
+	color_graph(&graph);
 }
 
 void color_regs (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, Cfg *cfg, uint32_t reg_num)
