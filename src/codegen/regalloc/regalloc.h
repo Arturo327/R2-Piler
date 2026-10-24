@@ -3,8 +3,9 @@
 
 #include <stdint.h>
 
-#include "arena/arena.h"
+#include "ir/cfg.h"
 #include "ir/ir.h"
+#include "arena/arena.h"
 
 #define VR_NO_HOME -1
 #define VR_SPILL -2

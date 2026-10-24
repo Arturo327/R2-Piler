@@ -6,7 +6,7 @@
 #include "arena/arena.h"
 #include "ir/ir.h"
 #include "ir/opt.h"
-#include "codegen/regalloc.h"
+#include "codegen/regalloc/regalloc.h"
 
 typedef enum {
 	ARCH_X86_64 = 0,

@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #include "codegen/x86-64/x86_64.h"
-#include "codegen/regalloc.h"
+#include "codegen/regalloc/regalloc.h"
 #include "codegen/parallel.h"
 #include "ir/opts/common.h"
 

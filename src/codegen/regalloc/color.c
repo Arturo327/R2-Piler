@@ -1,19 +1,9 @@
-#include "codegen/color.h"
+#include "codegen/regalloc/common.h"
 
 #include <string.h>
 
 #define LOOP_WEIGHT 8u
 #define MIN_HOME_SCORE 3u
-
-typedef struct ColorRegs {
-	Arena *arena;
-	IR *ir;
-	IRFn *fn;
-	Reg *regs;
-	RegCtx *ctx;
-	Cfg *cfg;
-	uint32_t num_regs;
-} ColorRegs;
 
 static int tail_self (ColorRegs *cr, uint32_t i)
 {
@@ -222,12 +212,13 @@ static void color_run (ColorRegs *cr)
 	uint32_t callee_n = (uint32_t)__builtin_popcountll(cr->ctx->callee_mask);
 	uint8_t callreg[caller_n ? caller_n : 1];
 	uint8_t calreg[callee_n ? callee_n : 1];
-	uint32_t pick[cr->num_regs];
+
 
 	uint32_t nc = list_mask(cr->ctx->caller_mask & avail, callreg, caller_n);
 	uint32_t nn = list_mask(cr->ctx->callee_mask & avail, calreg, callee_n);
 
 	// change from here to the function end for the graph coloring algorithm
+	uint32_t pick[cr->num_regs];
 	uint32_t n = rank_picks(cr, pick);
 	uint32_t cidx = 0;
 	uint32_t lidx = 0;

@@ -1,5 +1,4 @@
-#include "codegen/regalloc.h"
-#include "codegen/color.h"
+#include "codegen/regalloc/common.h"
 #include "codegen/codegen.h"
 #include "ir/cfg.h"
 
