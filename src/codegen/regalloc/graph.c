@@ -2,29 +2,6 @@
 
 #include <string.h>
 
-static uint64_t scratch_mask (uint64_t caller)
-{
-	uint64_t m = 0;
-
-	for (uint32_t i = 0; i < GRAPH_SCRATCH && caller; i++) {
-		uint64_t bit = 1ull << (63 - __builtin_clzll(caller));
-
-		m |= bit;
-		caller &= ~bit;
-	}
-	return m;
-}
-
-static void init_pal (Graph *g)
-{
-	RegCtx *ctx = g->cr->ctx;
-	uint64_t all = ctx->caller_mask | ctx->callee_mask;
-
-	g->pal = all & ~scratch_mask(ctx->caller_mask);
-	g->pal_callee = g->pal & ctx->callee_mask;
-	g->k = (uint32_t)__builtin_popcountll(g->pal);
-}
-
 static void alloc_graph (Graph *g)
 {
 	Arena *a = g->cr->arena;
@@ -86,24 +63,46 @@ static void init_blocks (Graph *g)
 		g->order[i] = i;
 }
 
-void make_graph (ColorRegs *cr, Graph *graph)
+void make_graph (ColorRegs *cr, Graph *g)
 {
 	uint32_t regs = cr->fn->reg_count;
 
-	memset(graph, 0, sizeof(*graph));
-	graph->cr = cr;
-	graph->cap = regs < GRAPH_MAX_NODES ? regs : GRAPH_MAX_NODES;
-	graph->stride = (graph->cap + 63) >> 6;
+	memset(g, 0, sizeof(Graph));
+	g->cr = cr;
+	g->cap = regs < GRAPH_MAX_NODES ? regs : GRAPH_MAX_NODES;
+	g->stride = (g->cap + 63) >> 6;
+	g->pal = cr->ctx->caller_mask | cr->ctx->callee_mask;
 
-	init_pal(graph);
-	alloc_graph(graph);
-	init_rows(graph);
-	init_roots(graph);
-	init_blocks(graph);
+	alloc_graph(g);
+	init_rows(g);
+	init_roots(g);
+	init_blocks(g);
 }
 
-void graph_build (Graph *g)
+static uint64_t block_reserved (Graph *g)
+{
+	ColorRegs *cr = g->cr;
+	uint64_t m = 0;
+
+	for (uint32_t b = g->cfg_first[g->blk]; b < g->cfg_first[g->blk + 1]; b++) {
+		CfgBlock *blk = cr->cfg->blocks + b;
+		IRInstr *code = cr->ir->instrs + blk->start;
+
+		for (uint32_t i = 0; i < blk->count; i++) {
+			OpNeeds *n = cr->ctx->needs + code[i].op;
+			m |= n->destroy_mask;
+			if (n->src1.type == REG_COND_FIXED) m |= 1ull << n->src1.reg;
+			if (n->src2.type == REG_COND_FIXED) m |= 1ull << n->src2.reg;
+			if (n->dst.type == REG_COND_FIXED) m |= 1ull << n->dst.reg;
+		}
+	}
+	return m;
+}
+
+void build_graph (Graph *g)
 {
 	g->node_num = 0;
 	g->stack_num = 0;
+	g->bpal = g->pal & ~block_reserved(g);
+	g->k = (uint32_t)__builtin_popcountll(g->bpal);
 }

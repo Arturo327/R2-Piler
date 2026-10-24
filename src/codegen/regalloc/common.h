@@ -49,7 +49,7 @@ typedef struct Graph {
 	uint32_t *order;
 
 	uint64_t pal;
-	uint64_t pal_callee;
+	uint64_t bpal;
 	uint32_t k;
 	uint32_t cap;
 	uint32_t stride;
@@ -59,10 +59,10 @@ typedef struct Graph {
 	uint32_t blk;
 } Graph;
 
-void make_graph (ColorRegs *cr, Graph *graph);
-void color_graph (Graph *graph);
-void build_graph (Graph *graph);
-void paint_graph (Graph *graph);
+void make_graph (ColorRegs *cr, Graph *g);
+void color_graph (Graph *g);
+void build_graph (Graph *g);
+void paint_graph (Graph *g);
 
 void color_regs (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, Cfg *cfg, uint32_t reg_num);
 
