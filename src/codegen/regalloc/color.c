@@ -22,7 +22,7 @@ static int tail_self (ColorRegs *cr, uint32_t i)
 	return from == to || (types[from].size == 8 && types[to].size == 8);
 }
 
-static void loop_weights (ColorRegs *cr, int16_t *w)
+static void loop_weights (ColorRegs *cr)
 {
 	IR *ir = cr->ir;
 	IRFn *fn = cr->fn;
@@ -48,18 +48,18 @@ static void loop_weights (ColorRegs *cr, int16_t *w)
 			t = 0;
 
 		if (t == UINT32_MAX || t > i) continue;
-		w[t]++;
-		if (i + 1 < fn->count) w[i + 1]--;
+		cr->w[t]++;
+		if (i + 1 < fn->count) cr->w[i + 1]--;
 	}
 
 	int16_t d = 0;
 	for (uint32_t i = 0; i < fn->count; i++) {
-		d = (int16_t)(d + w[i]);
-		w[i] = d > 0 ? LOOP_WEIGHT : 1;
+		d = (int16_t)(d + cr->w[i]);
+		cr->w[i] = d > 0 ? LOOP_WEIGHT : 1;
 	}
 }
 
-static void weigh_regs (ColorRegs *cr, const int16_t *w)
+static void weigh_regs (ColorRegs *cr)
 {
 	IR *ir = cr->ir;
 	IRFn *fn = cr->fn;
@@ -70,20 +70,19 @@ static void weigh_regs (ColorRegs *cr, const int16_t *w)
 		int n = get_srcs(in, src);
 
 		for (int k = 0; k < n; k++)
-			cr->regs[*src[k]].wscore += (uint32_t)w[i];
+			cr->regs[*src[k]].wscore += (uint32_t)cr->w[i];
 		if (in->dst != NO_REG)
-			cr->regs[in->dst].wscore += (uint32_t)w[i];
+			cr->regs[in->dst].wscore += (uint32_t)cr->w[i];
 	}
 }
 
 static void mark_weighted (ColorRegs *cr)
 {
 	uint32_t count = cr->fn->count ? cr->fn->count : 1;
-	int16_t *w = arena_alloc(cr->arena, count * sizeof(int16_t));
-
-	memset(w, 0, count * sizeof(int16_t));
-	loop_weights(cr, w);
-	weigh_regs(cr, w);
+	cr->w = arena_alloc(cr->arena, count * sizeof(int16_t));
+	memset(cr->w, 0, count * sizeof(int16_t));
+	loop_weights(cr);
+	weigh_regs(cr);
 }
 
 static void cross_call (ColorRegs *cr, uint8_t *cross, uint32_t v)
