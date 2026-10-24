@@ -12,10 +12,7 @@ typedef struct ColorRegs {
 	Reg *regs;
 	RegCtx *ctx;
 	Cfg *cfg;
-
 	uint32_t num_regs;
-	uint64_t caller_mask;
-	uint64_t callee_mask;
 } ColorRegs;
 
 static int tail_self (ColorRegs *cr, uint32_t i)
@@ -218,19 +215,23 @@ static void color_run (ColorRegs *cr)
 	uint64_t *tmp = arena_alloc(cr->arena, ((cr->fn->reg_count + 63) >> 6) * sizeof(uint64_t));
 	mark_crossing(cr, tmp, cross);
 
-	uint64_t avail = (cr->caller_mask | cr->callee_mask) & ~needs_reserved(cr);
-	uint32_t caller_n = (uint32_t)__builtin_popcountll(cr->caller_mask);
-	uint32_t callee_n = (uint32_t)__builtin_popcountll(cr->callee_mask);
+	// change this line for real avliable by block
+	uint64_t avail = (cr->ctx->caller_mask | cr->ctx->callee_mask) & ~needs_reserved(cr);
+
+	uint32_t caller_n = (uint32_t)__builtin_popcountll(cr->ctx->caller_mask);
+	uint32_t callee_n = (uint32_t)__builtin_popcountll(cr->ctx->callee_mask);
 	uint8_t callreg[caller_n ? caller_n : 1];
 	uint8_t calreg[callee_n ? callee_n : 1];
 	uint32_t pick[cr->num_regs];
 
-	uint32_t nc = list_mask(cr->caller_mask & avail, callreg, caller_n);
-	uint32_t nn = list_mask(cr->callee_mask & avail, calreg, callee_n);
-	uint32_t n = rank_picks(cr, pick);
+	uint32_t nc = list_mask(cr->ctx->caller_mask & avail, callreg, caller_n);
+	uint32_t nn = list_mask(cr->ctx->callee_mask & avail, calreg, callee_n);
 
+	// change from here to the function end for the graph coloring algorithm
+	uint32_t n = rank_picks(cr, pick);
 	uint32_t cidx = 0;
 	uint32_t lidx = 0;
+
 	for (uint32_t k = 0; k < n; k++) {
 		uint32_t r = pick[k];
 
@@ -250,10 +251,7 @@ void color_regs (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, Cfg *cf
 		.regs = regs,
 		.ctx = ctx,
 		.cfg = cfg,
-
 		.num_regs = reg_num,
-		.caller_mask = ctx->caller_mask,
-		.callee_mask = ctx->callee_mask,
 	};
 	color_run(&cr);
 }
