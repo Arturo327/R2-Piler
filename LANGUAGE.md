@@ -6,8 +6,11 @@ Especificación completa de R2-Lang, el lenguaje que compila R2-Piler.
 
 ## 1. Panorama
 
-R2-Lang es un lenguaje imperativo, estática y fuertemente tipado, sin conversiones implícitas
-(solo casts explícitos con `expr as type`).
+R2-Lang es un lenguaje imperativo, estática y fuertemente tipado. Las conversiones
+explícitas se escriben con `expr as type`; además existen ensanchamientos
+implícitos silenciosos cuando el valor no puede perderse (mismo signo a más
+ancho, o sin signo a un tipo con signo mayor). Cualquier otra conversión exige
+un cast explícito.
 
 - Tipos primitivos: `i8`, `u8`, `i16`, `u16`, `i32`, `u32`, `i64`, `u64` y `void`. `char` es un alias de `i8` aceptado solo en el frontend (lexer/parser): en dumps, símbolos y mensajes siempre aparece `i8`.
 - Funciones solo a nivel top-level, con parámetros por valor.
@@ -89,7 +92,7 @@ Reglas de tipos (estrictas; el único implícito es el que no puede perder valor
 - **Shifts con izquierda untyped**: si la cuenta es un literal, la constante plegada queda flexible y adopta el tipo del contexto (`var v : u64 = 1 << 2;` vale). Si la cuenta **no** es un literal, la izquierda finaliza a su tipo por defecto (`1 << x` es `i64`, `'a' << x` es `i8`) y el shift ya no adopta el contexto: `var a : i8 = 1 << x;` es un error de estrechamiento, igual que `var a : i8 = 1 << 7;`. Migración: `var v : u64 = 1 << x;` → `var v : u64 = (1 << x) as u64;` (la misma regla que ya aplicaba a `var v : u64 = 5 + x;`).
 - **Literal fuera de rango**: error (`literal 300 does not fit in type i8; use an explicit cast with 'as' to reinterpret the bits`). Si además el destino es con signo y el valor supera `INT64_MAX`, el mensaje añade que el sufijo `u` lo convierte en literal `u64`. Un literal negativo hacia un destino sin signo es error, también dentro de binarios (`var u : u64 = -5;`, `5u + -1`); los mensajes siempre usan el nombre público del tipo (`u64`, nunca el interno). Un literal fuera de rango produce exactamente un diagnóstico, sin cascadas.
 - **Literal `u` usado como tipo con signo**: solo un **warning** (`unsigned literal used as signed type i64; remove the 'u' suffix`); compila igual.
-- **Ensanchar sin cambiar el valor es silencioso**: mismo signo a mayor tamaño (`i8`→`i64`, `u8`→`u32`), o sin signo a con signo mayor (`u8`→`i64`). Vale en binarios, init, asignación, args y `return`, sin generar conversión.
+- **Ensanchar sin cambiar el valor es silencioso**: mismo signo a mayor tamaño (`i8`→`i64`, `u8`→`u32`), o sin signo a con signo mayor (`u8`→`i64`). Vale en binarios, init, asignación, args y `return`, sin cast explícito (el IR inserta un `extend` al cambiar de ancho).
 - **Todo lo demás entre tipos distintos es error** con sufijo `'as'` en el mensaje: estrechar (`i64`→`i8`), cambiar de signo (`i8`→`u64`, `u64`→`i64`), o mezclar dos variables de tipos distintos en un binario (`type mismatch: i64 vs u64 (use 'as' to convert explicitly)`).
 - Operadores aritméticos y bitwise (`+ - * / % & | ^`): ambos operandos del **mismo tipo** (tras lo anterior), resultado del tipo de los operandos.
 - Shifts (`<< >>`): el resultado es el tipo del operando **izquierdo**; el derecho puede ser cualquier numérico (`a << b` con `a : i64`, `b : u64` vale).
@@ -229,10 +232,12 @@ Plegado de constantes: una subexpresión hecha solo de literales se evalúa en c
 
 `-O` selecciona el nivel (defecto `2`):
 
-- `-O0`: sin optimizar; todos los valores viven en pila.
-- `-O1`: IR sin optimizar; los valores más usados viven en registros.
-- `-O2`: optimiza la IR antes del codegen.
-- `-O3`: como `-O2` más las optimizaciones caras.
+- `-O0`: sin optimizar; todos los valores viven en pila (spill-all).
+- `-O1`: IR sin optimizar; el asignador de registros colorea por bloques y
+  reparte los valores entre registros físicos y pila (sin tocar la IR).
+- `-O2`: optimiza la IR antes del codegen (pases BASIC) y después asigna registros.
+- `-O3`: como `-O2` más las optimizaciones caras (CSE, DCE global, inlining y
+  `select`).
 
 Optimizaciones de la IR (activas en `-O2` y `-O3`):
 
@@ -319,10 +324,12 @@ make
 | `-D` / `--dump-opt` | Vuelca la IR optimizada a stdout (sin `-O`, optimiza al nivel máximo; con `-O0`/`-O1` la muestra sin optimizar) |
 | `-O[LEVEL]` / `--opt[=LEVEL]` | Nivel de optimización de `0` a `3` (sin espacio; `-O` solo = `2`). Defecto: `2`; ver la sección 13 |
 | `-o` / `--out` | Ruta del assembly de salida (por defecto `<fuente>.s`; `-` = stdout) |
-| `-a` / `--arch` | Arquitectura del assembly generado|
-| `-e` / `--execute` | Modo intérprete |
+| `-a` / `--arch ARCH` | Arquitectura: `x86-64` (alias `x86_64`, `amd64`), `arm`/`aarch64`, `riscv`/`riscv64`. Solo x86-64 está implementado |
+| `-e` / `--execute` | Modo intérprete (no implementado) |
+| `-v` / `--version` | Muestra la versión |
+| `-h` / `--help` | Muestra la ayuda |
 
-Nota: sin flags de dump, `r2p` compila y escribe el assembly a `<fuente>.s` (o a la ruta de `-o`; `-` es stdout). `-a arm`, `-a riscv` y `-e` abortan con "backend is not implemented".
+Nota: sin flags de dump, `r2p` compila y escribe el assembly a `<fuente>.s` (o a la ruta de `-o`; `-` es stdout). `-a arm`, `-a riscv` y `-e` abortan en codegen con `Error: <backend> backend is not implemented` (`ARM`, `RISC-V` o `interpreter`). Los modos de dump no pasan por codegen, así que pueden inspeccionar un programa aunque la arquitectura elegida no tenga backend. Si se pasan varios ficheros, solo se compila el primero y se avisa por stderr.
 
 Para ejecutar un programa:
 
@@ -361,3 +368,49 @@ fn main () : i64
 	return 1;
 }
 ```
+
+---
+
+## 16. Estado actual y limitaciones
+
+Implementado y cubierto por la suite de tests:
+
+- Los ocho tipos enteros, `char` como alias de `i8`, casts explícitos y
+  ensanchamientos implícitos sin pérdida.
+- Locales, parámetros, funciones top-level, recursión y forward references.
+- Globals con orden de inicialización resuelto y detección de ciclos directos.
+- Bloques, `if`/`elif`/`else`, `while`, `for`, `return`, `&&`/`||` con
+  short-circuit y todo el conjunto de operadores de la sección 4.
+- Diagnósticos con `file:line:column`, warnings de variable sin asignar,
+  condición constante y `return` ausente.
+- IR con `--dump-ir`, optimizador con `--dump-opt`, y codegen x86-64 en los
+  cuatro niveles `-O0`…`-O3`.
+
+Todavía no implementado (orden de `comp_pending.md`):
+
+1. Operadores compuestos (`+=`, `-=`, `*=`, …) y `++`/`--` como statement;
+   enums.
+2. Punteros (`ptr`, `@`, `$`, `NULL`, `sizeof`, aritmética de punteros),
+   strings en `.rodata` y `extern` no variádico.
+3. Arrays en pila, `arr.len`, `for (x : arr)` y slices de 16 bytes.
+4. `struct` al estilo C con literales exhaustivos y semántica `Copy`.
+5. `pub`, módulos, `import`/`from`, name mangling y ficheros `.r2i`.
+6. `static` de función, `export`/`extern` completos y cabeceras C.
+7. Argumentos opcionales, multi-retorno, clases, `init`/`op`/`destroy` y
+   ownership mínimo con `defer`/destrucción automática.
+8. Flotantes `f32`/`f64`.
+
+Limitaciones de implementación:
+
+- Solo existe backend x86-64. ARM, RISC-V y el intérprete están declarados en
+  la CLI pero no implementados.
+- Los literales string se lexan y parsean, pero sema los rechaza con
+  `string literals are not supported yet`.
+- No hay `break`, `continue` ni `switch`.
+- El backend solo hace tail calls con hasta 6 argumentos (los argumentos de
+  pila todavía no se mueven en una tail call).
+- Las posiciones (línea/columna) se guardan en `uint16_t`: un fuente de más de
+  65535 líneas o una línea de más de 65535 columnas desborda la posición
+  reportada.
+- `--dump-ir` nunca ejecuta el optimizador ni muestra `select`; `--dump-opt`
+  sin `-O` fuerza el nivel máximo.
