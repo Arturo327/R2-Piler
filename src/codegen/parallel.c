@@ -110,6 +110,7 @@ static void swap_cycle (PMPlan *p, uint32_t j)
 	for (uint32_t k = 0; k < p->count; k++) {
 		if (k == j || (p->done >> k & 1)) continue;
 		if (p->regs[k].from == to) p->regs[k].from = from;
+		else if (p->regs[k].from == from) p->regs[k].from = to;
 	}
 	p->done |= 1ull << j;
 }

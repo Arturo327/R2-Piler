@@ -3,11 +3,11 @@
 
 #include <stdint.h>
 
+#include "ir/cfg.h"
 #include "codegen/regalloc/regalloc.h"
 
 #define GRAPH_MAX_NODES 1024u
 #define GRAPH_NO_NODE 0xFFFFFFFFu
-#define GRAPH_SCRATCH 2u
 
 enum {
 	CRN_ACTIVE = 0,
@@ -64,6 +64,6 @@ void color_graph (Graph *g);
 void build_graph (Graph *g);
 void paint_graph (Graph *g);
 
-void color_regs (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, Cfg *cfg, uint32_t reg_num);
+void color_regs (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, Cfg *cfg);
 
 #endif

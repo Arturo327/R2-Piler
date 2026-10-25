@@ -414,7 +414,6 @@ static void reset_regs (IRFn *fn, Reg *regs)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
 		regs[r].uses = 0;
-		regs[r].wscore = 0;
 		regs[r].slot = 0;
 		regs[r].cval = 0;
 		regs[r].cstate = VR_NONE;
@@ -481,7 +480,7 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx,
 	clasf_regs(&ra, spill_all, cfg_entry_len(ir, fn));
 
 	default_homes(fn, regs, ctx->block_count);
-	if (!spill_all) color_regs(arena, ir, fn, regs, ctx, &ra.cfg, reg_num);
+	if (!spill_all) color_regs(arena, ir, fn, regs, ctx, &ra.cfg);
 	lay_sizes(fn, regs, ctx->block_count);
 
 	resolve(fn, regs, ctx->block_count);

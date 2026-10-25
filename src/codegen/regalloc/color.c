@@ -58,30 +58,12 @@ static void loop_weights (ColorRegs *cr)
 	}
 }
 
-static void weigh_regs (ColorRegs *cr)
-{
-	IR *ir = cr->ir;
-	IRFn *fn = cr->fn;
-
-	for (uint32_t i = 0; i < fn->count; i++) {
-		IRInstr *in = ir->instrs + fn->start + i;
-		uint32_t *src[3];
-		int n = get_srcs(in, src);
-
-		for (int k = 0; k < n; k++)
-			cr->regs[*src[k]].wscore += (uint32_t)cr->w[i];
-		if (in->dst != NO_REG)
-			cr->regs[in->dst].wscore += (uint32_t)cr->w[i];
-	}
-}
-
 static void mark_weighted (ColorRegs *cr)
 {
 	uint32_t count = cr->fn->count ? cr->fn->count : 1;
 	cr->w = arena_alloc(cr->arena, count * sizeof(int16_t));
 	memset(cr->w, 0, count * sizeof(int16_t));
 	loop_weights(cr);
-	weigh_regs(cr);
 }
 
 void color_graph (Graph *g)
@@ -105,7 +87,7 @@ static void color_run (ColorRegs *cr)
 	color_graph(&graph);
 }
 
-void color_regs (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, Cfg *cfg, uint32_t reg_num)
+void color_regs (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, Cfg *cfg)
 {
 	ColorRegs cr = {
 		.arena = arena,
@@ -114,7 +96,6 @@ void color_regs (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, Cfg *cf
 		.regs = regs,
 		.ctx = ctx,
 		.cfg = cfg,
-		.num_regs = reg_num,
 	};
 	color_run(&cr);
 }
