@@ -216,13 +216,12 @@ static void sweep_instr (Graph *g, IRInstr *in, uint32_t at)
 		g->nodes[d].cost += wt;
 		g->live[d >> 6] &= ~(1ull << (d & 63));
 	}
+
 	if (in->op == IR_CALL) cross_live(g, wt);
 	for (int k = 0; k < n; k++) {
 		uint32_t s = live_add(g, *src[k]);
-
 		if (s == GRAPH_NO_NODE) continue;
 		g->nodes[s].cost += wt;
-		if (d != GRAPH_NO_NODE && s != d) link_pair(g, d, s);
 	}
 }
 
