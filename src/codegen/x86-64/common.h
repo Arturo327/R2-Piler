@@ -127,4 +127,17 @@ int x86_try_rmw_inplace (X86Fn *f, IRInstr *i);
 void x86_print_fn_name (CodeGen *c, IRFn *fn);
 void x86_make_fn (X86Fn *f);
 
+int x86_op_reg_tmp (X86Fn *f, uint32_t vreg, int8_t home);
+int x86_rmw_fits (X86Fn *f, IRInstr *i, int8_t src2_home);
+
+uint32_t x86_const_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
+uint32_t x86_move_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
+uint32_t x86_str_global_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
+uint32_t x86_arith_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
+uint32_t x86_unary_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
+uint32_t x86_divmod_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
+uint32_t x86_cmp_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
+uint32_t x86_select_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
+uint32_t x86_arg_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
+
 #endif

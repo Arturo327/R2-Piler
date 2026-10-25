@@ -179,3 +179,44 @@ void x86_make_select (X86Fn *f, IRInstr *i)
 	test_zero(f, i->cond);
 	select_move(f, i, "ne", "e");
 }
+
+static int cmp_fused (X86Fn *f, IRInstr *i)
+{
+	IRInstr *end = f->cg->ir->instrs + f->fn->start + f->fn->count;
+	IRInstr *n = x86_next_live(f, i, end);
+
+	if (n == end) return 0;
+	if (fuses_with_next(f, i)) return 1;
+	return n->op == IR_SELECT && n->cond == i->dst && f->regs[i->dst].uses == 1;
+}
+
+static uint32_t write_cmp_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
+{
+	uint8_t s = types[f->fn->reg_types[i->src1]].size;
+
+	if (f->regs[i->src2].cstate == VR_CONST && h[SC_SRC1] == VR_SPILL) {
+		int64_t v = x86_const_ext(f, i->src2);
+		if (s != 8 || v == (int32_t)v) return 0;
+	}
+	return (h[SC_SRC1] < 0) + x86_op_reg_tmp(f, i->src2, h[SC_SRC2]);
+}
+
+uint32_t x86_cmp_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
+{
+	uint32_t need = write_cmp_scratch(f, i, h);
+
+	if (cmp_fused(f, i) || h[SC_DST] != VR_SPILL) return need;
+	return need > 1 ? need : 1;
+}
+
+uint32_t x86_select_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
+{
+	int8_t d = h[SC_DST];
+	uint32_t need;
+
+	if (d >= 0 && d == h[SC_SRC2]) need = h[SC_SRC1] < 0;
+	else need = (d < 0) + (h[SC_SRC2] < 0);
+
+	if (need == 0 && f->regs[i->cond].cstate == VR_CONST) need = 1;
+	return need;
+}

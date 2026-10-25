@@ -148,3 +148,11 @@ int x86_make_tail_call (X86Fn *f, IRInstr *i)
 
 	return ret == i + 1 ? 2 : 1;
 }
+
+uint32_t x86_arg_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
+{
+	if (i->target < X86_ARG_REG_MAX) return 0;
+	if (f->regs[i->src1].cstate != VR_CONST) return h[SC_SRC1] == VR_SPILL;
+	int64_t v = x86_const_ext(f, i->src1);
+	return v != (int32_t)v;
+}

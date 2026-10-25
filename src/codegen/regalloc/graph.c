@@ -301,17 +301,16 @@ void reset_nodes (Graph *g)
 static uint32_t instr_scratch (Graph *g, IRInstr *in)
 {
 	ColorRegs *cr = g->cr;
-	uint32_t v[4] = { in->dst, in->src1, in->src2, NO_REG };
-	uint32_t mem = 0;
+	uint32_t v[SC_COUNT] = { in->dst, in->src1, in->src2, NO_REG };
+	int8_t homes[SC_COUNT];
 
 	if (cg_is_silent(cr->regs, in)) return 0;
-	if (in->op == IR_SELECT) v[3] = in->cond;
-	for (uint32_t k = 0; k < 4; k++) {
-		if (v[k] == NO_REG) continue;
-		if (cr->regs[g->root[v[k]]].home[g->blk] == VR_SPILL) mem |= 1u << k;
+	if (in->op == IR_SELECT) v[SC_COND] = in->cond;
+	for (uint32_t k = 0; k < SC_COUNT; k++) {
+		if (v[k] == NO_REG) homes[k] = VR_NO_HOME;
+		else homes[k] = cr->regs[g->root[v[k]]].home[g->blk];
 	}
-	if (!mem) return 0;
-	return cr->ctx->scratch_need(cr->fn, cr->regs, in, mem);
+	return cr->ctx->scratch_need(cr->ctx->user, in, homes);
 }
 
 uint32_t block_scratch (Graph *g)

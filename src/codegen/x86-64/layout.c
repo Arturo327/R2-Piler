@@ -42,46 +42,27 @@ static uint32_t save_area (X86Fn *f, uint32_t c)
 	return f->regsave + 8u * (uint32_t)__builtin_popcountll(mask);
 }
 
-static uint32_t scratch_cmp (IRFn *fn, Reg *regs, IRInstr *in, uint32_t mem)
+static uint32_t x86_scratch_need (void *user, IRInstr *in, const int8_t *h)
 {
-	int imm2 = regs[in->src2].cstate == VR_CONST;
-	int narrow2 = types[fn->reg_types[in->src2]].size < 8;
-	uint32_t load = ((mem & MEM_SRC1) && !imm2) + ((mem & MEM_SRC2) && narrow2);
-	uint32_t store = (mem & MEM_DST) != 0;
-
-	return load > store ? load : store;
-}
-
-static uint32_t x86_scratch_need (IRFn *fn, Reg *regs, IRInstr *in, uint32_t mem)
-{
-	uint32_t m_dst = (mem & MEM_DST) != 0;
-	uint32_t m_src1 = (mem & MEM_SRC1) != 0;
-	uint32_t m_src2 = (mem & MEM_SRC2) != 0;
-	uint32_t sel;
+	X86Fn *f = user;
 
 	switch (in->op)
 	{
+	case IR_CONST: return x86_const_scratch(f, in, h);
+	case IR_PARAM: return in->target >= X86_ARG_REG_MAX && h[SC_DST] == VR_SPILL;
+	case IR_LD_GLOBAL: return h[SC_DST] == VR_SPILL;
+	case IR_STR_GLOBAL: return x86_str_global_scratch(f, in, h);
+	case IR_MOVE: case IR_EXTEND: return x86_move_scratch(f, in, h);
+	case IR_SELECT: return x86_select_scratch(f, in, h);
 	case IR_ADD: case IR_SUB: case IR_MUL: case IR_AND_A: case IR_OR_A: case IR_XOR:
-		return m_dst + (m_src2 && types[fn->reg_types[in->src2]].size < 8);
-	case IR_DIV: case IR_MOD:
-		return m_src2;
-	case IR_RS: case IR_LS: case IR_NEG: case IR_NOT_A: case IR_NOT_L: case IR_LD_GLOBAL:
-		return m_dst;
-	case IR_STR_GLOBAL:
-		return m_src1;
-	case IR_MOVE: case IR_EXTEND:
-		return m_dst && m_src1;
-	case IR_PARAM:
-		return m_dst && in->target >= X86_ARG_REG_MAX;
-	case IR_ARG:
-		return m_src1 && in->target >= X86_ARG_REG_MAX;
+		return x86_arith_scratch(f, in, h);
+	case IR_DIV: case IR_MOD: return x86_divmod_scratch(f, in, h);
+	case IR_RS: case IR_LS: case IR_NEG: case IR_NOT_A: case IR_NOT_L:
+		return x86_unary_scratch(f, in, h);
 	case IR_EQ: case IR_NE: case IR_GT: case IR_GE: case IR_LT: case IR_LE:
-		return scratch_cmp(fn, regs, in, mem);
-	case IR_SELECT:
-		sel = m_dst + m_src2;
-		return sel ? sel : m_src1;
-	default:
-		return 0;
+		return x86_cmp_scratch(f, in, h);
+	case IR_ARG: return x86_arg_scratch(f, in, h);
+	default: return 0;
 	}
 }
 
@@ -99,6 +80,7 @@ static void fill_regalloc (X86Fn *f)
 	f->ctx.arg_reg_max = X86_ARG_REG_MAX;
 	f->ctx.scratch_max = X86_SCRATCH_MAX;
 	f->ctx.scratch_need = x86_scratch_need;
+	f->ctx.user = f;
 
 	regalloc(f->cg->arena, f->cg->ir, fn, f->regs, &f->ctx, X86_REG_NUM, x86_64_needs, spill_all);
 }

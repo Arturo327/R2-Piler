@@ -206,3 +206,16 @@ int x86_try_rmw_inplace (X86Fn *f, IRInstr *i)
 
 	return 1;
 }
+
+int x86_rmw_fits (X86Fn *f, IRInstr *i, int8_t src2_home)
+{
+	if (!rmw_kind[i->op] || i->dst != i->src1) return 0;
+
+	int8_t s = types[f->fn->reg_types[i->dst]].size;
+	const char *op = NULL;
+	int64_t v = 0;
+
+	if (rmw_operand(f, i, s, &op, &v)) return 1;
+	if (rmw_kind[i->op] != RMW_ARITH || src2_home < 0) return 0;
+	return types[f->fn->reg_types[i->src2]].size == s;
+}

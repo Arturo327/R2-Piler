@@ -147,3 +147,33 @@ void x86_make_not_l (X86Fn *f, IRInstr *i)
 			q, q, b, b, reg_name(w, 4));
 	x86_store_reg(f, w, i->dst);
 }
+
+static int mul_tmp (int64_t v)
+{
+	if (v > 0 && (v & (v - 1)) == 0) return 0;
+	if (v == 3 || v == 5 || v == 9) return 0;
+	if (v > 9 && !((uint64_t)(v - 1) & (uint64_t)(v - 2))) return 1;
+	if (v > 3 && !((uint64_t)v & ((uint64_t)v + 1))) return 1;
+	return v != (int32_t)v;
+}
+
+uint32_t x86_arith_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
+{
+	if (x86_rmw_fits(f, i, h[SC_SRC2])) return 0;
+
+	int8_t d = h[SC_DST];
+	if (i->op == IR_MUL && f->regs[i->src2].cstate == VR_CONST)
+		return (d < 0) + mul_tmp(x86_const_ext(f, i->src2));
+
+	if (i->op != IR_SUB && d >= 0 && d == h[SC_SRC2])
+		return x86_op_reg_tmp(f, i->src1, h[SC_SRC1]);
+
+	uint32_t w = d < 0 || d == h[SC_SRC2];
+	return w + x86_op_reg_tmp(f, i->src2, h[SC_SRC2]);
+}
+
+uint32_t x86_unary_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
+{
+	if (x86_rmw_fits(f, i, h[SC_SRC2])) return 0;
+	return h[SC_DST] < 0;
+}

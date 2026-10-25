@@ -149,3 +149,16 @@ void x86_make_divmod (X86Fn *f, IRInstr *i)
 		x86_store_reg(f, RAX, i->dst);
 	}
 }
+
+uint32_t x86_divmod_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
+{
+	if (f->regs[i->src2].cstate != VR_CONST) return h[SC_SRC2] < 0;
+
+	int sign = types[i->data_type].sign;
+	int64_t v = x86_const_ext(f, i->src2);
+	if (v <= 0 || (sign && v == 1)) return 1;
+
+	int pow2 = (v & (v - 1)) == 0;
+	if (pow2 && i->op == IR_MOD && v - 1 != (int32_t)(v - 1)) return 1;
+	return !pow2;
+}

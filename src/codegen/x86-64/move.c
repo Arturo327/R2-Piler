@@ -144,3 +144,18 @@ void x86_make_move (X86Fn *f, IRInstr *i)
 	x86_load_reg(f, w, i->src1);
 	x86_store_reg(f, w, i->dst);
 }
+
+uint32_t x86_move_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
+{
+	if (i->dst == i->src1 || h[SC_DST] != VR_SPILL) return 0;
+	if (f->regs[i->src1].cstate != VR_CONST) return h[SC_SRC1] == VR_SPILL;
+	int64_t v = x86_const_ext(f, i->src1);
+	return types[f->fn->reg_types[i->dst]].size == 8 && v != (int32_t)v;
+}
+
+uint32_t x86_const_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
+{
+	if (h[SC_DST] != VR_SPILL) return 0;
+	return types[f->fn->reg_types[i->dst]].size == 8
+		&& i->imm64 != (int32_t)i->imm64;
+}

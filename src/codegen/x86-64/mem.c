@@ -159,3 +159,13 @@ void x86_op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg)
 	}
 	f->pool = keep;
 }
+
+int x86_op_reg_tmp (X86Fn *f, uint32_t vreg, int8_t home)
+{
+	if (f->regs[vreg].cstate == VR_CONST) {
+		int64_t v = x86_const_ext(f, vreg);
+		return v != (int32_t)v;
+	}
+	if (home >= 0) return 0;
+	return types[f->fn->reg_types[vreg]].size != 8;
+}
