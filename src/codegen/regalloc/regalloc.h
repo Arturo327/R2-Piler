@@ -62,6 +62,15 @@ typedef struct EdgeMoves {
 	uint32_t taken;
 } EdgeMoves;
 
+enum {
+	MEM_DST = 1,
+	MEM_SRC1 = 2,
+	MEM_SRC2 = 4,
+	MEM_COND = 8
+};
+
+typedef uint32_t (*ScratchFn) (IRFn *fn, Reg *regs, IRInstr *in, uint32_t mem);
+
 typedef struct RegCtx {
 	uint32_t *ins_block;
 	uint64_t *save;
@@ -74,6 +83,9 @@ typedef struct RegCtx {
 	uint32_t block_count;
 	uint32_t move_count;
 	uint32_t arg_reg_max;
+
+	uint32_t scratch_max;
+	ScratchFn scratch_need;
 
 	uint64_t callee_used;
 	uint64_t callee_mask;

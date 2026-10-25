@@ -5,6 +5,7 @@
 
 #include "ir/cfg.h"
 #include "codegen/regalloc/regalloc.h"
+#include "codegen/codegen.h"
 
 #define GRAPH_MAX_NODES 1024u
 #define GRAPH_NO_NODE 0xFFFFFFFFu
@@ -50,6 +51,8 @@ typedef struct Graph {
 
 	uint64_t pal;
 	uint64_t bpal;
+	uint64_t fpal;
+
 	uint32_t k;
 	uint32_t cap;
 	uint32_t stride;
@@ -63,6 +66,10 @@ void make_graph (ColorRegs *cr, Graph *g);
 void color_graph (Graph *g);
 void build_graph (Graph *g);
 void paint_graph (Graph *g);
+
+void set_palette (Graph *g, uint32_t scratch);
+void reset_nodes (Graph *g);
+uint32_t block_scratch (Graph *g);
 
 void color_regs (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, Cfg *cfg);
 

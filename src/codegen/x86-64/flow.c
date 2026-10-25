@@ -27,6 +27,7 @@ static void make_stack_arg (X86Fn *f, IRInstr *a)
 	int is_const = f->regs[a->src1].cstate == VR_CONST;
 	int64_t v = is_const ? x86_const_ext(f, a->src1) : 0;
 	int p = x86_phys_reg(f, a->src1);
+	uint64_t keep = f->pool;
 
 	if (is_const && v == (int32_t)v) {
 		cg_printf(f->cg, "\tmovq $%lld, %u(%%rsp)\n", (long long)v, off);
@@ -36,6 +37,7 @@ static void make_stack_arg (X86Fn *f, IRInstr *a)
 	uint8_t w = p >= 0 ? (uint8_t)p : x86_grab(f);
 	if (p < 0) x86_load_reg(f, w, a->src1);
 	cg_printf(f->cg, "\tmovq %s, %u(%%rsp)\n", reg_name(w, 8), off);
+	f->pool = keep;
 }
 
 static uint32_t build_arg_moves (X86Fn *f, IRInstr *first, uint32_t n)

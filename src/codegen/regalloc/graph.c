@@ -247,9 +247,6 @@ static void finish_nodes (Graph *g)
 		CRNode *n = g->nodes + i;
 		int h = g->blk ? regs[n->vreg].home[g->blk - 1] : VR_SPILL;
 
-		n->deg = 0;
-		for (uint32_t w = 0; w < g->stride; w++)
-			n->deg += (uint32_t)__builtin_popcountll(n->row[w]);
 		n->pref = h >= 0 ? 1ull << h : 0;
 	}
 }
@@ -257,11 +254,81 @@ static void finish_nodes (Graph *g)
 void build_graph (Graph *g)
 {
 	reset_graph(g);
-	g->bpal = g->pal & ~block_reserved(g);
+	g->fpal = g->pal & ~block_reserved(g);
+	g->bpal = g->fpal;
 	g->k = (uint32_t)__builtin_popcountll(g->bpal);
 	if (!g->k) return;
 
 	for (uint32_t b = g->cfg_first[g->blk]; b < g->cfg_first[g->blk + 1]; b++)
 		sweep_block(g, b);
 	finish_nodes(g);
+}
+
+static uint64_t scratch_regs (Graph *g, uint32_t n)
+{
+	uint64_t cand = g->fpal & g->cr->ctx->caller_mask;
+	uint64_t m = 0;
+
+	for (uint32_t i = 0; i < n && cand; i++) {
+		m |= cand & (0 - cand);
+		cand &= cand - 1;
+	}
+	return m;
+}
+
+void set_palette (Graph *g, uint32_t scratch)
+{
+	g->bpal = g->fpal & ~scratch_regs(g, scratch);
+	g->k = (uint32_t)__builtin_popcountll(g->bpal);
+}
+
+void reset_nodes (Graph *g)
+{
+	Reg *regs = g->cr->regs;
+
+	for (uint32_t i = 0; i < g->node_num; i++) {
+		CRNode *n = g->nodes + i;
+
+		n->deg = 0;
+		for (uint32_t w = 0; w < g->stride; w++)
+			n->deg += (uint32_t)__builtin_popcountll(n->row[w]);
+		n->avail = g->bpal;
+		n->state = CRN_ACTIVE;
+		regs[n->vreg].home[g->blk] = VR_SPILL;
+	}
+}
+
+static uint32_t instr_scratch (Graph *g, IRInstr *in)
+{
+	ColorRegs *cr = g->cr;
+	uint32_t v[4] = { in->dst, in->src1, in->src2, NO_REG };
+	uint32_t mem = 0;
+
+	if (cg_is_silent(cr->regs, in)) return 0;
+	if (in->op == IR_SELECT) v[3] = in->cond;
+	for (uint32_t k = 0; k < 4; k++) {
+		if (v[k] == NO_REG) continue;
+		if (cr->regs[g->root[v[k]]].home[g->blk] == VR_SPILL) mem |= 1u << k;
+	}
+	if (!mem) return 0;
+	return cr->ctx->scratch_need(cr->fn, cr->regs, in, mem);
+}
+
+uint32_t block_scratch (Graph *g)
+{
+	ColorRegs *cr = g->cr;
+	uint32_t need = 0;
+
+	if (!cr->ctx->scratch_max) return 0;
+	for (uint32_t b = g->cfg_first[g->blk]; b < g->cfg_first[g->blk + 1]; b++) {
+		CfgBlock *blk = cr->cfg->blocks + b;
+		IRInstr *code = cr->ir->instrs + blk->start;
+
+		for (uint32_t i = 0; i < blk->count; i++) {
+			uint32_t n = instr_scratch(g, code + i);
+
+			if (n > need) need = n;
+		}
+	}
+	return need < cr->ctx->scratch_max ? need : cr->ctx->scratch_max;
 }

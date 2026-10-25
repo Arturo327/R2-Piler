@@ -17,6 +17,7 @@
 #define X86_CALLER_MASK 0x1FFull
 #define ARG_REGS_MASK 0x7Eull
 #define X86_ARG_REG_MAX 6
+#define X86_SCRATCH_MAX 2
 
 enum {
 	RAX = 0,
@@ -66,7 +67,6 @@ static inline const char *reg_name (uint8_t reg, uint8_t size)
 	return x86_regs_names[(idx << 4) + reg];
 }
 
-int x86_is_silent (X86Fn *f, IRInstr *i);
 IRInstr *x86_next_live (X86Fn *f, IRInstr *i, IRInstr *end);
 void x86_layout_fn (X86Fn *f);
 

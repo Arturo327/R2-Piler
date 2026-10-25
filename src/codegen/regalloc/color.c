@@ -66,6 +66,18 @@ static void mark_weighted (ColorRegs *cr)
 	loop_weights(cr);
 }
 
+static void paint_block (Graph *g)
+{
+	uint32_t max = g->cr->ctx->scratch_max;
+
+	for (uint32_t s = 0; s <= max; s++) {
+		set_palette(g, s);
+		reset_nodes(g);
+		if (g->node_num && g->k) paint_graph(g);
+		if (block_scratch(g) <= s) return;
+	}
+}
+
 void color_graph (Graph *g)
 {
 	uint32_t blocks = g->cr->ctx->block_count;
@@ -73,7 +85,7 @@ void color_graph (Graph *g)
 	for (uint32_t i = 0; i < blocks; i++) {
 		g->blk = g->order[i];
 		build_graph(g);
-		if (g->node_num && g->k) paint_graph(g);
+		paint_block(g);
 	}
 }
 

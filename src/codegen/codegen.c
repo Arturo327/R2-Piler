@@ -104,3 +104,13 @@ int cg_is_tail_call (IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx,
 	if (ctx->edges[at].fall) return 0;
 	return from == to || (types[from].size == 8 && types[to].size == 8);
 }
+
+int cg_is_silent (Reg *regs, IRInstr *i)
+{
+	if (i->op == IR_NOP) return 1;
+	if (i->dst == NO_REG) return 0;
+	if (regs[i->dst].cstate == VR_CONST || regs[i->dst].cstate == VR_ALIAS)
+		return 1;
+	return regs[i->dst].uses == 0 && is_deletable[i->op];
+}
+

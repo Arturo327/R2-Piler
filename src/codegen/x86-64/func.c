@@ -8,7 +8,7 @@ void x86_print_fn_name (CodeGen *c, IRFn *fn)
 
 static int make_instr (X86Fn *f, IRInstr *i)
 {
-	if (x86_is_silent(f, i)) return 1;
+	if (cg_is_silent(f->regs, i)) return 1;
 	x86_begin_instr(f, i);
 	if (x86_try_rmw_inplace(f, i)) return 1;
 	int n;

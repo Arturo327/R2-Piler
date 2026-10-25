@@ -36,5 +36,6 @@ int codegen_run (CodeGen *codegen);
 void cg_printf (CodeGen *c, const char *fmt, ...);
 
 int cg_is_tail_call (IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, IRInstr *call, uint32_t max_args);
+int cg_is_silent (Reg *regs, IRInstr *i);
 
 #endif
