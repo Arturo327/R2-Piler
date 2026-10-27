@@ -20,9 +20,14 @@ typedef enum {
 
 	TOK_ADD, TOK_SUB, TOK_STAR, TOK_SLASH, TOK_PERCENT,			// Operations
 	TOK_AND_A, TOK_OR_A, TOK_XOR, TOK_RS, TOK_LS, TOK_NOT_A,		// Bitwise operations
+	TOK_INC, TOK_DEC,							// Increment / decrement
 
 	TOK_AND_L, TOK_OR_L, TOK_NOT_L,						// Logic operations
 	TOK_ASSIGN, TOK_EQ, TOK_NE, TOK_GT, TOK_LT, TOK_GE, TOK_LE,		// Logic operations
+
+	TOK_ADD_ASSIGN, TOK_SUB_ASSIGN, TOK_STAR_ASSIGN, TOK_SLASH_ASSIGN,	// Compound assignment
+	TOK_PERCENT_ASSIGN, TOK_AND_A_ASSIGN, TOK_OR_A_ASSIGN,
+	TOK_XOR_ASSIGN, TOK_LS_ASSIGN, TOK_RS_ASSIGN,
 
 	TOK_COUNT
 } TokenType;

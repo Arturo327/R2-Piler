@@ -179,38 +179,38 @@ static uint8_t tok_to_datatype (TokenType t)
 
 static const int8_t binop_prec[TOK_COUNT] = {
 	[TOK_ASSIGN] = 1,
-	[TOK_OR_L] = 2,
-	[TOK_AND_L] = 3,
-	[TOK_OR_A] = 4,
-	[TOK_XOR] = 5,
-	[TOK_AND_A] = 6,
-	[TOK_EQ] = 7, [TOK_NE] = 7,
+	[TOK_ADD_ASSIGN] = 1, [TOK_SUB_ASSIGN] = 1,
+	[TOK_STAR_ASSIGN] = 1, [TOK_SLASH_ASSIGN] = 1,
+	[TOK_PERCENT_ASSIGN] = 1, [TOK_AND_A_ASSIGN] = 1,
+	[TOK_OR_A_ASSIGN] = 1, [TOK_XOR_ASSIGN] = 1,
+	[TOK_LS_ASSIGN] = 1, [TOK_RS_ASSIGN] = 1,
+	[TOK_OR_L] = 2, [TOK_AND_L] = 3, [TOK_OR_A] = 4,
+	[TOK_XOR] = 5, [TOK_AND_A] = 6, [TOK_EQ] = 7, [TOK_NE] = 7,
 	[TOK_GT] = 8, [TOK_LT] = 8,  [TOK_GE] = 8,  [TOK_LE] = 8,
-	[TOK_RS] = 9, [TOK_LS] = 9,
-	[TOK_ADD] = 10, [TOK_SUB] = 10,
+	[TOK_RS] = 9, [TOK_LS] = 9, [TOK_ADD] = 10, [TOK_SUB] = 10,
 	[TOK_STAR] = 11, [TOK_SLASH] = 11, [TOK_PERCENT] = 11
 };
 
 static const uint8_t binop_node[TOK_COUNT] = {
 	[TOK_ASSIGN] = NODE_ASSIGN,
-	[TOK_ADD] = NODE_ADD,
-	[TOK_SUB] = NODE_SUB,
-	[TOK_STAR] = NODE_MUL,
-	[TOK_SLASH] = NODE_DIV,
-	[TOK_PERCENT] = NODE_MOD,
-	[TOK_AND_A] = NODE_AND_A,
-	[TOK_OR_A] = NODE_OR_A,
-	[TOK_XOR] = NODE_XOR,
-	[TOK_RS] = NODE_RS,
-	[TOK_LS] = NODE_LS,
-	[TOK_AND_L] = NODE_AND_L,
-	[TOK_OR_L] = NODE_OR_L,
-	[TOK_EQ] = NODE_EQ,
-	[TOK_NE] = NODE_NE,
-	[TOK_GT] = NODE_GT,
-	[TOK_LT] = NODE_LT,
-	[TOK_GE] = NODE_GE,
-	[TOK_LE] = NODE_LE,
+	[TOK_ADD_ASSIGN] = NODE_ADD, [TOK_SUB_ASSIGN] = NODE_SUB,
+	[TOK_STAR_ASSIGN] = NODE_MUL, [TOK_SLASH_ASSIGN] = NODE_DIV,
+	[TOK_PERCENT_ASSIGN] = NODE_MOD, [TOK_AND_A_ASSIGN] = NODE_AND_A,
+	[TOK_OR_A_ASSIGN] = NODE_OR_A, [TOK_XOR_ASSIGN] = NODE_XOR,
+	[TOK_LS_ASSIGN] = NODE_LS, [TOK_RS_ASSIGN] = NODE_RS,
+	[TOK_ADD] = NODE_ADD, [TOK_SUB] = NODE_SUB, [TOK_STAR] = NODE_MUL,
+	[TOK_SLASH] = NODE_DIV, [TOK_PERCENT] = NODE_MOD, [TOK_AND_A] = NODE_AND_A,
+	[TOK_OR_A] = NODE_OR_A, [TOK_XOR] = NODE_XOR, [TOK_RS] = NODE_RS,
+	[TOK_LS] = NODE_LS, [TOK_AND_L] = NODE_AND_L, [TOK_OR_L] = NODE_OR_L,
+	[TOK_EQ] = NODE_EQ, [TOK_NE] = NODE_NE, [TOK_GT] = NODE_GT,
+	[TOK_LT] = NODE_LT, [TOK_GE] = NODE_GE, [TOK_LE] = NODE_LE,
+};
+
+static const uint8_t is_compound_assign[TOK_COUNT] = {
+	[TOK_ADD_ASSIGN] = 1, [TOK_SUB_ASSIGN] = 1, [TOK_STAR_ASSIGN] = 1,
+	[TOK_SLASH_ASSIGN] = 1, [TOK_PERCENT_ASSIGN] = 1, [TOK_AND_A_ASSIGN] = 1,
+	[TOK_OR_A_ASSIGN] = 1, [TOK_XOR_ASSIGN] = 1, [TOK_LS_ASSIGN] = 1,
+	[TOK_RS_ASSIGN] = 1
 };
 
 static uint32_t parse_call_args (Parser *p, uint32_t call)

@@ -457,17 +457,34 @@ static TokenType id_keyword (char *str, size_t length)
 	return kw ? kw->type : TOK_ID;
 }
 
+typedef struct ThreeCharOp {
+	char first;
+	char second;
+	char third;
+	TokenType type;
+} ThreeCharOp;
+
 typedef struct TwoCharOp {
 	char first;
 	char second;
 	TokenType type;
 } TwoCharOp;
 
+static const ThreeCharOp three_char_ops[] = {
+	{'<', '<', '=', TOK_LS_ASSIGN},
+	{'>', '>', '=', TOK_RS_ASSIGN}
+};
+
 static const TwoCharOp two_char_ops[] = {
 	{'=', '=', TOK_EQ}, {'!', '=', TOK_NE},
 	{'>', '>', TOK_RS}, {'>', '=', TOK_GE},
 	{'<', '<', TOK_LS}, {'<', '=', TOK_LE},
-	{'&', '&', TOK_AND_L}, {'|', '|', TOK_OR_L}
+	{'&', '&', TOK_AND_L}, {'|', '|', TOK_OR_L},
+	{'+', '=', TOK_ADD_ASSIGN}, {'-', '=', TOK_SUB_ASSIGN},
+	{'*', '=', TOK_STAR_ASSIGN}, {'/', '=', TOK_SLASH_ASSIGN},
+	{'%', '=', TOK_PERCENT_ASSIGN}, {'&', '=', TOK_AND_A_ASSIGN},
+	{'|', '=', TOK_OR_A_ASSIGN}, {'^', '=', TOK_XOR_ASSIGN},
+	{'+', '+', TOK_INC}, {'-', '-', TOK_DEC}
 };
 
 static const uint8_t one_char_ops[256] = {
@@ -486,7 +503,17 @@ static Token handle_symbols (Lexer *l)
 {
 	int col = (int)(l->cursor - l->line_start) + 1;
 	char c = *l->cursor++;
+	size_t count3 = sizeof(three_char_ops) / sizeof(three_char_ops[0]);
 	size_t count = sizeof(two_char_ops) / sizeof(two_char_ops[0]);
+
+	for (size_t i = 0; i < count3; i++) {
+		if (three_char_ops[i].first != c
+				|| three_char_ops[i].second != l->cursor[0]
+				|| three_char_ops[i].third != l->cursor[1])
+			continue;
+		l->cursor += 2;
+		return make_token(three_char_ops[i].type, NULL, 3, l->line, col);
+	}
 
 	for (size_t i = 0; i < count; i++) {
 		if (two_char_ops[i].first != c || two_char_ops[i].second != *l->cursor)
@@ -549,9 +576,13 @@ static const char *const token_names[TOK_COUNT] = {
 	TN(TOK_ELSE), TN(TOK_ELIF), TN(TOK_WHILE), TN(TOK_FOR), TN(TOK_RET), TN(TOK_AS),
 	TN(TOK_ADD), TN(TOK_SUB), TN(TOK_STAR), TN(TOK_SLASH), TN(TOK_PERCENT),
 	TN(TOK_AND_A), TN(TOK_OR_A), TN(TOK_XOR), TN(TOK_RS), TN(TOK_LS),
-	TN(TOK_NOT_A), TN(TOK_AND_L), TN(TOK_OR_L), TN(TOK_NOT_L),
+	TN(TOK_NOT_A), TN(TOK_INC), TN(TOK_DEC),
+	TN(TOK_AND_L), TN(TOK_OR_L), TN(TOK_NOT_L),
 	TN(TOK_ASSIGN), TN(TOK_EQ), TN(TOK_NE), TN(TOK_GT), TN(TOK_LT),
-	TN(TOK_GE), TN(TOK_LE)
+	TN(TOK_GE), TN(TOK_LE), TN(TOK_ADD_ASSIGN), TN(TOK_SUB_ASSIGN),
+	TN(TOK_STAR_ASSIGN), TN(TOK_SLASH_ASSIGN), TN(TOK_PERCENT_ASSIGN),
+	TN(TOK_AND_A_ASSIGN), TN(TOK_OR_A_ASSIGN), TN(TOK_XOR_ASSIGN),
+	TN(TOK_LS_ASSIGN), TN(TOK_RS_ASSIGN)
 };
 
 static const char *token_type_to_string (TokenType type)
