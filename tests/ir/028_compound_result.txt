@@ -1,0 +1,102 @@
+global g : i64
+global h : i64
+
+fn __r2_init(0 params, 4 regs) : void
+    r0 = const.i64 1
+    str_global.i64 r0 @g
+    r1 = ld_global.i64 @g
+    r2 = const.i64 2
+    r3 = add.i64 r1, r2
+    str_global.i64 r3 @g
+    str_global.i64 r3 @h
+    ret
+
+fn main(0 params, 65 regs) : i64
+    r0 = const.i64 10
+    r1 = move.i64 r0
+    r2 = const.i64 3
+    r3 = add.i64 r1, r2
+    r0 = move.i64 r3
+    r4 = move.i64 r0
+    r5 = const.i64 1
+    r6 = sub.i64 r4, r5
+    r0 = move.i64 r6
+    r7 = move.i64 r0
+    r8 = const.i64 2
+    r9 = mul.i64 r7, r8
+    r0 = move.i64 r9
+    r10 = move.i64 r0
+    r11 = const.i64 4
+    r12 = div.i64 r10, r11
+    r0 = move.i64 r12
+    r13 = move.i64 r0
+    r14 = const.i64 5
+    r15 = mod.i64 r13, r14
+    r0 = move.i64 r15
+    r16 = move.i64 r0
+    r17 = const.i64 7
+    r18 = and.i64 r16, r17
+    r0 = move.i64 r18
+    r19 = move.i64 r0
+    r20 = const.i64 8
+    r21 = or.i64 r19, r20
+    r0 = move.i64 r21
+    r22 = move.i64 r0
+    r23 = const.i64 1
+    r24 = xor.i64 r22, r23
+    r0 = move.i64 r24
+    r25 = move.i64 r0
+    r26 = const.i64 1
+    r27 = lshift.i64 r25, r26
+    r0 = move.i64 r27
+    r28 = move.i64 r0
+    r29 = const.i64 1
+    r30 = rshift.i64 r28, r29
+    r0 = move.i64 r30
+    r31 = move.i64 r0
+    r32 = const.i64 1
+    r33 = add.i64 r31, r32
+    r0 = move.i64 r33
+    r34 = move.i64 r0
+    r35 = const.i64 1
+    r36 = sub.i64 r34, r35
+    r0 = move.i64 r36
+    r37 = const.u8 250
+    r38 = move.u8 r37
+    r39 = const.u8 10
+    r40 = add.u8 r38, r39
+    r37 = move.u8 r40
+    r41 = move.u8 r37
+    r42 = const.u8 1
+    r43 = add.u8 r41, r42
+    r37 = move.u8 r43
+    r44 = const.i64 0
+    r45 = const.i64 0
+    jmp -> L1
+  L0:
+    r46 = move.i64 r45
+    r47 = move.i64 r44
+    r48 = add.i64 r46, r47
+    r45 = move.i64 r48
+    r49 = move.i64 r44
+    r50 = const.i64 1
+    r51 = add.i64 r49, r50
+    r44 = move.i64 r51
+  L1:
+    r52 = move.i64 r44
+    r53 = const.i64 3
+    r54 = lt.i64 r52, r53
+    jnz r54 -> L0
+    r55 = move.i64 r0
+    r56 = move.i64 r45
+    r57 = add.i64 r55, r56
+    r58 = ld_global.i64 @g
+    r59 = add.i64 r57, r58
+    r60 = ld_global.i64 @h
+    r61 = add.i64 r59, r60
+    r62 = move.u8 r37
+    r63 = extend.i64 r62
+    r64 = add.i64 r61, r63
+    ret.i64 r64
+    ret
+

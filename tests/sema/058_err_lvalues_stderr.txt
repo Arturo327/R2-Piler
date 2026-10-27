@@ -1,0 +1,15 @@
+tests/sema/058_err_lvalues_src.r2:7:5: ERROR: 'f' is a function, not a variable
+      7 |     f += 1;
+        |     ^
+tests/sema/058_err_lvalues_src.r2:8:5: ERROR: 'f' is a function, not a variable
+      8 |     f++;
+        |     ^
+tests/sema/058_err_lvalues_src.r2:9:5: ERROR: 'q' is not declared
+      9 |     q++;
+        |     ^
+tests/sema/058_err_lvalues_src.r2:10:5: ERROR: 'q' is not declared
+     10 |     q += 1;
+        |     ^
+tests/sema/058_err_lvalues_src.r2:11:13: ERROR: left side of compound assignment must be a variable
+     11 |     (a + 1) += 2;
+        |             ^~

@@ -106,7 +106,7 @@ Reglas de tipos (estrictas; el único implícito es el que no puede perder valor
 
 ## 4. Operadores: precedencia y asociatividad
 
-De mayor a menor precedencia. Todos los binarios son asociativos por la izquierda excepto `=` (por la derecha).
+De mayor a menor precedencia. Todos los binarios son asociativos por la izquierda excepto las asignaciones (`=`, `+=`, …), que lo son por la derecha.
 
 | Prec | Operadores | Resultado |
 |------|-----------|-----------|
@@ -122,7 +122,9 @@ De mayor a menor precedencia. Todos los binarios son asociativos por la izquierd
 | 4 | `\|` | tipo de los operandos |
 | 3 | `&&` | `i64` |
 | 2 | `\|\|` | `i64` |
-| 1 | `=` | tipo del LHS |
+| 1 | `=` `+=` `-=` `*=` `/=` `%=` `&=` `\|=` `^=` `<<=` `>>=` | tipo del LHS |
+
+Los compuestos (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`) son tokens propios, no `+` seguido de `=`; `<<=`/`>>=` son tokens de tres caracteres. `x OP= e` es exactamente `x = x OP e` (misma precedencia de asignación y misma asociatividad por la derecha).
 
 El unario tiene la precedencia más alta y se aplica sobre un primario: `-x + y` es `(-x) + y`. `- -x` está permitido.
 El cast está justo debajo del unario y por encima de todos los binarios (como en Rust: `unary > as > *`):
@@ -136,6 +138,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 - Literales enteros, char y string; identificadores; llamadas `f(a, b)`; expresiones entre paréntesis.
 - **Cast `expr as type`** (cualquier tipo numérico, `char` = `i8`): conversión explícita que acepta cualquier operando no-`void` y devuelve exactamente el tipo escrito. Todas las combinaciones están permitidas (incluido el cast identidad `x as i64` con `x : i64`). Entre 64 bits (`i64<->u64`) es reinterpretación de bits (wrap/módulo 2^64); hacia un tipo narrow es truncado al ancho; hacia 64 bits desde un narrow es extensión con el signo del origen (`i8`→`i64` extiende con signo, `u8`→`u64` con ceros). El cast no es asignable: `(x as i64) = 1` es error (`left side of '=' must be a variable`). Como cualquier expresión, puede aparecer en inits, args, `return` y condiciones.
 - **Asignación `=`**: es una expresión. El lado izquierdo debe ser una variable; el derecho debe ser del mismo tipo o ensanchar a él en silencio (ver punto 3; si no, error `cannot assign X to a variable of type Y; use an explicit cast with 'as'`, reportado en el `=`). Devuelve **el valor asignado**, por lo que puede encadenarse (`x = y = 1`) y usarse como expresión, incluso como condición.
+- **Asignación compuesta `x OP= e`** (`+= -= *= /= %= &= |= ^= <<= >>=`): es una expresión que lee `x` una sola vez, calcula `x OP e` y guarda el resultado en `x`, devolviéndolo; puede encadenarse (`a += b += 1` es `a += (b += 1)`). El LHS debe ser una variable (si no, error `left side of compound assignment must be a variable`, reportado en el operador). Para `+= -= *= /= %= &= |= ^=`, el RHS se adapta al tipo del LHS con las reglas de asignación (mismo tipo, literal flexible o ensanche implícito); si no, error `cannot assign X to a variable of type Y; use an explicit cast with 'as'` en el operador, igual que `x = x OP e`. `<<=` y `>>=` siguen las reglas del desplazamiento binario: el RHS puede ser cualquier numérico y el resultado tiene el tipo del LHS. `x /= 0` y `x %= 0` reportan `division by zero` en el `0`.
 - **`&&` y `||`**: short-circuit. Si el resultado queda decidido por el operando izquierdo, el derecho no se evalúa. Un operando constante emite un **warning** (`constant operand of '&&' is always true/false`), también a través de un cast (`(1 as i64) && x` advierte).
 
 ---
@@ -144,6 +147,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 
 - Declaración de variable: `var ID : type (= expr)? ;`
 - Expresión: `expr ;`
+- **`i++;` / `i--;`**: solo postfijo y solo como sentencia (también vale como update de un `for`). Se representa con nodos propios `NODE_INC`/`NODE_DEC`; el operando debe ser una variable y el IR emite carga, suma/resta de `1` del tipo del operando y store. `++i` es error (`'++' cannot be used as a prefix; use the postfix form as a statement`) y usarlo dentro de una expresión también (`x = i++;`, `return i++;` → `'++' is only valid as a standalone statement on a variable`).
 - Bloque: `{ statement* }`
 - `if (cond) body { elif (cond) body } [ else body ]` — el cuerpo es cualquier statement, normalmente un bloque.
 - `while (cond) body`
@@ -274,7 +278,9 @@ type           = "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "
 block          = "{" { statement } "}" ;
 statement      = var_decl | block | if_stmt | while_stmt | for_stmt
                | "return" [ expr ] ";"
+               | inc_dec_stmt
                | expr ";" ;
+inc_dec_stmt   = IDENT ( "++" | "--" ) ";" ;
 var_decl       = "var" IDENT ":" type [ "=" expr ] ";" ;
 if_stmt        = "if" "(" expr ")" statement
                  { "elif" "(" expr ")" statement }
@@ -283,9 +289,10 @@ while_stmt     = "while" "(" expr ")" statement ;
 for_stmt       = "for" "(" for_init for_cond for_updt ")" statement ;
 for_init       = var_decl | [ expr ] ";" ;
 for_cond       = [ expr ] ";" ;
-for_updt       = [ expr ] ;
+for_updt       = [ expr | IDENT ( "++" | "--" ) ] ;
 expr           = assignment ;
-assignment     = logic_or [ "=" assignment ] ;
+assignment     = logic_or [ ( "=" | "+=" | "-=" | "*=" | "/=" | "%="
+                            | "&=" | "|=" | "^=" | "<<=" | ">>=" ) assignment ] ;
 logic_or       = logic_and { "||" logic_and } ;
 logic_and      = bit_or { "&&" bit_or } ;
 bit_or         = bit_xor { "|" bit_xor } ;
@@ -368,49 +375,3 @@ fn main () : i64
 	return 1;
 }
 ```
-
----
-
-## 16. Estado actual y limitaciones
-
-Implementado y cubierto por la suite de tests:
-
-- Los ocho tipos enteros, `char` como alias de `i8`, casts explícitos y
-  ensanchamientos implícitos sin pérdida.
-- Locales, parámetros, funciones top-level, recursión y forward references.
-- Globals con orden de inicialización resuelto y detección de ciclos directos.
-- Bloques, `if`/`elif`/`else`, `while`, `for`, `return`, `&&`/`||` con
-  short-circuit y todo el conjunto de operadores de la sección 4.
-- Diagnósticos con `file:line:column`, warnings de variable sin asignar,
-  condición constante y `return` ausente.
-- IR con `--dump-ir`, optimizador con `--dump-opt`, y codegen x86-64 en los
-  cuatro niveles `-O0`…`-O3`.
-
-Todavía no implementado (orden de `comp_pending.md`):
-
-1. Operadores compuestos (`+=`, `-=`, `*=`, …) y `++`/`--` como statement;
-   enums.
-2. Punteros (`ptr`, `@`, `$`, `NULL`, `sizeof`, aritmética de punteros),
-   strings en `.rodata` y `extern` no variádico.
-3. Arrays en pila, `arr.len`, `for (x : arr)` y slices de 16 bytes.
-4. `struct` al estilo C con literales exhaustivos y semántica `Copy`.
-5. `pub`, módulos, `import`/`from`, name mangling y ficheros `.r2i`.
-6. `static` de función, `export`/`extern` completos y cabeceras C.
-7. Argumentos opcionales, multi-retorno, clases, `init`/`op`/`destroy` y
-   ownership mínimo con `defer`/destrucción automática.
-8. Flotantes `f32`/`f64`.
-
-Limitaciones de implementación:
-
-- Solo existe backend x86-64. ARM, RISC-V y el intérprete están declarados en
-  la CLI pero no implementados.
-- Los literales string se lexan y parsean, pero sema los rechaza con
-  `string literals are not supported yet`.
-- No hay `break`, `continue` ni `switch`.
-- El backend solo hace tail calls con hasta 6 argumentos (los argumentos de
-  pila todavía no se mueven en una tail call).
-- Las posiciones (línea/columna) se guardan en `uint16_t`: un fuente de más de
-  65535 líneas o una línea de más de 65535 columnas desborda la posición
-  reportada.
-- `--dump-ir` nunca ejecuta el optimizador ni muestra `select`; `--dump-opt`
-  sin `-O` fuerza el nivel máximo.

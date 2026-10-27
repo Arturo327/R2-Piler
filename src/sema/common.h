@@ -15,10 +15,11 @@ uint8_t finalize_type (Sema *s, uint32_t idx, uint8_t type);
 uint8_t try_fold_unary (Sema *s, uint32_t idx);
 void try_fold_binary (Sema *s, uint32_t idx);
 int is_literal_node (Sema *s, uint32_t idx);
-int unify_operands (Sema *s, ASTNode *n, uint32_t *left, uint32_t *right,
-		uint8_t *l, uint8_t *r);
+int lit_node_bits (Sema *s, ASTNode *n, uint64_t *out);
+int unify_operands (Sema *s, ASTNode *n, uint32_t *left, uint32_t *right, uint8_t *l, uint8_t *r);
 
 uint8_t check_expr (Sema *s, uint32_t idx);
+void check_inc_dec (Sema *s, uint32_t idx);
 void check_fn_dec (Sema *s, uint32_t idx);
 
 #endif

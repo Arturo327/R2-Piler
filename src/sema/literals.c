@@ -61,7 +61,7 @@ static uint64_t trunc_sext (uint64_t raw, uint8_t t)
 	return lit_bits(v, t);
 }
 
-static int lit_node_bits (Sema *s, ASTNode *n, uint64_t *out)
+int lit_node_bits (Sema *s, ASTNode *n, uint64_t *out)
 {
 	switch (n->type)
 	{

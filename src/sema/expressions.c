@@ -2,6 +2,14 @@
 
 #define MAX_EXPR_DEPTH 5000
 
+static const uint8_t compound_base[NODE_COUNT] = {
+	[NODE_ADD_ASSIGN] = NODE_ADD, [NODE_SUB_ASSIGN] = NODE_SUB,
+	[NODE_MUL_ASSIGN] = NODE_MUL, [NODE_DIV_ASSIGN] = NODE_DIV,
+	[NODE_MOD_ASSIGN] = NODE_MOD, [NODE_AND_A_ASSIGN] = NODE_AND_A,
+	[NODE_OR_A_ASSIGN] = NODE_OR_A, [NODE_XOR_ASSIGN] = NODE_XOR,
+	[NODE_LS_ASSIGN] = NODE_LS, [NODE_RS_ASSIGN] = NODE_RS
+};
+
 static uint8_t check_literal (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
@@ -76,14 +84,22 @@ static uint8_t check_assign_target (Sema *s, uint32_t idx)
 	return n->data_type;
 }
 
+static void warn_unassigned (Sema *s, uint32_t idx, uint8_t type)
+{
+	ASTNode *n = s->ast->nodes + idx;
+
+	if (type == TYPE_ERROR || n->sym == NO_SYMBOL) return;
+	if (s->table.symbols[n->sym].assigned) return;
+
+	error_report(s->err, ERR_WARNING, node_loc(n),
+			"'%.*s' is used without being assigned", (int)n->len, n->str);
+}
+
 static uint8_t check_id (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
 	uint8_t type = check_assign_target(s, idx);
 
-	if (type != TYPE_ERROR && !s->table.symbols[n->sym].assigned)
-		error_report(s->err, ERR_WARNING, node_loc(n),
-				"'%.*s' is used without being assigned", (int)n->len, n->str);
+	warn_unassigned(s, idx, type);
 	return type;
 }
 
@@ -213,6 +229,94 @@ static uint8_t check_assign (Sema *s, uint32_t idx)
 
 	assign->data_type = l;
 	return l;
+}
+
+static uint8_t adapt_compound_rhs (Sema *s, uint32_t idx, uint32_t left, uint32_t right, uint8_t l, uint8_t r)
+{
+	uint8_t op = compound_base[s->ast->nodes[idx].type];
+
+	if (op == NODE_LS || op == NODE_RS) {
+		finalize_type(s, right, r);
+		return l;
+	}
+
+	if (l != r) {
+		int ok;
+		uint32_t cast = force_cast(s, right, r, l, &ok);
+		s->ast->nodes[left].next_bro = cast;
+		if (!ok) {
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+					"cannot assign %s to a variable of type %s;"
+					" use an explicit cast with 'as'",
+					types[r].name, types[l].name);
+			return TYPE_ERROR;
+		}
+		if (s->ast->nodes[cast].data_type == TYPE_ERROR) return TYPE_ERROR;
+		right = cast;
+	}
+
+	uint64_t bits;
+	if ((op == NODE_DIV || op == NODE_MOD)
+			&& lit_node_bits(s, s->ast->nodes + right, &bits) && bits == 0) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + right),
+				"division by zero");
+		return TYPE_ERROR;
+	}
+	return l;
+}
+
+static uint8_t check_compound_assign (Sema *s, uint32_t idx)
+{
+	uint32_t left = s->ast->nodes[idx].child;
+	uint32_t right = s->ast->nodes[left].next_bro;
+
+	if (s->ast->nodes[left].type != NODE_ID) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"left side of compound assignment must be a variable");
+		check_expr(s, right);
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	uint8_t l = check_assign_target(s, left);
+	warn_unassigned(s, left, l);
+	uint8_t r = check_expr(s, right);
+	if (s->ast->nodes[left].sym != NO_SYMBOL)
+		s->table.symbols[s->ast->nodes[left].sym].assigned = 1;
+
+	if (l == TYPE_ERROR || r == TYPE_ERROR) {
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	if (l == TYPE_VOID || r == TYPE_VOID) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"operator cannot be applied to a value of type void");
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	r = adapt_compound_rhs(s, idx, left, right, l, r);
+	s->ast->nodes[idx].data_type = r == TYPE_ERROR ? TYPE_ERROR : l;
+	return s->ast->nodes[idx].data_type;
+}
+
+void check_inc_dec (Sema *s, uint32_t idx)
+{
+	uint32_t target = s->ast->nodes[idx].child;
+
+	if (s->ast->nodes[target].type != NODE_ID) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"operand of '%s' must be a variable",
+				s->ast->nodes[idx].type == NODE_INC ? "++" : "--");
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return;
+	}
+
+	uint8_t type = check_assign_target(s, target);
+	warn_unassigned(s, target, type);
+	if (s->ast->nodes[target].sym != NO_SYMBOL)
+		s->table.symbols[s->ast->nodes[target].sym].assigned = 1;
+	s->ast->nodes[idx].data_type = type;
 }
 
 static int const_operand (Sema *s, uint32_t idx)
@@ -380,6 +484,15 @@ static uint8_t check_expr_node (Sema *s, uint32_t idx)
 	case NODE_ID: return check_id(s, idx);
 	case NODE_FN_CALL: return check_fn_call(s, idx);
 	case NODE_ASSIGN: return check_assign(s, idx);
+	case NODE_ADD_ASSIGN: case NODE_SUB_ASSIGN: case NODE_MUL_ASSIGN:
+	case NODE_DIV_ASSIGN: case NODE_MOD_ASSIGN: case NODE_AND_A_ASSIGN:
+	case NODE_OR_A_ASSIGN: case NODE_XOR_ASSIGN: case NODE_LS_ASSIGN:
+	case NODE_RS_ASSIGN: return check_compound_assign(s, idx);
+	case NODE_INC: case NODE_DEC:
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"increment/decrement cannot be used as an expression");
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
 	case NODE_NEG: case NODE_NOT_L: case NODE_NOT_A:
 		return check_unary(s, idx);
 	case NODE_CAST: return check_cast(s, idx);

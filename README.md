@@ -13,19 +13,19 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **187 dump fixtures** pass (`make test`): 41 lexer, 45 parser, 55 sema,
-  27 IR and 19 optimizer tests.
-- **70 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+- **195 dump fixtures** pass (`make test`): 42 lexer, 48 parser, 58 sema,
+  28 IR and 19 optimizer tests.
+- **71 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
   “backend is not implemented”.
 - The language currently has integers, functions, locals, globals, blocks,
-  `if`/`elif`/`else`, `while`, `for`, `return`, casts, short-circuit logic and
-  the full integer/bitwise operator set.
-- Pointers, arrays, strings, structs, enums, modules/imports, classes,
-  floating point and compound assignment are **not implemented yet**. See
-  [Roadmap](#roadmap).
+  `if`/`elif`/`else`, `while`, `for`, `return`, casts, short-circuit logic,
+  the full integer/bitwise operator set, compound assignment (`+=`, `-=`, …)
+  and postfix statement-only `++`/`--` (also in the `for` update).
+- Pointers, arrays, strings, structs, enums, modules/imports, classes and
+  floating point are **not implemented yet**. See [Roadmap](#roadmap).
 
 ---
 
@@ -186,29 +186,6 @@ source -> lexer -> parser -> sema -> IR -> optimize_ir (-O2/-O3) -> x86-64 asm
 An error in a stage stops the compilation before the next stage; warnings do
 not. The IR optimizer only runs at `-O2`/`-O3`; `-O1` keeps the IR unoptimized
 but runs register allocation, and `-O0` spills every value to the stack.
-
----
-
-## Roadmap
-
-The detailed plan lives in `comp_pending.md`. The short version, in dependency
-order:
-
-1. Compound assignment (`+=`, `-=`, …) and statement-only `++`/`--`; enums.
-2. Pointers (`ptr`, `@`, `$`, `NULL`, `sizeof`, C-style pointer arithmetic) and
-   string literals in `.rodata`; non-variadic `extern` C calls.
-3. Stack arrays, `arr.len`, the `for (x : arr)` desugaring and 16-byte slices.
-4. C-style `struct`s with exhaustive literals and `Copy` semantics.
-5. `pub`, modules/`import`/`from`, name mangling and `.r2i` interface files.
-6. Function-local `static`, `export`/`extern` completion and C header output.
-7. Optional arguments, multiple return values, classes/`init`/`op`/`destroy`,
-   minimal ownership with automatic `destroy`/`defer`.
-8. Floating point (`f32`/`f64`) as a separate backend effort.
-
-Register-allocation and backend improvements are tracked at the top of
-`comp_pending.md` (per-instruction reservations, precoloring hints, better edge
-moves, spill-slot reuse/rematerialization, stack-argument tail calls, lazy
-narrow extension, CFI/frame-pointer elimination, and more).
 
 ---
 

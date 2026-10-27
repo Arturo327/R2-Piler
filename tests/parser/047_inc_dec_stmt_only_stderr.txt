@@ -1,0 +1,9 @@
+tests/parser/047_inc_dec_stmt_only_src.r2:3:5: ERROR: '++' cannot be used as a prefix; use the postfix form as a statement
+      3 |     ++i;
+        |     ^~
+tests/parser/047_inc_dec_stmt_only_src.r2:5:10: ERROR: '++' is only valid as a standalone statement on a variable
+      5 |     x = i++;
+        |          ^~
+tests/parser/047_inc_dec_stmt_only_src.r2:6:13: ERROR: expected ';' after return statement
+      6 |     return i++;
+        |             ^~
