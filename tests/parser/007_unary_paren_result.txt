@@ -5,7 +5,9 @@ NODE_ROOT [0:0]
     NODE_ID [2:2] str="x"
   NODE_NOT_A [3:1]
     NODE_ID [3:2] str="x"
-  NODE_ERROR [4:1]
+  NODE_NEG [4:1]
+    NODE_NEG [4:3]
+      NODE_LIT_i64 [4:4] i64=5
   NODE_NEG [5:1]
     NODE_ADD [5:5]
       NODE_LIT_i64 [5:3] i64=1

@@ -70,6 +70,11 @@ static const uint8_t node_to_ir[NODE_COUNT] = {
 	[NODE_DIV] = IR_DIV, [NODE_MOD] = IR_MOD,
 	[NODE_AND_A] = IR_AND_A, [NODE_OR_A] = IR_OR_A, [NODE_XOR] = IR_XOR,
 	[NODE_RS] = IR_RS, [NODE_LS] = IR_LS,
+	[NODE_ADD_ASSIGN] = IR_ADD, [NODE_SUB_ASSIGN] = IR_SUB,
+	[NODE_MUL_ASSIGN] = IR_MUL, [NODE_DIV_ASSIGN] = IR_DIV,
+	[NODE_MOD_ASSIGN] = IR_MOD, [NODE_AND_A_ASSIGN] = IR_AND_A,
+	[NODE_OR_A_ASSIGN] = IR_OR_A, [NODE_XOR_ASSIGN] = IR_XOR,
+	[NODE_LS_ASSIGN] = IR_LS, [NODE_RS_ASSIGN] = IR_RS,
 	[NODE_NEG] = IR_NEG, [NODE_NOT_A] = IR_NOT_A, [NODE_NOT_L] = IR_NOT_L,
 	[NODE_EQ] = IR_EQ, [NODE_NE] = IR_NE, [NODE_GT] = IR_GT,
 	[NODE_GE] = IR_GE, [NODE_LT] = IR_LT, [NODE_LE] = IR_LE
@@ -305,18 +310,16 @@ static void gen_block (IR *ir, ASTNode *parent);
 static uint32_t gen_expr (IR *ir, ASTNode *n);
 static void gen_jump_if (IR *ir, ASTNode *n, uint32_t label, int when);
 
-static uint32_t gen_id (IR *ir, ASTNode *n)
+static uint32_t load_var (IR *ir, Symbol *s)
 {
-	Symbol *s = ir->symtab->symbols + n->sym;
-	uint32_t tmp;
-
 	if (!s->depth)
 		return make_ld_global(ir, s->ir_id, s->type);
 
-	tmp = new_reg(ir, s->type);
+	uint32_t tmp = new_reg(ir, s->type);
 	make_move(ir, tmp, s->ir_id, s->type);
 	return tmp;
 }
+
 
 static uint32_t gen_call (IR *ir, ASTNode *n)
 {
@@ -344,6 +347,32 @@ static uint32_t gen_assign (IR *ir, ASTNode *n)
 	if (!s->depth) make_str_global(ir, s->ir_id, val, s->type);
 	else make_move(ir, s->ir_id, val, s->type);
 	return val;
+}
+
+static uint32_t gen_compound_assign (IR *ir, ASTNode *n)
+{
+	ASTNode *lhs = ir->ast->nodes + n->child;
+	ASTNode *rhs = ir->ast->nodes + lhs->next_bro;
+	Symbol *s = ir->symtab->symbols + lhs->sym;
+	uint32_t a = load_var(ir, s);
+	uint32_t b = gen_expr(ir, rhs);
+	uint32_t val = make_op(ir, node_to_ir[n->type], a, b, lhs->data_type);
+
+	if (!s->depth) make_str_global(ir, s->ir_id, val, s->type);
+	else make_move(ir, s->ir_id, val, s->type);
+	return val;
+}
+
+static void gen_inc_dec (IR *ir, ASTNode *n)
+{
+	ASTNode *target = ir->ast->nodes + n->child;
+	Symbol *s = ir->symtab->symbols + target->sym;
+	uint32_t a = load_var(ir, s);
+	uint32_t one = make_const(ir, 1, target->data_type);
+	uint32_t val = make_op(ir, n->type == NODE_INC ? IR_ADD : IR_SUB, a, one, target->data_type);
+
+	if (!s->depth) make_str_global(ir, s->ir_id, val, s->type);
+	else make_move(ir, s->ir_id, val, s->type);
 }
 
 static uint32_t gen_unary (IR *ir, ASTNode *n)
@@ -547,9 +576,13 @@ static uint32_t gen_expr (IR *ir, ASTNode *n)
 	case NODE_LIT_u64: return make_const(ir, (int64_t)n->u64, n->data_type);
 	case NODE_LIT_CHAR: return make_const(ir, (int8_t)n->chr, n->data_type);
 
-	case NODE_ID: return gen_id(ir, n);
+	case NODE_ID: return load_var(ir, ir->symtab->symbols + n->sym);;
 	case NODE_FN_CALL: return gen_call(ir, n);
 	case NODE_ASSIGN: return gen_assign(ir, n);
+	case NODE_ADD_ASSIGN: case NODE_SUB_ASSIGN: case NODE_MUL_ASSIGN:
+	case NODE_DIV_ASSIGN: case NODE_MOD_ASSIGN: case NODE_AND_A_ASSIGN:
+	case NODE_OR_A_ASSIGN: case NODE_XOR_ASSIGN: case NODE_LS_ASSIGN:
+	case NODE_RS_ASSIGN: return gen_compound_assign(ir, n);
 
 	case NODE_NEG: case NODE_NOT_A: case NODE_NOT_L: return gen_unary(ir, n);
 	case NODE_AND_L: case NODE_OR_L: return gen_logic(ir, n);
@@ -661,6 +694,7 @@ static void gen_stmt (IR *ir, ASTNode *n)
 	case NODE_WHILE: gen_while(ir, n); return;
 	case NODE_FOR: gen_for(ir, n); return;
 	case NODE_IF: gen_if(ir, n); return;
+	case NODE_INC: case NODE_DEC: gen_inc_dec(ir, n); return;
 	case NODE_EMPTY: return;
 	default: gen_expr(ir, n); return;
 	}

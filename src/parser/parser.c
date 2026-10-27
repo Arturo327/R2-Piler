@@ -193,11 +193,11 @@ static const int8_t binop_prec[TOK_COUNT] = {
 
 static const uint8_t binop_node[TOK_COUNT] = {
 	[TOK_ASSIGN] = NODE_ASSIGN,
-	[TOK_ADD_ASSIGN] = NODE_ADD, [TOK_SUB_ASSIGN] = NODE_SUB,
-	[TOK_STAR_ASSIGN] = NODE_MUL, [TOK_SLASH_ASSIGN] = NODE_DIV,
-	[TOK_PERCENT_ASSIGN] = NODE_MOD, [TOK_AND_A_ASSIGN] = NODE_AND_A,
-	[TOK_OR_A_ASSIGN] = NODE_OR_A, [TOK_XOR_ASSIGN] = NODE_XOR,
-	[TOK_LS_ASSIGN] = NODE_LS, [TOK_RS_ASSIGN] = NODE_RS,
+	[TOK_ADD_ASSIGN] = NODE_ADD_ASSIGN, [TOK_SUB_ASSIGN] = NODE_SUB_ASSIGN,
+	[TOK_STAR_ASSIGN] = NODE_MUL_ASSIGN, [TOK_SLASH_ASSIGN] = NODE_DIV_ASSIGN,
+	[TOK_PERCENT_ASSIGN] = NODE_MOD_ASSIGN, [TOK_AND_A_ASSIGN] = NODE_AND_A_ASSIGN,
+	[TOK_OR_A_ASSIGN] = NODE_OR_A_ASSIGN, [TOK_XOR_ASSIGN] = NODE_XOR_ASSIGN,
+	[TOK_LS_ASSIGN] = NODE_LS_ASSIGN, [TOK_RS_ASSIGN] = NODE_RS_ASSIGN,
 	[TOK_ADD] = NODE_ADD, [TOK_SUB] = NODE_SUB, [TOK_STAR] = NODE_MUL,
 	[TOK_SLASH] = NODE_DIV, [TOK_PERCENT] = NODE_MOD, [TOK_AND_A] = NODE_AND_A,
 	[TOK_OR_A] = NODE_OR_A, [TOK_XOR] = NODE_XOR, [TOK_RS] = NODE_RS,
@@ -212,6 +212,56 @@ static const uint8_t is_compound_assign[TOK_COUNT] = {
 	[TOK_OR_A_ASSIGN] = 1, [TOK_XOR_ASSIGN] = 1, [TOK_LS_ASSIGN] = 1,
 	[TOK_RS_ASSIGN] = 1
 };
+
+static uint32_t make_binary_node (Parser *p, uint32_t left, uint32_t right, Token op)
+{
+	uint32_t node = new_node(p, (NodeType)binop_node[op.type], op.line, op.col);
+	uint32_t last = NO_NODE;
+
+	p->ast.nodes[node].len = op.len;
+	append_child(p, node, &last, left);
+	append_child(p, node, &last, right);
+	return node;
+}
+
+static uint32_t make_compound_assign (Parser *p, uint32_t left, uint32_t right, Token op)
+{
+	uint32_t node = new_node(p, (NodeType)binop_node[op.type], op.line, op.col);
+	uint32_t last = NO_NODE;
+
+	p->ast.nodes[node].len = op.len;
+	append_child(p, node, &last, left);
+	append_child(p, node, &last, right);
+	return node;
+}
+
+static uint32_t parse_inc_dec (Parser *p, uint32_t target)
+{
+	Token op = p->curr;
+	NodeType type = op.type == TOK_INC ? NODE_INC : NODE_DEC;
+	uint32_t node = new_node(p, type, op.line, op.col);
+
+	p->ast.nodes[node].len = op.len;
+	p->ast.nodes[node].child = target;
+	advance(p);
+	return node;
+}
+
+static uint32_t maybe_inc_dec (Parser *p, uint32_t node)
+{
+	Token op = p->curr;
+
+	if (op.type != TOK_INC && op.type != TOK_DEC)
+		return node;
+	if (p->ast.nodes[node].type == NODE_ID)
+		return parse_inc_dec(p, node);
+
+	error_report(p->err, ERR_ERROR, token_loc(op),
+			"'%s' is only valid as a standalone statement on a variable",
+			op.type == TOK_INC ? "++" : "--");
+	advance(p);
+	return node;
+}
 
 static uint32_t parse_call_args (Parser *p, uint32_t call)
 {
@@ -342,25 +392,16 @@ static uint32_t parse_expr (Parser *p, int min_prec)
 	int prec = binop_prec[p->curr.type];
 
 	while (prec > 0 && prec >= min_prec && enter_depth(p)) {
-		TokenType op_type = p->curr.type;
-		uint16_t line = p->curr.line;
-		uint16_t col = p->curr.col;
-		uint16_t len = p->curr.len;
-	
+		Token op = p->curr;
+		int compound = is_compound_assign[op.type];
+		int next_min = (op.type == TOK_ASSIGN || compound) ? prec : prec + 1;
+
 		extra++;
 		advance(p);
 
-		int next_min = (op_type == TOK_ASSIGN) ? prec : prec + 1;
 		uint32_t right = parse_expr(p, next_min);
-
-		uint32_t node = new_node(p, (NodeType)binop_node[op_type], line, col);
-		uint32_t last = NO_NODE;
-		p->ast.nodes[node].len = len;
-	
-		append_child(p, node, &last, left);
-		append_child(p, node, &last, right);
-
-		left = node;
+		left = compound ? make_compound_assign(p, left, right, op)
+				: make_binary_node(p, left, right, op);
 		prec = binop_prec[p->curr.type];
 	}
 
@@ -657,7 +698,7 @@ static uint32_t parse_for_updt (Parser *p)
 		advance(p);
 		return e;
 	}
-	uint32_t c = parse_expr(p, 0);
+	uint32_t c = maybe_inc_dec(p, parse_expr(p, 0));
 	consume(p, TOK_RPAREN, "expected ')'");
 	return c;
 }
@@ -683,6 +724,20 @@ static uint32_t parse_for (Parser *p)
 	return node;
 }
 
+static uint32_t error_prefix_inc (Parser *p)
+{
+	Token op = p->curr;
+
+	error_report(p->err, ERR_ERROR, token_loc(op),
+			"'%s' cannot be used as a prefix; use the postfix form as a statement",
+			op.type == TOK_INC ? "++" : "--");
+
+	while (p->curr.type != TOK_SEMCOL && p->curr.type != TOK_EOF)
+		advance(p);
+	if (p->curr.type == TOK_SEMCOL) advance(p);
+	return new_node(p, NODE_ERROR, op.line, op.col);
+}
+
 static uint32_t parse_statement_inner (Parser *p)
 {
 	switch (p->curr.type)
@@ -694,8 +749,9 @@ static uint32_t parse_statement_inner (Parser *p)
 	case TOK_IF: return parse_if(p);
 	case TOK_WHILE: return parse_while(p);
 	case TOK_FOR: return parse_for(p);
+	case TOK_INC: case TOK_DEC: return error_prefix_inc(p);
 	default: {
-		uint32_t node = parse_expr(p, 0);
+		uint32_t node = maybe_inc_dec(p, parse_expr(p, 0));
 		consume(p, TOK_SEMCOL, "expected ';' at end of expression");
 		return node;
 	}
@@ -732,6 +788,18 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_ERROR] = "NODE_ERROR",
 	[NODE_EMPTY] = "NODE_EMPTY",
 	[NODE_ASSIGN] = "NODE_ASSIGN",
+	[NODE_ADD_ASSIGN] = "NODE_ADD_ASSIGN",
+	[NODE_SUB_ASSIGN] = "NODE_SUB_ASSIGN",
+	[NODE_MUL_ASSIGN] = "NODE_MUL_ASSIGN",
+	[NODE_DIV_ASSIGN] = "NODE_DIV_ASSIGN",
+	[NODE_MOD_ASSIGN] = "NODE_MOD_ASSIGN",
+	[NODE_AND_A_ASSIGN] = "NODE_AND_A_ASSIGN",
+	[NODE_OR_A_ASSIGN] = "NODE_OR_A_ASSIGN",
+	[NODE_XOR_ASSIGN] = "NODE_XOR_ASSIGN",
+	[NODE_LS_ASSIGN] = "NODE_LS_ASSIGN",
+	[NODE_RS_ASSIGN] = "NODE_RS_ASSIGN",
+	[NODE_INC] = "NODE_INC",
+	[NODE_DEC] = "NODE_DEC",
 	[NODE_EQ] = "NODE_EQ",
 	[NODE_NE] = "NODE_NE",
 	[NODE_GT] = "NODE_GT",
