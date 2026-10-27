@@ -1,5 +1,7 @@
 #include "ir/opts/common.h"
 
+#define OPT_LIVE_MAX_WORDS (1u << 22)
+
 int opt_dce (Optimizer *opt, OptFn *f)
 {
 	IRInstr *code = opt->ir->instrs + f->fn->start;
@@ -50,6 +52,8 @@ int opt_live_dce (Optimizer *opt, OptFn *f)
 	int changed = 0;
 
 	if (!words) return 0;
+	if ((size_t)f->block_count * words > OPT_LIVE_MAX_WORDS) return 0;
+
 	cfg_build_edges(opt->ir, cfg);
 	live_setup(opt, f, (size_t)cfg->block_count * words);
 	cfg_live_solve(opt->ir, cfg, f->live, f->live_tmp, words);

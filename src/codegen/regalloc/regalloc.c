@@ -301,7 +301,6 @@ static void alloc_regalloc (RegAlloc *ra)
 	ra->blocks = arena_alloc(ra->arena, (size_t)count * sizeof(CfgBlock));
 	ra->lmap = arena_alloc(ra->arena, (size_t)labels * sizeof(uint32_t));
 	ra->lrefs = arena_alloc(ra->arena, (size_t)labels * sizeof(uint32_t));
-	ra->live = arena_alloc(ra->arena, (size_t)count * ra->words * sizeof(uint64_t));
 	ra->tmp = arena_alloc(ra->arena, (size_t)ra->words * sizeof(uint64_t));
 	memset(ra->lmap, 0xFF, (size_t)labels * sizeof(uint32_t));
 }
@@ -314,7 +313,10 @@ static void build_cfg (RegAlloc *ra)
 	cfg->lmap = ra->lmap;
 	cfg->lrefs = ra->lrefs;
 	cfg->work = NULL;
+
 	cfg_fill_blocks(ra->ir, ra->fn, cfg->blocks, &cfg->block_count);
+	ra->live = arena_alloc(ra->arena, (size_t)cfg->block_count * ra->words * sizeof(uint64_t));
+
 	cfg_build_lmap(ra->ir, cfg);
 	cfg_build_edges(ra->ir, cfg);
 	cfg_live_solve_full(ra->ir, cfg, ra->live, ra->tmp, ra->words);

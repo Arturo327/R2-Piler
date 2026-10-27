@@ -408,13 +408,29 @@ static void warn_const_operand (Sema *s, uint32_t idx, const char *op)
 			"constant operand of '%s' is always %s", op, tru ? "true" : "false");
 }
 
+static uint8_t check_rhs (Sema *s, uint8_t op, uint32_t right)
+{
+	uint32_t mark = s->table.act_count;
+
+	if (op != NODE_AND_L && op != NODE_OR_L)
+		return check_expr(s, right);
+
+	uint8_t *snap = arena_alloc(s->arena, (size_t)mark + 1);
+	for (uint32_t i = 0; i < mark; i++)
+		snap[i] = s->table.symbols[s->table.active[i]].assigned;
+	uint8_t type = check_expr(s, right);
+	for (uint32_t i = 0; i < mark; i++)
+		s->table.symbols[s->table.active[i]].assigned = snap[i];
+	return type;
+}
+
 static uint8_t check_binary (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
 	uint32_t left = n->child;
 	uint32_t right = s->ast->nodes[left].next_bro;
 	uint8_t l = check_expr(s, left);
-	uint8_t r = check_expr(s, right);
+	uint8_t r = check_rhs(s, n->type, right);
 
 	if (l == TYPE_ERROR || r == TYPE_ERROR) {
 		n->data_type = TYPE_ERROR;
