@@ -27,7 +27,7 @@ static uint32_t pick_node (Graph *g)
 		CRNode *n = g->nodes + i;
 
 		if (n->state != CRN_ACTIVE) continue;
-		if (n->deg < g->k) return i;
+		if (n->deg < (uint32_t)__builtin_popcountll(n->avail)) return i;
 		if (best == GRAPH_NO_NODE) {
 			best = i;
 			continue;

@@ -30,6 +30,7 @@ typedef struct CRNode {
 	uint64_t *row;
 	uint64_t avail;
 	uint64_t pref;
+	uint64_t forbid;
 	uint32_t vreg;
 	uint32_t cost;
 	uint32_t cross;
@@ -52,6 +53,7 @@ typedef struct Graph {
 	uint64_t pal;
 	uint64_t bpal;
 	uint64_t fpal;
+	uint64_t rsv;
 
 	uint32_t k;
 	uint32_t cap;

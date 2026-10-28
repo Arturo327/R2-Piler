@@ -172,8 +172,19 @@ uint32_t x86_arith_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
 	return w + x86_op_reg_tmp(f, i->src2, h[SC_SRC2]);
 }
 
+static uint32_t shift_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
+{
+	int8_t d = h[SC_DST];
+	int early = h[SC_SRC1] != RCX;
+
+	if (d < 0) return 1;
+	if (f->regs[i->src2].cstate == VR_CONST) return 0;
+	return d == RCX || (!early && d == h[SC_SRC2]);
+}
+
 uint32_t x86_unary_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
 {
 	if (x86_rmw_fits(f, i, h[SC_SRC2])) return 0;
+	if (i->op == IR_LS || i->op == IR_RS) return shift_scratch(f, i, h);
 	return h[SC_DST] < 0;
 }

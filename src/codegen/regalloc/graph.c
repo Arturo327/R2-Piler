@@ -92,6 +92,7 @@ static uint32_t add_node (Graph *g, uint32_t v)
 	n->vreg = r;
 	n->avail = g->bpal;
 	n->pref = 0;
+	n->forbid = 0;
 	n->cost = 0;
 	n->cross = 0;
 	n->deg = 0;
@@ -113,6 +114,16 @@ static void reset_graph (Graph *g)
 	g->stack_num = 0;
 }
 
+static uint64_t needs_mask (const OpNeeds *n)
+{
+	uint64_t m = n->destroy_mask;
+
+	if (n->src1.type == REG_COND_FIXED) m |= 1ull << n->src1.reg;
+	if (n->src2.type == REG_COND_FIXED) m |= 1ull << n->src2.reg;
+	if (n->dst.type == REG_COND_FIXED) m |= 1ull << n->dst.reg;
+	return m;
+}
+
 static uint64_t block_reserved (Graph *g)
 {
 	ColorRegs *cr = g->cr;
@@ -122,15 +133,24 @@ static uint64_t block_reserved (Graph *g)
 		CfgBlock *blk = cr->cfg->blocks + b;
 		IRInstr *code = cr->ir->instrs + blk->start;
 
-		for (uint32_t i = 0; i < blk->count; i++) {
-			OpNeeds *n = cr->ctx->needs + code[i].op;
-			m |= n->destroy_mask;
-			if (n->src1.type == REG_COND_FIXED) m |= 1ull << n->src1.reg;
-			if (n->src2.type == REG_COND_FIXED) m |= 1ull << n->src2.reg;
-			if (n->dst.type == REG_COND_FIXED) m |= 1ull << n->dst.reg;
-		}
+		for (uint32_t i = 0; i < blk->count; i++)
+			m |= needs_mask(cr->ctx->needs + code[i].op);
 	}
 	return m;
+}
+
+static void forbid_live (Graph *g, uint64_t mask)
+{
+	for (uint32_t w = 0; w < g->stride; w++) {
+		uint64_t bits = g->live[w];
+
+		while (bits) {
+			uint32_t id = (w << 6) + (uint32_t)__builtin_ctzll(bits);
+
+			bits &= bits - 1;
+			g->nodes[id].forbid |= mask;
+		}
+	}
 }
 
 static uint32_t live_add (Graph *g, uint32_t v)
@@ -218,6 +238,8 @@ static void sweep_instr (Graph *g, IRInstr *in, uint32_t at)
 	}
 
 	if (in->op == IR_CALL) cross_live(g, wt);
+	uint64_t mask = needs_mask(g->cr->ctx->needs + in->op);
+	if (mask) forbid_live(g, mask);
 	for (int k = 0; k < n; k++) {
 		uint32_t s = live_add(g, *src[k]);
 		if (s == GRAPH_NO_NODE) continue;
@@ -254,7 +276,8 @@ static void finish_nodes (Graph *g)
 void build_graph (Graph *g)
 {
 	reset_graph(g);
-	g->fpal = g->pal & ~block_reserved(g);
+	g->rsv = block_reserved(g);
+	g->fpal = g->pal;
 	g->bpal = g->fpal;
 	g->k = (uint32_t)__builtin_popcountll(g->bpal);
 	if (!g->k) return;
@@ -266,7 +289,7 @@ void build_graph (Graph *g)
 
 static uint64_t scratch_regs (Graph *g, uint32_t n)
 {
-	uint64_t cand = g->fpal & g->cr->ctx->caller_mask;
+	uint64_t cand = g->fpal & g->cr->ctx->caller_mask & ~g->rsv;
 	uint64_t m = 0;
 
 	for (uint32_t i = 0; i < n && cand; i++) {
@@ -292,7 +315,7 @@ void reset_nodes (Graph *g)
 		n->deg = 0;
 		for (uint32_t w = 0; w < g->stride; w++)
 			n->deg += (uint32_t)__builtin_popcountll(n->row[w]);
-		n->avail = g->bpal;
+		n->avail = g->bpal & ~n->forbid;
 		n->state = CRN_ACTIVE;
 		regs[n->vreg].home[g->blk] = VR_SPILL;
 	}

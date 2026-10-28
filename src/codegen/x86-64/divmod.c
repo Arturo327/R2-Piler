@@ -152,7 +152,8 @@ void x86_make_divmod (X86Fn *f, IRInstr *i)
 
 uint32_t x86_divmod_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
 {
-	if (f->regs[i->src2].cstate != VR_CONST) return h[SC_SRC2] < 0;
+	if (f->regs[i->src2].cstate != VR_CONST)
+		return h[SC_SRC2] < 0 || h[SC_SRC2] == RAX || h[SC_SRC2] == RDX;
 
 	int sign = types[i->data_type].sign;
 	int64_t v = x86_const_ext(f, i->src2);
