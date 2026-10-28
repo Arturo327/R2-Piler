@@ -12,7 +12,8 @@
 
 enum {
 	CRN_ACTIVE = 0,
-	CRN_STACKED
+	CRN_STACKED,
+	CRN_MERGED
 };
 
 typedef struct ColorRegs {
@@ -30,13 +31,21 @@ typedef struct CRNode {
 	uint64_t *row;
 	uint64_t avail;
 	uint64_t pref;
+	uint64_t hint;
 	uint64_t forbid;
+	uint32_t rep;
 	uint32_t vreg;
 	uint32_t cost;
 	uint32_t cross;
 	uint32_t deg;
 	uint8_t state;
 } CRNode;
+
+typedef struct Affinity {
+	uint32_t a;
+	uint32_t b;
+	uint32_t wt;
+} Affinity;
 
 typedef struct Graph {
 	ColorRegs *cr;
@@ -49,6 +58,7 @@ typedef struct Graph {
 	uint32_t *stack;
 	uint32_t *cfg_first;
 	uint32_t *order;
+	Affinity *aff;
 
 	uint64_t pal;
 	uint64_t bpal;
@@ -61,6 +71,8 @@ typedef struct Graph {
 
 	uint32_t node_num;
 	uint32_t stack_num;
+	uint32_t aff_num;
+	uint32_t merged;
 	uint32_t blk;
 } Graph;
 
@@ -72,6 +84,9 @@ void paint_graph (Graph *g);
 void set_palette (Graph *g, uint32_t scratch);
 void reset_nodes (Graph *g);
 uint32_t block_scratch (Graph *g);
+
+void coalesce_graph (Graph *g);
+uint32_t node_find (Graph *g, uint32_t id);
 
 void color_regs (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, Cfg *cfg);
 

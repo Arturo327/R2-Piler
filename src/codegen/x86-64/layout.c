@@ -78,6 +78,7 @@ static void fill_regalloc (X86Fn *f)
 	f->ctx.callee_mask = X86_CALLEE_MASK;
 	f->ctx.caller_mask = X86_CALLER_MASK;
 	f->ctx.arg_reg_max = X86_ARG_REG_MAX;
+	f->ctx.arg_regs = x86_arg_regs;
 	f->ctx.scratch_max = X86_SCRATCH_MAX;
 	f->ctx.scratch_need = x86_scratch_need;
 	f->ctx.user = f;

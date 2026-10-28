@@ -22,6 +22,9 @@ static void make_entry (CodeGen *c, int run_init)
 
 OpNeeds x86_64_needs[IR_COUNT] =
 {
+	[IR_CALL] = {
+		.dst = { .type = REG_COND_HINT, .reg = RAX }
+	},
 	[IR_DIV] = {
 		.src1 = { .type = REG_COND_FIXED, .reg = RAX },
 		.destroy_mask = (1ull << RAX) | (1ull << RDX)

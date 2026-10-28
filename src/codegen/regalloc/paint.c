@@ -70,7 +70,11 @@ static int pick_color (Graph *g, CRNode *n, uint64_t ok, uint64_t want)
 		if (n->cross && n->cross * 2 >= n->cost) return -1;
 		cls = ok;
 	}
-	if (cls & n->pref) cls &= n->pref;
+	uint64_t pick = cls & n->hint & n->pref;
+	if (!pick) pick = cls & n->hint;
+	if (!pick) pick = cls & n->pref;
+
+	if (pick) cls = pick;
 	else if (cls & ~want) cls &= ~want;
 	return 63 - __builtin_clzll(cls);
 }
@@ -90,9 +94,119 @@ static void select_colors (Graph *g)
 	}
 }
 
+static void copy_merged (Graph *g)
+{
+	Reg *regs = g->cr->regs;
+
+	for (uint32_t i = 0; i < g->node_num; i++) {
+		CRNode *n = g->nodes + i;
+		uint32_t r;
+
+		if (n->state != CRN_MERGED) continue;
+		r = g->nodes[node_find(g, i)].vreg;
+		regs[n->vreg].home[g->blk] = regs[r].home[g->blk];
+	}
+}
+
 void paint_graph (Graph *g)
 {
-	while (g->stack_num < g->node_num)
+	while (g->stack_num + g->merged < g->node_num)
 		push_node(g, pick_node(g));
 	select_colors(g);
+	copy_merged(g);
+}
+
+uint32_t node_find (Graph *g, uint32_t id)
+{
+	while (g->nodes[id].rep != id) {
+		g->nodes[id].rep = g->nodes[g->nodes[id].rep].rep;
+		id = g->nodes[id].rep;
+	}
+	return id;
+}
+
+static uint32_t node_degree (Graph *g, uint32_t id)
+{
+	uint32_t deg = 0;
+
+	for (uint32_t w = 0; w < g->stride; w++)
+		deg += (uint32_t)__builtin_popcountll(g->nodes[id].row[w]);
+	return deg;
+}
+
+static int briggs_ok (Graph *g, uint32_t a, uint32_t b)
+{
+	CRNode *na = g->nodes + a;
+	CRNode *nb = g->nodes + b;
+	uint32_t k = (uint32_t)__builtin_popcountll(g->bpal & ~(na->forbid | nb->forbid));
+	uint32_t big = 0;
+
+	if (!k) return 0;
+	for (uint32_t w = 0; w < g->stride; w++) {
+		uint64_t bits = na->row[w] | nb->row[w];
+
+		while (bits) {
+			uint32_t t = (w << 6) + (uint32_t)__builtin_ctzll(bits);
+
+			bits &= bits - 1;
+			if (node_degree(g, t) >= k) big++;
+		}
+	}
+	return big < k;
+}
+
+static void merge_nodes (Graph *g, uint32_t a, uint32_t b)
+{
+	CRNode *na = g->nodes + a;
+	CRNode *nb = g->nodes + b;
+
+	for (uint32_t w = 0; w < g->stride; w++) {
+		uint64_t bits = nb->row[w];
+
+		while (bits) {
+			uint32_t t = (w << 6) + (uint32_t)__builtin_ctzll(bits);
+
+			bits &= bits - 1;
+			g->nodes[t].row[b >> 6] &= ~(1ull << (b & 63));
+			g->nodes[t].row[a >> 6] |= 1ull << (a & 63);
+			na->row[t >> 6] |= 1ull << (t & 63);
+		}
+		nb->row[w] = 0;
+	}
+	na->cost += nb->cost;
+	na->cross += nb->cross;
+	na->pref |= nb->pref;
+	na->hint |= nb->hint;
+	na->forbid |= nb->forbid;
+	nb->rep = a;
+	nb->state = CRN_MERGED;
+	g->merged++;
+}
+
+static void sort_affinities (Graph *g)
+{
+	for (uint32_t i = 1; i < g->aff_num; i++) {
+		Affinity key = g->aff[i];
+		uint32_t j = i;
+
+		while (j > 0 && g->aff[j - 1].wt < key.wt) {
+			g->aff[j] = g->aff[j - 1];
+			j--;
+		}
+		g->aff[j] = key;
+	}
+}
+
+void coalesce_graph (Graph *g)
+{
+	sort_affinities(g);
+	for (uint32_t i = 0; i < g->aff_num; i++) {
+		uint32_t a = node_find(g, g->aff[i].a);
+		uint32_t b = node_find(g, g->aff[i].b);
+
+		if (a == b) continue;
+		if (g->nodes[a].row[b >> 6] >> (b & 63) & 1) continue;
+		if (!briggs_ok(g, a, b)) continue;
+		merge_nodes(g, a, b);
+	}
 }

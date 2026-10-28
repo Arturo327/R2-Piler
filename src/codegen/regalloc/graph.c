@@ -18,6 +18,7 @@ static void alloc_graph (Graph *g)
 	g->stack = arena_alloc(a, (size_t)g->cap * sizeof(uint32_t));
 	g->cfg_first = arena_alloc(a, (size_t)(blocks + 1) * sizeof(uint32_t));
 	g->order = arena_alloc(a, (size_t)blocks * sizeof(uint32_t));
+	g->aff = arena_alloc(a, (size_t)g->cap * sizeof(Affinity));
 
 	memset(g->adj, 0, adj_bytes);
 	memset(g->id, 0xFF, (size_t)regs * sizeof(uint32_t));
@@ -92,6 +93,9 @@ static uint32_t add_node (Graph *g, uint32_t v)
 	n->vreg = r;
 	n->avail = g->bpal;
 	n->pref = 0;
+	n->hint = 0;
+	n->rep = g->node_num;
+
 	n->forbid = 0;
 	n->cost = 0;
 	n->cross = 0;
@@ -112,6 +116,8 @@ static void reset_graph (Graph *g)
 
 	g->node_num = 0;
 	g->stack_num = 0;
+	g->aff_num = 0;
+	g->merged = 0;
 }
 
 static uint64_t needs_mask (const OpNeeds *n)
@@ -223,6 +229,45 @@ static void cross_live (Graph *g, uint32_t wt)
 	}
 }
 
+static void hint_node (Graph *g, uint32_t vreg, uint32_t reg)
+{
+	if (vreg == NO_REG) return;
+	uint32_t id = g->id[g->root[vreg]];
+	if (id != GRAPH_NO_NODE) g->nodes[id].hint |= 1ull << reg;
+}
+
+static void hint_instr (Graph *g, IRInstr *in)
+{
+	RegCtx *ctx = g->cr->ctx;
+	const OpNeeds *nd = ctx->needs + in->op;
+
+	if (nd->dst.type == REG_COND_HINT || nd->dst.type == REG_COND_FIXED)
+		hint_node(g, in->dst, (uint32_t)nd->dst.reg);
+	if (nd->src1.type == REG_COND_HINT || nd->src1.type == REG_COND_FIXED)
+		hint_node(g, in->src1, (uint32_t)nd->src1.reg);
+	if (nd->src2.type == REG_COND_HINT || nd->src2.type == REG_COND_FIXED)
+		hint_node(g, in->src2, (uint32_t)nd->src2.reg);
+	if (in->target >= ctx->arg_reg_max) return;
+	if (in->op == IR_PARAM) hint_node(g, in->dst, ctx->arg_regs[in->target]);
+	if (in->op == IR_ARG) hint_node(g, in->src1, ctx->arg_regs[in->target]);
+}
+
+static void note_affinity (Graph *g, IRInstr *in, uint32_t wt)
+{
+	IRFn *fn = g->cr->fn;
+	uint32_t a = g->id[g->root[in->dst]];
+	uint32_t b = g->id[g->root[in->src1]];
+
+	if (a == GRAPH_NO_NODE || b == GRAPH_NO_NODE || a == b) return;
+	int plain = in->op == IR_MOVE ? same_rep(fn, in->dst, in->src1)
+			: types[fn->reg_types[in->dst]].size == 8;
+	if (!plain || g->aff_num >= g->cap) return;
+	g->aff[g->aff_num].a = a;
+	g->aff[g->aff_num].b = b;
+	g->aff[g->aff_num].wt = wt;
+	g->aff_num++;
+}
+
 static void sweep_instr (Graph *g, IRInstr *in, uint32_t at)
 {
 	uint32_t wt = (uint32_t)g->cr->w[at];
@@ -245,6 +290,9 @@ static void sweep_instr (Graph *g, IRInstr *in, uint32_t at)
 		if (s == GRAPH_NO_NODE) continue;
 		g->nodes[s].cost += wt;
 	}
+
+	hint_instr(g, in);
+	if (in->op == IR_MOVE || in->op == IR_EXTEND) note_affinity(g, in, wt);
 }
 
 static void sweep_block (Graph *g, uint32_t b)
@@ -284,7 +332,9 @@ void build_graph (Graph *g)
 
 	for (uint32_t b = g->cfg_first[g->blk]; b < g->cfg_first[g->blk + 1]; b++)
 		sweep_block(g, b);
+
 	finish_nodes(g);
+	coalesce_graph(g);
 }
 
 static uint64_t scratch_regs (Graph *g, uint32_t n)
@@ -316,7 +366,7 @@ void reset_nodes (Graph *g)
 		for (uint32_t w = 0; w < g->stride; w++)
 			n->deg += (uint32_t)__builtin_popcountll(n->row[w]);
 		n->avail = g->bpal & ~n->forbid;
-		n->state = CRN_ACTIVE;
+		n->state = n->rep == i ? CRN_ACTIVE : CRN_MERGED;
 		regs[n->vreg].home[g->blk] = VR_SPILL;
 	}
 }

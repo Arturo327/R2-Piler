@@ -19,7 +19,8 @@ enum {
 typedef enum {
 	REG_COND_ANY = 0,
 	REG_COND_FIXED,
-	REG_COND_CLASSES
+	REG_COND_CLASSES,
+	REG_COND_HINT
 } RegCondType;
 
 typedef struct OpCond {
@@ -84,6 +85,7 @@ typedef struct RegCtx {
 	uint32_t block_count;
 	uint32_t move_count;
 	uint32_t arg_reg_max;
+	const uint8_t *arg_regs;
 
 	void *user;
 	uint32_t scratch_max;
