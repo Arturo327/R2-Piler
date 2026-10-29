@@ -68,35 +68,12 @@ static void handle_alias (RegAlloc *ra, uint32_t i, uint8_t *ok, IRInstr *in, in
 	regs[d].slot = s;
 }
 
-static void mark_const_ok (RegAlloc *ra, uint32_t entry, uint8_t *ok, uint32_t *def_at)
+static void mark_const_ok (RegAlloc *ra, uint8_t *ok)
 {
-	IRFn *fn = ra->fn;
+	const uint64_t *entry_live = ra->cfg.blocks[0].live_in;
 
-	for (uint32_t r = 0; r < fn->reg_count; r++) {
-		ok[r] = 1;
-		def_at[r] = 0;
-	}
-	for (uint32_t i = 0; i < fn->count; i++) {
-		IRInstr *in = ra->ir->instrs + fn->start + i;
-
-		if (in->op != IR_NOP && in->dst != NO_REG)
-			def_at[in->dst] = i;
-	}
-	for (uint32_t i = 0; i < fn->count; i++) {
-		IRInstr *in = ra->ir->instrs + fn->start + i;
-		uint32_t *src[3];
-		int n = get_srcs(in, src);
-
-		for (int k = 0; k < n; k++) {
-			uint32_t v = *src[k];
-			uint32_t d = def_at[v];
-
-			if (ra->regs[v].defs != 1 || d < entry) continue;
-			if (i > d && ra->ctx->ins_block[i] == ra->ctx->ins_block[d])
-				continue;
-			ok[v] = 0;
-		}
-	}
+	for (uint32_t r = 0; r < ra->fn->reg_count; r++)
+		ok[r] = !(entry_live[r >> 6] >> (r & 63) & 1);
 }
 
 static void clasf_regs (RegAlloc *ra, int spill_all, uint32_t entry)
@@ -108,8 +85,7 @@ static void clasf_regs (RegAlloc *ra, int spill_all, uint32_t entry)
 	if (!fn->reg_count) return;
 	ra->entry = entry;
 	uint8_t *ok = arena_alloc(ra->arena, fn->reg_count);
-	uint32_t *def_at = arena_alloc(ra->arena, (size_t)fn->reg_count * sizeof(uint32_t));
-	mark_const_ok(ra, entry, ok, def_at);
+	mark_const_ok(ra, ok);
 
 	for (uint32_t i = 0; i < fn->count; i++) {
 		IRInstr *in = ir->instrs + fn->start + i;
@@ -175,13 +151,143 @@ static uint32_t lay_size (IRFn *fn, Reg *regs, uint32_t c, uint8_t s, uint32_t b
 	return c;
 }
 
-static void lay_sizes (IRFn *fn, Reg *regs, uint32_t block_count)
+typedef struct SlotMap {
+	uint32_t *lo;
+	uint32_t *hi;
+	uint32_t *root;
+	uint32_t *next_lo;
+	uint32_t *next_hi;
+	uint32_t *stack;
+	uint32_t *head_lo;
+	uint32_t *head_hi;
+} SlotMap;
+
+static void touch_span (SlotMap *sm, uint32_t v, uint32_t pos)
 {
+	uint32_t r = sm->root[v];
+
+	if (pos < sm->lo[r]) sm->lo[r] = pos;
+	if (pos > sm->hi[r]) sm->hi[r] = pos;
+}
+
+static void span_live (RegAlloc *ra, SlotMap *sm, const uint64_t *bits, uint32_t pos)
+{
+	for (uint32_t w = 0; w < ra->words; w++) {
+		uint64_t m = bits[w];
+
+		while (m) {
+			uint32_t v = (w << 6) + (uint32_t)__builtin_ctzll(m);
+
+			if (v < ra->fn->reg_count) touch_span(sm, v, pos);
+			m &= m - 1;
+		}
+	}
+}
+
+static void span_instrs (RegAlloc *ra, SlotMap *sm)
+{
+	IRFn *fn = ra->fn;
+
+	for (uint32_t i = 0; i < fn->count; i++) {
+		IRInstr *in = ra->ir->instrs + fn->start + i;
+		uint32_t *src[3];
+		int n;
+
+		if (in->op == IR_NOP) continue;
+		n = get_srcs(in, src);
+		if (in->dst != NO_REG) touch_span(sm, in->dst, i);
+		for (int k = 0; k < n; k++)
+			touch_span(sm, *src[k], i);
+	}
+}
+
+static void span_blocks (RegAlloc *ra, SlotMap *sm)
+{
+	Cfg *cfg = &ra->cfg;
+
+	for (uint32_t b = 0; b < cfg->block_count; b++) {
+		CfgBlock *blk = cfg->blocks + b;
+		uint32_t first = blk->start - ra->fn->start;
+
+		if (!blk->count) continue;
+		cfg_live_out(cfg, b, ra->tmp, ra->words);
+		span_live(ra, sm, blk->live_in, first);
+		span_live(ra, sm, ra->tmp, first + blk->count - 1);
+	}
+}
+
+static void slot_spans (RegAlloc *ra, SlotMap *sm)
+{
+	IRFn *fn = ra->fn;
+	size_t n = fn->reg_count;
+	size_t pos = fn->count ? fn->count : 1;
+	uint32_t *mem = arena_alloc(ra->arena, (6 * n + 2 * pos) * sizeof(uint32_t));
+
+	sm->lo = mem;
+	sm->hi = sm->lo + n;
+	sm->root = sm->hi + n;
+	sm->next_lo = sm->root + n;
+	sm->next_hi = sm->next_lo + n;
+	sm->stack = sm->next_hi + n;
+	sm->head_lo = sm->stack + n;
+	sm->head_hi = sm->head_lo + pos;
+	for (uint32_t r = 0; r < n; r++) {
+		sm->root[r] = ra->regs[r].cstate == VR_ALIAS ? ra->regs[r].slot : r;
+		sm->lo[r] = UINT32_MAX;
+		sm->hi[r] = 0;
+	}
+	span_instrs(ra, sm);
+	span_blocks(ra, sm);
+}
+
+static void span_link (RegAlloc *ra, SlotMap *sm, uint8_t size)
+{
+	IRFn *fn = ra->fn;
+
+	memset(sm->head_lo, 0xFF, fn->count * sizeof(uint32_t));
+	memset(sm->head_hi, 0xFF, fn->count * sizeof(uint32_t));
+	for (uint32_t r = 0; r < fn->reg_count; r++) {
+		if (!is_spilled(ra->regs + r, ra->ctx->block_count)) continue;
+		if (types[fn->reg_types[r]].size != size) continue;
+		if (sm->lo[r] > sm->hi[r]) {
+			sm->lo[r] = 0;
+			sm->hi[r] = fn->count - 1;
+		}
+		sm->next_lo[r] = sm->head_lo[sm->lo[r]];
+		sm->head_lo[sm->lo[r]] = r;
+		sm->next_hi[r] = sm->head_hi[sm->hi[r]];
+		sm->head_hi[sm->hi[r]] = r;
+	}
+}
+
+static uint32_t span_sweep (RegAlloc *ra, SlotMap *sm, uint32_t c, uint8_t size)
+{
+	Reg *regs = ra->regs;
+	uint32_t nfree = 0;
+
+	span_link(ra, sm, size);
+	for (uint32_t p = 0; p < ra->fn->count; p++) {
+		for (uint32_t r = sm->head_lo[p]; r != UINT32_MAX; r = sm->next_lo[r]) {
+			if (nfree) regs[r].slot = sm->stack[--nfree];
+			else regs[r].slot = (c += size);
+		}
+		for (uint32_t r = sm->head_hi[p]; r != UINT32_MAX; r = sm->next_hi[r])
+			sm->stack[nfree++] = regs[r].slot;
+	}
+	return c;
+}
+
+static void lay_sizes (RegAlloc *ra, int share)
+{
+	static const uint8_t sizes[4] = { 8, 4, 2, 1 };
 	uint32_t c = 0;
-	c = lay_size(fn, regs, c, 8, block_count);
-	c = lay_size(fn, regs, c, 4, block_count);
-	c = lay_size(fn, regs, c, 2, block_count);
-	lay_size(fn, regs, c, 1, block_count);
+	SlotMap sm;
+
+	if (share) slot_spans(ra, &sm);
+	for (int k = 0; k < 4; k++) {
+		if (share) c = span_sweep(ra, &sm, c, sizes[k]);
+		else c = lay_size(ra->fn, ra->regs, c, sizes[k], ra->ctx->block_count);
+	}
 }
 
 static void resolve (IRFn *fn, Reg *regs, uint32_t block_count)
@@ -483,7 +589,7 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx,
 
 	default_homes(fn, regs, ctx->block_count);
 	if (!spill_all) color_regs(arena, ir, fn, regs, ctx, &ra.cfg);
-	lay_sizes(fn, regs, ctx->block_count);
+	lay_sizes(&ra, !spill_all && ra.words);
 
 	resolve(fn, regs, ctx->block_count);
 	build_edges(&ra);
