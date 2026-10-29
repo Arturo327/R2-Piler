@@ -120,14 +120,21 @@ static void reset_graph (Graph *g)
 	g->merged = 0;
 }
 
-static uint64_t needs_mask (const OpNeeds *n)
+static uint64_t fixed_mask (Reg *regs, const OpCond *c, uint32_t vreg)
 {
-	uint64_t m = n->destroy_mask;
+	if (c->type != REG_COND_FIXED) return 0;
+	if (vreg != NO_REG && regs[vreg].cstate == VR_CONST) return 0;
+	return 1ull << c->reg;
+}
 
-	if (n->src1.type == REG_COND_FIXED) m |= 1ull << n->src1.reg;
-	if (n->src2.type == REG_COND_FIXED) m |= 1ull << n->src2.reg;
-	if (n->dst.type == REG_COND_FIXED) m |= 1ull << n->dst.reg;
-	return m;
+static uint64_t needs_mask (ColorRegs *cr, const IRInstr *in)
+{
+	const OpNeeds *n = cr->ctx->needs + in->op;
+
+	return n->destroy_mask
+			| fixed_mask(cr->regs, &n->src1, in->src1)
+			| fixed_mask(cr->regs, &n->src2, in->src2)
+			| fixed_mask(cr->regs, &n->dst, in->dst);
 }
 
 static uint64_t block_reserved (Graph *g)
@@ -140,7 +147,7 @@ static uint64_t block_reserved (Graph *g)
 		IRInstr *code = cr->ir->instrs + blk->start;
 
 		for (uint32_t i = 0; i < blk->count; i++)
-			m |= needs_mask(cr->ctx->needs + code[i].op);
+			m |= needs_mask(cr, code + i);
 	}
 	return m;
 }
@@ -283,8 +290,9 @@ static void sweep_instr (Graph *g, IRInstr *in, uint32_t at)
 	}
 
 	if (in->op == IR_CALL) cross_live(g, wt);
-	uint64_t mask = needs_mask(g->cr->ctx->needs + in->op);
+	uint64_t mask = needs_mask(g->cr, in);
 	if (mask) forbid_live(g, mask);
+
 	for (int k = 0; k < n; k++) {
 		uint32_t s = live_add(g, *src[k]);
 		if (s == GRAPH_NO_NODE) continue;

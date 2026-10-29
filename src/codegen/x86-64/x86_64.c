@@ -34,12 +34,10 @@ OpNeeds x86_64_needs[IR_COUNT] =
 		.destroy_mask = (1ull << RAX) | (1ull << RDX)
 	},
 	[IR_LS] = {
-		.src2 = { .type = REG_COND_FIXED, .reg = RCX },
-		.destroy_mask = 1ull << RCX
+		.src2 = { .type = REG_COND_FIXED, .reg = RCX }
 	},
 	[IR_RS] = {
-		.src2 = { .type = REG_COND_FIXED, .reg = RCX },
-		.destroy_mask = 1ull << RCX
+		.src2 = { .type = REG_COND_FIXED, .reg = RCX }
 	},
 	[IR_ARG] = {
 		.destroy_mask = ARG_REGS_MASK
