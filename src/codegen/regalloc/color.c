@@ -2,7 +2,8 @@
 
 #include <string.h>
 
-#define LOOP_WEIGHT 8u
+#define LOOP_SHIFT 3u
+#define LOOP_MAX_DEPTH 4
 
 static int tail_self (ColorRegs *cr, uint32_t i)
 {
@@ -21,40 +22,70 @@ static int tail_self (ColorRegs *cr, uint32_t i)
 	return from == to || (types[from].size == 8 && types[to].size == 8);
 }
 
-static void loop_weights (ColorRegs *cr)
+static uint32_t *label_positions (ColorRegs *cr)
 {
 	IR *ir = cr->ir;
 	IRFn *fn = cr->fn;
 	uint32_t labels = ir->label_count + 1;
 	uint32_t *lpos = arena_alloc(cr->arena, labels * sizeof(uint32_t));
-	uint32_t self = (uint32_t)(fn - ir->fns);
 
-	for (uint32_t i = 0; i < labels; i++)
-		lpos[i] = UINT32_MAX;
+	memset(lpos, 0xFF, labels * sizeof(uint32_t));
 	for (uint32_t i = 0; i < fn->count; i++) {
 		IRInstr *in = ir->instrs + fn->start + i;
+
 		if (in->op == IR_LABEL && in->target < labels)
 			lpos[in->target] = i;
 	}
+	return lpos;
+}
 
-	for (uint32_t i = 0; i < fn->count; i++) {
-		IRInstr *in = ir->instrs + fn->start + i;
-		uint32_t t = UINT32_MAX;
+static uint32_t back_target (ColorRegs *cr, const uint32_t *lpos, uint32_t i)
+{
+	IR *ir = cr->ir;
+	IRFn *fn = cr->fn;
+	IRInstr *in = ir->instrs + fn->start + i;
+	uint32_t t = UINT32_MAX;
 
-		if (in->op == IR_JMP || in->op == IR_JZ || in->op == IR_JNZ)
-			t = in->target < labels ? lpos[in->target] : UINT32_MAX;
-		else if (in->op == IR_CALL && in->target == self && tail_self(cr, i))
-			t = 0;
+	if (in->op == IR_JMP || in->op == IR_JZ || in->op == IR_JNZ) {
+		if (in->target <= ir->label_count) t = lpos[in->target];
+	} else if (in->op == IR_CALL && in->target == (uint32_t)(fn - ir->fns)
+			&& tail_self(cr, i)) {
+		t = 0;
+	}
+	return t <= i ? t : UINT32_MAX;
+}
 
-		if (t == UINT32_MAX || t > i) continue;
+static uint32_t *loop_ends (ColorRegs *cr)
+{
+	uint32_t count = cr->fn->count;
+	uint32_t *lpos = label_positions(cr);
+	uint32_t *end = arena_alloc(cr->arena, count * sizeof(uint32_t));
+
+	memset(end, 0xFF, count * sizeof(uint32_t));
+	for (uint32_t i = 0; i < count; i++) {
+		uint32_t t = back_target(cr, lpos, i);
+
+		if (t != UINT32_MAX) end[t] = i;
+	}
+	return end;
+}
+
+static void loop_weights (ColorRegs *cr)
+{
+	uint32_t count = cr->fn->count;
+	uint32_t *end = loop_ends(cr);
+
+	for (uint32_t t = 0; t < count; t++) {
+		if (end[t] == UINT32_MAX) continue;
 		cr->w[t]++;
-		if (i + 1 < fn->count) cr->w[i + 1]--;
+		if (end[t] + 1 < count) cr->w[end[t] + 1]--;
 	}
 
 	int16_t d = 0;
-	for (uint32_t i = 0; i < fn->count; i++) {
+	for (uint32_t i = 0; i < count; i++) {
 		d = (int16_t)(d + cr->w[i]);
-		cr->w[i] = d > 0 ? LOOP_WEIGHT : 1;
+		int depth = d < LOOP_MAX_DEPTH ? d : LOOP_MAX_DEPTH;
+		cr->w[i] = (int16_t)(1 << (LOOP_SHIFT * depth));
 	}
 }
 

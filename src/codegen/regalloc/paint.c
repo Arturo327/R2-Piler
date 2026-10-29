@@ -34,8 +34,8 @@ static uint32_t pick_node (Graph *g)
 		}
 
 		CRNode *b = g->nodes + best;
-		uint64_t b_score = (n->cost + 1) * b->deg;
-		uint64_t n_score = (b->cost + 1) * n->deg;
+		uint64_t b_score = (uint64_t)(n->cost + 1) * b->deg;
+		uint64_t n_score = (uint64_t)(b->cost + 1) * n->deg;
 		if (n_score > b_score) best = i;
 	}
 	return best;
