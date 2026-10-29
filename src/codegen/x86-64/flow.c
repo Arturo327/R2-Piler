@@ -49,7 +49,9 @@ static uint32_t build_arg_moves (X86Fn *f, IRInstr *first, uint32_t n)
 		uint32_t src = a->src1;
 		int p = x86_phys_reg(f, src);
 
-		if (f->regs[src].cstate == VR_CONST) continue;
+		if (f->regs[src].cstate == VR_CONST || f->regs[src].cstate == VR_GLOBAL)
+			continue;
+
 		f->moves[count].from = p >= 0 ? (int8_t)p : PM_SLOT;
 		f->moves[count].to = (int8_t)x86_arg_regs[k];
 		f->moves[count].slot = f->regs[src].slot;
@@ -65,8 +67,9 @@ static void remat_args (X86Fn *f, IRInstr *first, uint32_t n)
 	for (uint32_t k = 0; k < n && k < 6; k++) {
 		IRInstr *a = first + k;
 
-		if (f->regs[a->src1].cstate != VR_CONST) continue;
-		x86_load_imm(f, x86_arg_regs[k], x86_const_ext(f, a->src1));
+		uint8_t c = f->regs[a->src1].cstate;
+		if (c != VR_CONST && c != VR_GLOBAL) continue;
+		x86_load_reg(f, x86_arg_regs[k], a->src1);
 	}
 }
 
@@ -152,7 +155,8 @@ int x86_make_tail_call (X86Fn *f, IRInstr *i)
 uint32_t x86_arg_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
 {
 	if (i->target < X86_ARG_REG_MAX) return 0;
-	if (f->regs[i->src1].cstate != VR_CONST) return h[SC_SRC1] == VR_SPILL;
+	if (f->regs[i->src1].cstate != VR_CONST)
+		return h[SC_SRC1] == VR_SPILL || f->regs[i->src1].cstate == VR_GLOBAL;
 	int64_t v = x86_const_ext(f, i->src1);
 	return v != (int32_t)v;
 }

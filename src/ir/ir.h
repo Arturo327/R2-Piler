@@ -62,6 +62,7 @@ typedef struct IRGlobal {
 	uint16_t len;
 	uint8_t type;
 	uint8_t has_init;
+	uint8_t written;
 } IRGlobal;
 
 typedef struct IR {

@@ -119,7 +119,7 @@ static void check_used_home (X86Fn *f, uint32_t v, uint32_t blk)
 {
 	Reg *reg = f->regs + v;
 
-	if (reg->cstate == VR_CONST) return;
+	if (reg->cstate == VR_CONST || reg->cstate == VR_GLOBAL) return;
 	if (reg->home[blk] == VR_NO_HOME)
 		regalloc_violation(f, "used vreg has no home in this block");
 }
@@ -144,8 +144,8 @@ static void check_cstate (X86Fn *f, IRInstr *in)
 
 	if (in->dst == NO_REG) return;
 	c = f->regs[in->dst].cstate;
-	if ((c == VR_CONST || c == VR_ALIAS) && !is_deletable[in->op])
-		regalloc_violation(f, "CONST/ALIAS cstate on a non-deletable instruction");
+	if ((c == VR_CONST || c == VR_ALIAS || c == VR_GLOBAL) && !is_deletable[in->op])
+		regalloc_violation(f, "CONST/ALIAS/GLOBAL cstate on a non-deletable instruction");
 }
 
 static void check_save (X86Fn *f, IRInstr *in, uint32_t i)

@@ -13,7 +13,8 @@ enum {
 	VR_NONE = 0,
 	VR_CONST = 1,
 	VR_MEM = 2,
-	VR_ALIAS = 3
+	VR_ALIAS = 3,
+	VR_GLOBAL = 4
 };
 
 typedef enum {
@@ -49,6 +50,7 @@ typedef struct Reg {
 
 	uint8_t cstate;
 	uint8_t spill;
+	uint8_t remat;
 } Reg;
 
 typedef struct EdgeMove {

@@ -63,8 +63,23 @@ static int write_output (CodeGen *c)
 	return failed;
 }
 
+static void mark_written_globals (IR *ir)
+{
+	for (uint32_t f = 0; f < ir->fn_count; f++) {
+		IRFn *fn = ir->fns + f;
+
+		if (f == ir->init_fn) continue;
+		for (uint32_t j = 0; j < fn->count; j++) {
+			IRInstr *in = ir->instrs + fn->start + j;
+
+			if (in->op == IR_STR_GLOBAL) ir->globals[in->target].written = 1;
+		}
+	}
+}
+
 int codegen_run (CodeGen *c)
 {
+	mark_written_globals(c->ir);
 	if (c->generate(c)) return 1;
 	return write_output(c);
 }
@@ -109,7 +124,8 @@ int cg_is_silent (Reg *regs, IRInstr *i)
 {
 	if (i->op == IR_NOP) return 1;
 	if (i->dst == NO_REG) return 0;
-	if (regs[i->dst].cstate == VR_CONST || regs[i->dst].cstate == VR_ALIAS)
+	if (regs[i->dst].cstate == VR_CONST || regs[i->dst].cstate == VR_ALIAS
+			|| regs[i->dst].cstate == VR_GLOBAL)
 		return 1;
 	return regs[i->dst].uses == 0 && is_deletable[i->op];
 }

@@ -101,7 +101,8 @@ void x86_make_str_global (X86Fn *f, IRInstr *i)
 
 uint32_t x86_str_global_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
 {
-	if (f->regs[i->src1].cstate != VR_CONST) return h[SC_SRC1] == VR_SPILL;
+	if (f->regs[i->src1].cstate != VR_CONST)
+		return h[SC_SRC1] == VR_SPILL || f->regs[i->src1].cstate == VR_GLOBAL;
 	int64_t v = x86_const_ext(f, i->src1);
 	return types[f->cg->ir->globals[i->target].type].size == 8 && v != (int32_t)v;
 }

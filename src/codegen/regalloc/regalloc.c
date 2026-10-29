@@ -122,7 +122,8 @@ static void set_home (Reg *reg, uint32_t block_count, int h)
 static void default_homes (IRFn *fn, Reg *regs, uint32_t block_count)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
-		if (regs[r].cstate == VR_CONST || regs[r].cstate == VR_ALIAS)
+		if (regs[r].cstate == VR_CONST || regs[r].cstate == VR_ALIAS
+				|| regs[r].cstate == VR_GLOBAL)
 			set_home(regs + r, block_count, VR_NO_HOME);
 		else if (!regs[r].uses)
 			set_home(regs + r, block_count, VR_NO_HOME);
@@ -138,6 +139,51 @@ static int is_spilled (Reg *reg, uint32_t block_count)
 	for (uint32_t b = 0; b < block_count; b++)
 		if (reg->home[b] == VR_SPILL) return 1;
 	return 0;
+}
+
+static void mark_remat (RegAlloc *ra)
+{
+	IR *ir = ra->ir;
+	IRFn *fn = ra->fn;
+
+	if (fn == ir->fns + ir->init_fn) return;
+	for (uint32_t i = 0; i < fn->count; i++) {
+		IRInstr *in = ir->instrs + fn->start + i;
+		if (in->op != IR_LD_GLOBAL || ir->globals[in->target].written) continue;
+		Reg *r = ra->regs + in->dst;
+		if (r->cstate != VR_MEM || r->defs != 1 || r->uses < 2) continue;
+
+		const Type *gt = types + ir->globals[in->target].type;
+		const Type *rt = types + fn->reg_types[in->dst];
+		if (rt->size != gt->size || (rt->size < 8 && rt->sign != gt->sign)) continue;
+
+		r->remat = 1;
+		r->cval = in->target;
+	}
+}
+
+static int remat_spilled (RegAlloc *ra)
+{
+	uint32_t blocks = ra->ctx->block_count;
+	int changed = 0;
+
+	for (uint32_t r = 0; r < ra->fn->reg_count; r++) {
+		Reg *reg = ra->regs + r;
+		if (!reg->remat || !is_spilled(reg, blocks)) continue;
+		reg->cstate = VR_GLOBAL;
+		changed = 1;
+	}
+	return changed;
+}
+
+static void color_all (RegAlloc *ra)
+{
+	IRFn *fn = ra->fn;
+	color_regs(ra->arena, ra->ir, fn, ra->regs, ra->ctx, &ra->cfg);
+	if (!remat_spilled(ra)) return;
+
+	default_homes(fn, ra->regs, ra->ctx->block_count);
+	color_regs(ra->arena, ra->ir, fn, ra->regs, ra->ctx, &ra->cfg);
 }
 
 static uint32_t lay_size (IRFn *fn, Reg *regs, uint32_t c, uint8_t s, uint32_t block_count)
@@ -512,12 +558,6 @@ static void sweep_block (RegAlloc *ra, uint32_t b)
 	}
 }
 
-static void sweep_fn (RegAlloc *ra)
-{
-	for (uint32_t b = 0; b < ra->cfg.block_count; b++)
-		sweep_block(ra, b);
-}
-
 static void reset_regs (IRFn *fn, Reg *regs)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
@@ -527,6 +567,7 @@ static void reset_regs (IRFn *fn, Reg *regs)
 		regs[r].cstate = VR_NONE;
 		regs[r].defs = 0;
 		regs[r].spill = 0;
+		regs[r].remat = 0;
 	}
 }
 
@@ -574,7 +615,8 @@ static void fill_ctx (RegAlloc *ra)
 {
 	if (!ra->words) return;
 	ra->ctx->callee_used = callee_homes(ra);
-	sweep_fn(ra);
+	for (uint32_t b = 0; b < ra->cfg.block_count; b++)
+		sweep_block(ra, b);
 }
 
 void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx,
@@ -587,8 +629,9 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx,
 	count_defs(ir, fn, regs);
 	clasf_regs(&ra, spill_all, cfg_entry_len(ir, fn));
 
+	if (!spill_all) mark_remat(&ra);
 	default_homes(fn, regs, ctx->block_count);
-	if (!spill_all) color_regs(arena, ir, fn, regs, ctx, &ra.cfg);
+	if (!spill_all) color_all(&ra);
 	lay_sizes(&ra, !spill_all && ra.words);
 
 	resolve(fn, regs, ctx->block_count);
