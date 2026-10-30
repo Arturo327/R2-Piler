@@ -58,6 +58,12 @@ typedef struct Graph {
 	uint32_t *stack;
 	uint32_t *cfg_first;
 	uint32_t *order;
+
+	uint32_t *nb_first;
+	uint32_t *nb_cur;
+	uint32_t *nb_part;
+	uint32_t *nb_wt;
+	uint8_t *done;
 	Affinity *aff;
 
 	uint64_t pal;

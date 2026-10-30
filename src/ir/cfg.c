@@ -48,20 +48,39 @@ uint32_t cfg_entry_len (IR *ir, IRFn *fn)
 	return n;
 }
 
+void cfg_label_span (IR *ir, IRFn *fn, uint32_t *lo, uint32_t *count)
+{
+	uint32_t min = UINT32_MAX;
+	uint32_t max = 0;
+
+	for (uint32_t j = 0; j < fn->count; j++) {
+		IRInstr *in = ir->instrs + fn->start + j;
+
+		if (in->op < IR_LABEL || in->op > IR_JNZ) continue;
+		if (in->target < min) min = in->target;
+		if (in->target > max) max = in->target;
+	}
+	*lo = min <= max ? min : 0;
+	*count = min <= max ? max - min + 1 : 0;
+}
+
 void cfg_build_lmap (IR *ir, Cfg *cfg)
 {
 	for (uint32_t j = 0; j < cfg->block_count; j++) {
 		IRInstr *in = ir->instrs + cfg->blocks[j].start;
 
 		if (in->op != IR_LABEL) continue;
-		cfg->lmap[in->target] = j;
-		cfg->lrefs[in->target] = 0;
+		cfg->lmap[in->target - cfg->lbase] = j;
+		cfg->lrefs[in->target - cfg->lbase] = 0;
 	}
 }
 
 uint32_t cfg_label_block (IR *ir, Cfg *cfg, uint32_t label)
 {
-	uint32_t b = cfg->lmap[label];
+	uint32_t l = label - cfg->lbase;
+
+	if (l >= cfg->lcount) return CFG_NO_BLOCK;
+	uint32_t b = cfg->lmap[l];
 	if (b >= cfg->block_count) return CFG_NO_BLOCK;
 
 	IRInstr *in = ir->instrs + cfg->blocks[b].start;

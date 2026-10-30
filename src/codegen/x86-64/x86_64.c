@@ -52,9 +52,11 @@ int gen_x86_64 (CodeGen *c)
 
 	for (uint32_t i = 0; i < ir->fn_count; i++) {
 		if (init_empty && i == ir->init_fn) continue;
+		ArenaMark mark = arena_mark(c->arena);
 		f.fn = ir->fns + i;
 		x86_layout_fn(&f);
 		x86_make_fn(&f);
+		arena_release(c->arena, mark);
 	}
 	make_entry(c, !init_empty);
 

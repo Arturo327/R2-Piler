@@ -37,7 +37,11 @@ int init_codegen (CodeGen *codegen, Arch arch, Arena *arena, IR *ir, const char 
 	codegen->generate = b->generate;
 	codegen->len = 0;
 	codegen->cap = CG_BUF_INIT;
-	codegen->code = arena_alloc(arena, codegen->cap);
+	codegen->code = malloc(codegen->cap);
+	if (!codegen->code) {
+		fprintf(stderr, "Not enough memory\n");
+		exit(1);
+	}
 	return 0;
 }
 
@@ -80,8 +84,10 @@ static void mark_written_globals (IR *ir)
 int codegen_run (CodeGen *c)
 {
 	mark_written_globals(c->ir);
-	if (c->generate(c)) return 1;
-	return write_output(c);
+	int failed = c->generate(c) || write_output(c);
+	free(c->code);
+	c->code = NULL;
+	return failed;
 }
 
 void cg_printf (CodeGen *c, const char *fmt, ...)
@@ -90,7 +96,11 @@ void cg_printf (CodeGen *c, const char *fmt, ...)
 	int n;
 
 	if (c->cap - c->len < CG_LINE_MAX) {
-		c->code = arena_realloc(c->arena, c->code, c->cap, c->cap * 2);
+		c->code = realloc(c->code, c->cap * 2);
+		if (!c->code) {
+			fprintf(stderr, "Not enough memory\n");
+			exit(1);
+		}
 		c->cap *= 2;
 	}
 	va_start(ap, fmt);

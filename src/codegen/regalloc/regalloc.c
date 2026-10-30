@@ -45,10 +45,38 @@ static void handle_alias (RegAlloc *ra, uint32_t i, uint8_t *ok, IRInstr *in, in
 	regs[d].slot = s;
 }
 
+static void mark_const_linear (RegAlloc *ra, uint8_t *ok)
+{
+	IRFn *fn = ra->fn;
+	uint32_t *def_at = arena_alloc(ra->arena, (size_t)fn->reg_count * sizeof(uint32_t));
+	uint32_t label = 0;
+
+	memset(ok, 1, fn->reg_count);
+	memset(def_at, 0xFF, (size_t)fn->reg_count * sizeof(uint32_t));
+	for (uint32_t i = 0; i < fn->count; i++) {
+		IRInstr *in = ra->ir->instrs + fn->start + i;
+		uint32_t *src[3];
+		int n = get_srcs(in, src);
+
+		if (in->op == IR_LABEL) label = i;
+		for (int k = 0; k < n; k++) {
+			uint32_t d = def_at[*src[k]];
+
+			if (d == UINT32_MAX || d < label) ok[*src[k]] = 0;
+		}
+		if (in->dst != NO_REG) def_at[in->dst] = i;
+	}
+}
+
 static void mark_const_ok (RegAlloc *ra, uint8_t *ok)
 {
-	const uint64_t *entry_live = ra->cfg.blocks[0].live_in;
+	const uint64_t *entry_live;
 
+	if (ra->spill_all) {
+		mark_const_linear(ra, ok);
+		return;
+	}
+	entry_live = ra->cfg.blocks[0].live_in;
 	for (uint32_t r = 0; r < ra->fn->reg_count; r++)
 		ok[r] = !(entry_live[r >> 6] >> (r & 63) & 1);
 }
@@ -425,8 +453,9 @@ static void build_edges (RegAlloc *ra)
 static void alloc_regalloc (RegAlloc *ra)
 {
 	uint32_t count = ra->fn->count ? ra->fn->count : 1;
-	uint32_t labels = ra->ir->label_count + 1;
 
+	cfg_label_span(ra->ir, ra->fn, &ra->cfg.lbase, &ra->cfg.lcount);
+	uint32_t labels = ra->cfg.lcount;
 	ra->blocks = arena_alloc(ra->arena, (size_t)count * sizeof(CfgBlock));
 	ra->lmap = arena_alloc(ra->arena, (size_t)labels * sizeof(uint32_t));
 	ra->lrefs = arena_alloc(ra->arena, (size_t)labels * sizeof(uint32_t));
@@ -578,7 +607,7 @@ static void init_state (RegAlloc *ra, Arena *arena, IR *ir, IRFn *fn, Reg *regs,
 	ra->all = ~0ull >> (64 - ctx->arch->reg_num);
 	ra->words = (fn->reg_count + 63) >> 6;
 
-	if (!ra->words) return;
+	if (!ra->words || ra->spill_all) return;
 	alloc_regalloc(ra);
 	build_cfg(ra);
 	partition(ra);
@@ -607,8 +636,10 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, int spill
 	lay_sizes(&ra, !spill_all && ra.words);
 
 	resolve(fn, regs, ctx->block_count);
-	build_edges(&ra);
-	fill_ctx(&ra);
+	if (!spill_all) {
+		build_edges(&ra);
+		fill_ctx(&ra);
+	}
 
 	verify_regalloc(&ra);
 }

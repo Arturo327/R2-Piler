@@ -26,15 +26,15 @@ static uint32_t *label_positions (ColorRegs *cr)
 {
 	IR *ir = cr->ir;
 	IRFn *fn = cr->fn;
-	uint32_t labels = ir->label_count + 1;
-	uint32_t *lpos = arena_alloc(cr->arena, labels * sizeof(uint32_t));
+	const Cfg *cfg = cr->cfg;
+	uint32_t *lpos = arena_alloc(cr->arena, cfg->lcount * sizeof(uint32_t));
 
-	memset(lpos, 0xFF, labels * sizeof(uint32_t));
+	memset(lpos, 0xFF, cfg->lcount * sizeof(uint32_t));
 	for (uint32_t i = 0; i < fn->count; i++) {
 		IRInstr *in = ir->instrs + fn->start + i;
+		uint32_t l = in->target - cfg->lbase;
 
-		if (in->op == IR_LABEL && in->target < labels)
-			lpos[in->target] = i;
+		if (in->op == IR_LABEL && l < cfg->lcount) lpos[l] = i;
 	}
 	return lpos;
 }
@@ -44,10 +44,11 @@ static uint32_t back_target (ColorRegs *cr, const uint32_t *lpos, uint32_t i)
 	IR *ir = cr->ir;
 	IRFn *fn = cr->fn;
 	IRInstr *in = ir->instrs + fn->start + i;
+	uint32_t l = in->target - cr->cfg->lbase;
 	uint32_t t = UINT32_MAX;
 
 	if (in->op == IR_JMP || in->op == IR_JZ || in->op == IR_JNZ) {
-		if (in->target <= ir->label_count) t = lpos[in->target];
+		if (l < cr->cfg->lcount) t = lpos[l];
 	} else if (in->op == IR_CALL && in->target == (uint32_t)(fn - ir->fns)
 			&& tail_self(cr, i)) {
 		t = 0;
@@ -109,14 +110,36 @@ static void paint_block (Graph *g)
 	}
 }
 
+static void order_blocks (Graph *g)
+{
+	Cfg *cfg = g->cr->cfg;
+	uint32_t blocks = g->cr->ctx->block_count;
+	uint32_t pos[LOOP_MAX_DEPTH + 2] = { 0 };
+	uint32_t *key = arena_alloc(g->cr->arena, (size_t)blocks * sizeof(uint32_t));
+
+	for (uint32_t p = 0; p < blocks; p++) {
+		uint32_t first = cfg->blocks[g->cfg_first[p]].start - g->cr->fn->start;
+		uint32_t depth = (uint32_t)__builtin_ctz((unsigned)g->cr->w[first]) / LOOP_SHIFT;
+
+		key[p] = LOOP_MAX_DEPTH - depth;
+		pos[key[p] + 1]++;
+	}
+	for (uint32_t d = 0; d <= LOOP_MAX_DEPTH; d++)
+		pos[d + 1] += pos[d];
+	for (uint32_t p = 0; p < blocks; p++)
+		g->order[pos[key[p]]++] = p;
+}
+
 void color_graph (Graph *g)
 {
 	uint32_t blocks = g->cr->ctx->block_count;
 
+	order_blocks(g);
 	for (uint32_t i = 0; i < blocks; i++) {
 		g->blk = g->order[i];
 		build_graph(g);
 		paint_block(g);
+		g->done[g->blk] = 1;
 	}
 }
 

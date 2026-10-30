@@ -41,6 +41,8 @@ void analyze_fn (Optimizer *opt, OptFn *f)
 	cfg_fill_blocks(opt->ir, f->fn, f->blocks, &f->block_count);
 	f->entry_end = cfg_entry_len(opt->ir, f->fn);
 	opt_cfg(f, &opt->cfg);
+	opt->cfg.lbase = 0;
+	opt->cfg.lcount = opt->ir->label_count + 1;
 	cfg_build_lmap(opt->ir, &opt->cfg);
 	count_regs(opt->ir, f);
 	count_label_refs(opt->ir, f);

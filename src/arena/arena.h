@@ -5,6 +5,12 @@
 
 typedef struct ArenaBlock ArenaBlock;
 
+typedef struct ArenaMark {
+	ArenaBlock *tail;
+	size_t used;
+	size_t cap;
+} ArenaMark;
+
 typedef struct Arena {
 	ArenaBlock *head;
 	ArenaBlock *tail;
@@ -17,6 +23,8 @@ typedef struct Arena {
 void arena_init (Arena *a);
 void *arena_alloc (Arena *a, size_t size);
 void *arena_realloc (Arena *a, void *ptr, size_t old_size, size_t new_size);
+ArenaMark arena_mark (Arena *a);
+void arena_release (Arena *a, ArenaMark m);
 void arena_destroy (Arena *a);
 
 #endif

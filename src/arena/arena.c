@@ -122,6 +122,35 @@ void *arena_realloc (Arena *a, void *ptr, size_t old_size, size_t new_size)
 	return new_ptr;
 }
 
+ArenaMark arena_mark (Arena *a)
+{
+	ArenaMark m;
+
+	arena_alloc(a, 1);
+	m.tail = a->tail;
+	m.used = a->tail->used;
+	m.cap = a->cap;
+	return m;
+}
+
+void arena_release (Arena *a, ArenaMark m)
+{
+	ArenaBlock *block = m.tail->next;
+
+	while (block) {
+		ArenaBlock *next = block->next;
+
+		free(block);
+		block = next;
+	}
+	m.tail->next = NULL;
+	m.tail->used = m.used;
+	a->tail = m.tail;
+	a->cap = m.cap;
+	a->last_ptr = NULL;
+	a->last_size = 0;
+}
+
 void arena_destroy (Arena *a)
 {
 	ArenaBlock *block = a->head;

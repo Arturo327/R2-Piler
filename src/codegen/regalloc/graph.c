@@ -19,6 +19,8 @@ static void alloc_graph (Graph *g)
 	g->cfg_first = arena_alloc(a, (size_t)(blocks + 1) * sizeof(uint32_t));
 	g->order = arena_alloc(a, (size_t)blocks * sizeof(uint32_t));
 	g->aff = arena_alloc(a, (size_t)g->cap * sizeof(Affinity));
+	g->done = arena_alloc(a, (size_t)blocks);
+	memset(g->done, 0, (size_t)blocks);
 
 	memset(g->adj, 0, adj_bytes);
 	memset(g->id, 0xFF, (size_t)regs * sizeof(uint32_t));
@@ -64,6 +66,68 @@ static void init_blocks (Graph *g)
 		g->order[i] = i;
 }
 
+static uint32_t edge_weight (Graph *g, const CfgBlock *from, const CfgBlock *to)
+{
+	const int16_t *w = g->cr->w;
+	uint32_t base = g->cr->fn->start;
+	int16_t a = w[from->start - base + from->count - 1];
+	int16_t b = w[to->start - base];
+
+	return (uint32_t)(a < b ? a : b);
+}
+
+static void add_edge (Graph *g, uint32_t from, uint32_t to, uint32_t wt, int fill)
+{
+	if (!fill) {
+		g->nb_first[from + 1]++;
+		g->nb_first[to + 1]++;
+		return;
+	}
+	uint32_t k = g->nb_cur[from]++;
+	g->nb_part[k] = to;
+	g->nb_wt[k] = wt;
+	k = g->nb_cur[to]++;
+	g->nb_part[k] = from;
+	g->nb_wt[k] = wt;
+}
+
+static void visit_edges (Graph *g, int fill)
+{
+	Cfg *cfg = g->cr->cfg;
+	RegCtx *ctx = g->cr->ctx;
+	uint32_t base = g->cr->fn->start;
+
+	for (uint32_t b = 0; b < cfg->block_count; b++) {
+		CfgBlock *blk = cfg->blocks + b;
+		uint32_t from = ctx->ins_block[blk->start - base];
+
+		for (uint32_t k = 0; k < blk->succ_count; k++) {
+			CfgBlock *dst = cfg->blocks + blk->succ[k];
+			uint32_t to = ctx->ins_block[dst->start - base];
+
+			if (from != to) add_edge(g, from, to, edge_weight(g, blk, dst), fill);
+		}
+	}
+}
+
+static void build_neighbors (Graph *g)
+{
+	uint32_t blocks = g->cr->ctx->block_count;
+	Arena *a = g->cr->arena;
+
+	g->nb_first = arena_alloc(a, ((size_t)blocks + 1) * sizeof(uint32_t));
+	g->nb_cur = arena_alloc(a, (size_t)blocks * sizeof(uint32_t));
+	memset(g->nb_first, 0, ((size_t)blocks + 1) * sizeof(uint32_t));
+	visit_edges(g, 0);
+	for (uint32_t p = 0; p < blocks; p++)
+		g->nb_first[p + 1] += g->nb_first[p];
+
+	g->nb_part = arena_alloc(a, (size_t)g->nb_first[blocks] * sizeof(uint32_t));
+	g->nb_wt = arena_alloc(a, (size_t)g->nb_first[blocks] * sizeof(uint32_t));
+	memcpy(g->nb_cur, g->nb_first, (size_t)blocks * sizeof(uint32_t));
+	visit_edges(g, 1);
+}
+
 void make_graph (ColorRegs *cr, Graph *g)
 {
 	uint32_t regs = cr->fn->reg_count;
@@ -78,6 +142,7 @@ void make_graph (ColorRegs *cr, Graph *g)
 	init_rows(g);
 	init_roots(g);
 	init_blocks(g);
+	build_neighbors(g);
 }
 
 static uint32_t add_node (Graph *g, uint32_t v)
@@ -317,16 +382,29 @@ static void sweep_block (Graph *g, uint32_t b)
 	clique_live(g);
 }
 
+static uint64_t neighbor_pref (Graph *g, uint32_t vreg)
+{
+	const int8_t *home = g->cr->regs[vreg].home;
+	uint32_t votes[64] = { 0 };
+	uint32_t best = 0;
+	uint64_t pref = 0;
+
+	for (uint32_t k = g->nb_first[g->blk]; k < g->nb_first[g->blk + 1]; k++) {
+		int h = home[g->nb_part[k]];
+
+		if (!g->done[g->nb_part[k]] || h < 0) continue;
+		votes[h] += g->nb_wt[k];
+		if (votes[h] > best) best = votes[h];
+	}
+	for (uint32_t h = 0; best && h < 64; h++)
+		if (votes[h] == best) pref |= 1ull << h;
+	return pref;
+}
+
 static void finish_nodes (Graph *g)
 {
-	Reg *regs = g->cr->regs;
-
-	for (uint32_t i = 0; i < g->node_num; i++) {
-		CRNode *n = g->nodes + i;
-		int h = g->blk ? regs[n->vreg].home[g->blk - 1] : VR_SPILL;
-
-		n->pref = h >= 0 ? 1ull << h : 0;
-	}
+	for (uint32_t i = 0; i < g->node_num; i++)
+		g->nodes[i].pref = neighbor_pref(g, g->nodes[i].vreg);
 }
 
 void build_graph (Graph *g)
