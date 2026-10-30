@@ -66,24 +66,57 @@ static uint32_t x86_scratch_need (void *user, IRInstr *in, const int8_t *h)
 	}
 }
 
+static const OpNeeds x86_64_needs[IR_COUNT] =
+{
+	[IR_CALL] = {
+		.dst = { .type = REG_COND_HINT, .reg = RAX }
+	},
+	[IR_DIV] = {
+		.src1 = { .type = REG_COND_FIXED, .reg = RAX },
+		.destroy_mask = (1ull << RAX) | (1ull << RDX)
+	},
+	[IR_MOD] = {
+		.src1 = { .type = REG_COND_FIXED, .reg = RAX },
+		.destroy_mask = (1ull << RAX) | (1ull << RDX)
+	},
+	[IR_LS] = {
+		.src2 = { .type = REG_COND_FIXED, .reg = RCX }
+	},
+	[IR_RS] = {
+		.src2 = { .type = REG_COND_FIXED, .reg = RCX }
+	},
+	[IR_ARG] = {
+		.destroy_mask = ARG_REGS_MASK
+	},
+	[IR_RET] = {
+		.src1 = { .type = REG_COND_FIXED, .reg = RAX },
+		.destroy_mask = 1ull << RAX
+	}
+};
+
+static const ArchDesc x86_arch = {
+	.needs = x86_64_needs,
+	.arg_regs = x86_arg_regs,
+	.scratch_need = x86_scratch_need,
+	.callee_mask = X86_CALLEE_MASK,
+	.caller_mask = X86_CALLER_MASK,
+	.reg_num = X86_REG_NUM,
+	.arg_reg_max = X86_ARG_REG_MAX,
+	.scratch_max = X86_SCRATCH_MAX
+};
+
 static void fill_regalloc (X86Fn *f)
 {
-	IRFn *fn = f->fn;
 	int spill_all = f->cg->opt_level == NO_OPT;
 
+	f->ctx.arch = &x86_arch;
+	f->ctx.user = f;
 	f->ctx.ins_block = f->blocks;
 	f->ctx.save = f->saves;
 	f->ctx.free_regs = f->frees;
 	f->ctx.edges = f->edges;
-	f->ctx.callee_mask = X86_CALLEE_MASK;
-	f->ctx.caller_mask = X86_CALLER_MASK;
-	f->ctx.arg_reg_max = X86_ARG_REG_MAX;
-	f->ctx.arg_regs = x86_arg_regs;
-	f->ctx.scratch_max = X86_SCRATCH_MAX;
-	f->ctx.scratch_need = x86_scratch_need;
-	f->ctx.user = f;
 
-	regalloc(f->cg->arena, f->cg->ir, fn, f->regs, &f->ctx, X86_REG_NUM, x86_64_needs, spill_all);
+	regalloc(f->cg->arena, f->cg->ir, f->fn, f->regs, &f->ctx, spill_all);
 }
 
 static uint32_t max_slot (X86Fn *f)

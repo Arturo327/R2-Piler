@@ -57,7 +57,6 @@ typedef struct X86Fn {
 extern const char *x86_regs_names[];
 extern const char x86_mem_suf[9];
 extern const uint8_t x86_arg_regs[6];
-extern OpNeeds x86_64_needs[IR_COUNT];
 
 static inline const char *reg_name (uint8_t reg, uint8_t size)
 {
@@ -78,7 +77,6 @@ uint8_t x86_grab (X86Fn *f);
 void x86_take_fixed (X86Fn *f, uint8_t r, uint32_t keeps);
 void x86_take_fixed_rw (X86Fn *f, uint8_t r);
 uint8_t x86_work_reg (X86Fn *f, uint32_t dst, uint64_t avoid);
-void x86_check_regalloc (X86Fn *f);
 void x86_check_arg_group (X86Fn *f, IRInstr *first, IRInstr *end);
 
 const char *x86_load_op (uint8_t t, uint8_t *size);

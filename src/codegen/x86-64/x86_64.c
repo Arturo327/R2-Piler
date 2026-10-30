@@ -20,34 +20,6 @@ static void make_entry (CodeGen *c, int run_init)
 	cg_printf(c, "\t.globl main\nmain:\n\tjmp " SYM_PREFIX "main\n");
 }
 
-OpNeeds x86_64_needs[IR_COUNT] =
-{
-	[IR_CALL] = {
-		.dst = { .type = REG_COND_HINT, .reg = RAX }
-	},
-	[IR_DIV] = {
-		.src1 = { .type = REG_COND_FIXED, .reg = RAX },
-		.destroy_mask = (1ull << RAX) | (1ull << RDX)
-	},
-	[IR_MOD] = {
-		.src1 = { .type = REG_COND_FIXED, .reg = RAX },
-		.destroy_mask = (1ull << RAX) | (1ull << RDX)
-	},
-	[IR_LS] = {
-		.src2 = { .type = REG_COND_FIXED, .reg = RCX }
-	},
-	[IR_RS] = {
-		.src2 = { .type = REG_COND_FIXED, .reg = RCX }
-	},
-	[IR_ARG] = {
-		.destroy_mask = ARG_REGS_MASK
-	},
-	[IR_RET] = {
-		.src1 = { .type = REG_COND_FIXED, .reg = RAX },
-		.destroy_mask = 1ull << RAX
-	}
-};
-
 int gen_x86_64 (CodeGen *c)
 {
 	IR *ir = c->ir;
@@ -82,7 +54,6 @@ int gen_x86_64 (CodeGen *c)
 		if (init_empty && i == ir->init_fn) continue;
 		f.fn = ir->fns + i;
 		x86_layout_fn(&f);
-		x86_check_regalloc(&f);
 		x86_make_fn(&f);
 	}
 	make_entry(c, !init_empty);

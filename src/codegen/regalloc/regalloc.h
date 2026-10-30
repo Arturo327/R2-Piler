@@ -75,30 +75,34 @@ enum {
 
 typedef uint32_t (*ScratchFn) (void *user, IRInstr *in, const int8_t *homes);
 
+typedef struct ArchDesc {
+	const OpNeeds *needs;
+	const uint8_t *arg_regs;
+	ScratchFn scratch_need;
+
+	uint64_t callee_mask;
+	uint64_t caller_mask;
+	uint32_t reg_num;
+	uint32_t arg_reg_max;
+	uint32_t scratch_max;
+} ArchDesc;
+
 typedef struct RegCtx {
+	const ArchDesc *arch;
+	void *user;
+
 	uint32_t *ins_block;
 	uint64_t *save;
 	uint64_t *free_regs;
 
 	EdgeMoves *edges;
 	EdgeMove *moves;
-	OpNeeds *needs;
 
 	uint32_t block_count;
 	uint32_t move_count;
-	uint32_t arg_reg_max;
-	const uint8_t *arg_regs;
-
-	void *user;
-	uint32_t scratch_max;
-	ScratchFn scratch_need;
-
 	uint64_t callee_used;
-	uint64_t callee_mask;
-	uint64_t caller_mask;
 } RegCtx;
 
-void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx,
-		uint32_t reg_num, OpNeeds *needs, int spill_all);
+void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, int spill_all);
 
 #endif

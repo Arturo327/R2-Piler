@@ -63,7 +63,7 @@ static void neighbor_masks (Graph *g, CRNode *n, uint64_t *used, uint64_t *want)
 
 static int pick_color (Graph *g, CRNode *n, uint64_t ok, uint64_t want)
 {
-	uint64_t callee = g->cr->ctx->callee_mask;
+	uint64_t callee = g->cr->ctx->arch->callee_mask;
 	uint64_t cls = n->cross ? ok & callee : ok & ~callee;
 
 	if (!cls) {

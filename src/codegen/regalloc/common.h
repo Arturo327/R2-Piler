@@ -76,6 +76,31 @@ typedef struct Graph {
 	uint32_t blk;
 } Graph;
 
+typedef struct RegAlloc {
+	Arena *arena;
+	IR *ir;
+	IRFn *fn;
+	Reg *regs;
+	RegCtx *ctx;
+
+	CfgBlock *blocks;
+	uint32_t *lmap;
+	uint32_t *lrefs;
+	uint64_t *live;
+	uint64_t *tmp;
+
+	EdgeMove *moves;
+	uint32_t move_cap;
+	uint32_t move_count;
+
+	Cfg cfg;
+	uint64_t all;
+	uint32_t words;
+	uint32_t entry;
+
+	uint8_t spill_all;
+} RegAlloc;
+
 void make_graph (ColorRegs *cr, Graph *g);
 void color_graph (Graph *g);
 void build_graph (Graph *g);
@@ -87,6 +112,9 @@ uint32_t block_scratch (Graph *g);
 
 void coalesce_graph (Graph *g);
 uint32_t node_find (Graph *g, uint32_t id);
+
+uint64_t needs_mask (const ArchDesc *arch, Reg *regs, IRInstr *in);
+void verify_regalloc (RegAlloc *ra);
 
 void color_regs (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, Cfg *cfg);
 

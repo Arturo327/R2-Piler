@@ -72,7 +72,7 @@ void make_graph (ColorRegs *cr, Graph *g)
 	g->cr = cr;
 	g->cap = regs < GRAPH_MAX_NODES ? regs : GRAPH_MAX_NODES;
 	g->stride = (g->cap + 63) >> 6;
-	g->pal = cr->ctx->caller_mask | cr->ctx->callee_mask;
+	g->pal = cr->ctx->arch->caller_mask | cr->ctx->arch->callee_mask;
 
 	alloc_graph(g);
 	init_rows(g);
@@ -127,14 +127,14 @@ static uint64_t fixed_mask (Reg *regs, const OpCond *c, uint32_t vreg)
 	return 1ull << c->reg;
 }
 
-static uint64_t needs_mask (ColorRegs *cr, const IRInstr *in)
+uint64_t needs_mask (const ArchDesc *arch, Reg *regs, IRInstr *in)
 {
-	const OpNeeds *n = cr->ctx->needs + in->op;
+	const OpNeeds *n = arch->needs + in->op;
 
 	return n->destroy_mask
-			| fixed_mask(cr->regs, &n->src1, in->src1)
-			| fixed_mask(cr->regs, &n->src2, in->src2)
-			| fixed_mask(cr->regs, &n->dst, in->dst);
+			| fixed_mask(regs, &n->src1, in->src1)
+			| fixed_mask(regs, &n->src2, in->src2)
+			| fixed_mask(regs, &n->dst, in->dst);
 }
 
 static uint64_t block_reserved (Graph *g)
@@ -147,7 +147,7 @@ static uint64_t block_reserved (Graph *g)
 		IRInstr *code = cr->ir->instrs + blk->start;
 
 		for (uint32_t i = 0; i < blk->count; i++)
-			m |= needs_mask(cr, code + i);
+			needs_mask(cr->ctx->arch, cr->regs, code + i);
 	}
 	return m;
 }
@@ -246,7 +246,7 @@ static void hint_node (Graph *g, uint32_t vreg, uint32_t reg)
 static void hint_instr (Graph *g, IRInstr *in)
 {
 	RegCtx *ctx = g->cr->ctx;
-	const OpNeeds *nd = ctx->needs + in->op;
+	const OpNeeds *nd = ctx->arch->needs + in->op;
 
 	if (nd->dst.type == REG_COND_HINT || nd->dst.type == REG_COND_FIXED)
 		hint_node(g, in->dst, (uint32_t)nd->dst.reg);
@@ -254,9 +254,9 @@ static void hint_instr (Graph *g, IRInstr *in)
 		hint_node(g, in->src1, (uint32_t)nd->src1.reg);
 	if (nd->src2.type == REG_COND_HINT || nd->src2.type == REG_COND_FIXED)
 		hint_node(g, in->src2, (uint32_t)nd->src2.reg);
-	if (in->target >= ctx->arg_reg_max) return;
-	if (in->op == IR_PARAM) hint_node(g, in->dst, ctx->arg_regs[in->target]);
-	if (in->op == IR_ARG) hint_node(g, in->src1, ctx->arg_regs[in->target]);
+	if (in->target >= ctx->arch->arg_reg_max) return;
+	if (in->op == IR_PARAM) hint_node(g, in->dst, ctx->arch->arg_regs[in->target]);
+	if (in->op == IR_ARG) hint_node(g, in->src1, ctx->arch->arg_regs[in->target]);
 }
 
 static void note_affinity (Graph *g, IRInstr *in, uint32_t wt)
@@ -290,7 +290,7 @@ static void sweep_instr (Graph *g, IRInstr *in, uint32_t at)
 	}
 
 	if (in->op == IR_CALL) cross_live(g, wt);
-	uint64_t mask = needs_mask(g->cr, in);
+	uint64_t mask = needs_mask(g->cr->ctx->arch, g->cr->regs, in);
 	if (mask) forbid_live(g, mask);
 
 	for (int k = 0; k < n; k++) {
@@ -347,7 +347,7 @@ void build_graph (Graph *g)
 
 static uint64_t scratch_regs (Graph *g, uint32_t n)
 {
-	uint64_t cand = g->fpal & g->cr->ctx->caller_mask & ~g->rsv;
+	uint64_t cand = g->fpal & g->cr->ctx->arch->caller_mask & ~g->rsv;
 	uint64_t m = 0;
 
 	for (uint32_t i = 0; i < n && cand; i++) {
@@ -391,7 +391,7 @@ static uint32_t instr_scratch (Graph *g, IRInstr *in)
 		if (v[k] == NO_REG) homes[k] = VR_NO_HOME;
 		else homes[k] = cr->regs[g->root[v[k]]].home[g->blk];
 	}
-	return cr->ctx->scratch_need(cr->ctx->user, in, homes);
+	return cr->ctx->arch->scratch_need(cr->ctx->user, in, homes);
 }
 
 uint32_t block_scratch (Graph *g)
@@ -399,7 +399,7 @@ uint32_t block_scratch (Graph *g)
 	ColorRegs *cr = g->cr;
 	uint32_t need = 0;
 
-	if (!cr->ctx->scratch_max) return 0;
+	if (!cr->ctx->arch->scratch_max) return 0;
 	for (uint32_t b = g->cfg_first[g->blk]; b < g->cfg_first[g->blk + 1]; b++) {
 		CfgBlock *blk = cr->cfg->blocks + b;
 		IRInstr *code = cr->ir->instrs + blk->start;
@@ -410,5 +410,5 @@ uint32_t block_scratch (Graph *g)
 			if (n > need) need = n;
 		}
 	}
-	return need < cr->ctx->scratch_max ? need : cr->ctx->scratch_max;
+	return need < cr->ctx->arch->scratch_max ? need : cr->ctx->arch->scratch_max;
 }

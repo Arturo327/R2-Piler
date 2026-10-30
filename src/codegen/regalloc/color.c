@@ -99,7 +99,7 @@ static void mark_weighted (ColorRegs *cr)
 
 static void paint_block (Graph *g)
 {
-	uint32_t max = g->cr->ctx->scratch_max;
+	uint32_t max = g->cr->ctx->arch->scratch_max;
 
 	for (uint32_t s = 0; s <= max; s++) {
 		set_palette(g, s);
