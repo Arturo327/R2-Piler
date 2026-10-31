@@ -39,7 +39,7 @@ void init_parser (Parser *parser, Lexer *lexer, Arena *arena, ErrorReporter *err
 		.child = NO_NODE,
 		.next_bro = NO_NODE,
 		.sym = NO_NODE,
-		.type_node = NO_NODE
+		.type_node = NO_TYPE_NODE
 	};
 	(void)push_ast_node(parser, root);
 }
@@ -151,7 +151,7 @@ static uint32_t new_node (Parser *p, NodeType type, uint16_t line, uint16_t col)
 	node.child = NO_NODE;
 	node.next_bro = NO_NODE;
 	node.sym = NO_NODE;
-	node.type_node = NO_NODE;
+	node.type_node = NO_TYPE_NODE;
 	return push_ast_node(p, node);
 }
 
@@ -427,14 +427,14 @@ static uint32_t parse_expr (Parser *p, int min_prec)
 	return left;
 }
 
-static TypeId parse_type (Parser *p, int allow_void, uint32_t *type_node)
+static TypeId parse_type (Parser *p, int allow_void, uint32_t owner, uint16_t *type_node)
 {
 	TokenType t = p->curr.type;
 	int valid = (t == TOK_i8 || t == TOK_u8 || t == TOK_i16 || t == TOK_u16
 		|| t == TOK_i32 || t == TOK_u32 || t == TOK_i64 || t == TOK_u64
 		|| t == TOK_CHAR || (allow_void && t == TOK_VOID));
 
-	*type_node = NO_NODE;
+	*type_node = NO_TYPE_NODE;
 	if (valid) {
 		TypeId data_type = tok_to_datatype(t);
 		advance(p);
@@ -445,7 +445,7 @@ static TypeId parse_type (Parser *p, int allow_void, uint32_t *type_node)
 		uint32_t ref = new_node(p, NODE_TYPE_REF, p->curr.line, p->curr.col);
 		p->ast.nodes[ref].str = p->curr.str;
 		p->ast.nodes[ref].len = p->curr.len;
-		*type_node = ref;
+		*type_node = (uint16_t)(ref - owner);
 		advance(p);
 		return TYPE_ERROR;
 	}
@@ -470,8 +470,8 @@ static uint32_t parse_cast (Parser *p)
 		advance(p);
 		cast = new_node(p, NODE_CAST, line, col);
 		p->ast.nodes[cast].len = 2;
-		uint32_t type_node;
-		TypeId type = parse_type(p, 0, &type_node);
+		uint16_t type_node;
+		TypeId type = parse_type(p, 0, cast, &type_node);
 		p->ast.nodes[cast].data_type = type;
 		p->ast.nodes[cast].type_node = type_node;
 		p->ast.nodes[cast].child = node;
@@ -495,8 +495,8 @@ static uint32_t parse_var_dec (Parser *p)
 	}
 
 	consume(p, TOK_COL, "expected ':', followed by the type");
-	uint32_t type_node;
-	TypeId type = parse_type(p, 0, &type_node);
+	uint16_t type_node;
+	TypeId type = parse_type(p, 0, node, &type_node);
 	p->ast.nodes[node].data_type = type;
 	p->ast.nodes[node].type_node = type_node;
 
@@ -542,8 +542,8 @@ static uint32_t parse_param (Parser *p)
 	}
 
 	consume(p, TOK_COL, "expected ':' followed by the parameter type");
-	uint32_t type_node;
-	TypeId type = parse_type(p, 0, &type_node);
+	uint16_t type_node;
+	TypeId type = parse_type(p, 0, node, &type_node);
 	p->ast.nodes[node].data_type = type;
 	p->ast.nodes[node].type_node = type_node;
 	return node;
@@ -582,8 +582,8 @@ static uint32_t parse_ret_dec (Parser *p)
 	}
 
 	advance(p);
-	uint32_t type_node;
-	TypeId type = parse_type(p, 1, &type_node);
+	uint16_t type_node;
+	TypeId type = parse_type(p, 1, node, &type_node);
 	p->ast.nodes[node].data_type = type;
 	p->ast.nodes[node].type_node = type_node;
 	return node;
@@ -777,13 +777,13 @@ static uint32_t parse_enum (Parser *p)
 
 	if (p->curr.type == TOK_COL) {
 		advance(p);
-		uint32_t type_node;
-		TypeId base = parse_type(p, 0, &type_node);
+		uint16_t type_node;
+		TypeId base = parse_type(p, 0, node, &type_node);
 		p->ast.nodes[node].data_type = base;
 		p->ast.nodes[node].type_node = type_node;
 	} else {
 		p->ast.nodes[node].data_type = TYPE_u32;
-		p->ast.nodes[node].type_node = NO_NODE;
+		p->ast.nodes[node].type_node = NO_TYPE_NODE;
 	}
 
 	consume(p, TOK_LKEY, "expected '{' after enum name");
@@ -972,8 +972,9 @@ static void dump_node_value (ASTNode *n)
 
 static void dump_type (AST *ast, ASTNode *n)
 {
-	if (n->type_node != NO_NODE) {
-		ASTNode *ref = &ast->nodes[n->type_node];
+	if (n->type_node != NO_TYPE_NODE) {
+		uint32_t idx = (uint32_t)(n - ast->nodes) + n->type_node;
+		ASTNode *ref = &ast->nodes[idx];
 		printf(" type=%.*s", (int)ref->len, ref->str);
 		return;
 	}

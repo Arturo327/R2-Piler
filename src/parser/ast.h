@@ -6,6 +6,7 @@
 #include "type.h"
 
 #define NO_NODE 0xFFFFFFFF
+#define NO_TYPE_NODE 0
 
 typedef enum {
 	NODE_ERROR = 0, NODE_EMPTY,
@@ -37,8 +38,8 @@ typedef struct ASTNode {
 	uint32_t child;
 	uint32_t next_bro;
 	uint32_t sym;
-	uint32_t type_node;
 
+	uint16_t type_node;
 	uint16_t line;
 	uint16_t col;
 	uint16_t len;

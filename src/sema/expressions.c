@@ -241,7 +241,7 @@ static TypeId check_dot (Sema *s, uint32_t idx)
 	n->data_type = sym->type;
 	n->child = NO_NODE;
 	n->sym = NO_SYMBOL;
-	n->type_node = NO_NODE;
+	n->type_node = NO_TYPE_NODE;
 	return n->data_type;
 }
 

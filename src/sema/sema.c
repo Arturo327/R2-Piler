@@ -18,14 +18,15 @@ ErrorLoc node_loc (ASTNode *n)
 
 TypeId resolve_type_node (Sema *s, ASTNode *n)
 {
-	if (n->type_node == NO_NODE) return n->data_type;
+	if (n->type_node == NO_TYPE_NODE) return n->data_type;
 
-	ASTNode *ref = s->ast->nodes + n->type_node;
+	uint32_t ref_idx = (uint32_t)(n - s->ast->nodes) + n->type_node;
+	ASTNode *ref = s->ast->nodes + ref_idx;
 	TypeId id = find_type(ref->str, ref->len);
 	if (id == TYPE_ERROR)
 		error_report(s->err, ERR_ERROR, node_loc(ref),
 				"unknown type '%.*s'", (int)ref->len, ref->str);
-	n->type_node = NO_NODE;
+	n->type_node = NO_TYPE_NODE;
 	n->data_type = id;
 	return id;
 }
@@ -131,7 +132,7 @@ uint32_t sema_wrap_cast (Sema *s, uint32_t child, TypeId to_type)
 	cast.child = child;
 	cast.next_bro = c->next_bro;
 	cast.sym = NO_NODE;
-	cast.type_node = NO_NODE;
+	cast.type_node = NO_TYPE_NODE;
 
 	c->next_bro = NO_NODE;
 	return sema_new_node(s, cast);
@@ -240,7 +241,8 @@ static void resolve_enum_base (Sema *s, uint32_t idx)
 	sym = s->table.symbols + n->sym;
 	if (sym->type == TYPE_ERROR) return;
 
-	loc = n->type_node != NO_NODE ? n->type_node : idx;
+	loc = n->type_node != NO_TYPE_NODE
+			? (uint32_t)(n - s->ast->nodes) + n->type_node : idx;
 	base = resolve_type_node(s, n);
 	if (base == TYPE_ERROR) {
 		sym->type = TYPE_ERROR;
