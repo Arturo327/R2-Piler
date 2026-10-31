@@ -1,0 +1,14 @@
+newtype Seconds [1:9] depth=0 type=Seconds base=u32
+newtype Small [2:9] depth=0 type=Small base=i8
+enum E [4:6] depth=0 type=E base=u8
+  variant A = 0
+  variant B = 1
+newtype FromEnum [5:9] depth=0 type=FromEnum base=E
+var clock [7:5] depth=0 type=Seconds
+fn add [9:4] depth=0 type=Seconds
+fn main [13:4] depth=0 type=i64
+param a [9:9] depth=1 type=Seconds
+param b [9:22] depth=1 type=Seconds
+var s [14:9] depth=1 type=Seconds
+var e [15:9] depth=1 type=FromEnum
+var small [16:9] depth=1 type=Small

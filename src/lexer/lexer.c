@@ -433,9 +433,11 @@ static const Keyword keywords[] = {
 	{"elif", TOK_ELIF},
 	{"else", TOK_ELSE},
 	{"enum", TOK_ENUM},
+	{"type", TOK_TYPE},
 	{"void", TOK_VOID},
 	{"while", TOK_WHILE},
-	{"return", TOK_RET}
+	{"return", TOK_RET},
+	{"newtype", TOK_NEWTYPE}
 };
 
 static int cmp_keywords (const void *a, const void *b)
@@ -569,7 +571,8 @@ Token get_token (Lexer *l)
 #define TN(t) [t] = #t
 static const char *const token_names[TOK_COUNT] = {
 	TN(TOK_NONE), TN(TOK_INVALID), TN(TOK_EOF), TN(TOK_VAR), TN(TOK_ID),
-	TN(TOK_FN), TN(TOK_ENUM), TN(TOK_SEMCOL), TN(TOK_COMMA), TN(TOK_COL),
+	TN(TOK_FN), TN(TOK_ENUM), TN(TOK_TYPE), TN(TOK_NEWTYPE),
+	TN(TOK_SEMCOL), TN(TOK_COMMA), TN(TOK_COL),
 	TN(TOK_DOT), TN(TOK_LPAREN), TN(TOK_RPAREN), TN(TOK_LKEY), TN(TOK_RKEY),
 	TN(TOK_LBRACE), TN(TOK_RBRACE),
 	TN(TOK_LIT_i64), TN(TOK_LIT_u64), TN(TOK_LIT_CHAR), TN(TOK_LIT_STR),

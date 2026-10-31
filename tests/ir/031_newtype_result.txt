@@ -1,0 +1,29 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn bump(1 params, 4 regs) : Seconds
+    r0 = param.Seconds #0
+    r1 = move.Seconds r0
+    r2 = const.Seconds 1
+    r3 = add.Seconds r1, r2
+    ret.Seconds r3
+    ret
+
+fn main(0 params, 12 regs) : i64
+    r0 = const.Seconds 7
+    r1 = move.Seconds r0
+    arg r1 #0
+    r2 = call.Seconds bump
+    r3 = const.Tiny -2
+    r4 = move.Tiny r3
+    r5 = const.Tiny 3
+    r6 = mul.Tiny r4, r5
+    r3 = move.Tiny r6
+    r7 = move.Seconds r2
+    r8 = extend.i64 r7
+    r9 = move.Tiny r3
+    r10 = extend.i64 r9
+    r11 = add.i64 r8, r10
+    ret.i64 r11
+    ret
+

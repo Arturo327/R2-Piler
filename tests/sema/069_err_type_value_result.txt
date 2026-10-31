@@ -1,0 +1,4 @@
+type Index [2:6] depth=0 type=Index base=u32
+type __r2_bad [3:6] depth=0 type=__r2_bad base=u8
+fn main [5:4] depth=0 type=i64
+var ok [9:9] depth=1 type=u32

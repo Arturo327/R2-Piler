@@ -1,0 +1,13 @@
+global clock : Seconds
+
+fn __r2_init(0 params, 1 regs) : void
+    ret
+
+fn main(0 params, 22 regs) : i64
+    r18 = const.i64 58
+    r19 = ld_global.Seconds @clock
+    r20 = extend.i64 r19
+    r21 = add.i64 r20, r18
+    ret.i64 r21
+    ret
+

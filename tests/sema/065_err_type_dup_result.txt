@@ -1,0 +1,8 @@
+type Index [1:6] depth=0 type=Index base=u32
+type Index [2:6] depth=0 type=error
+newtype Seconds [4:9] depth=0 type=Seconds base=u32
+enum Seconds [5:6] depth=0 type=error
+enum Dias [7:6] depth=0 type=Dias base=u8
+  variant Lunes = 0
+var Dias [8:5] depth=0 type=i8
+fn main [10:4] depth=0 type=i64

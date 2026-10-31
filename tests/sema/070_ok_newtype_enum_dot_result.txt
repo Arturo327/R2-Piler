@@ -1,0 +1,16 @@
+enum Dias [1:6] depth=0 type=Dias base=u8
+  variant Lunes = 1
+  variant Martes = 2
+  variant Miercoles = 3
+newtype Stamp [2:9] depth=0 type=Stamp base=Dias
+type Day [3:6] depth=0 type=Day base=Dias
+newtype Deep [4:9] depth=0 type=Deep base=Stamp
+type DeepAlias [5:6] depth=0 type=DeepAlias base=Deep
+var first [7:5] depth=0 type=Stamp
+fn pick [9:4] depth=0 type=i64
+fn main [11:4] depth=0 type=i64
+param s [9:10] depth=1 type=Stamp
+var s [12:9] depth=1 type=Stamp
+var d [13:9] depth=1 type=Dias
+var x [14:9] depth=1 type=Deep
+var y [15:9] depth=1 type=Deep

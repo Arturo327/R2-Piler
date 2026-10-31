@@ -1,0 +1,10 @@
+newtype Seconds [1:9] depth=0 type=Seconds base=u32
+newtype Millis [2:9] depth=0 type=Millis base=u32
+fn take [4:4] depth=0 type=u32
+fn give [5:4] depth=0 type=Seconds
+fn main [7:4] depth=0 type=i64
+param u [4:10] depth=1 type=u32
+var s [8:9] depth=1 type=Seconds
+var m [9:9] depth=1 type=Millis
+var u [10:9] depth=1 type=u32
+var bad [15:9] depth=1 type=Seconds

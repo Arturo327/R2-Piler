@@ -1,9 +1,9 @@
-tests/sema/024_err_toplevel_src.r2:2:3: ERROR: only variable, function and enum declarations are allowed at the top level
+tests/sema/024_err_toplevel_src.r2:2:3: ERROR: only variable, function, enum and type declarations are allowed at the top level
       2 | x = 2;
         |   ^
-tests/sema/024_err_toplevel_src.r2:3:1: ERROR: only variable, function and enum declarations are allowed at the top level
+tests/sema/024_err_toplevel_src.r2:3:1: ERROR: only variable, function, enum and type declarations are allowed at the top level
       3 | if (x) {
         | ^
-tests/sema/024_err_toplevel_src.r2:6:1: ERROR: only variable, function and enum declarations are allowed at the top level
+tests/sema/024_err_toplevel_src.r2:6:1: ERROR: only variable, function, enum and type declarations are allowed at the top level
       6 | {
         | ^

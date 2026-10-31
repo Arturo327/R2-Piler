@@ -1,0 +1,4 @@
+NODE_ROOT [0:0]
+  NODE_TYPE_DEC [1:6] name="Index" type=u32
+  NODE_NEWTYPE_DEC [2:9] name="Seconds" type=u32
+  NODE_TYPE_DEC [3:6] name="Alias" type=Index

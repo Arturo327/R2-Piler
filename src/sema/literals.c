@@ -7,7 +7,7 @@ static int implicit_cast_ok (TypeId from, TypeId to)
 	if (from == to) return 1;
 	if (from == TYPE_ERROR || to == TYPE_ERROR) return 0;
 	if (from == TYPE_VOID || to == TYPE_VOID) return 0;
-	if (is_enum(from) || is_enum(to)) return 0;
+	if (type_is_nominal(from) || type_is_nominal(to)) return 0;
 
 	f = &types[from];
 	t = &types[to];
@@ -16,11 +16,6 @@ static int implicit_cast_ok (TypeId from, TypeId to)
 	return t->size > f->size;
 }
 
-static int is_untyped (TypeId type)
-{
-	return type == TYPE_UNTYPED_INT || type == TYPE_UNTYPED_UINT
-			|| type == TYPE_UNTYPED_CHAR;
-}
 
 typedef struct LitVal {
 	uint64_t mag;
@@ -99,14 +94,14 @@ static void make_fold_lit (ASTNode *n, uint64_t bits, TypeId t)
 
 static uint64_t type_min (TypeId t)
 {
-	if (is_untyped(t)) return ~(uint64_t)0 << 63;
+	if (type_kind(t) == TK_UNTYPED_INT) return ~(uint64_t)0 << 63;
 	return ~(uint64_t)0 << (types[t].size * 8u - 1);
 }
 
 static int div_overflows (uint64_t a, uint64_t b, TypeId t)
 {
 	if (!types[t].sign) return 0;
-	if (!is_untyped(t)) {
+	if (type_kind(t) != TK_UNTYPED_INT) {
 		a = trunc_sext(a, t);
 		b = trunc_sext(b, t);
 	}
@@ -252,7 +247,7 @@ void try_fold_binary (Sema *s, uint32_t idx)
 		return;
 	}
 	if (fold_value(n->type, a, b, t, &v)) {
-		uint64_t bits = is_untyped(t) ? v : trunc_sext(v, t);
+		uint64_t bits = type_kind(t) == TK_UNTYPED_INT ? v : trunc_sext(v, t);
 		make_fold_lit(n, bits, t);
 	}
 }
@@ -383,7 +378,7 @@ int enum_const_value (Sema *s, uint32_t idx, TypeId enum_id, uint64_t *out)
 	TypeId type = check_expr(s, idx);
 	if (type == TYPE_ERROR) return 0;
 
-	if (is_untyped(type)) {
+	if (type_kind(type) == TK_UNTYPED_INT) {
 		LitVal v;
 
 		if (!flex_literal(s, idx, &v)) return 0;
@@ -491,7 +486,7 @@ uint32_t force_cast (Sema *s, uint32_t child, TypeId child_type, TypeId target, 
 	*ok = 1;
 	if (child_type == target || child_type == TYPE_ERROR || target == TYPE_ERROR)
 		return child;
-	if (types[target].size && is_untyped(child_type)) {
+	if (types[target].size && type_kind(child_type) == TK_UNTYPED_INT) {
 		retag_expr(s, child, target);
 		return child;
 	}
@@ -504,8 +499,8 @@ uint32_t force_cast (Sema *s, uint32_t child, TypeId child_type, TypeId target, 
 
 static TypeId common_type (TypeId l, TypeId r)
 {
-	int l_flex = is_untyped(l);
-	int r_flex = is_untyped(r);
+	int l_flex = type_kind(l) == TK_UNTYPED_INT;
+	int r_flex = type_kind(r) == TK_UNTYPED_INT;
 
 	if (l_flex != r_flex) return l_flex ? r : l;
 	if (implicit_cast_ok(l, r)) return r;
@@ -516,7 +511,7 @@ static TypeId common_type (TypeId l, TypeId r)
 
 static void convert_operand (Sema *s, uint32_t *idx, TypeId *type, TypeId to)
 {
-	if (is_untyped(*type)) {
+	if (type_kind(*type) == TK_UNTYPED_INT) {
 		retag_expr(s, *idx, to);
 	} else {
 		*idx = sema_wrap_cast(s, *idx, to);

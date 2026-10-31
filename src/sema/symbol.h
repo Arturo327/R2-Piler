@@ -11,7 +11,8 @@ typedef enum {
 	SYMBOL_FN = 0,
 	SYMBOL_VAR,
 	SYMBOL_PARAM,
-	SYMBOL_ENUM
+	SYMBOL_ENUM,
+	SYMBOL_TYPE
 } SymKind;
 
 typedef enum {

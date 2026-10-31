@@ -1,0 +1,6 @@
+type A [1:6] depth=0 type=error
+type B [2:6] depth=0 type=error
+type Self [3:6] depth=0 type=error
+newtype NA [5:9] depth=0 type=error
+newtype NB [6:9] depth=0 type=error
+fn main [8:4] depth=0 type=i64

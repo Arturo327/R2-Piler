@@ -9,7 +9,7 @@
 typedef enum {
 	TOK_NONE = 0, TOK_INVALID, TOK_EOF,					// misc.
 
-	TOK_VAR, TOK_ID, TOK_FN, TOK_ENUM,					// Declarations
+	TOK_VAR, TOK_ID, TOK_FN, TOK_ENUM, TOK_TYPE, TOK_NEWTYPE,			// Declarations
 	TOK_SEMCOL, TOK_COMMA, TOK_COL, TOK_DOT,				// Punctuation, Symbols
 	TOK_LPAREN, TOK_RPAREN, TOK_LKEY, TOK_RKEY, TOK_LBRACE, TOK_RBRACE,	// Parentheses, Braces
 	TOK_LIT_i64, TOK_LIT_u64, TOK_LIT_CHAR, TOK_LIT_STR,			// Literals

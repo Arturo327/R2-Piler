@@ -1,0 +1,9 @@
+tests/sema/065_err_type_dup_src.r2:2:6: ERROR: 'Index' already declared in this scope
+      2 | type Index = u64;
+        |      ^~~~~
+tests/sema/065_err_type_dup_src.r2:5:6: ERROR: 'Seconds' already declared in this scope
+      5 | enum Seconds : u8 { A }
+        |      ^~~~~~~
+tests/sema/065_err_type_dup_src.r2:8:5: ERROR: 'Dias' already declared in this scope
+      8 | var Dias : i8 = 0;
+        |     ^~~~

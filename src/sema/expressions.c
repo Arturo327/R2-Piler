@@ -80,6 +80,13 @@ static TypeId check_assign_target (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
+	if (s->table.symbols[sym_idx].kind == SYMBOL_TYPE) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'%.*s' is a type, not a variable", (int)n->len, n->str);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
 	n->sym = sym_idx;
 
 	if (s->init_node != NO_NODE
@@ -181,6 +188,13 @@ static TypeId check_fn_call (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
+	if (s->table.symbols[sym_idx].kind == SYMBOL_TYPE) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'%.*s' is a type, not a function", (int)n->len, n->str);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
 	if (s->table.symbols[sym_idx].kind != SYMBOL_FN) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"'%.*s' is a variable, not a function", (int)n->len, n->str);
@@ -216,29 +230,32 @@ static TypeId check_dot (Sema *s, uint32_t idx)
 	}
 
 	Symbol *sym = s->table.symbols + sym_idx;
-	if (sym->kind != SYMBOL_ENUM) {
+	TypeId val_type = sym->kind == SYMBOL_TYPE ? type_canon(sym->type) : sym->type;
+	TypeId enum_id = type_repr(val_type);
+	if (sym->kind != SYMBOL_ENUM && (sym->kind != SYMBOL_TYPE
+			|| type_kind(enum_id) != TK_ENUM)) {
 		error_report(s->err, ERR_ERROR, node_loc(left),
 				"'%.*s' is not an enum type", (int)left->len, left->str);
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (sym->type == TYPE_ERROR) {
+	if (enum_id == TYPE_ERROR) {
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
 
-	const EnumVariant *v = find_variant(sym->type, n->str, n->len);
+	const EnumVariant *v = find_variant(enum_id, n->str, n->len);
 	if (!v) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"enum '%s' has no variant '%.*s'",
-				types[sym->type].name, (int)n->len, n->str);
+				types[enum_id].name, (int)n->len, n->str);
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
 
 	n->type = NODE_LIT_u64;
 	n->u64 = v->value;
-	n->data_type = sym->type;
+	n->data_type = val_type;
 	n->child = NO_NODE;
 	n->sym = NO_SYMBOL;
 	n->type_node = NO_TYPE_NODE;
@@ -548,9 +565,18 @@ static TypeId check_cast (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (is_enum(from) && is_enum(to) && from != to) {
+	if (type_kind(from) == TK_ENUM && type_kind(to) == TK_ENUM && from != to) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot cast between enum types '%s' and '%s';"
+				" cast through the underlying integer type",
+				types[from].name, types[to].name);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	if (type_kind(from) == TK_NEWTYPE && type_kind(to) == TK_NEWTYPE
+			&& from != to) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot cast between newtype types '%s' and '%s';"
 				" cast through the underlying integer type",
 				types[from].name, types[to].name);
 		n->data_type = TYPE_ERROR;

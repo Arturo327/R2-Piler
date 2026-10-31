@@ -1,0 +1,12 @@
+tests/sema/067_err_type_cycle_src.r2:1:6: ERROR: circular type definition 'A'
+      1 | type A = B;
+        |      ^
+tests/sema/067_err_type_cycle_src.r2:2:6: ERROR: circular type definition 'B'
+      2 | type B = A;
+        |      ^
+tests/sema/067_err_type_cycle_src.r2:3:6: ERROR: circular type definition 'Self'
+      3 | type Self = Self;
+        |      ^~~~
+tests/sema/067_err_type_cycle_src.r2:5:9: ERROR: circular type definition 'NA'
+      5 | newtype NA = NB;
+        |         ^~

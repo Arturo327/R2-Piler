@@ -363,6 +363,10 @@ static void check_statement (Sema *s, uint32_t idx)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"enums can only be declared at the top level");
 		return;
+	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"types can only be declared at the top level");
+		return;
 	default:
 		finalize_type(s, idx, check_expr(s, idx));
 		return;

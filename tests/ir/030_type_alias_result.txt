@@ -1,0 +1,21 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn bump(1 params, 4 regs) : u32
+    r0 = param.u32 #0
+    r1 = move.u32 r0
+    r2 = const.u32 1
+    r3 = add.u32 r1, r2
+    ret.u32 r3
+    ret
+
+fn main(0 params, 5 regs) : i64
+    r0 = const.u32 3
+    r1 = move.u32 r0
+    arg r1 #0
+    r2 = call.u32 bump
+    r3 = move.u32 r2
+    r4 = extend.i64 r3
+    ret.i64 r4
+    ret
+

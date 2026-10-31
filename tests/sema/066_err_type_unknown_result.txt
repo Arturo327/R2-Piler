@@ -1,0 +1,5 @@
+type A [1:6] depth=0 type=error
+var x [2:5] depth=0 type=error
+fn f [4:4] depth=0 type=error
+fn main [8:4] depth=0 type=i64
+param p [4:7] depth=1 type=error

@@ -1,0 +1,15 @@
+tests/sema/069_err_type_value_src.r2:1:6: ERROR: 'main' must be a function
+      1 | type main = u8;
+        |      ^~~~
+tests/sema/069_err_type_value_src.r2:3:6: ERROR: identifiers starting with '__r2_' are reserved
+      3 | type __r2_bad = u8;
+        |      ^~~~~~~~
+tests/sema/069_err_type_value_src.r2:6:10: ERROR: types can only be declared at the top level
+      6 |     type Inner = u8;
+        |          ^~~~~
+tests/sema/069_err_type_value_src.r2:7:5: ERROR: 'Index' is a type, not a variable
+      7 |     Index = 1;
+        |     ^~~~~
+tests/sema/069_err_type_value_src.r2:8:5: ERROR: 'Index' is a type, not a function
+      8 |     Index();
+        |     ^~~~~

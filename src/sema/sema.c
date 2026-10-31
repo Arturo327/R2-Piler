@@ -23,9 +23,14 @@ TypeId resolve_type_node (Sema *s, ASTNode *n)
 	uint32_t ref_idx = (uint32_t)(n - s->ast->nodes) + n->type_node;
 	ASTNode *ref = s->ast->nodes + ref_idx;
 	TypeId id = find_type(ref->str, ref->len);
-	if (id == TYPE_ERROR)
+	if (id == TYPE_ERROR) {
 		error_report(s->err, ERR_ERROR, node_loc(ref),
 				"unknown type '%.*s'", (int)ref->len, ref->str);
+	} else {
+		id = type_canon(id);
+		if (id == TYPE_ERROR || types[id].base == TYPE_ERROR)
+			id = TYPE_ERROR;
+	}
 	n->type_node = NO_TYPE_NODE;
 	n->data_type = id;
 	return id;
@@ -212,7 +217,7 @@ static void decl_enum (Sema *s, uint32_t idx)
 		return;
 	}
 
-	TypeId id = add_type(n->str, n->len, TYPE_KIND_ENUM, TYPE_u32);
+	TypeId id = add_type(n->str, n->len, TK_ENUM, TYPE_u32);
 	if (id == TYPE_ERROR) {
 		error_report(s->err, ERR_ERROR, node_loc(n), "too many types");
 		return;
@@ -220,13 +225,17 @@ static void decl_enum (Sema *s, uint32_t idx)
 	sema_declare(s, n->str, n->len, SYMBOL_ENUM, id, idx);
 }
 
-static void decl_enums (Sema *s)
+static void decl_types (Sema *s)
 {
 	uint32_t idx = s->ast->nodes[0].child;
 
 	while (idx != NO_NODE) {
-		if (s->ast->nodes[idx].type == NODE_ENUM_DEC) decl_enum(s, idx);
-		idx = s->ast->nodes[idx].next_bro;
+		ASTNode *n = s->ast->nodes + idx;
+
+		if (n->type == NODE_ENUM_DEC) decl_enum(s, idx);
+		else if (n->type == NODE_TYPE_DEC || n->type == NODE_NEWTYPE_DEC)
+			sema_decl_type(s, idx);
+		idx = n->next_bro;
 	}
 }
 
@@ -248,7 +257,7 @@ static void resolve_enum_base (Sema *s, uint32_t idx)
 		sym->type = TYPE_ERROR;
 		return;
 	}
-	if (!type_is_integer(base)) {
+	if (type_kind(base) != TK_INT) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + loc),
 				"enum underlying type must be an integer type");
 		sym->type = TYPE_ERROR;
@@ -370,9 +379,11 @@ static void check_root (Sema *s)
 		ASTNode *n = s->ast->nodes + idx;
 		if (n->type == NODE_VAR_DEC) check_global_var_init(s, idx);
 		else if (n->type == NODE_FN_DEC) check_fn_dec(s, idx);
-		else if (n->type != NODE_ENUM_DEC)
+		else if (n->type != NODE_ENUM_DEC
+				&& n->type != NODE_TYPE_DEC
+				&& n->type != NODE_NEWTYPE_DEC)
 			error_report(s->err, ERR_ERROR, node_loc(n),
-					"only variable, function and enum declarations are allowed at the top level");
+					"only variable, function, enum and type declarations are allowed at the top level");
 		idx = n->next_bro;
 	}
 }
@@ -405,8 +416,10 @@ void sema_run (Sema *s)
 {
 	reserve_cast_nodes(s);
 
-	decl_enums(s);
+	decl_types(s);
+	sema_resolve_types(s);
 	resolve_enum_bases(s);
+	sema_finalize_types(s);
 	decl_globals(s);
 	bind_enums(s);
 
@@ -421,6 +434,7 @@ static const char *kind_name (uint8_t kind)
 	case SYMBOL_VAR: return "var";
 	case SYMBOL_PARAM: return "param";
 	case SYMBOL_ENUM: return "enum";
+	case SYMBOL_TYPE: return "type";
 	default: return "unknown";
 	}
 }
@@ -445,13 +459,28 @@ void dump_symbols (SymbolTable *t)
 	for (uint32_t i = 0; i < t->count; i++) {
 		Symbol *sym = t->symbols + i;
 
-		if (sym->kind == SYMBOL_ENUM && is_enum(sym->type)) {
+		if (sym->kind == SYMBOL_ENUM && type_kind(sym->type) == TK_ENUM) {
 			TypeId base = types[sym->type].base;
 
 			printf("enum %.*s [%u:%u] depth=%u type=%s base=%s\n",
 					(int)sym->len, sym->name, sym->line, sym->col,
 					sym->depth, types[sym->type].name, types[base].name);
 			dump_variants(sym->type);
+			continue;
+		}
+		if (sym->kind == SYMBOL_TYPE) {
+			TypeId id = sym->type;
+			const char *kind = type_kind(id) == TK_NEWTYPE
+					? "newtype" : "type";
+
+			if (id == TYPE_ERROR || types[id].base == TYPE_ERROR)
+				printf("%s %.*s [%u:%u] depth=%u type=error\n",
+						kind, (int)sym->len, sym->name,
+						sym->line, sym->col, sym->depth);
+			else printf("%s %.*s [%u:%u] depth=%u type=%s base=%s\n",
+					kind, (int)sym->len, sym->name,
+					sym->line, sym->col, sym->depth,
+					types[id].name, types[types[id].base].name);
 			continue;
 		}
 		printf("%s %.*s [%u:%u] depth=%u type=%s\n",

@@ -9,11 +9,16 @@
 typedef uint16_t TypeId;
 
 typedef enum {
-	TYPE_KIND_PRIMITIVE = 0,
-	TYPE_KIND_ENUM,
-	TYPE_KIND_ALIAS,
-	TYPE_KIND_STRUCT,
-	TYPE_KIND_CLASS
+	TK_INVALID = 0,
+	TK_INT,
+	TK_ENUM,
+	TK_ALIAS,
+	TK_NEWTYPE,
+	TK_UNTYPED_INT,
+	TK_VOID,
+	TK_ERROR,
+	TK_STRUCT,
+	TK_CLASS
 } TypeKind;
 
 typedef enum {
@@ -64,9 +69,9 @@ TypeId find_type (const char *name, uint16_t len);
 int bind_enum_type (TypeId id, const EnumVariant *vars, uint16_t count);
 EnumVariant *find_variant (TypeId id, const char *name, uint16_t len);
 
-int is_enum (TypeId id);
-TypeId type_base (TypeId id);
-int type_is_integer (TypeId id);
-int type_is_numeric (TypeId id);
+TypeKind type_kind (TypeId id);
+int type_is_nominal (TypeId id);
+TypeId type_canon (TypeId id);
+TypeId type_repr (TypeId id);
 
 #endif

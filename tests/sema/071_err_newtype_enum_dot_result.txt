@@ -1,0 +1,9 @@
+newtype Plain [1:9] depth=0 type=Plain base=u32
+newtype Stamp [2:9] depth=0 type=Stamp base=Dias
+enum Dias [3:6] depth=0 type=Dias base=u8
+  variant Lunes = 0
+  variant Martes = 1
+fn main [5:4] depth=0 type=i64
+var p [6:9] depth=1 type=Plain
+var e [7:9] depth=1 type=Dias
+var q [8:9] depth=1 type=Stamp

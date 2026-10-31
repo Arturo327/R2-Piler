@@ -810,6 +810,32 @@ static uint32_t parse_enum (Parser *p)
 	return node;
 }
 
+static uint32_t parse_type_dec (Parser *p, int is_newtype)
+{
+	TokenType kw = is_newtype ? TOK_NEWTYPE : TOK_TYPE;
+	consume(p, kw, is_newtype ? "expected 'newtype'" : "expected 'type'");
+
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	uint32_t node = new_node(p, is_newtype ? NODE_NEWTYPE_DEC : NODE_TYPE_DEC,
+			line, col);
+
+	if (consume(p, TOK_ID, "expected type name")) {
+		p->ast.nodes[node].str = p->prev.str;
+		p->ast.nodes[node].len = p->prev.len;
+	}
+
+	consume(p, TOK_ASSIGN, "expected '=' after type name");
+
+	uint16_t type_node;
+	TypeId base = parse_type(p, 0, node, &type_node);
+	p->ast.nodes[node].data_type = base;
+	p->ast.nodes[node].type_node = type_node;
+
+	consume(p, TOK_SEMCOL, "expected ';' after type declaration");
+	return node;
+}
+
 static uint32_t error_prefix_inc (Parser *p)
 {
 	Token op = p->curr;
@@ -832,6 +858,8 @@ static uint32_t parse_statement_inner (Parser *p)
 	case TOK_LKEY: return parse_block(p);
 	case TOK_FN: return parse_fn_decl(p);
 	case TOK_ENUM: return parse_enum(p);
+	case TOK_TYPE: return parse_type_dec(p, 0);
+	case TOK_NEWTYPE: return parse_type_dec(p, 1);
 	case TOK_RET: return parse_return(p);
 	case TOK_IF: return parse_if(p);
 	case TOK_WHILE: return parse_while(p);
@@ -931,6 +959,8 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_ENUM_VAL] = "NODE_ENUM_VAL",
 	[NODE_DOT] = "NODE_DOT",
 	[NODE_TYPE_REF] = "NODE_TYPE_REF",
+	[NODE_TYPE_DEC] = "NODE_TYPE_DEC",
+	[NODE_NEWTYPE_DEC] = "NODE_NEWTYPE_DEC",
 };
 
 static inline void indent (int depth)
@@ -960,6 +990,7 @@ static void dump_node_value (ASTNode *n)
 		break;
 	case NODE_VAR_DEC: case NODE_FN_DEC: case NODE_FN_CALL:
 	case NODE_ENUM_DEC: case NODE_ENUM_VAL:
+	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 		if (n->str) printf(" name=\"%.*s\"", (int)n->len, n->str);
 		break;
 	case NODE_DOT:
@@ -995,7 +1026,9 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 		dump_node_value(n);
 
 		if (n->type == NODE_VAR_DEC || n->type == NODE_RET_DEC
-				|| n->type == NODE_CAST || n->type == NODE_ENUM_DEC)
+				|| n->type == NODE_CAST || n->type == NODE_ENUM_DEC
+				|| n->type == NODE_TYPE_DEC
+				|| n->type == NODE_NEWTYPE_DEC)
 			dump_type(ast, n);
 
 		printf("\n");

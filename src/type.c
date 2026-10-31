@@ -25,6 +25,18 @@ static const Type builtin_types[TYPE_COUNT] = {
 	[TYPE_ERROR] = { "error", 0, 0, 0 }
 };
 
+static const uint8_t builtin_kind[TYPE_COUNT] = {
+	[TYPE_VOID] = TK_VOID,
+	[TYPE_i8] = TK_INT, [TYPE_u8] = TK_INT,
+	[TYPE_i16] = TK_INT, [TYPE_u16] = TK_INT,
+	[TYPE_i32] = TK_INT, [TYPE_u32] = TK_INT,
+	[TYPE_i64] = TK_INT, [TYPE_u64] = TK_INT,
+	[TYPE_UNTYPED_INT] = TK_UNTYPED_INT,
+	[TYPE_UNTYPED_UINT] = TK_UNTYPED_INT,
+	[TYPE_UNTYPED_CHAR] = TK_UNTYPED_INT,
+	[TYPE_ERROR] = TK_ERROR
+};
+
 void init_types (void)
 {
 	if (type_arena_ready) arena_destroy(&type_arena);
@@ -35,7 +47,7 @@ void init_types (void)
 	for (int i = 0; i < TYPE_COUNT; i++) {
 		types[i] = builtin_types[i];
 		types[i].len = (uint16_t)strlen(types[i].name);
-		types[i].kind = TYPE_KIND_PRIMITIVE;
+		types[i].kind = builtin_kind[i];
 		types[i].builtin = 1;
 		types[i].base = (TypeId)i;
 	}
@@ -107,7 +119,7 @@ int bind_enum_type (TypeId id, const EnumVariant *vars, uint16_t count)
 
 EnumVariant *find_variant (TypeId id, const char *name, uint16_t len)
 {
-	if (!is_enum(id)) return NULL;
+	if (type_kind(id) != TK_ENUM) return NULL;
 
 	for (uint16_t i = 0; i < types[id].variant_count; i++) {
 		EnumVariant *v = types[id].variants + i;
@@ -116,24 +128,32 @@ EnumVariant *find_variant (TypeId id, const char *name, uint16_t len)
 	return NULL;
 }
 
-int is_enum (TypeId id)
+TypeKind type_kind (TypeId id)
 {
-	return id >= TYPE_COUNT && id < type_count
-			&& types[id].kind == TYPE_KIND_ENUM;
+	if (id >= type_count) return TK_INVALID;
+	return (TypeKind)types[id].kind;
 }
 
-TypeId type_base (TypeId id)
+int type_is_nominal (TypeId id)
 {
-	if (id >= type_count) return TYPE_ERROR;
-	return types[id].base;
+	TypeKind kind = type_kind(id);
+
+	return kind == TK_ENUM || kind == TK_NEWTYPE;
 }
 
-int type_is_integer (TypeId id)
+TypeId type_canon (TypeId id)
 {
-	return id >= TYPE_i8 && id <= TYPE_u64;
+	if (type_kind(id) == TK_ALIAS) return types[id].base;
+	return id;
 }
 
-int type_is_numeric (TypeId id)
+TypeId type_repr (TypeId id)
 {
-	return type_is_integer(id) || is_enum(id);
+	for (int i = 0; i < TYPE_MAX; i++) {
+		TypeKind kind = type_kind(id);
+
+		if (kind != TK_ALIAS && kind != TK_NEWTYPE) return id;
+		id = types[id].base;
+	}
+	return TYPE_ERROR;
 }

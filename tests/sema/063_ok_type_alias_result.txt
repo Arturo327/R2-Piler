@@ -1,0 +1,13 @@
+type Index [1:6] depth=0 type=Index base=u32
+type Alias [2:6] depth=0 type=Alias base=u32
+enum Dias [4:6] depth=0 type=Dias base=u8
+  variant Lunes = 0
+  variant Martes = 1
+type Day [5:6] depth=0 type=Day base=Dias
+var g [7:5] depth=0 type=u32
+fn f [9:4] depth=0 type=u32
+fn main [13:4] depth=0 type=i64
+param i [9:7] depth=1 type=u32
+var x [14:9] depth=1 type=u32
+var d [15:9] depth=1 type=Dias
+var e [16:9] depth=1 type=Dias

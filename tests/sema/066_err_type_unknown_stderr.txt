@@ -1,0 +1,12 @@
+tests/sema/066_err_type_unknown_src.r2:1:10: ERROR: unknown type 'Missing'
+      1 | type A = Missing;
+        |          ^~~~~~~
+tests/sema/066_err_type_unknown_src.r2:2:9: ERROR: unknown type 'Nope'
+      2 | var x : Nope = 1;
+        |         ^~~~
+tests/sema/066_err_type_unknown_src.r2:4:11: ERROR: unknown type 'Ghost'
+      4 | fn f (p : Ghost) : Gone {
+        |           ^~~~~
+tests/sema/066_err_type_unknown_src.r2:4:20: ERROR: unknown type 'Gone'
+      4 | fn f (p : Ghost) : Gone {
+        |                    ^~~~

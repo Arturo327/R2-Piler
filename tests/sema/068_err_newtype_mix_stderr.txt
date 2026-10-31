@@ -1,0 +1,15 @@
+tests/sema/068_err_newtype_mix_src.r2:11:7: ERROR: cannot assign Seconds to a variable of type u32; use an explicit cast with 'as'
+     11 |     u = s;
+        |       ^
+tests/sema/068_err_newtype_mix_src.r2:12:7: ERROR: cannot assign u32 to a variable of type Seconds; use an explicit cast with 'as'
+     12 |     s = u;
+        |       ^
+tests/sema/068_err_newtype_mix_src.r2:13:10: ERROR: argument type Seconds does not match parameter type u32; use an explicit cast with 'as'
+     13 |     take(s);
+        |          ^
+tests/sema/068_err_newtype_mix_src.r2:14:11: ERROR: cannot cast between newtype types 'Seconds' and 'Millis'; cast through the underlying integer type
+     14 |     m = s as Millis;
+        |           ^~
+tests/sema/068_err_newtype_mix_src.r2:15:25: ERROR: literal 4294967296 does not fit in type Seconds; use an explicit cast with 'as' to reinterpret the bits
+     15 |     var bad : Seconds = 4294967296;
+        |                         ^~~~~~~~~~
