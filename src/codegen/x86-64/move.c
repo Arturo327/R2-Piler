@@ -64,7 +64,7 @@ static uint32_t build_param_moves (X86Fn *f, IRInstr *first, uint32_t n)
 	return count;
 }
 
-static void extend_home (X86Fn *f, uint8_t reg, uint8_t type)
+static void extend_home (X86Fn *f, uint8_t reg, TypeId type)
 {
 	uint8_t size = types[type].size;
 	uint8_t w;

@@ -6,7 +6,7 @@
 void kill_instr (IRInstr *in);
 void kill_branch (OptFn *f, IRInstr *in);
 IRInstr *next_real (IRInstr *code, uint32_t from, uint32_t count);
-int64_t norm_val (uint64_t v, uint8_t type);
+int64_t norm_val (uint64_t v, TypeId type);
 int try_move (OptFn *f, IRInstr *in, uint32_t src);
 
 int reg_const (Optimizer *opt, OptFn *f, uint32_t reg, int64_t *val);

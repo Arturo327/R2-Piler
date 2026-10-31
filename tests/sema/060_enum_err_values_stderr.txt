@@ -1,0 +1,27 @@
+tests/sema/060_enum_err_values_src.r2:3:5: ERROR: duplicate enum variant 'A'
+      3 |     A = 2,
+        |     ^
+tests/sema/060_enum_err_values_src.r2:7:9: ERROR: literal 200 does not fit in type Small; use an explicit cast with 'as' to reinterpret the bits
+      7 |     A = 200,
+        |         ^~~
+tests/sema/060_enum_err_values_src.r2:12:5: ERROR: enum variant value overflows the underlying type u8
+     12 |     B,
+        |     ^
+tests/sema/060_enum_err_values_src.r2:16:11: ERROR: enum variant value must be a literal, optionally negated, complemented or cast
+     16 |     A = 1 + 2,
+        |           ^
+tests/sema/060_enum_err_values_src.r2:20:9: ERROR: literal -1 does not fit in type Neg; Neg is unsigned and cannot hold a negative value; use an explicit cast with 'as' to reinterpret the bits
+     20 |     A = -1,
+        |         ^~
+tests/sema/060_enum_err_values_src.r2:24:9: ERROR: literal -1 does not fit in type Comp; Comp is unsigned and cannot hold a negative value; use an explicit cast with 'as' to reinterpret the bits
+     24 |     A = ~0,
+        |         ^
+tests/sema/060_enum_err_values_src.r2:29:5: ERROR: enum variant value overflows the underlying type u64
+     29 |     Wrap,
+        |     ^~~~
+tests/sema/060_enum_err_values_src.r2:33:11: ERROR: literal 18446744073709551615 does not fit in type S64; it is too large (the 'u' suffix makes it a u64 literal)
+     33 |     Min = ~0u,
+        |           ^
+tests/sema/060_enum_err_values_src.r2:40:5: ERROR: enum variant value overflows the underlying type u8
+     40 |     D,
+        |     ^

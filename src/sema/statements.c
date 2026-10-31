@@ -31,6 +31,7 @@ static void check_var_dec (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
 
+	resolve_type_node(s, n);
 	if (n->child != NO_NODE)
 		check_var_init_type(s, n, check_expr(s, n->child));
 
@@ -54,6 +55,7 @@ static void check_main_signature (Sema *s, uint32_t idx)
 
 void check_fn_dec (Sema *s, uint32_t idx)
 {
+	resolve_fn_types(s, idx);
 	check_main_signature(s, idx);
 	uint32_t args = s->ast->nodes[idx].child;
 	uint32_t ret = s->ast->nodes[args].next_bro;
@@ -125,7 +127,7 @@ static int const_cond_value (Sema *s, uint32_t idx)
 
 static int check_cond (Sema *s, uint32_t cond, int alw_err)
 {
-	uint8_t type = check_expr(s, cond);
+	TypeId type = check_expr(s, cond);
 
 	if (type == TYPE_VOID && s->ast->nodes[cond].type != NODE_EMPTY)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
@@ -258,8 +260,6 @@ static void check_for (Sema *s, uint32_t idx)
 static void check_return (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
-	uint8_t val_type;
-	int ok;
 
 	if (n->child == NO_NODE) {
 		if (s->curr_ret != TYPE_VOID && s->curr_ret != TYPE_ERROR)
@@ -276,10 +276,11 @@ static void check_return (Sema *s, uint32_t idx)
 		return;
 	}
 
-	val_type = check_expr(s, n->child);
+	TypeId val_type = check_expr(s, n->child);
 	if (val_type == TYPE_ERROR || s->curr_ret == TYPE_ERROR || val_type == s->curr_ret)
 		return;
 
+	int ok;
 	n->child = force_cast(s, n->child, val_type, s->curr_ret, &ok);
 	if (ok) return;
 
@@ -357,6 +358,10 @@ static void check_statement (Sema *s, uint32_t idx)
 	case NODE_FN_DEC:
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"functions can only be declared at the top level");
+		return;
+	case NODE_ENUM_DEC:
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"enums can only be declared at the top level");
 		return;
 	default:
 		finalize_type(s, idx, check_expr(s, idx));

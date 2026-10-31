@@ -38,7 +38,8 @@ void init_parser (Parser *parser, Lexer *lexer, Arena *arena, ErrorReporter *err
 		.line = 0, .col = 0,
 		.child = NO_NODE,
 		.next_bro = NO_NODE,
-		.sym = NO_NODE
+		.sym = NO_NODE,
+		.type_node = NO_NODE
 	};
 	(void)push_ast_node(parser, root);
 }
@@ -150,6 +151,7 @@ static uint32_t new_node (Parser *p, NodeType type, uint16_t line, uint16_t col)
 	node.child = NO_NODE;
 	node.next_bro = NO_NODE;
 	node.sym = NO_NODE;
+	node.type_node = NO_NODE;
 	return push_ast_node(p, node);
 }
 
@@ -160,7 +162,7 @@ static void append_child (Parser *p, uint32_t parent, uint32_t *last, uint32_t c
 	*last = child;
 }
 
-static uint8_t tok_to_datatype (TokenType t)
+static TypeId tok_to_datatype (TokenType t)
 {
 	switch (t)
 	{
@@ -371,12 +373,28 @@ static uint32_t parse_primary_inner (Parser *p)
 	return node;
 }
 
+static uint32_t parse_dot (Parser *p, uint32_t left)
+{
+	Token dot = p->curr;
+	advance(p);
+
+	uint32_t node = new_node(p, NODE_DOT, dot.line, dot.col);
+	p->ast.nodes[node].child = left;
+	if (consume(p, TOK_ID, "expected a name after '.'")) {
+		p->ast.nodes[node].str = p->prev.str;
+		p->ast.nodes[node].len = p->prev.len;
+	}
+	return node;
+}
+
 static uint32_t parse_primary (Parser *p)
 {
 	if (!enter_depth(p))
 		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
 
 	uint32_t node = parse_primary_inner(p);
+	while (p->curr.type == TOK_DOT)
+		node = parse_dot(p, node);
 	p->depth--;
 	return node;
 }
@@ -409,23 +427,33 @@ static uint32_t parse_expr (Parser *p, int min_prec)
 	return left;
 }
 
-static uint8_t parse_type (Parser *p, int allow_void)
+static TypeId parse_type (Parser *p, int allow_void, uint32_t *type_node)
 {
 	TokenType t = p->curr.type;
 	int valid = (t == TOK_i8 || t == TOK_u8 || t == TOK_i16 || t == TOK_u16
 		|| t == TOK_i32 || t == TOK_u32 || t == TOK_i64 || t == TOK_u64
 		|| t == TOK_CHAR || (allow_void && t == TOK_VOID));
 
-	if (!valid) {
-		if (!p->panic_mode)
-			error_report(p->err, ERR_ERROR, token_loc(p->curr), "expected type");
-		p->panic_mode = 1;
+	*type_node = NO_NODE;
+	if (valid) {
+		TypeId data_type = tok_to_datatype(t);
+		advance(p);
+		return data_type;
+	}
+
+	if (t == TOK_ID) {
+		uint32_t ref = new_node(p, NODE_TYPE_REF, p->curr.line, p->curr.col);
+		p->ast.nodes[ref].str = p->curr.str;
+		p->ast.nodes[ref].len = p->curr.len;
+		*type_node = ref;
+		advance(p);
 		return TYPE_ERROR;
 	}
 
-	uint8_t data_type = tok_to_datatype(t);
-	advance(p);
-	return data_type;
+	if (!p->panic_mode)
+		error_report(p->err, ERR_ERROR, token_loc(p->curr), "expected type");
+	p->panic_mode = 1;
+	return TYPE_ERROR;
 }
 
 static uint32_t parse_cast (Parser *p)
@@ -442,7 +470,10 @@ static uint32_t parse_cast (Parser *p)
 		advance(p);
 		cast = new_node(p, NODE_CAST, line, col);
 		p->ast.nodes[cast].len = 2;
-		p->ast.nodes[cast].data_type = parse_type(p, 0);
+		uint32_t type_node;
+		TypeId type = parse_type(p, 0, &type_node);
+		p->ast.nodes[cast].data_type = type;
+		p->ast.nodes[cast].type_node = type_node;
 		p->ast.nodes[cast].child = node;
 		node = cast;
 	}
@@ -464,7 +495,10 @@ static uint32_t parse_var_dec (Parser *p)
 	}
 
 	consume(p, TOK_COL, "expected ':', followed by the type");
-	p->ast.nodes[node].data_type = parse_type(p, 0);
+	uint32_t type_node;
+	TypeId type = parse_type(p, 0, &type_node);
+	p->ast.nodes[node].data_type = type;
+	p->ast.nodes[node].type_node = type_node;
 
 	if (p->curr.type == TOK_ASSIGN) {
 		advance(p);
@@ -508,8 +542,10 @@ static uint32_t parse_param (Parser *p)
 	}
 
 	consume(p, TOK_COL, "expected ':' followed by the parameter type");
-	uint8_t type = parse_type(p, 0);
+	uint32_t type_node;
+	TypeId type = parse_type(p, 0, &type_node);
 	p->ast.nodes[node].data_type = type;
+	p->ast.nodes[node].type_node = type_node;
 	return node;
 }
 
@@ -546,8 +582,10 @@ static uint32_t parse_ret_dec (Parser *p)
 	}
 
 	advance(p);
-	uint8_t type = parse_type(p, 1);
+	uint32_t type_node;
+	TypeId type = parse_type(p, 1, &type_node);
 	p->ast.nodes[node].data_type = type;
+	p->ast.nodes[node].type_node = type_node;
 	return node;
 }
 
@@ -724,6 +762,54 @@ static uint32_t parse_for (Parser *p)
 	return node;
 }
 
+static uint32_t parse_enum (Parser *p)
+{
+	consume(p, TOK_ENUM, "expected 'enum'");
+
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	uint32_t node = new_node(p, NODE_ENUM_DEC, line, col);
+
+	if (consume(p, TOK_ID, "expected enum name")) {
+		p->ast.nodes[node].str = p->prev.str;
+		p->ast.nodes[node].len = p->prev.len;
+	}
+
+	if (p->curr.type == TOK_COL) {
+		advance(p);
+		uint32_t type_node;
+		TypeId base = parse_type(p, 0, &type_node);
+		p->ast.nodes[node].data_type = base;
+		p->ast.nodes[node].type_node = type_node;
+	} else {
+		p->ast.nodes[node].data_type = TYPE_u32;
+		p->ast.nodes[node].type_node = NO_NODE;
+	}
+
+	consume(p, TOK_LKEY, "expected '{' after enum name");
+
+	uint32_t last = NO_NODE;
+	while (p->curr.type == TOK_ID) {
+		uint32_t var = new_node(p, NODE_ENUM_VAL, p->curr.line, p->curr.col);
+		p->ast.nodes[var].str = p->curr.str;
+		p->ast.nodes[var].len = p->curr.len;
+		advance(p);
+
+		if (p->curr.type == TOK_ASSIGN) {
+			advance(p);
+			p->ast.nodes[var].child = parse_expr(p, 0);
+		}
+		append_child(p, node, &last, var);
+
+		if (p->curr.type != TOK_COMMA) break;
+		advance(p);
+	}
+
+	consume(p, TOK_RKEY, "expected '}' at the end of the enum");
+	if (p->curr.type == TOK_SEMCOL) advance(p);
+	return node;
+}
+
 static uint32_t error_prefix_inc (Parser *p)
 {
 	Token op = p->curr;
@@ -745,6 +831,7 @@ static uint32_t parse_statement_inner (Parser *p)
 	case TOK_VAR: return parse_var_dec(p);
 	case TOK_LKEY: return parse_block(p);
 	case TOK_FN: return parse_fn_decl(p);
+	case TOK_ENUM: return parse_enum(p);
 	case TOK_RET: return parse_return(p);
 	case TOK_IF: return parse_if(p);
 	case TOK_WHILE: return parse_while(p);
@@ -840,6 +927,10 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_ID] = "NODE_ID",
 	[NODE_BLOCK] = "NODE_BLOCK",
 	[NODE_ROOT] = "NODE_ROOT",
+	[NODE_ENUM_DEC] = "NODE_ENUM_DEC",
+	[NODE_ENUM_VAL] = "NODE_ENUM_VAL",
+	[NODE_DOT] = "NODE_DOT",
+	[NODE_TYPE_REF] = "NODE_TYPE_REF",
 };
 
 static inline void indent (int depth)
@@ -868,11 +959,25 @@ static void dump_node_value (ASTNode *n)
 		printf("\"");
 		break;
 	case NODE_VAR_DEC: case NODE_FN_DEC: case NODE_FN_CALL:
+	case NODE_ENUM_DEC: case NODE_ENUM_VAL:
 		if (n->str) printf(" name=\"%.*s\"", (int)n->len, n->str);
+		break;
+	case NODE_DOT:
+		printf(" field=\"%.*s\"", (int)n->len, n->str);
 		break;
 	default:
 		break;
 	}
+}
+
+static void dump_type (AST *ast, ASTNode *n)
+{
+	if (n->type_node != NO_NODE) {
+		ASTNode *ref = &ast->nodes[n->type_node];
+		printf(" type=%.*s", (int)ref->len, ref->str);
+		return;
+	}
+	printf(" type=%s", types[n->data_type].name);
 }
 
 static void dump_node (AST *ast, uint32_t idx, int depth)
@@ -888,8 +993,9 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 
 		dump_node_value(n);
 
-		if (n->type == NODE_VAR_DEC || n->type == NODE_RET_DEC || n->type == NODE_CAST)
-			printf(" type=%s", types[n->data_type].name); 
+		if (n->type == NODE_VAR_DEC || n->type == NODE_RET_DEC
+				|| n->type == NODE_CAST || n->type == NODE_ENUM_DEC)
+			dump_type(ast, n);
 
 		printf("\n");
 		dump_node(ast, child, depth + 1);

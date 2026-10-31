@@ -1,12 +1,13 @@
 #include "sema/common.h"
 
-static int implicit_cast_ok (uint8_t from, uint8_t to)
+static int implicit_cast_ok (TypeId from, TypeId to)
 {
 	const Type *f, *t;
 
 	if (from == to) return 1;
 	if (from == TYPE_ERROR || to == TYPE_ERROR) return 0;
 	if (from == TYPE_VOID || to == TYPE_VOID) return 0;
+	if (is_enum(from) || is_enum(to)) return 0;
 
 	f = &types[from];
 	t = &types[to];
@@ -15,7 +16,7 @@ static int implicit_cast_ok (uint8_t from, uint8_t to)
 	return t->size > f->size;
 }
 
-static int is_untyped (uint8_t type)
+static int is_untyped (TypeId type)
 {
 	return type == TYPE_UNTYPED_INT || type == TYPE_UNTYPED_UINT
 			|| type == TYPE_UNTYPED_CHAR;
@@ -26,7 +27,7 @@ typedef struct LitVal {
 	int neg;
 } LitVal;
 
-static int lit_fits (LitVal v, uint8_t type)
+static int lit_fits (LitVal v, TypeId type)
 {
 	const Type *t = &types[type];
 	unsigned bits = t->size * 8u;
@@ -40,7 +41,7 @@ static int lit_fits (LitVal v, uint8_t type)
 	return v.mag <= max;
 }
 
-static uint64_t lit_bits (LitVal v, uint8_t type)
+static uint64_t lit_bits (LitVal v, TypeId type)
 {
 	const Type *t = &types[type];
 	unsigned bits = t->size * 8u;
@@ -53,7 +54,7 @@ static uint64_t lit_bits (LitVal v, uint8_t type)
 	return raw;
 }
 
-static uint64_t trunc_sext (uint64_t raw, uint8_t t)
+static uint64_t trunc_sext (uint64_t raw, TypeId t)
 {
 	LitVal v = { 0 };
 
@@ -88,7 +89,7 @@ int is_literal_node (Sema *s, uint32_t idx)
 	return lit_node_bits(s, s->ast->nodes + idx, &v);
 }
 
-static void make_fold_lit (ASTNode *n, uint64_t bits, uint8_t t)
+static void make_fold_lit (ASTNode *n, uint64_t bits, TypeId t)
 {
 	n->type = types[t].sign ? NODE_LIT_i64 : NODE_LIT_u64;
 	n->u64 = bits;
@@ -96,13 +97,13 @@ static void make_fold_lit (ASTNode *n, uint64_t bits, uint8_t t)
 	n->child = NO_NODE;
 }
 
-static uint64_t type_min (uint8_t t)
+static uint64_t type_min (TypeId t)
 {
 	if (is_untyped(t)) return ~(uint64_t)0 << 63;
 	return ~(uint64_t)0 << (types[t].size * 8u - 1);
 }
 
-static int div_overflows (uint64_t a, uint64_t b, uint8_t t)
+static int div_overflows (uint64_t a, uint64_t b, TypeId t)
 {
 	if (!types[t].sign) return 0;
 	if (!is_untyped(t)) {
@@ -113,7 +114,7 @@ static int div_overflows (uint64_t a, uint64_t b, uint8_t t)
 	return a == type_min(t);
 }
 
-static int fold_divmod (uint8_t op, uint64_t a, uint64_t b, uint8_t t, uint64_t *out)
+static int fold_divmod (uint8_t op, uint64_t a, uint64_t b, TypeId t, uint64_t *out)
 {
 	if (b == 0) return 0;
 	if (div_overflows(a, b, t)) return 0;
@@ -126,7 +127,7 @@ static int fold_divmod (uint8_t op, uint64_t a, uint64_t b, uint8_t t, uint64_t 
 	return 1;
 }
 
-static int fold_value (uint8_t op, uint64_t a, uint64_t b, uint8_t t, uint64_t *out)
+static int fold_value (uint8_t op, uint64_t a, uint64_t b, TypeId t, uint64_t *out)
 {
 	switch (op)
 	{
@@ -151,7 +152,7 @@ static int fold_value (uint8_t op, uint64_t a, uint64_t b, uint8_t t, uint64_t *
 	}
 }
 
-static int fold_compare (uint8_t op, uint64_t a, uint64_t b, uint8_t t, uint64_t *out)
+static int fold_compare (uint8_t op, uint64_t a, uint64_t b, TypeId t, uint64_t *out)
 {
 	int sign = types[t].sign;
 	int res;
@@ -170,22 +171,21 @@ static int fold_compare (uint8_t op, uint64_t a, uint64_t b, uint8_t t, uint64_t
 	return 1;
 }
 
-static uint8_t neg_result_type (ASTNode *c)
+static TypeId neg_result_type (ASTNode *c)
 {
 	if (c->type == NODE_LIT_u64 && c->data_type == TYPE_UNTYPED_UINT) return TYPE_UNTYPED_UINT;
 	if (c->type == NODE_LIT_i64 && c->data_type == TYPE_UNTYPED_UINT) return TYPE_UNTYPED_INT;
 	return c->data_type;
 }
 
-uint8_t try_fold_unary (Sema *s, uint32_t idx)
+TypeId try_fold_unary (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
-	ASTNode *c;
-	uint64_t a, v;
-	uint8_t t;
 
 	if (n->child == NO_NODE) return n->data_type;
-	c = s->ast->nodes + n->child;
+	ASTNode *c = s->ast->nodes + n->child;
+
+	uint64_t a;
 	if (!lit_node_bits(s, c, &a)) return n->data_type;
 	if (c->data_type == TYPE_ERROR) return n->data_type;
 
@@ -194,7 +194,8 @@ uint8_t try_fold_unary (Sema *s, uint32_t idx)
 		return TYPE_i64;
 	}
 
-	t = n->data_type;
+	TypeId t = n->data_type;
+	uint64_t v;
 	if (n->type == NODE_NEG) {
 		t = neg_result_type(c);
 		v = 0 - a;
@@ -236,7 +237,7 @@ void try_fold_binary (Sema *s, uint32_t idx)
 		return;
 	}
 
-	uint8_t t = l->data_type;
+	TypeId t = l->data_type;
 
 	if ((n->type == NODE_DIV || n->type == NODE_MOD) && b == 0) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
@@ -294,7 +295,7 @@ static int flex_literal (Sema *s, uint32_t idx, LitVal *v)
 	return 1;
 }
 
-static const char *type_display_name (uint8_t type)
+static const char *type_display_name (TypeId type)
 {
 	switch (type)
 	{
@@ -305,7 +306,7 @@ static const char *type_display_name (uint8_t type)
 	}
 }
 
-static void err_lit_out_of_range (Sema *s, ASTNode *n, LitVal v, uint8_t to)
+static void err_lit_out_of_range (Sema *s, ASTNode *n, LitVal v, TypeId to)
 {
 	const char *name = type_display_name(to);
 	if (v.neg && !types[to].sign)
@@ -329,7 +330,87 @@ static void err_lit_out_of_range (Sema *s, ASTNode *n, LitVal v, uint8_t to)
 			(unsigned long long)v.mag, name);
 }
 
-static int retag_literal (Sema *s, uint32_t idx, uint8_t to)
+static int enum_value_form (Sema *s, uint32_t idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+
+	switch (n->type)
+	{
+	case NODE_LIT_i64: case NODE_LIT_u64: case NODE_LIT_CHAR:
+		return 1;
+	case NODE_NEG: case NODE_NOT_A: case NODE_CAST:
+		return n->child != NO_NODE && enum_value_form(s, n->child);
+	default:
+		return 0;
+	}
+}
+
+static int concrete_fits (uint64_t bits, TypeId from, TypeId to)
+{
+	unsigned to_bits = types[to].size * 8u;
+	uint64_t max;
+	int64_t min;
+
+	if (types[from].sign) {
+		int64_t v = (int64_t)bits;
+
+		if (!types[to].sign) return v >= 0;
+		min = to_bits == 64 ? INT64_MIN
+				: -(int64_t)((uint64_t)1 << (to_bits - 1));
+		max = to_bits == 64 ? INT64_MAX
+				: ((uint64_t)1 << (to_bits - 1)) - 1;
+		return v >= min && (uint64_t)v <= max;
+	}
+
+	if (types[to].sign)
+		max = to_bits == 64 ? INT64_MAX
+				: ((uint64_t)1 << (to_bits - 1)) - 1;
+	else max = to_bits == 64 ? UINT64_MAX
+			: ((uint64_t)1 << to_bits) - 1;
+	return bits <= max;
+}
+
+int enum_const_value (Sema *s, uint32_t idx, TypeId enum_id, uint64_t *out)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+
+	if (!enum_value_form(s, idx)) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"enum variant value must be a literal, optionally negated, complemented or cast");
+		return 0;
+	}
+
+	TypeId type = check_expr(s, idx);
+	if (type == TYPE_ERROR) return 0;
+
+	if (is_untyped(type)) {
+		LitVal v;
+
+		if (!flex_literal(s, idx, &v)) return 0;
+		if (!lit_fits(v, enum_id)) {
+			err_lit_out_of_range(s, n, v, enum_id);
+			return 0;
+		}
+		*out = lit_bits(v, enum_id);
+		return 1;
+	}
+
+	uint64_t bits;
+	if (!lit_node_bits(s, n, &bits)) return 0;
+	if (!concrete_fits(bits, type, enum_id)) {
+		LitVal v;
+
+		v.neg = types[type].sign && (int64_t)bits < 0;
+		v.mag = v.neg ? 0 - bits : bits;
+		err_lit_out_of_range(s, n, v, enum_id);
+		return 0;
+	}
+
+	*out = trunc_sext(bits, enum_id);
+	return 1;
+}
+
+static int retag_literal (Sema *s, uint32_t idx, TypeId to)
 {
 	ASTNode *n = &s->ast->nodes[idx];
 	LitVal v;
@@ -369,7 +450,7 @@ static const uint8_t flex_op[NODE_COUNT] = {
 	[NODE_LS] = 3, [NODE_RS] = 3
 };
 
-static void retag_expr (Sema *s, uint32_t idx, uint8_t to)
+static void retag_expr (Sema *s, uint32_t idx, TypeId to)
 {
 	ASTNode *n;
 	uint32_t child;
@@ -386,7 +467,7 @@ static void retag_expr (Sema *s, uint32_t idx, uint8_t to)
 		retag_expr(s, s->ast->nodes[child].next_bro, to);
 }
 
-static uint8_t default_type (uint8_t type)
+static TypeId default_type (TypeId type)
 {
 	switch (type)
 	{
@@ -397,15 +478,15 @@ static uint8_t default_type (uint8_t type)
 	}
 }
 
-uint8_t finalize_type (Sema *s, uint32_t idx, uint8_t type)
+TypeId finalize_type (Sema *s, uint32_t idx, TypeId type)
 {
-	uint8_t to = default_type(type);
+	TypeId to = default_type(type);
 
 	if (to != type) retag_expr(s, idx, to);
 	return to;
 }
 
-uint32_t force_cast (Sema *s, uint32_t child, uint8_t child_type, uint8_t target, int *ok)
+uint32_t force_cast (Sema *s, uint32_t child, TypeId child_type, TypeId target, int *ok)
 {
 	*ok = 1;
 	if (child_type == target || child_type == TYPE_ERROR || target == TYPE_ERROR)
@@ -421,7 +502,7 @@ uint32_t force_cast (Sema *s, uint32_t child, uint8_t child_type, uint8_t target
 	return sema_wrap_cast(s, child, target);
 }
 
-static uint8_t common_type (uint8_t l, uint8_t r)
+static TypeId common_type (TypeId l, TypeId r)
 {
 	int l_flex = is_untyped(l);
 	int r_flex = is_untyped(r);
@@ -433,7 +514,7 @@ static uint8_t common_type (uint8_t l, uint8_t r)
 	return TYPE_ERROR;
 }
 
-static void convert_operand (Sema *s, uint32_t *idx, uint8_t *type, uint8_t to)
+static void convert_operand (Sema *s, uint32_t *idx, TypeId *type, TypeId to)
 {
 	if (is_untyped(*type)) {
 		retag_expr(s, *idx, to);
@@ -443,10 +524,9 @@ static void convert_operand (Sema *s, uint32_t *idx, uint8_t *type, uint8_t to)
 	*type = to;
 }
 
-int unify_operands (Sema *s, ASTNode *n, uint32_t *left, uint32_t *right,
-		uint8_t *l, uint8_t *r)
+int unify_operands (Sema *s, ASTNode *n, uint32_t *left, uint32_t *right, TypeId *l, TypeId *r)
 {
-	uint8_t to = common_type(*l, *r);
+	TypeId to = common_type(*l, *r);
 
 	if (to == TYPE_ERROR) {
 		error_report(s->err, ERR_ERROR, node_loc(n),

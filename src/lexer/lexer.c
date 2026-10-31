@@ -432,6 +432,7 @@ static const Keyword keywords[] = {
 	{"char", TOK_CHAR},
 	{"elif", TOK_ELIF},
 	{"else", TOK_ELSE},
+	{"enum", TOK_ENUM},
 	{"void", TOK_VOID},
 	{"while", TOK_WHILE},
 	{"return", TOK_RET}
@@ -490,7 +491,7 @@ static const TwoCharOp two_char_ops[] = {
 static const uint8_t one_char_ops[256] = {
 	['+'] = TOK_ADD, ['-'] = TOK_SUB, ['*'] = TOK_STAR,
 	['/'] = TOK_SLASH, ['%'] = TOK_PERCENT, ['^'] = TOK_XOR,
-	[';'] = TOK_SEMCOL, [':'] = TOK_COL, [','] = TOK_COMMA,
+	[';'] = TOK_SEMCOL, [':'] = TOK_COL, [','] = TOK_COMMA, ['.'] = TOK_DOT,
 	['~'] = TOK_NOT_A, ['('] = TOK_LPAREN, [')'] = TOK_RPAREN,
 	['['] = TOK_LBRACE, [']'] = TOK_RBRACE,
 	['{'] = TOK_LKEY, ['}'] = TOK_RKEY,
@@ -568,8 +569,9 @@ Token get_token (Lexer *l)
 #define TN(t) [t] = #t
 static const char *const token_names[TOK_COUNT] = {
 	TN(TOK_NONE), TN(TOK_INVALID), TN(TOK_EOF), TN(TOK_VAR), TN(TOK_ID),
-	TN(TOK_FN), TN(TOK_SEMCOL), TN(TOK_COMMA), TN(TOK_COL), TN(TOK_LPAREN),
-	TN(TOK_RPAREN), TN(TOK_LKEY), TN(TOK_RKEY), TN(TOK_LBRACE), TN(TOK_RBRACE),
+	TN(TOK_FN), TN(TOK_ENUM), TN(TOK_SEMCOL), TN(TOK_COMMA), TN(TOK_COL),
+	TN(TOK_DOT), TN(TOK_LPAREN), TN(TOK_RPAREN), TN(TOK_LKEY), TN(TOK_RKEY),
+	TN(TOK_LBRACE), TN(TOK_RBRACE),
 	TN(TOK_LIT_i64), TN(TOK_LIT_u64), TN(TOK_LIT_CHAR), TN(TOK_LIT_STR),
 	TN(TOK_i8), TN(TOK_u8), TN(TOK_i16), TN(TOK_u16), TN(TOK_i32), TN(TOK_u32),
 	TN(TOK_i64), TN(TOK_u64), TN(TOK_CHAR), TN(TOK_VOID), TN(TOK_IF),

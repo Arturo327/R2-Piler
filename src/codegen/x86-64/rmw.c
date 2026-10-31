@@ -103,7 +103,7 @@ static uint8_t rmw_width (X86Fn *f, IRInstr *a)
 
 static int rmw_shape_ok (X86Fn *f, IRInstr *a, IRInstr *b)
 {
-	uint8_t *rt = f->fn->reg_types;
+	TypeId *rt = f->fn->reg_types;
 	uint8_t s = rmw_width(f, a);
 	Reg *r = f->regs + a->src1;
 
@@ -126,7 +126,7 @@ static void rmw_sext (X86Fn *f, IRInstr *a)
 	int8_t h = f->regs[a->src1].home[f->blk];
 	if (h < 0) return;
 
-	uint8_t t = f->fn->reg_types[a->src1];
+	TypeId t = f->fn->reg_types[a->src1];
 	uint8_t s = types[t].size;
 	if (s == 8 || !types[t].sign) return;
 

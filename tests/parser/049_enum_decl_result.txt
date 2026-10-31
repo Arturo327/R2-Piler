@@ -1,0 +1,11 @@
+NODE_ROOT [0:0]
+  NODE_ENUM_DEC [1:6] name="Color" type=u32
+    NODE_ENUM_VAL [2:5] name="Red"
+    NODE_ENUM_VAL [3:5] name="Green"
+      NODE_LIT_i64 [3:13] i64=10
+    NODE_ENUM_VAL [4:5] name="Blue"
+  NODE_ENUM_DEC [6:6] name="Flags" type=u8
+    NODE_ENUM_VAL [7:5] name="A"
+      NODE_LIT_i64 [7:9] i64=1
+    NODE_ENUM_VAL [8:5] name="B"
+      NODE_LIT_i64 [8:9] i64=2

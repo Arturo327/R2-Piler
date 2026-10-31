@@ -118,8 +118,8 @@ int cg_is_tail_call (IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx,
 	IRInstr *end = ir->instrs + fn->start + fn->count;
 	IRInstr *ret = call + 1;
 	uint32_t at = (uint32_t)(call - (ir->instrs + fn->start));
-	uint8_t from = ir->fns[call->target].ret_type;
-	uint8_t to = fn->ret_type;
+	TypeId from = ir->fns[call->target].ret_type;
+	TypeId to = fn->ret_type;
 
 	while (ret < end && ret->op == IR_LABEL) ret++;
 	if (ret >= end || ret->op != IR_RET || call->argc > max_args)

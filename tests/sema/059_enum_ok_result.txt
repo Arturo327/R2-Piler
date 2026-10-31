@@ -1,0 +1,35 @@
+enum Dias [1:6] depth=0 type=Dias base=u8
+  variant Lunes = 0
+  variant Martes = 1
+  variant Miercoles = 2
+enum Signed [7:6] depth=0 type=Signed base=i8
+  variant Neg = -1
+  variant Zero = 0
+  variant One = 1
+enum Flags [13:6] depth=0 type=Flags base=u32
+  variant None = 0
+  variant A = 1
+  variant B = 2
+  variant AB = 3
+  variant Alias = 1
+enum Wide [21:6] depth=0 type=Wide base=u64
+  variant Max = 18446744073709551615
+enum Casts [25:6] depth=0 type=Casts base=u8
+  variant A = 44
+  variant B = 45
+  variant C = 255
+var today [31:5] depth=0 type=Dias
+fn next [33:4] depth=0 type=Dias
+fn first [37:4] depth=0 type=Flags
+fn main [41:4] depth=0 type=i64
+param d [33:10] depth=1 type=Dias
+param f [37:11] depth=1 type=Flags
+var d [42:9] depth=1 type=Dias
+var lit [43:9] depth=1 type=Dias
+var s [44:9] depth=1 type=Signed
+var w [45:9] depth=1 type=Wide
+var c [46:9] depth=1 type=Casts
+var u [47:9] depth=1 type=u8
+var back [48:9] depth=1 type=Dias
+var sum [49:9] depth=1 type=i64
+var cmp [50:9] depth=1 type=i64

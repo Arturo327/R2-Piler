@@ -1,0 +1,15 @@
+NODE_ROOT [0:0]
+  NODE_FN_DEC [1:4] name="next"
+    NODE_ARGS_DEC [1:9]
+      NODE_VAR_DEC [1:10] name="d" type=Dias
+    NODE_RET_DEC [1:20] type=Dias
+    NODE_BLOCK [1:27]
+      NODE_VAR_DEC [2:9] name="x" type=Dias
+        NODE_DOT [2:24] field="Martes"
+          NODE_ID [2:20] str="Dias"
+      NODE_VAR_DEC [3:9] name="n" type=u8
+        NODE_CAST [3:29] type=u8
+          NODE_DOT [3:22] field="Lunes"
+            NODE_ID [3:18] str="Dias"
+      NODE_RET [4:5]
+        NODE_ID [4:12] str="x"

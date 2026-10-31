@@ -8,6 +8,7 @@
 void compiler_init (Compiler *comp)
 {
 	memset(comp, 0, sizeof(*comp));
+	init_types();
 	arena_init(&comp->arena);
 	arena_init(&comp->ast_arena);
 	arena_init(&comp->sym_arena);
@@ -162,6 +163,7 @@ int compile (Compiler *c, CompilerOpts *opts)
 
 void compiler_destroy (Compiler *comp)
 {
+	types_destroy();
 	arena_destroy(&comp->arena);
 	arena_destroy(&comp->ast_arena);
 	arena_destroy(&comp->sym_arena);

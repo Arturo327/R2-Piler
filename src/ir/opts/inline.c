@@ -11,7 +11,7 @@ typedef struct Inliner {
 	IRInstr *src;
 	IRInstr *out;
 	uint8_t *elig;
-	uint8_t *types;
+	TypeId *types;
 	uint32_t count;
 	uint32_t regs;
 } Inliner;
@@ -25,7 +25,7 @@ typedef struct Site {
 	uint32_t dst;
 } Site;
 
-static IRInstr inl_instr (uint8_t op, uint32_t dst, uint32_t src, uint8_t type)
+static IRInstr inl_instr (uint8_t op, uint32_t dst, uint32_t src, TypeId type)
 {
 	IRInstr i = { .dst = dst, .src1 = src, .src2 = NO_REG };
 
@@ -152,7 +152,7 @@ static void inl_site (Inliner *n, IRInstr *call, const uint32_t *args)
 
 	n->ir->label_count = s.end + 1;
 	if (callee->reg_count)
-		memcpy(n->types + n->regs, callee->reg_types, callee->reg_count);
+		memcpy(n->types + n->regs, callee->reg_types, callee->reg_count * sizeof(TypeId));
 
 	n->regs += callee->reg_count;
 	for (uint32_t j = 0; j < callee->count; j++)
@@ -189,8 +189,9 @@ static void inl_fn (Inliner *n, uint32_t idx)
 	inl_measure(n, old, &instrs, &regs);
 	n->types = old->reg_types;
 	if (regs != old->reg_count) {
-		n->types = arena_alloc(n->arena, regs);
-		if (old->reg_count) memcpy(n->types, old->reg_types, old->reg_count);
+		n->types = arena_alloc(n->arena, regs * sizeof(TypeId));
+		if (old->reg_count)
+			memcpy(n->types, old->reg_types, old->reg_count * sizeof(TypeId));
 	}
 
 	n->regs = old->reg_count;

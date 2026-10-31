@@ -10,7 +10,7 @@ static const uint8_t compound_base[NODE_COUNT] = {
 	[NODE_LS_ASSIGN] = NODE_LS, [NODE_RS_ASSIGN] = NODE_RS
 };
 
-static uint8_t check_literal (Sema *s, uint32_t idx)
+static TypeId check_literal (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
 	switch (n->type)
@@ -29,7 +29,7 @@ static uint8_t check_literal (Sema *s, uint32_t idx)
 	return n->data_type;
 }
 
-static uint8_t check_init_ref (Sema *s, uint32_t idx, uint32_t sym_idx)
+static TypeId check_init_ref (Sema *s, uint32_t idx, uint32_t sym_idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
 	Symbol *sym = &s->table.symbols[sym_idx];
@@ -54,7 +54,7 @@ static uint8_t check_init_ref (Sema *s, uint32_t idx, uint32_t sym_idx)
 	return TYPE_ERROR;
 }
 
-static uint8_t check_assign_target (Sema *s, uint32_t idx)
+static TypeId check_assign_target (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
 	uint32_t sym_idx = symtab_find(&s->table, n->str, n->len);
@@ -73,6 +73,13 @@ static uint8_t check_assign_target (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
+	if (s->table.symbols[sym_idx].kind == SYMBOL_ENUM) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'%.*s' is an enum type, not a value", (int)n->len, n->str);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
 	n->sym = sym_idx;
 
 	if (s->init_node != NO_NODE
@@ -84,7 +91,7 @@ static uint8_t check_assign_target (Sema *s, uint32_t idx)
 	return n->data_type;
 }
 
-static void warn_unassigned (Sema *s, uint32_t idx, uint8_t type)
+static void warn_unassigned (Sema *s, uint32_t idx, TypeId type)
 {
 	ASTNode *n = s->ast->nodes + idx;
 
@@ -95,15 +102,15 @@ static void warn_unassigned (Sema *s, uint32_t idx, uint8_t type)
 			"'%.*s' is used without being assigned", (int)n->len, n->str);
 }
 
-static uint8_t check_id (Sema *s, uint32_t idx)
+static TypeId check_id (Sema *s, uint32_t idx)
 {
-	uint8_t type = check_assign_target(s, idx);
+	TypeId type = check_assign_target(s, idx);
 
 	warn_unassigned(s, idx, type);
 	return type;
 }
 
-static uint32_t adapt_call_arg (Sema *s, uint32_t arg, uint8_t arg_type, uint8_t param_type)
+static uint32_t adapt_call_arg (Sema *s, uint32_t arg, TypeId arg_type, TypeId param_type)
 {
 	int ok;
 	uint32_t new_arg = force_cast(s, arg, arg_type, param_type, &ok);
@@ -130,8 +137,8 @@ static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 	int count_ok = 1;
 
 	while (arg != NO_NODE) {
-		uint8_t arg_type = check_expr(s, arg);
-		uint8_t param_type = param != NO_NODE ? s->ast->nodes[param].data_type : TYPE_VOID;
+		TypeId arg_type = check_expr(s, arg);
+		TypeId param_type = param != NO_NODE ? s->ast->nodes[param].data_type : TYPE_VOID;
 		uint32_t next = s->ast->nodes[arg].next_bro;
 
 		if (param == NO_NODE) {
@@ -155,7 +162,7 @@ static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 			(int)call->len, call->str);
 }
 
-static uint8_t check_fn_call (Sema *s, uint32_t idx)
+static TypeId check_fn_call (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
 	uint32_t sym_idx = symtab_find(&s->table, n->str, n->len);
@@ -163,6 +170,13 @@ static uint8_t check_fn_call (Sema *s, uint32_t idx)
 	if (sym_idx == NO_SYMBOL) {
 		error_report(s->err, ERR_ERROR, node_loc(n), "'%.*s' is not a known function",
 				(int)n->len, n->str);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	if (s->table.symbols[sym_idx].kind == SYMBOL_ENUM) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'%.*s' is an enum type, not a function", (int)n->len, n->str);
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
@@ -181,7 +195,57 @@ static uint8_t check_fn_call (Sema *s, uint32_t idx)
 	return n->data_type;
 }
 
-static uint8_t check_assign (Sema *s, uint32_t idx)
+static TypeId check_dot (Sema *s, uint32_t idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *left = &s->ast->nodes[n->child];
+
+	if (left->type != NODE_ID) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"left side of '.' must be an enum type");
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	uint32_t sym_idx = symtab_find(&s->table, left->str, left->len);
+	if (sym_idx == NO_SYMBOL) {
+		error_report(s->err, ERR_ERROR, node_loc(left),
+				"'%.*s' is not declared", (int)left->len, left->str);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	Symbol *sym = s->table.symbols + sym_idx;
+	if (sym->kind != SYMBOL_ENUM) {
+		error_report(s->err, ERR_ERROR, node_loc(left),
+				"'%.*s' is not an enum type", (int)left->len, left->str);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	if (sym->type == TYPE_ERROR) {
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	const EnumVariant *v = find_variant(sym->type, n->str, n->len);
+	if (!v) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"enum '%s' has no variant '%.*s'",
+				types[sym->type].name, (int)n->len, n->str);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	n->type = NODE_LIT_u64;
+	n->u64 = v->value;
+	n->data_type = sym->type;
+	n->child = NO_NODE;
+	n->sym = NO_SYMBOL;
+	n->type_node = NO_NODE;
+	return n->data_type;
+}
+
+static TypeId check_assign (Sema *s, uint32_t idx)
 {
 	ASTNode *assign = &s->ast->nodes[idx];
 	uint32_t left = assign->child;
@@ -196,8 +260,8 @@ static uint8_t check_assign (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
-	uint8_t l = check_assign_target(s, left);
-	uint8_t r = check_expr(s, right);
+	TypeId l = check_assign_target(s, left);
+	TypeId r = check_expr(s, right);
 
 	if (left_node->sym != NO_SYMBOL)
 		s->table.symbols[left_node->sym].assigned = 1;
@@ -231,7 +295,7 @@ static uint8_t check_assign (Sema *s, uint32_t idx)
 	return l;
 }
 
-static uint8_t adapt_compound_rhs (Sema *s, uint32_t idx, uint32_t left, uint32_t right, uint8_t l, uint8_t r)
+static TypeId adapt_compound_rhs (Sema *s, uint32_t idx, uint32_t left, uint32_t right, TypeId l, TypeId r)
 {
 	uint8_t op = compound_base[s->ast->nodes[idx].type];
 
@@ -265,7 +329,7 @@ static uint8_t adapt_compound_rhs (Sema *s, uint32_t idx, uint32_t left, uint32_
 	return l;
 }
 
-static uint8_t check_compound_assign (Sema *s, uint32_t idx)
+static TypeId check_compound_assign (Sema *s, uint32_t idx)
 {
 	uint32_t left = s->ast->nodes[idx].child;
 	uint32_t right = s->ast->nodes[left].next_bro;
@@ -278,9 +342,9 @@ static uint8_t check_compound_assign (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
-	uint8_t l = check_assign_target(s, left);
+	TypeId l = check_assign_target(s, left);
 	warn_unassigned(s, left, l);
-	uint8_t r = check_expr(s, right);
+	TypeId r = check_expr(s, right);
 	if (s->ast->nodes[left].sym != NO_SYMBOL)
 		s->table.symbols[s->ast->nodes[left].sym].assigned = 1;
 
@@ -312,7 +376,7 @@ void check_inc_dec (Sema *s, uint32_t idx)
 		return;
 	}
 
-	uint8_t type = check_assign_target(s, target);
+	TypeId type = check_assign_target(s, target);
 	warn_unassigned(s, target, type);
 	if (s->ast->nodes[target].sym != NO_SYMBOL)
 		s->table.symbols[s->ast->nodes[target].sym].assigned = 1;
@@ -330,12 +394,12 @@ static int const_operand (Sema *s, uint32_t idx)
 	return 0;
 }
 
-static uint8_t check_unary (Sema *s, uint32_t idx)
+static TypeId check_unary (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
 	uint8_t op = n->type;
-	uint8_t operand_type = check_expr(s, n->child);
-	uint8_t result_type;
+	TypeId operand_type = check_expr(s, n->child);
+	TypeId result_type;
 	int is_lit;
 
 	if (operand_type == TYPE_ERROR) {
@@ -363,7 +427,7 @@ static uint8_t check_unary (Sema *s, uint32_t idx)
 	return result_type;
 }
 
-static uint8_t binop_result_type (uint8_t node_type, uint8_t operand_type)
+static TypeId binop_result_type (uint8_t node_type, TypeId operand_type)
 {
 	switch (node_type)
 	{
@@ -408,7 +472,7 @@ static void warn_const_operand (Sema *s, uint32_t idx, const char *op)
 			"constant operand of '%s' is always %s", op, tru ? "true" : "false");
 }
 
-static uint8_t check_rhs (Sema *s, uint8_t op, uint32_t right)
+static TypeId check_rhs (Sema *s, uint8_t op, uint32_t right)
 {
 	uint32_t mark = s->table.act_count;
 
@@ -418,19 +482,19 @@ static uint8_t check_rhs (Sema *s, uint8_t op, uint32_t right)
 	uint8_t *snap = arena_alloc(s->arena, (size_t)mark + 1);
 	for (uint32_t i = 0; i < mark; i++)
 		snap[i] = s->table.symbols[s->table.active[i]].assigned;
-	uint8_t type = check_expr(s, right);
+	TypeId type = check_expr(s, right);
 	for (uint32_t i = 0; i < mark; i++)
 		s->table.symbols[s->table.active[i]].assigned = snap[i];
 	return type;
 }
 
-static uint8_t check_binary (Sema *s, uint32_t idx)
+static TypeId check_binary (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
 	uint32_t left = n->child;
 	uint32_t right = s->ast->nodes[left].next_bro;
-	uint8_t l = check_expr(s, left);
-	uint8_t r = check_rhs(s, n->type, right);
+	TypeId l = check_expr(s, left);
+	TypeId r = check_rhs(s, n->type, right);
 
 	if (l == TYPE_ERROR || r == TYPE_ERROR) {
 		n->data_type = TYPE_ERROR;
@@ -468,12 +532,13 @@ static uint8_t check_binary (Sema *s, uint32_t idx)
 	return n->data_type;
 }
 
-static uint8_t check_cast (Sema *s, uint32_t idx)
+static TypeId check_cast (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
-	uint8_t from = check_expr(s, n->child);
+	TypeId from = check_expr(s, n->child);
+	TypeId to = resolve_type_node(s, n);
 
-	if (from == TYPE_ERROR) {
+	if (from == TYPE_ERROR || to == TYPE_ERROR) {
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
@@ -483,12 +548,20 @@ static uint8_t check_cast (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+	if (is_enum(from) && is_enum(to) && from != to) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot cast between enum types '%s' and '%s';"
+				" cast through the underlying integer type",
+				types[from].name, types[to].name);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
 
 	finalize_type(s, n->child, from);
 	return n->data_type;
 }
 
-static uint8_t check_expr_node (Sema *s, uint32_t idx)
+static TypeId check_expr_node (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
 
@@ -498,6 +571,7 @@ static uint8_t check_expr_node (Sema *s, uint32_t idx)
 	case NODE_LIT_CHAR: case NODE_LIT_STR:
 		return check_literal(s, idx);
 	case NODE_ID: return check_id(s, idx);
+	case NODE_DOT: return check_dot(s, idx);
 	case NODE_FN_CALL: return check_fn_call(s, idx);
 	case NODE_ASSIGN: return check_assign(s, idx);
 	case NODE_ADD_ASSIGN: case NODE_SUB_ASSIGN: case NODE_MUL_ASSIGN:
@@ -518,10 +592,9 @@ static uint8_t check_expr_node (Sema *s, uint32_t idx)
 	}
 }
 
-uint8_t check_expr (Sema *s, uint32_t idx)
+TypeId check_expr (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
-	uint8_t type;
 
 	if (s->expr_depth >= MAX_EXPR_DEPTH) {
 		if (!s->too_deep)
@@ -532,7 +605,7 @@ uint8_t check_expr (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 	s->expr_depth++;
-	type = check_expr_node(s, idx);
+	TypeId type = check_expr_node(s, idx);
 	s->expr_depth--;
 	return type;
 }

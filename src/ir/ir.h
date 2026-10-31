@@ -37,12 +37,12 @@ typedef struct IRInstr {
 	uint16_t argc;
 
 	uint8_t op;
-	uint8_t data_type;
+	TypeId data_type;
 } IRInstr;
 
 typedef struct IRFn {
 	char *name;
-	uint8_t *reg_types;
+	TypeId *reg_types;
 
 	uint64_t *gtouch;
 
@@ -53,14 +53,14 @@ typedef struct IRFn {
 	uint32_t param_count;
 
 	uint16_t len;
-	uint8_t ret_type;
+	TypeId ret_type;
 } IRFn;
 
 typedef struct IRGlobal {
 	char *name;
 	int64_t init;
 	uint16_t len;
-	uint8_t type;
+	TypeId type;
 	uint8_t has_init;
 	uint8_t written;
 } IRGlobal;
@@ -86,7 +86,7 @@ typedef struct IR {
 	uint32_t reg_count;
 	uint32_t label_count;
 
-	uint8_t *reg_types;
+	TypeId *reg_types;
 	uint32_t reg_type_cap;
 
 	uint8_t use_select;

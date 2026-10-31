@@ -1,0 +1,21 @@
+enum Dias [1:6] depth=0 type=Dias base=u8
+  variant Lunes = 0
+  variant Martes = 1
+enum Other [6:6] depth=0 type=Other base=u8
+  variant A = 0
+var v [10:5] depth=0 type=i64
+fn take [12:4] depth=0 type=i64
+fn main [16:4] depth=0 type=i64
+param d [12:10] depth=1 type=Dias
+var a [17:9] depth=1 type=Dias
+var b [18:9] depth=1 type=Dias
+var c [19:9] depth=1 type=Dias
+var e [20:9] depth=1 type=Dias
+var g [21:9] depth=1 type=i64
+var h [22:9] depth=1 type=u8
+var i [23:9] depth=1 type=Dias
+var j [24:9] depth=1 type=Other
+var k [25:9] depth=1 type=i64
+var l [26:9] depth=1 type=Dias
+var m [27:9] depth=1 type=error
+var n [28:9] depth=1 type=i64

@@ -41,7 +41,7 @@ const char *x86_load_op_bits (uint8_t size, uint8_t sign, uint8_t *w)
 	return load_ops[(size_idx[size] << 1) | sign];
 }
 
-const char *x86_load_op (uint8_t t, uint8_t *size)
+const char *x86_load_op (TypeId t, uint8_t *size)
 {
 	const Type *ty = types + t;
 	return x86_load_op_bits(ty->size, ty->sign, size);
@@ -102,7 +102,7 @@ void x86_load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 			op, f->regs[vreg].slot, f->base, reg_name(reg, w));
 }
 
-static void store_phys (X86Fn *f, uint8_t from, uint8_t to, uint8_t type)
+static void store_phys (X86Fn *f, uint8_t from, uint8_t to, TypeId type)
 {
 	uint8_t s = types[type].size;
 	if (from == to && s == 8) return;
@@ -114,7 +114,7 @@ static void store_phys (X86Fn *f, uint8_t from, uint8_t to, uint8_t type)
 
 void x86_store_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 {
-	uint8_t t = f->fn->reg_types[vreg];
+	TypeId t = f->fn->reg_types[vreg];
 	uint8_t s = types[t].size;
 	int p = x86_phys_reg(f, vreg);
 
@@ -130,7 +130,7 @@ void x86_store_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 void x86_store_imm (X86Fn *f, uint32_t vreg, int64_t v)
 {
 	CodeGen *c = f->cg;
-	uint8_t t = f->fn->reg_types[vreg];
+	TypeId t = f->fn->reg_types[vreg];
 	uint8_t s = types[t].size;
 	int p = x86_phys_reg(f, vreg);
 

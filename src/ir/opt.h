@@ -20,7 +20,7 @@ typedef struct CseEntry {
 	uint32_t src1;
 	uint32_t src2;
 	uint8_t op;
-	uint8_t type;
+	TypeId type;
 } CseEntry;
 
 typedef struct OptFn {

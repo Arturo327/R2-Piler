@@ -46,7 +46,7 @@ static int eval_compare (uint8_t op, int sign, int64_t a, int64_t b, int64_t *r)
 	}
 }
 
-static int eval_binary (uint8_t op, uint8_t type, int64_t a, int64_t b, int64_t *r)
+static int eval_binary (uint8_t op, TypeId type, int64_t a, int64_t b, int64_t *r)
 {
 	int sign = types[type].sign;
 	uint64_t ua = (uint64_t)a;

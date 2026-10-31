@@ -3,47 +3,9 @@
 
 #include <stdint.h>
 
+#include "type.h"
+
 #define NO_NODE 0xFFFFFFFF
-#define TYPE_CHAR TYPE_i8
-
-typedef enum {
-	TYPE_VOID = 0,
-	TYPE_i8,
-	TYPE_u8,
-	TYPE_i16,
-	TYPE_u16,
-	TYPE_i32,
-	TYPE_u32,
-	TYPE_i64,
-	TYPE_u64,
-	TYPE_UNTYPED_INT,
-	TYPE_UNTYPED_UINT,
-	TYPE_UNTYPED_CHAR,
-	TYPE_ERROR,
-	TYPE_COUNT
-} DataType;
-
-typedef struct Type {
-	const char *name;
-	uint8_t size;
-	uint8_t sign;
-} Type;
-
-static const Type types[TYPE_COUNT] = {
-	[TYPE_VOID] = { "void", 0, 0 },
-	[TYPE_i8] = { "i8", 1, 1 },
-	[TYPE_u8] = { "u8", 1, 0 },
-	[TYPE_i16] = { "i16", 2, 1 },
-	[TYPE_u16] = { "u16", 2, 0 },
-	[TYPE_i32] = { "i32", 4, 1 },
-	[TYPE_u32] = { "u32", 4, 0 },
-	[TYPE_i64] = { "i64", 8, 1 },
-	[TYPE_u64] = { "u64", 8, 0 },
-	[TYPE_UNTYPED_INT] = { "untyped int", 8, 1 },
-	[TYPE_UNTYPED_UINT] = { "untyped uint", 8, 0 },
-	[TYPE_UNTYPED_CHAR] = { "untyped char", 1, 1 },
-	[TYPE_ERROR] = { "error", 0, 0 }
-};
 
 typedef enum {
 	NODE_ERROR = 0, NODE_EMPTY,
@@ -60,6 +22,7 @@ typedef enum {
 	NODE_IF, NODE_ELIF, NODE_ELSE, NODE_WHILE, NODE_FOR,	// Branching
 	NODE_FN_DEC, NODE_ARGS_DEC, NODE_RET_DEC, NODE_RET, NODE_FN_CALL,// Functions
 	NODE_VAR_DEC, NODE_ID, NODE_BLOCK, NODE_ROOT,		// misc
+	NODE_ENUM_DEC, NODE_ENUM_VAL, NODE_DOT, NODE_TYPE_REF,
 	NODE_COUNT
 } NodeType;
 
@@ -74,13 +37,14 @@ typedef struct ASTNode {
 	uint32_t child;
 	uint32_t next_bro;
 	uint32_t sym;
+	uint32_t type_node;
 
 	uint16_t line;
 	uint16_t col;
 	uint16_t len;
 
 	uint8_t type;
-	uint8_t data_type;
+	TypeId data_type;
 } ASTNode;
 
 typedef struct AST {

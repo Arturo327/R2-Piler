@@ -2,6 +2,7 @@
 #define SYMBOL_H
 
 #include "arena/arena.h"
+#include "type.h"
 #include <stdint.h>
 
 #define NO_SYMBOL 0xFFFFFFFF
@@ -9,7 +10,8 @@
 typedef enum {
 	SYMBOL_FN = 0,
 	SYMBOL_VAR,
-	SYMBOL_PARAM
+	SYMBOL_PARAM,
+	SYMBOL_ENUM
 } SymKind;
 
 typedef enum {
@@ -31,7 +33,7 @@ typedef struct Symbol {
 	uint16_t len;
 
 	uint8_t kind;
-	uint8_t type;
+	TypeId type;
 
 	uint8_t assigned : 1;
 	uint8_t state : 2;

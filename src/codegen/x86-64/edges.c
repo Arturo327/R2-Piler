@@ -3,7 +3,7 @@
 static uint32_t edge_move (X86Fn *f, const EdgeMove *m, PMove *out)
 {
 	if (m->from == m->to) return 0;
-	uint8_t type = f->fn->reg_types[m->vreg];
+	TypeId type = f->fn->reg_types[m->vreg];
 
 	out->from = m->from >= 0 ? m->from : PM_SLOT;
 	out->to = m->to >= 0 ? m->to : PM_SLOT;

@@ -33,9 +33,8 @@ NODE_ROOT [0:0]
       NODE_RET [14:3]
   NODE_FN_DEC [16:4] name="baz"
     NODE_ARGS_DEC [16:7]
-    NODE_RET_DEC [16:10] type=error
-    NODE_BLOCK [16:12]
-      NODE_ID [16:12] str="foo"
+    NODE_RET_DEC [16:10] type=foo
+    NODE_BLOCK [16:16]
       NODE_RET [17:3]
   NODE_FN_DEC [19:4] name="bad"
     NODE_ARGS_DEC [19:7]

@@ -1,0 +1,42 @@
+tests/sema/062_enum_err_use_src.r2:17:24: ERROR: enum 'Dias' has no variant 'Nope'
+     17 |     var a : Dias = Dias.Nope;
+        |                        ^~~~
+tests/sema/062_enum_err_use_src.r2:18:20: ERROR: 'v' is not an enum type
+     18 |     var b : Dias = v.Dias;
+        |                    ^
+tests/sema/062_enum_err_use_src.r2:19:27: ERROR: left side of '.' must be an enum type
+     19 |     var c : Dias = (1 + 2).Lunes;
+        |                           ^~~~~
+tests/sema/062_enum_err_use_src.r2:20:20: ERROR: 'Dias' is an enum type, not a value
+     20 |     var e : Dias = Dias;
+        |                    ^~~~
+tests/sema/062_enum_err_use_src.r2:21:19: ERROR: 'Dias' is an enum type, not a value
+     21 |     var g : i64 = Dias;
+        |                   ^~~~
+tests/sema/062_enum_err_use_src.r2:22:9: ERROR: can't initialize 'h' (u8) with a value of type Dias; use an explicit cast with 'as'
+     22 |     var h : u8 = a;
+        |         ^
+tests/sema/062_enum_err_use_src.r2:23:9: ERROR: can't initialize 'i' (Dias) with a value of type u8; use an explicit cast with 'as'
+     23 |     var i : Dias = 1u as u8;
+        |         ^
+tests/sema/062_enum_err_use_src.r2:24:23: ERROR: cannot cast between enum types 'Dias' and 'Other'; cast through the underlying integer type
+     24 |     var j : Other = a as Other;
+        |                       ^~
+tests/sema/062_enum_err_use_src.r2:25:24: ERROR: argument type i64 does not match parameter type Dias; use an explicit cast with 'as'
+     25 |     var k : i64 = take(v);
+        |                        ^
+tests/sema/062_enum_err_use_src.r2:26:20: ERROR: literal 300 does not fit in type Dias; use an explicit cast with 'as' to reinterpret the bits
+     26 |     var l : Dias = 300;
+        |                    ^~~
+tests/sema/062_enum_err_use_src.r2:27:13: ERROR: unknown type 'Nope'
+     27 |     var m : Nope = 1;
+        |             ^~~~
+tests/sema/062_enum_err_use_src.r2:28:19: ERROR: 'Dias' is an enum type, not a function
+     28 |     var n : i64 = Dias();
+        |                   ^~~~
+tests/sema/062_enum_err_use_src.r2:30:5: ERROR: 'Dias' is an enum type, not a value
+     30 |     Dias = 1;
+        |     ^~~~
+tests/sema/062_enum_err_use_src.r2:31:16: ERROR: left side of '=' must be a variable
+     31 |     Dias.Lunes = 1;
+        |                ^

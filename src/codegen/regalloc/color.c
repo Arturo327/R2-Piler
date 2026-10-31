@@ -12,8 +12,8 @@ static int tail_self (ColorRegs *cr, uint32_t i)
 	IRInstr *in = ir->instrs + fn->start + i;
 	IRInstr *end = ir->instrs + fn->start + fn->count;
 	IRInstr *n = in + 1;
-	uint8_t from = ir->fns[in->target].ret_type;
-	uint8_t to = fn->ret_type;
+	TypeId from = ir->fns[in->target].ret_type;
+	TypeId to = fn->ret_type;
 
 	while (n < end && n->op == IR_LABEL) n++;
 	if (n >= end || n->op != IR_RET) return 0;

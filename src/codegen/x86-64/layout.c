@@ -85,9 +85,6 @@ static const OpNeeds x86_64_needs[IR_COUNT] =
 	[IR_RS] = {
 		.src2 = { .type = REG_COND_FIXED, .reg = RCX }
 	},
-	[IR_ARG] = {
-		.destroy_mask = ARG_REGS_MASK
-	},
 	[IR_RET] = {
 		.src1 = { .type = REG_COND_FIXED, .reg = RAX },
 		.destroy_mask = 1ull << RAX

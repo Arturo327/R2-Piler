@@ -13,9 +13,6 @@ tests/parser/023_fn_error_src.r2:10:10: ERROR: expected ':' followed by the para
 tests/parser/023_fn_error_src.r2:13:12: ERROR: expected type
      13 | fn bar(a : void) {
         |            ^~~~
-tests/parser/023_fn_error_src.r2:16:12: ERROR: expected type
-     16 | fn baz() : foo {
-        |            ^~~
 tests/parser/023_fn_error_src.r2:19:16: ERROR: expected ')' after parameters
      19 | fn bad(a : i64 b : char) {
         |                ^

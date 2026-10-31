@@ -22,7 +22,7 @@ IRInstr *next_real (IRInstr *code, uint32_t from, uint32_t count)
 	return from < count ? code + from : NULL;
 }
 
-int64_t norm_val (uint64_t v, uint8_t type)
+int64_t norm_val (uint64_t v, TypeId type)
 {
 	const Type *t = types + type;
 	unsigned sh = 64u - t->size * 8u;

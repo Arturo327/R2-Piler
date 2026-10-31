@@ -1,0 +1,21 @@
+tests/sema/061_enum_err_decl_src.r2:5:6: ERROR: 'Dias' already declared in this scope
+      5 | enum Dias {
+        |      ^~~~
+tests/sema/061_enum_err_decl_src.r2:20:6: ERROR: 'main' must be a function
+     20 | enum main {
+        |      ^~~~
+tests/sema/061_enum_err_decl_src.r2:9:16: ERROR: unknown type 'Nope'
+      9 | enum Unknown : Nope {
+        |                ^~~~
+tests/sema/061_enum_err_decl_src.r2:13:17: ERROR: enum underlying type must be an integer type
+     13 | enum EnumBase : Dias {
+        |                 ^~~~
+tests/sema/061_enum_err_decl_src.r2:35:5: ERROR: 'WithVar' already declared in this scope
+     35 | var WithVar : i64 = 1;
+        |     ^~~~~~~
+tests/sema/061_enum_err_decl_src.r2:17:6: ERROR: enum 'Empty' must have at least one variant
+     17 | enum Empty {
+        |      ^~~~~
+tests/sema/061_enum_err_decl_src.r2:25:10: ERROR: enums can only be declared at the top level
+     25 |     enum Nested {
+        |          ^~~~~~

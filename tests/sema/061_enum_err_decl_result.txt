@@ -1,0 +1,10 @@
+enum Dias [1:6] depth=0 type=Dias base=u8
+  variant Lunes = 0
+enum Dias [5:6] depth=0 type=error
+enum Unknown [9:6] depth=0 type=error
+enum EnumBase [13:6] depth=0 type=error
+enum Empty [17:6] depth=0 type=Empty base=u32
+enum WithVar [31:6] depth=0 type=WithVar base=u32
+  variant A = 0
+fn f [24:4] depth=0 type=i64
+var WithVar [35:5] depth=0 type=i64

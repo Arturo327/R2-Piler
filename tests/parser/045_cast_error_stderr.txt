@@ -4,6 +4,3 @@ tests/parser/045_cast_error_src.r2:1:19: ERROR: expected type
 tests/parser/045_cast_error_src.r2:2:20: ERROR: expected type
       2 | var b : i64 = 1 as void;
         |                    ^~~~
-tests/parser/045_cast_error_src.r2:3:20: ERROR: expected type
-      3 | var c : i64 = 1 as foo;
-        |                    ^~~

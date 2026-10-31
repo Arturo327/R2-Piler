@@ -91,7 +91,7 @@ const uint8_t is_deletable[IR_COUNT] =
 	[IR_LT] = 1, [IR_LE] = 1, [IR_LD_GLOBAL] = 1
 };
 
-static uint32_t new_reg (IR *ir, uint8_t type)
+static uint32_t new_reg (IR *ir, TypeId type)
 {
 	uint32_t r = ir->reg_count++;
 
@@ -99,13 +99,13 @@ static uint32_t new_reg (IR *ir, uint8_t type)
 		uint32_t old = ir->reg_type_cap;
 		ir->reg_type_cap = old ? old << 1 : 64;
 		ir->reg_types = arena_realloc(ir->arena, ir->reg_types,
-				old, ir->reg_type_cap);
+				old * sizeof(TypeId), ir->reg_type_cap * sizeof(TypeId));
 	}
 	ir->reg_types[r] = type;
 	return r;
 }
 
-static uint8_t result_type (uint8_t op, uint8_t type)
+static TypeId result_type (uint8_t op, TypeId type)
 {
 	if (op >= IR_EQ && op <= IR_LE) return TYPE_i64;
 	if (op == IR_NOT_L) return TYPE_i64;
@@ -177,18 +177,22 @@ static void declare_globals (IR *ir)
 
 	while (idx != NO_NODE) {
 		ASTNode *n = ir->ast->nodes + idx;
-		Symbol *s = ir->symtab->symbols + n->sym;
 
+		if (n->type != NODE_FN_DEC && n->type != NODE_VAR_DEC) {
+			idx = n->next_bro;
+			continue;
+		}
+
+		Symbol *s = ir->symtab->symbols + n->sym;
 		if (n->type == NODE_FN_DEC)
 			s->ir_id = declare_fn(ir, n, s);
-		else if (n->type == NODE_VAR_DEC)
-			s->ir_id = declare_global(ir, n, s);
+		else s->ir_id = declare_global(ir, n, s);
 
 		idx = n->next_bro;
 	}
 }
 
-static void make_arg_dec (IR *ir, uint32_t dst, uint32_t idx, uint8_t type)
+static void make_arg_dec (IR *ir, uint32_t dst, uint32_t idx, TypeId type)
 {
 	IRInstr i = blank_instr;
 	i.op = IR_PARAM;
@@ -207,7 +211,7 @@ static void make_arg (IR *ir, uint32_t val, uint32_t idx)
 	push_instr(ir, i);
 }
 
-static void make_const_into (IR *ir, uint32_t dst, int64_t val, uint8_t type)
+static void make_const_into (IR *ir, uint32_t dst, int64_t val, TypeId type)
 {
 	IRInstr i = blank_instr;
 	i.op = IR_CONST;
@@ -217,14 +221,14 @@ static void make_const_into (IR *ir, uint32_t dst, int64_t val, uint8_t type)
 	push_instr(ir, i);
 }
 
-static uint32_t make_const (IR *ir, int64_t val, uint8_t type)
+static uint32_t make_const (IR *ir, int64_t val, TypeId type)
 {
 	uint32_t dst = new_reg(ir, type);
 	make_const_into(ir, dst, val, type);
 	return dst;
 }
 
-static uint32_t make_ld_global (IR *ir, uint32_t idx, uint8_t type)
+static uint32_t make_ld_global (IR *ir, uint32_t idx, TypeId type)
 {
 	IRInstr i = blank_instr;
 	i.op = IR_LD_GLOBAL;
@@ -235,7 +239,7 @@ static uint32_t make_ld_global (IR *ir, uint32_t idx, uint8_t type)
 	return i.dst;
 }
 
-static void make_str_global (IR *ir, uint32_t idx, uint32_t val, uint8_t type)
+static void make_str_global (IR *ir, uint32_t idx, uint32_t val, TypeId type)
 {
 	IRInstr i = blank_instr;
 	i.op = IR_STR_GLOBAL;
@@ -245,7 +249,7 @@ static void make_str_global (IR *ir, uint32_t idx, uint32_t val, uint8_t type)
 	push_instr(ir, i);
 }
 
-static uint32_t make_call (IR *ir, uint32_t idx, uint16_t argc, uint8_t ret_type)
+static uint32_t make_call (IR *ir, uint32_t idx, uint16_t argc, TypeId ret_type)
 {
 	IRInstr i = blank_instr;
 	i.op = IR_CALL;
@@ -257,7 +261,7 @@ static uint32_t make_call (IR *ir, uint32_t idx, uint16_t argc, uint8_t ret_type
 	return i.dst;
 }
 
-static void make_move (IR *ir, uint32_t dst, uint32_t src, uint8_t type)
+static void make_move (IR *ir, uint32_t dst, uint32_t src, TypeId type)
 {
 	IRInstr i = blank_instr;
 	i.op = IR_MOVE;
@@ -267,7 +271,7 @@ static void make_move (IR *ir, uint32_t dst, uint32_t src, uint8_t type)
 	push_instr(ir, i);
 }
 
-static uint32_t make_op (IR *ir, uint8_t op, uint32_t a, uint32_t b, uint8_t type)
+static uint32_t make_op (IR *ir, uint8_t op, uint32_t a, uint32_t b, TypeId type)
 {
 	IRInstr i = blank_instr;
 	i.op = op;
@@ -296,7 +300,7 @@ static void make_label (IR *ir, uint32_t label)
 	push_instr(ir, i);
 }
 
-static void make_ret (IR *ir, uint32_t val, uint8_t type)
+static void make_ret (IR *ir, uint32_t val, TypeId type)
 {
 	IRInstr i = blank_instr;
 	i.op = IR_RET;
@@ -435,7 +439,7 @@ static int is_pure (IR *ir, uint32_t idx, int *budget)
 }
 
 static void make_select (IR *ir, uint32_t dst, uint32_t a,
-		uint32_t b, uint32_t c, uint8_t type)
+		uint32_t b, uint32_t c, TypeId type)
 {
 	IRInstr i = blank_instr;
 
@@ -605,7 +609,7 @@ static void gen_var_dec (IR *ir, ASTNode *n)
 static void gen_return (IR *ir, ASTNode *n)
 {
 	uint32_t reg = NO_REG;
-	uint8_t type = TYPE_VOID;
+	TypeId type = TYPE_VOID;
 
 	if (n->child != NO_NODE) {
 		ASTNode *val = ir->ast->nodes + n->child;

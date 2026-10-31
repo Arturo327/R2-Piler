@@ -13,6 +13,7 @@ ancho, o sin signo a un tipo con signo mayor). Cualquier otra conversión exige
 un cast explícito.
 
 - Tipos primitivos: `i8`, `u8`, `i16`, `u16`, `i32`, `u32`, `i64`, `u64` y `void`. `char` es un alias de `i8` aceptado solo en el frontend (lexer/parser): en dumps, símbolos y mensajes siempre aparece `i8`.
+- Enums nominales definidos por el usuario (`enum Dias : u8 { Lunes, Martes }`), con un tipo subyacente entero (por defecto `u32`). Ver §3.1.
 - Funciones solo a nivel top-level, con parámetros por valor.
 - Scopes de bloque con shadowing entre scopes.
 - Entry point: `fn main() : i64`.
@@ -43,7 +44,7 @@ Keywords (una palabra clave nunca puede usarse como identificador):
 ```
 fn  if    for    i8   u8   i16  u16  i32  u32
 i64  u64   var   char  elif  else  void
-while  return  as
+while  return  as  enum
 ```
 
 ### 2.3 Literales enteros
@@ -80,6 +81,7 @@ while  return  as
 | `u32` | 4 bytes | Sin signo. |
 | `i64` | 8 bytes | Entero con signo, complemento a 2. Aritmética con wrap definido. |
 | `u64` | 8 bytes | Entero sin signo, módulo 2^64. |
+| `enum E : B` | = `B` | Tipo nominal entero; se representa como su tipo subyacente `B` (por defecto `u32`). |
 | `void` | — | Solo como tipo de retorno de función. |
 
 `char` es un alias de `i8` aceptado solo donde se escribe un tipo (`var x : char`, `fn f(a : char) : char`, `x as char`). No existe como tipo propio: en `--dump-ast`, `--dump-symbols`, `--dump-ir` y en todos los mensajes aparece `i8`.
@@ -93,14 +95,52 @@ Reglas de tipos (estrictas; el único implícito es el que no puede perder valor
 - **Literal fuera de rango**: error (`literal 300 does not fit in type i8; use an explicit cast with 'as' to reinterpret the bits`). Si además el destino es con signo y el valor supera `INT64_MAX`, el mensaje añade que el sufijo `u` lo convierte en literal `u64`. Un literal negativo hacia un destino sin signo es error, también dentro de binarios (`var u : u64 = -5;`, `5u + -1`); los mensajes siempre usan el nombre público del tipo (`u64`, nunca el interno). Un literal fuera de rango produce exactamente un diagnóstico, sin cascadas.
 - **Literal `u` usado como tipo con signo**: solo un **warning** (`unsigned literal used as signed type i64; remove the 'u' suffix`); compila igual.
 - **Ensanchar sin cambiar el valor es silencioso**: mismo signo a mayor tamaño (`i8`→`i64`, `u8`→`u32`), o sin signo a con signo mayor (`u8`→`i64`). Vale en binarios, init, asignación, args y `return`, sin cast explícito (el IR inserta un `extend` al cambiar de ancho).
-- **Todo lo demás entre tipos distintos es error** con sufijo `'as'` en el mensaje: estrechar (`i64`→`i8`), cambiar de signo (`i8`→`u64`, `u64`→`i64`), o mezclar dos variables de tipos distintos en un binario (`type mismatch: i64 vs u64 (use 'as' to convert explicitly)`).
+- **Todo lo demás entre tipos distintos es error** con sufijo `'as'` en el mensaje: estrechar (`i64`→`i8`), cambiar de signo (`i8`→`u64`, `u64`→`i64`), o mezclar dos variables de tipos distintos en un binario (`type mismatch: i64 vs u64 (use 'as' to convert explicitly)`). Mezclar un enum con un entero concreto o con otro enum tampoco es implícito.
 - Operadores aritméticos y bitwise (`+ - * / % & | ^`): ambos operandos del **mismo tipo** (tras lo anterior), resultado del tipo de los operandos.
 - Shifts (`<< >>`): el resultado es el tipo del operando **izquierdo**; el derecho puede ser cualquier numérico (`a << b` con `a : i64`, `b : u64` vale).
-- Comparaciones (`< > <= >= == !=`): ambos operandos del **mismo tipo** (un literal flexible adopta el del otro: `c > 5` con `c : char` compara en `i8`); dos variables de tipos distintos son error. Nunca `void`. Resultado siempre `i64` (0 o 1).
+- Comparaciones (`< > <= >= == !=`): ambos operandos del **mismo tipo** (un literal flexible adopta el del otro: `c > 5` con `c : char` compara en `i8`); dos variables de tipos distintos son error. Dos valores del mismo enum sí se comparan (resultado `i64`). Nunca `void`. Resultado siempre `i64` (0 o 1).
 - Lógicos binarios (`&&` `||`): aceptan operandos de **cualquier tipo no-`void` sin conversión**; resultado siempre `i64`.
 - `-` y `~` unarios: preservan el tipo del operando. Negar una variable sin signo compila pero emite un **warning** (`negating an unsigned value; the result wraps`); negar un literal es silencioso (se pliega al valor exacto, también a través de un cast). `!` unario: acepta cualquier tipo no-`void`, resultado `i64`.
-- **Cast explícito `expr as type`** (`type` = cualquier numérico, incluido `char` como alias de `i8`): acepta cualquier operando no-`void` (incluido el resultado de otro cast) y devuelve exactamente el tipo escrito. Reinterpreta/trunca bits en silencio. `as void` no existe (error de parser: `expected type`). Castear un `void` (p. ej. `f() as i64` con `f : void`) es error de sema (`cannot cast a value of type void`). Castear un operando con error (no declarado, string, etc.) no añade un segundo error: el cast propaga `error`.
+- **Cast explícito `expr as type`** (`type` = cualquier numérico, incluido `char` como alias de `i8`): acepta cualquier operando no-`void` (incluido el resultado de otro cast) y devuelve exactamente el tipo escrito. Reinterpreta/trunca bits en silencio. Con enums, el cast explícito está permitido entre un enum y cualquier entero (incluido su subyacente), pero no entre dos enums distintos (ver §3.1). `as void` no existe (error de parser: `expected type`). Castear un `void` (p. ej. `f() as i64` con `f : void`) es error de sema (`cannot cast a value of type void`). Castear un operando con error (no declarado, string, etc.) no añade un segundo error: el cast propaga `error`.
 - `void` no puede aparecer en expresiones (ni en condiciones, ni como operando, ni como init, ni como origen/destino de cast).
+
+### 3.1 Enums
+
+Un enum declara un **tipo nominal** entero con variantes con nombre:
+
+```r2
+enum Dias : u8 {
+    Lunes = 0,
+    Martes,        // 1
+    Miercoles,     // 2
+}
+```
+
+- Solo se declaran a nivel top-level; un `enum` dentro de una función o bloque es error (`enums can only be declared at the top level`).
+- `: type` es opcional; el tipo subyacente por defecto es `u32`. Debe ser un entero concreto (`i8`, `u8`, `i16`, `u16`, `i32`, `u32`, `i64`, `u64` o `char` = `i8`); `void`, un tipo desconocido y otro enum se rechazan (`enum underlying type must be an integer type`).
+- Un enum debe tener al menos una variante (`enum 'E' must have at least one variant`).
+- La primera variante sin valor explícito vale `0`; cada variante siguiente sin valor explícito vale la anterior `+ 1`. Si el auto-incremento supera el máximo del tipo subyacente, es error (`enum variant value overflows the underlying type u8`).
+- Un valor explícito solo puede ser un literal, `-literal`, `~literal` o un cast de una de esas formas: `0`, `-1`, `1u`, `(300 as u8)`, `~0`. Cualquier otra expresión (`A + 1`, un identificador, una llamada) es error (`enum variant value must be a literal, optionally negated, complemented or cast`).
+- Los valores se evalúan con el plegado normal y se ajustan al tipo subyacente: `(300 as u8)` vale `44`, `(-1 as u8)` vale `255`; `(200 as u8)` con base `i8` es error de rango. `~0` pliega a `-1` (64 bits), así que vale para bases con signo y es error para unsigned; `~0u` da el máximo unsigned. Los errores de rango se reportan con el nombre del enum (`literal 200 does not fit in type Small`).
+- Se permiten **valores duplicados** (alias estilo C), pero no **nombres de variante duplicados** (`duplicate enum variant 'Lunes'`).
+- Se aceptan una coma final y un `;` opcional tras `}`.
+- El nombre del enum es un nombre top-level normal: compite con variables/funciones en el chequeo de duplicados, no puede empezar por `__r2_` y no puede ser `main` (`'main' must be a function`).
+
+**Tipado nominal.** `Dias` es un tipo propio, no un alias de `u8`. Se puede usar en cualquier posición de tipo (`var`, parámetros, retorno y casts). `Dias.Lunes` es una **constante de compilación** de tipo `Dias` (no un field load) y se puede usar en cualquier expresión. El tamaño y el signo del enum son los de su tipo subyacente, y el codegen lo trata como un entero de ese ancho.
+
+- `var d : Dias = Dias.Lunes;` — sí.
+- `var d : Dias = 1;` — sí: un literal flexible adopta `Dias` si su valor cabe en el tipo subyacente.
+- `var u : u8 = 1; var d : Dias = u;` — no; hace falta `u as Dias`.
+- `var d : Dias = ...; var u : u8 = d;` — no; hace falta `d as u8`.
+- `Dias.Lunes + Dias.Martes` — sí; resultado `Dias`. También valen bitwise, shifts, comparaciones, `++`/`--` y asignación compuesta entre valores del mismo enum.
+- `Dias.Lunes + 1` — sí; el literal adopta `Dias`.
+- `Dias.Lunes + u8_var` — no; hace falta `as`. Mezclar un enum con un primitivo concreto o con otro enum nunca es implícito.
+- `Dias.Lunes == Dias.Martes` — sí; resultado `i64`.
+- `d as u8`, `u as Dias` — sí: el cast explícito está permitido entre un enum y cualquier entero (incluido su subyacente).
+- `a as B` entre dos enums distintos — no (`cannot cast between enum types 'A' and 'B'; cast through the underlying integer type`).
+- `Dias.Lunes = ...` — error (`left side of '=' must be a variable`); `Dias = ...` — error (`'Dias' is an enum type, not a value`).
+- `Dias` usado como valor o como función — error (`'Dias' is an enum type, not a value` / `'Dias' is an enum type, not a function`).
+- `Dias.Foo` con una variante inexistente — error (`enum 'Dias' has no variant 'Foo'`). El lado izquierdo del `.` debe ser un nombre de enum: `left side of '.' must be an enum type` si no es un identificador, `'X' is not an enum type` si el identificador no es un enum.
 
 ---
 
@@ -136,6 +176,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 ## 5. Expresiones
 
 - Literales enteros, char y string; identificadores; llamadas `f(a, b)`; expresiones entre paréntesis.
+- **Acceso a variante `Tipo.Variante`**: `Tipo` debe ser el nombre de un enum y `Variante` una variante existente; la expresión es una constante de compilación del tipo del enum (ver §3.1). El `.` se resuelve dentro del primario, así que `Dias.Lunes as u8` es `(Dias.Lunes) as u8`.
 - **Cast `expr as type`** (cualquier tipo numérico, `char` = `i8`): conversión explícita que acepta cualquier operando no-`void` y devuelve exactamente el tipo escrito. Todas las combinaciones están permitidas (incluido el cast identidad `x as i64` con `x : i64`). Entre 64 bits (`i64<->u64`) es reinterpretación de bits (wrap/módulo 2^64); hacia un tipo narrow es truncado al ancho; hacia 64 bits desde un narrow es extensión con el signo del origen (`i8`→`i64` extiende con signo, `u8`→`u64` con ceros). El cast no es asignable: `(x as i64) = 1` es error (`left side of '=' must be a variable`). Como cualquier expresión, puede aparecer en inits, args, `return` y condiciones.
 - **Asignación `=`**: es una expresión. El lado izquierdo debe ser una variable; el derecho debe ser del mismo tipo o ensanchar a él en silencio (ver punto 3; si no, error `cannot assign X to a variable of type Y; use an explicit cast with 'as'`, reportado en el `=`). Devuelve **el valor asignado**, por lo que puede encadenarse (`x = y = 1`) y usarse como expresión, incluso como condición.
 - **Asignación compuesta `x OP= e`** (`+= -= *= /= %= &= |= ^= <<= >>=`): es una expresión que lee `x` una sola vez, calcula `x OP e` y guarda el resultado en `x`, devolviéndolo; puede encadenarse (`a += b += 1` es `a += (b += 1)`). El LHS debe ser una variable (si no, error `left side of compound assignment must be a variable`, reportado en el operador). Para `+= -= *= /= %= &= |= ^=`, el RHS se adapta al tipo del LHS con las reglas de asignación (mismo tipo, literal flexible o ensanche implícito); si no, error `cannot assign X to a variable of type Y; use an explicit cast with 'as'` en el operador, igual que `x = x OP e`. `<<=` y `>>=` siguen las reglas del desplazamiento binario: el RHS puede ser cualquier numérico y el resultado tiene el tipo del LHS. `x /= 0` y `x %= 0` reportan `division by zero` en el `0`.
@@ -186,7 +227,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 
 ## 9. Globals
 
-- `var ID : type (= expr)? ;` a nivel top-level. Cualquier otra cosa a nivel top-level es error: `only variable and function declarations are allowed at the top level`.
+- `var ID : type (= expr)? ;` a nivel top-level. Cualquier otra cosa a nivel top-level es error: `only variable, function and enum declarations are allowed at the top level`.
 - Todas se declaran antes de chequear los inits: las **forward references están permitidas**.
 - Referencias a variables globales futuras permitido, ej: `var x:i64 = y; var y:i64 = 73` es válido
 - Una global **sin init vale 0** en runtime (vive en `.bss`), pero su lectura **sí advierte** igual que una local sin asignar: solo la evitan un init o una asignación previa en el flujo (una asignación en una función chequeada antes también la silencia, en orden fuente).
@@ -269,12 +310,14 @@ El codegen aplica además optimizaciones locales (operaciones read-modify-write,
 ## 14. Gramática (EBNF)
 
 ```
-program        = { fn_decl | var_decl } ;
+program        = { fn_decl | var_decl | enum_decl } ;
 fn_decl        = "fn" IDENT "(" [ params ] ")" [ ":" ret_type ] block ;
 params         = param { "," param } ;
 param          = IDENT ":" type ;
 ret_type       = "void" | type ;
-type           = "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "char" ;
+type           = "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "char" | IDENT ;
+enum_decl      = "enum" IDENT [ ":" type ] "{" enum_val { "," enum_val } [ "," ] "}" [ ";" ] ;
+enum_val       = IDENT [ "=" expr ] ;
 block          = "{" { statement } "}" ;
 statement      = var_decl | block | if_stmt | while_stmt | for_stmt
                | "return" [ expr ] ";"
@@ -307,11 +350,12 @@ cast           = unary { "as" type } ;
 unary          = ( "-" | "!" | "~" ) unary | primary ;
 primary        = INT_LIT | CHAR_LIT | STRING_LIT
                | IDENT | IDENT "(" [ args ] ")"
+               | IDENT "." IDENT
                | "(" expr ")" ;
 args           = expr { "," expr } ;
 ```
 
-Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se definen en la sección 2. `char` es alias de `i8` en cualquier posición de `type`. Por leniencia el parser acepta una coma final en parámetros (`fn f(a : i64,)`) y argumentos (`f(a,)`), aunque la EBNF no la muestra. El cast es postfijo y asociativo por la izquierda (`x as i64 as u64` = `(x as i64) as u64`); el tipo tras `as` nunca puede ser `void`.
+Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se definen en la sección 2. `char` es alias de `i8` en cualquier posición de `type`. Por leniencia el parser acepta una coma final en parámetros (`fn f(a : i64,)`) y argumentos (`f(a,)`), aunque la EBNF no la muestra. El cast es postfijo y asociativo por la izquierda (`x as i64 as u64` = `(x as i64) as u64`); el tipo tras `as` nunca puede ser `void`. En `type`, un `IDENT` se resuelve contra los enums declarados (también los declarados más tarde); un nombre no declarado es `unknown type 'Foo'`. `enum_decl` exige al menos una variante (el parser acepta `{}` para que sema emita `enum 'E' must have at least one variant`); la coma final y el `;` tras `}` son opcionales. El valor de una variante debe ser un literal, `-literal`, `~literal` o un cast de esas formas; sema rechaza cualquier otra expresión. En `IDENT "." IDENT`, el identificador izquierdo debe ser un enum.
 
 ---
 

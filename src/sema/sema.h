@@ -22,7 +22,7 @@ typedef struct Sema {
 	uint32_t depth;
 	uint32_t init_node;
 	uint32_t expr_depth;
-	uint8_t curr_ret;
+	TypeId curr_ret;
 	uint8_t too_deep;
 } Sema;
 

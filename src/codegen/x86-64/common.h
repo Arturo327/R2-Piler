@@ -79,7 +79,7 @@ void x86_take_fixed_rw (X86Fn *f, uint8_t r);
 uint8_t x86_work_reg (X86Fn *f, uint32_t dst, uint64_t avoid);
 void x86_check_arg_group (X86Fn *f, IRInstr *first, IRInstr *end);
 
-const char *x86_load_op (uint8_t t, uint8_t *size);
+const char *x86_load_op (TypeId t, uint8_t *size);
 const char *x86_load_op_bits (uint8_t size, uint8_t sign, uint8_t *w);
 int64_t x86_const_ext (X86Fn *f, uint32_t vreg);
 void x86_load_imm (X86Fn *f, uint8_t reg, int64_t v);

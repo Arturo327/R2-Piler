@@ -1,0 +1,24 @@
+enum Dup [1:6] depth=0 type=Dup base=u32
+  variant A = 1
+  variant A = 2
+enum Small [6:6] depth=0 type=Small base=i8
+  variant A = 0
+enum Tiny [10:6] depth=0 type=Tiny base=u8
+  variant A = 255
+  variant B = 0
+enum Bad [15:6] depth=0 type=Bad base=u32
+  variant A = 0
+enum Neg [19:6] depth=0 type=Neg base=u8
+  variant A = 0
+enum Comp [23:6] depth=0 type=Comp base=u8
+  variant A = 0
+enum U64 [27:6] depth=0 type=U64 base=u64
+  variant Max = 18446744073709551615
+  variant Wrap = 0
+enum S64 [32:6] depth=0 type=S64 base=i64
+  variant Min = 0
+enum Casts [36:6] depth=0 type=Casts base=u8
+  variant A = 44
+  variant B = 45
+  variant C = 255
+  variant D = 0

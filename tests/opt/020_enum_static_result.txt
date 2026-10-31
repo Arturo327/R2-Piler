@@ -1,0 +1,12 @@
+global today : Dias
+global count : i64
+
+fn __r2_init(0 params, 2 regs) : void
+    ret
+
+fn main(0 params, 2 regs) : i64
+    r0 = ld_global.Dias @today
+    r1 = extend.i64 r0
+    ret.i64 r1
+    ret
+
