@@ -14,6 +14,7 @@ un cast explícito.
 
 - Tipos primitivos: `i8`, `u8`, `i16`, `u16`, `i32`, `u32`, `i64`, `u64` y `void`. `char` es un alias de `i8` aceptado solo en el frontend (lexer/parser): en dumps, símbolos y mensajes siempre aparece `i8`.
 - Enums nominales definidos por el usuario (`enum Dias : u8 { Lunes, Martes }`), con un tipo subyacente entero (por defecto `u32`). Ver §3.1.
+- Aliases de tipo transparentes (`type Index = u32`) y tipos nominales nuevos (`newtype Seconds = u32`). Ver §3.2.
 - Funciones solo a nivel top-level, con parámetros por valor.
 - Scopes de bloque con shadowing entre scopes.
 - Entry point: `fn main() : i64`.
@@ -44,7 +45,7 @@ Keywords (una palabra clave nunca puede usarse como identificador):
 ```
 fn  if    for    i8   u8   i16  u16  i32  u32
 i64  u64   var   char  elif  else  void
-while  return  as  enum
+while  return  as  enum  type  newtype
 ```
 
 ### 2.3 Literales enteros
@@ -82,6 +83,8 @@ while  return  as  enum
 | `i64` | 8 bytes | Entero con signo, complemento a 2. Aritmética con wrap definido. |
 | `u64` | 8 bytes | Entero sin signo, módulo 2^64. |
 | `enum E : B` | = `B` | Tipo nominal entero; se representa como su tipo subyacente `B` (por defecto `u32`). |
+| `type X = T` | = `T` | Alias transparente: `X` **es** `T` (se canonicaliza y no llega a sema/IR/codegen). |
+| `newtype X = T` | = `T` | Tipo nominal distinto con la misma representación física que `T`. |
 | `void` | — | Solo como tipo de retorno de función. |
 
 `char` es un alias de `i8` aceptado solo donde se escribe un tipo (`var x : char`, `fn f(a : char) : char`, `x as char`). No existe como tipo propio: en `--dump-ast`, `--dump-symbols`, `--dump-ir` y en todos los mensajes aparece `i8`.
@@ -101,7 +104,7 @@ Reglas de tipos (estrictas; el único implícito es el que no puede perder valor
 - Comparaciones (`< > <= >= == !=`): ambos operandos del **mismo tipo** (un literal flexible adopta el del otro: `c > 5` con `c : char` compara en `i8`); dos variables de tipos distintos son error. Dos valores del mismo enum sí se comparan (resultado `i64`). Nunca `void`. Resultado siempre `i64` (0 o 1).
 - Lógicos binarios (`&&` `||`): aceptan operandos de **cualquier tipo no-`void` sin conversión**; resultado siempre `i64`.
 - `-` y `~` unarios: preservan el tipo del operando. Negar una variable sin signo compila pero emite un **warning** (`negating an unsigned value; the result wraps`); negar un literal es silencioso (se pliega al valor exacto, también a través de un cast). `!` unario: acepta cualquier tipo no-`void`, resultado `i64`.
-- **Cast explícito `expr as type`** (`type` = cualquier numérico, incluido `char` como alias de `i8`): acepta cualquier operando no-`void` (incluido el resultado de otro cast) y devuelve exactamente el tipo escrito. Reinterpreta/trunca bits en silencio. Con enums, el cast explícito está permitido entre un enum y cualquier entero (incluido su subyacente), pero no entre dos enums distintos (ver §3.1). `as void` no existe (error de parser: `expected type`). Castear un `void` (p. ej. `f() as i64` con `f : void`) es error de sema (`cannot cast a value of type void`). Castear un operando con error (no declarado, string, etc.) no añade un segundo error: el cast propaga `error`.
+- **Cast explícito `expr as type`** (`type` = cualquier numérico, incluido `char` como alias de `i8`, un alias de tipo, un enum o un newtype): acepta cualquier operando no-`void` (incluido el resultado de otro cast) y devuelve exactamente el tipo escrito. Reinterpreta/trunca bits en silencio. Con enums, el cast explícito está permitido entre un enum y cualquier entero (incluido su subyacente), pero no entre dos enums distintos (ver §3.1). Con newtypes, el cast explícito está permitido entre un newtype y cualquier entero o enum, pero no entre dos newtypes distintos (ver §3.2). `as void` no existe (error de parser: `expected type`). Castear un `void` (p. ej. `f() as i64` con `f : void`) es error de sema (`cannot cast a value of type void`). Castear un operando con error (no declarado, string, etc.) no añade un segundo error: el cast propaga `error`.
 - `void` no puede aparecer en expresiones (ni en condiciones, ni como operando, ni como init, ni como origen/destino de cast).
 
 ### 3.1 Enums
@@ -140,7 +143,44 @@ enum Dias : u8 {
 - `a as B` entre dos enums distintos — no (`cannot cast between enum types 'A' and 'B'; cast through the underlying integer type`).
 - `Dias.Lunes = ...` — error (`left side of '=' must be a variable`); `Dias = ...` — error (`'Dias' is an enum type, not a value`).
 - `Dias` usado como valor o como función — error (`'Dias' is an enum type, not a value` / `'Dias' is an enum type, not a function`).
-- `Dias.Foo` con una variante inexistente — error (`enum 'Dias' has no variant 'Foo'`). El lado izquierdo del `.` debe ser un nombre de enum: `left side of '.' must be an enum type` si no es un identificador, `'X' is not an enum type` si el identificador no es un enum.
+- `Dias.Foo` con una variante inexistente — error (`enum 'Dias' has no variant 'Foo'`). El lado izquierdo del `.` debe ser un nombre cuyo tipo representado sea un enum: `left side of '.' must be an enum type` si no es un identificador, `'X' is not an enum type` en caso contrario. Vale un enum, un alias de enum y un newtype (o alias de newtype) sobre un enum; en los dos últimos el valor resultante tiene el tipo nominal (`newtype N = Dias; N.Lunes` es de tipo `N`, ver §3.2).
+
+### 3.2 Aliases y newtypes
+
+```r2
+type Index = u32;          // alias transparente
+newtype Seconds = u32;     // tipo nominal nuevo
+
+type Day = Dias;           // D.Lunes es Dias.Lunes
+newtype Stamp = Day;       // nominalmente distinto de Dias
+```
+
+- Solo se declaran a nivel top-level; dentro de una función o bloque es error (`types can only be declared at the top level`).
+- El tipo de la derecha debe ser un tipo conocido: un primitivo (`i8`…`u64`, `char`), un enum, otro alias o otro newtype. Un nombre desconocido es `unknown type 'X'` y una referencia circular es `circular type definition 'X'`.
+- Las declaraciones son **orden-independientes**: se puede usar un tipo antes de su declaración en el fichero, igual que los enums (`var x : Index = 1; type Index = u32;` compila).
+- El nombre es un nombre top-level normal: compite con variables/funciones/enums en el chequeo de duplicados, no puede empezar por `__r2_` y no puede ser `main` (`'main' must be a function`).
+
+**`type X = T` (alias transparente).** `X` no es un tipo nuevo: cualquier uso como tipo se canonicaliza a `T` y desaparece en sema, IR y codegen. Mismo criterio que `char` → `i8`.
+
+- `type Index = u32; var x : Index = 1;` — `x` es de tipo `u32`; en `--dump-symbols` aparece `var x ... type=u32` y en los mensajes se ve `u32`, nunca `Index`.
+- La declaración sí aparece en `--dump-symbols`: `type Index [l:c] depth=0 type=Index base=u32`.
+- Cadenas: `type A = B; type B = u8;` → tanto `A` como `B` son `u8` (`base=u8` en el dump).
+- `type D = Dias;` — `D` es exactamente `Dias`, así que `D.Lunes` funciona.
+- `type A = N;` con `newtype N = u32;` — `A` es exactamente `N` (nominal, no `u32`).
+
+**`newtype X = T` (tipo nominal).** `X` es un tipo distinto, con el mismo tamaño y signo que su representación física. Se comporta como un entero de ese ancho para el codegen, pero mezclarlo con otros tipos sin `as` es error, igual que un enum.
+
+- La base puede ser un entero concreto (`i8`…`u64`, `char`), un enum, un alias que acabe en uno de ellos, u otro newtype. `void` y los tipos untyped no valen (`newtype underlying type must be an integer type`).
+- `newtype N = Seconds;` — `N` y `Seconds` siguen siendo distintos aunque compartan representación.
+- `newtype N = E;` con `enum E : u8` — tamaño 1 y mismo signo que `E`. `N.A` es válido y produce un valor de tipo `N` con los bits de `E.A` (también a través de cadenas: `newtype P = N;` → `P.A`, y `type A = N;` → `A.A`). El valor es `N`, no `E`: `var e : E = N.A;` es error y exige `as`, igual que `E.A as N` para el sentido contrario.
+- `var s : Seconds = 7;` — sí: el literal flexible adopta `Seconds` si cabe en su representación (`literal 300 does not fit in type Seconds` en caso contrario).
+- `s + s`, `s + 1`, comparaciones, bitwise, `++`/`--` y asignación compuesta entre valores del mismo newtype — sí, con resultado `Seconds`.
+- `u32 + s`, `u32 = s`, `s = u32_var`, argumento `Seconds` en parámetro `u32`, retorno `u32` desde función que devuelve `Seconds` — no; hace falta `as`. El mensaje es el genérico (`type mismatch: Seconds vs u32 (use 'as' to convert explicitly)`, `cannot assign ...`, etc.).
+- Ensanchar un newtype a un entero mayor **no** es implícito (es nominal): `var u : u64 = s;` es error aunque `Seconds` sea `u32`.
+- `s as u32`, `u as Seconds`, `e as Seconds` (enum → newtype) y `s as E` — sí: el cast explícito reinterpreta/trunca como entre enteros.
+- `a as B` entre dos newtypes distintos — no (`cannot cast between newtype types 'A' and 'B'; cast through the underlying integer type`).
+- `Seconds` usado como valor o como función — error (`'Seconds' is a type, not a variable` / `'Seconds' is a type, not a function`).
+- En `--dump-symbols`: `newtype Seconds [l:c] depth=0 type=Seconds base=u32`.
 
 ---
 
@@ -310,7 +350,7 @@ El codegen aplica además optimizaciones locales (operaciones read-modify-write,
 ## 14. Gramática (EBNF)
 
 ```
-program        = { fn_decl | var_decl | enum_decl } ;
+program        = { fn_decl | var_decl | enum_decl | type_decl | newtype_decl } ;
 fn_decl        = "fn" IDENT "(" [ params ] ")" [ ":" ret_type ] block ;
 params         = param { "," param } ;
 param          = IDENT ":" type ;
@@ -318,6 +358,8 @@ ret_type       = "void" | type ;
 type           = "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "char" | IDENT ;
 enum_decl      = "enum" IDENT [ ":" type ] "{" enum_val { "," enum_val } [ "," ] "}" [ ";" ] ;
 enum_val       = IDENT [ "=" expr ] ;
+type_decl      = "type" IDENT "=" type ";" ;
+newtype_decl   = "newtype" IDENT "=" type ";" ;
 block          = "{" { statement } "}" ;
 statement      = var_decl | block | if_stmt | while_stmt | for_stmt
                | "return" [ expr ] ";"
@@ -355,7 +397,7 @@ primary        = INT_LIT | CHAR_LIT | STRING_LIT
 args           = expr { "," expr } ;
 ```
 
-Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se definen en la sección 2. `char` es alias de `i8` en cualquier posición de `type`. Por leniencia el parser acepta una coma final en parámetros (`fn f(a : i64,)`) y argumentos (`f(a,)`), aunque la EBNF no la muestra. El cast es postfijo y asociativo por la izquierda (`x as i64 as u64` = `(x as i64) as u64`); el tipo tras `as` nunca puede ser `void`. En `type`, un `IDENT` se resuelve contra los enums declarados (también los declarados más tarde); un nombre no declarado es `unknown type 'Foo'`. `enum_decl` exige al menos una variante (el parser acepta `{}` para que sema emita `enum 'E' must have at least one variant`); la coma final y el `;` tras `}` son opcionales. El valor de una variante debe ser un literal, `-literal`, `~literal` o un cast de esas formas; sema rechaza cualquier otra expresión. En `IDENT "." IDENT`, el identificador izquierdo debe ser un enum.
+Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se definen en la sección 2. `char` es alias de `i8` en cualquier posición de `type`. Por leniencia el parser acepta una coma final en parámetros (`fn f(a : i64,)`) y argumentos (`f(a,)`), aunque la EBNF no la muestra. El cast es postfijo y asociativo por la izquierda (`x as i64 as u64` = `(x as i64) as u64`); el tipo tras `as` nunca puede ser `void`. En `type`, un `IDENT` se resuelve contra los enums y las declaraciones `type`/`newtype` (también las declaradas más tarde); un nombre no declarado es `unknown type 'Foo'`. `enum_decl` exige al menos una variante (el parser acepta `{}` para que sema emita `enum 'E' must have at least one variant`); la coma final y el `;` tras `}` son opcionales. El valor de una variante debe ser un literal, `-literal`, `~literal` o un cast de esas formas; sema rechaza cualquier otra expresión. En `IDENT "." IDENT`, el identificador izquierdo debe ser un enum o un tipo cuyo tipo representado sea un enum (alias o newtype); el valor resultante tiene el tipo nominal escrito.
 
 ---
 

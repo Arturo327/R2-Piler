@@ -425,10 +425,12 @@ static const Keyword keywords[] = {
 	{"i16", TOK_i16},
 	{"i32", TOK_i32},
 	{"i64", TOK_i64},
+	{"ptr", TOK_PTR},
 	{"u16", TOK_u16},
 	{"u32", TOK_u32},
 	{"u64", TOK_u64},
 	{"var", TOK_VAR},
+	{"NULL", TOK_NULL},
 	{"char", TOK_CHAR},
 	{"elif", TOK_ELIF},
 	{"else", TOK_ELSE},
@@ -437,6 +439,7 @@ static const Keyword keywords[] = {
 	{"void", TOK_VOID},
 	{"while", TOK_WHILE},
 	{"return", TOK_RET},
+	{"sizeof", TOK_SIZEOF},
 	{"newtype", TOK_NEWTYPE}
 };
 
@@ -499,7 +502,8 @@ static const uint8_t one_char_ops[256] = {
 	['{'] = TOK_LKEY, ['}'] = TOK_RKEY,
 	['='] = TOK_ASSIGN, ['!'] = TOK_NOT_L,
 	['>'] = TOK_GT, ['<'] = TOK_LT,
-	['&'] = TOK_AND_A, ['|'] = TOK_OR_A
+	['&'] = TOK_AND_A, ['|'] = TOK_OR_A,
+	['@'] = TOK_AT, ['$'] = TOK_DOLLAR
 };
 
 static Token handle_symbols (Lexer *l)
@@ -587,7 +591,8 @@ static const char *const token_names[TOK_COUNT] = {
 	TN(TOK_GE), TN(TOK_LE), TN(TOK_ADD_ASSIGN), TN(TOK_SUB_ASSIGN),
 	TN(TOK_STAR_ASSIGN), TN(TOK_SLASH_ASSIGN), TN(TOK_PERCENT_ASSIGN),
 	TN(TOK_AND_A_ASSIGN), TN(TOK_OR_A_ASSIGN), TN(TOK_XOR_ASSIGN),
-	TN(TOK_LS_ASSIGN), TN(TOK_RS_ASSIGN)
+	TN(TOK_LS_ASSIGN), TN(TOK_RS_ASSIGN),
+	TN(TOK_PTR), TN(TOK_NULL), TN(TOK_SIZEOF), TN(TOK_AT), TN(TOK_DOLLAR)
 };
 
 static const char *token_type_to_string (TokenType type)

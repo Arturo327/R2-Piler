@@ -22,7 +22,9 @@ static const Type builtin_types[TYPE_COUNT] = {
 	[TYPE_UNTYPED_INT] = { "untyped int", 0, 8, 1 },
 	[TYPE_UNTYPED_UINT] = { "untyped uint", 0, 8, 0 },
 	[TYPE_UNTYPED_CHAR] = { "untyped char", 0, 1, 1 },
-	[TYPE_ERROR] = { "error", 0, 0, 0 }
+	[TYPE_ERROR] = { "error", 0, 0, 0 },
+	[TYPE_NULL] = { "nil", 0, 8, 0 },
+	[TYPE_STR] = { "string", 0, 8, 0 }
 };
 
 static const uint8_t builtin_kind[TYPE_COUNT] = {
@@ -34,7 +36,9 @@ static const uint8_t builtin_kind[TYPE_COUNT] = {
 	[TYPE_UNTYPED_INT] = TK_UNTYPED_INT,
 	[TYPE_UNTYPED_UINT] = TK_UNTYPED_INT,
 	[TYPE_UNTYPED_CHAR] = TK_UNTYPED_INT,
-	[TYPE_ERROR] = TK_ERROR
+	[TYPE_ERROR] = TK_ERROR,
+	[TYPE_NULL] = TK_NULL,
+	[TYPE_STR] = TK_STR
 };
 
 void init_types (void)
@@ -89,6 +93,30 @@ TypeId add_type (const char *name, uint16_t len, TypeKind kind, TypeId base)
 	t->base = base;
 	t->variant_count = 0;
 	t->variants = NULL;
+	return id;
+}
+
+TypeId type_ptr_to (TypeId base)
+{
+	if (base == TYPE_ERROR || base >= type_count) return TYPE_ERROR;
+
+	for (TypeId id = TYPE_COUNT; id < type_count; id++) {
+		if (types[id].kind != TK_PTR || types[id].base != base) continue;
+		return id;
+	}
+
+	uint32_t total = (uint32_t)types[base].len + 4;
+	if (total > UINT16_MAX) return TYPE_ERROR;
+
+	char *name = arena_alloc(&type_arena, (size_t)total + 1);
+	memcpy(name, "ptr ", 4);
+	memcpy(name + 4, types[base].name, types[base].len);
+	name[total] = '\0';
+
+	TypeId id = add_type(name, (uint16_t)total, TK_PTR, base);
+	if (id == TYPE_ERROR) return TYPE_ERROR;
+	types[id].size = 8;
+	types[id].sign = 0;
 	return id;
 }
 

@@ -18,7 +18,10 @@ typedef enum {
 	TK_VOID,
 	TK_ERROR,
 	TK_STRUCT,
-	TK_CLASS
+	TK_CLASS,
+	TK_PTR,
+	TK_NULL,
+	TK_STR
 } TypeKind;
 
 typedef enum {
@@ -35,6 +38,8 @@ typedef enum {
 	TYPE_UNTYPED_UINT,
 	TYPE_UNTYPED_CHAR,
 	TYPE_ERROR,
+	TYPE_NULL,
+	TYPE_STR,
 	TYPE_COUNT
 } DataType;
 
@@ -65,6 +70,7 @@ void init_types (void);
 void types_destroy (void);
 
 TypeId add_type (const char *name, uint16_t len, TypeKind kind, TypeId base);
+TypeId type_ptr_to (TypeId base);
 TypeId find_type (const char *name, uint16_t len);
 int bind_enum_type (TypeId id, const EnumVariant *vars, uint16_t count);
 EnumVariant *find_variant (TypeId id, const char *name, uint16_t len);

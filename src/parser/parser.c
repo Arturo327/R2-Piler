@@ -112,6 +112,7 @@ static uint32_t parse_statement (Parser *p);
 static uint32_t parse_fn_decl (Parser *p);
 static uint32_t parse_return (Parser *p);
 static uint32_t parse_cast (Parser *p);
+static TypeId parse_type (Parser *p, int allow_void, uint32_t owner, uint16_t *type_node);
 
 static ErrorLoc token_loc (Token t)
 {
@@ -255,7 +256,8 @@ static uint32_t maybe_inc_dec (Parser *p, uint32_t node)
 
 	if (op.type != TOK_INC && op.type != TOK_DEC)
 		return node;
-	if (p->ast.nodes[node].type == NODE_ID)
+	if (p->ast.nodes[node].type == NODE_ID
+			|| p->ast.nodes[node].type == NODE_DEREF)
 		return parse_inc_dec(p, node);
 
 	error_report(p->err, ERR_ERROR, token_loc(op),
@@ -312,6 +314,8 @@ static uint32_t parse_unary (Parser *p)
 
 	if (p->curr.type == TOK_NOT_L) type = NODE_NOT_L;
 	else if (p->curr.type == TOK_NOT_A) type = NODE_NOT_A;
+	else if (p->curr.type == TOK_AT) type = NODE_DEREF;
+	else if (p->curr.type == TOK_DOLLAR) type = NODE_ADDR;
 
 	advance(p);
 
@@ -319,6 +323,41 @@ static uint32_t parse_unary (Parser *p)
 	p->ast.nodes[node].len = len;
 	uint32_t child = parse_primary(p);
 	p->ast.nodes[node].child = child;
+	return node;
+}
+
+static int is_type_token (TokenType type)
+{
+	switch (type)
+	{
+	case TOK_i8: case TOK_u8: case TOK_i16: case TOK_u16:
+	case TOK_i32: case TOK_u32: case TOK_i64: case TOK_u64:
+	case TOK_CHAR: case TOK_VOID: case TOK_PTR:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+static uint32_t parse_sizeof (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+
+	advance(p);
+	uint32_t node = new_node(p, NODE_SIZEOF, line, col);
+	consume(p, TOK_LPAREN, "expected '(' after sizeof");
+
+	if (is_type_token(p->curr.type)) {
+		uint16_t type_node;
+		TypeId type = parse_type(p, 1, node, &type_node);
+		p->ast.nodes[node].data_type = type;
+		p->ast.nodes[node].type_node = type_node;
+	} else {
+		p->ast.nodes[node].child = parse_expr(p, 0);
+	}
+
+	consume(p, TOK_RPAREN, "expected ')' after sizeof");
 	return node;
 }
 
@@ -331,7 +370,10 @@ static uint32_t parse_primary_inner (Parser *p)
 	switch (p->curr.type)
 	{
 	case TOK_SUB: case TOK_NOT_L: case TOK_NOT_A:
+	case TOK_AT: case TOK_DOLLAR:
 		return parse_unary(p);
+	case TOK_SIZEOF:
+		return parse_sizeof(p);
 	case TOK_LPAREN:
 		advance(p);
 		node = parse_expr(p, 0);
@@ -355,6 +397,10 @@ static uint32_t parse_primary_inner (Parser *p)
 	case TOK_LIT_STR:
 		node = new_node(p, NODE_LIT_STR, line, col);
 		p->ast.nodes[node].str = p->curr.str;
+		p->ast.nodes[node].len = p->curr.len;
+		break;
+	case TOK_NULL:
+		node = new_node(p, NODE_LIT_NULL, line, col);
 		p->ast.nodes[node].len = p->curr.len;
 		break;
 	case TOK_ID:
@@ -435,6 +481,19 @@ static TypeId parse_type (Parser *p, int allow_void, uint32_t owner, uint16_t *t
 		|| t == TOK_CHAR || (allow_void && t == TOK_VOID));
 
 	*type_node = NO_TYPE_NODE;
+	if (t == TOK_PTR) {
+		uint16_t line = p->curr.line;
+		uint16_t col = p->curr.col;
+		advance(p);
+
+		uint32_t ptr = new_node(p, NODE_TYPE_PTR, line, col);
+		uint16_t base_node;
+		TypeId base = parse_type(p, 1, ptr, &base_node);
+		p->ast.nodes[ptr].data_type = base;
+		p->ast.nodes[ptr].type_node = base_node;
+		*type_node = (uint16_t)(ptr - owner);
+		return TYPE_VOID;
+	}
 	if (valid) {
 		TypeId data_type = tok_to_datatype(t);
 		advance(p);
@@ -961,6 +1020,11 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_TYPE_REF] = "NODE_TYPE_REF",
 	[NODE_TYPE_DEC] = "NODE_TYPE_DEC",
 	[NODE_NEWTYPE_DEC] = "NODE_NEWTYPE_DEC",
+	[NODE_DEREF] = "NODE_DEREF",
+	[NODE_ADDR] = "NODE_ADDR",
+	[NODE_SIZEOF] = "NODE_SIZEOF",
+	[NODE_LIT_NULL] = "NODE_LIT_NULL",
+	[NODE_TYPE_PTR] = "NODE_TYPE_PTR",
 };
 
 static inline void indent (int depth)
@@ -1001,12 +1065,31 @@ static void dump_node_value (ASTNode *n)
 	}
 }
 
+static void dump_type_name (AST *ast, ASTNode *n)
+{
+	if (n->type == NODE_TYPE_PTR) {
+		printf("ptr ");
+		if (n->type_node != NO_TYPE_NODE) {
+			uint32_t idx = (uint32_t)(n - ast->nodes) + n->type_node;
+			dump_type_name(ast, &ast->nodes[idx]);
+		} else {
+			printf("%s", types[n->data_type].name);
+		}
+		return;
+	}
+	if (n->type == NODE_TYPE_REF) {
+		printf("%.*s", (int)n->len, n->str);
+		return;
+	}
+	printf("%s", types[n->data_type].name);
+}
+
 static void dump_type (AST *ast, ASTNode *n)
 {
 	if (n->type_node != NO_TYPE_NODE) {
 		uint32_t idx = (uint32_t)(n - ast->nodes) + n->type_node;
-		ASTNode *ref = &ast->nodes[idx];
-		printf(" type=%.*s", (int)ref->len, ref->str);
+		printf(" type=");
+		dump_type_name(ast, &ast->nodes[idx]);
 		return;
 	}
 	printf(" type=%s", types[n->data_type].name);
@@ -1028,7 +1111,8 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 		if (n->type == NODE_VAR_DEC || n->type == NODE_RET_DEC
 				|| n->type == NODE_CAST || n->type == NODE_ENUM_DEC
 				|| n->type == NODE_TYPE_DEC
-				|| n->type == NODE_NEWTYPE_DEC)
+				|| n->type == NODE_NEWTYPE_DEC
+				|| (n->type == NODE_SIZEOF && n->child == NO_NODE))
 			dump_type(ast, n);
 
 		printf("\n");
