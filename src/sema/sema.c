@@ -16,21 +16,71 @@ ErrorLoc node_loc (ASTNode *n)
 	return loc;
 }
 
+static int ptr_base_ok (TypeId base)
+{
+	TypeKind kind = type_kind(base);
+
+	return kind == TK_VOID || kind == TK_INT || kind == TK_ENUM
+			|| kind == TK_NEWTYPE || kind == TK_PTR;
+}
+
+static TypeId resolve_type_ref (Sema *s, ASTNode *ref, uint8_t *done, int *deferred)
+{
+	TypeId id = find_type(ref->str, ref->len);
+
+	if (id == TYPE_ERROR) {
+		error_report(s->err, ERR_ERROR, node_loc(ref),
+				"unknown type '%.*s'", (int)ref->len, ref->str);
+		return TYPE_ERROR;
+	}
+	if (done) {
+		if (type_kind(id) == TK_ALIAS && !done[id]) {
+			*deferred = 1;
+			return TYPE_ERROR;
+		}
+		if (type_kind(id) == TK_ALIAS) id = type_canon(id);
+		return id;
+	}
+
+	id = type_canon(id);
+	if (id == TYPE_ERROR || types[id].base == TYPE_ERROR)
+		return TYPE_ERROR;
+	return id;
+}
+
+TypeId resolve_type_spec (Sema *s, ASTNode *owner, uint8_t *done, int *deferred)
+{
+	if (owner->type_node == NO_TYPE_NODE) return owner->data_type;
+
+	uint32_t ref_idx = (uint32_t)(owner - s->ast->nodes) + owner->type_node;
+	ASTNode *ref = s->ast->nodes + ref_idx;
+
+	if (ref->type != NODE_TYPE_PTR)
+		return resolve_type_ref(s, ref, done, deferred);
+
+	TypeId id = resolve_type_spec(s, ref, done, deferred);
+	if (deferred && *deferred) return TYPE_ERROR;
+	if (id == TYPE_ERROR) return TYPE_ERROR;
+	if (!ptr_base_ok(id)) {
+		error_report(s->err, ERR_ERROR, node_loc(ref),
+				"invalid pointer base type '%s'", types[id].name);
+		return TYPE_ERROR;
+	}
+
+	id = type_ptr_to(id);
+	if (id == TYPE_ERROR) {
+		error_report(s->err, ERR_ERROR, node_loc(ref), "too many types");
+		return TYPE_ERROR;
+	}
+	return id;
+}
+
 TypeId resolve_type_node (Sema *s, ASTNode *n)
 {
 	if (n->type_node == NO_TYPE_NODE) return n->data_type;
 
-	uint32_t ref_idx = (uint32_t)(n - s->ast->nodes) + n->type_node;
-	ASTNode *ref = s->ast->nodes + ref_idx;
-	TypeId id = find_type(ref->str, ref->len);
-	if (id == TYPE_ERROR) {
-		error_report(s->err, ERR_ERROR, node_loc(ref),
-				"unknown type '%.*s'", (int)ref->len, ref->str);
-	} else {
-		id = type_canon(id);
-		if (id == TYPE_ERROR || types[id].base == TYPE_ERROR)
-			id = TYPE_ERROR;
-	}
+	int deferred = 0;
+	TypeId id = resolve_type_spec(s, n, NULL, &deferred);
 	n->type_node = NO_TYPE_NODE;
 	n->data_type = id;
 	return id;
@@ -187,6 +237,15 @@ static void record_init_order (Sema *s, uint32_t idx)
 	s->init_order[s->init_order_count++] = idx;
 }
 
+static int is_null_init (Sema *s, uint32_t idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+
+	while (n->type == NODE_CAST && n->child != NO_NODE)
+		n = &s->ast->nodes[n->child];
+	return n->type == NODE_LIT_NULL;
+}
+
 void check_global_var_init (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -198,7 +257,18 @@ void check_global_var_init (Sema *s, uint32_t idx)
 
 	sym->state = INIT_CHECKING;
 	s->init_node = idx;
-	check_var_init_type(s, n, check_expr(s, n->child));
+	TypeId init_type = check_expr(s, n->child);
+	n = s->ast->nodes + idx;
+
+	if (n->data_type != TYPE_ERROR && type_kind(n->data_type) == TK_PTR
+			&& init_type != TYPE_ERROR
+			&& (type_kind(init_type) == TK_PTR || init_type == TYPE_NULL
+				|| init_type == TYPE_STR)
+			&& !is_null_init(s, n->child))
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"global pointer initializers only support NULL for now");
+
+	check_var_init_type(s, n, init_type);
 	s->init_node = saved;
 	sym->state = INIT_DONE;
 	record_init_order(s, idx);
@@ -273,7 +343,8 @@ static void resolve_enum_bases (Sema *s)
 	uint32_t idx = s->ast->nodes[0].child;
 
 	while (idx != NO_NODE) {
-		if (s->ast->nodes[idx].type == NODE_ENUM_DEC) resolve_enum_base(s, idx);
+		if (s->ast->nodes[idx].type == NODE_ENUM_DEC)
+			resolve_enum_base(s, idx);
 		idx = s->ast->nodes[idx].next_bro;
 	}
 }
@@ -319,18 +390,15 @@ static int variant_duplicate (Sema *s, const EnumVariant *vars, uint16_t count,
 static void bind_enum (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
-	Symbol *sym;
-	EnumVariant *vars;
-	uint16_t count = 0;
-	uint64_t prev = 0;
-	uint32_t var;
 
 	if (n->sym == NO_SYMBOL) return;
-	sym = s->table.symbols + n->sym;
+	Symbol *sym = s->table.symbols + n->sym;
 	if (sym->type == TYPE_ERROR) return;
 
-	for (var = n->child; var != NO_NODE; var = s->ast->nodes[var].next_bro)
+	uint16_t count = 0;
+	for (uint32_t var = n->child; var != NO_NODE; var = s->ast->nodes[var].next_bro)
 		count++;
+
 	if (count == 0) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"enum '%.*s' must have at least one variant",
@@ -338,9 +406,11 @@ static void bind_enum (Sema *s, uint32_t idx)
 		return;
 	}
 
-	vars = arena_alloc(s->arena, sizeof(EnumVariant) * count);
+	EnumVariant *vars = arena_alloc(s->arena, sizeof(EnumVariant) * count);
 	count = 0;
-	for (var = n->child; var != NO_NODE; var = s->ast->nodes[var].next_bro) {
+	uint64_t prev = 0;
+
+	for (uint32_t var = n->child; var != NO_NODE; var = s->ast->nodes[var].next_bro) {
 		ASTNode *v = s->ast->nodes + var;
 		uint64_t value = 0;
 		int ok = 1;
@@ -426,6 +496,7 @@ void sema_run (Sema *s)
 	check_root(s);
 }
 
+// debug shit
 static const char *kind_name (uint8_t kind)
 {
 	switch (kind)

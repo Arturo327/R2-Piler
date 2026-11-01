@@ -1,0 +1,3 @@
+tests/sema/075_err_global_ptr_init_src.r2:2:5: ERROR: global pointer initializers only support NULL for now
+      2 | var p : ptr i32 = $x;
+        |     ^

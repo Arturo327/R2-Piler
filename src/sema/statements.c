@@ -129,9 +129,11 @@ static int check_cond (Sema *s, uint32_t cond, int alw_err)
 {
 	TypeId type = check_expr(s, cond);
 
-	if (type == TYPE_VOID && s->ast->nodes[cond].type != NODE_EMPTY)
+	if ((type == TYPE_VOID && s->ast->nodes[cond].type != NODE_EMPTY)
+			|| type == TYPE_NULL || type == TYPE_STR)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
-				"expression with resulting type void is not valid as a condition");
+				"expression with resulting type %s is not valid as a condition",
+				types[type].name);
 	finalize_type(s, cond, type);
 
 	int v = const_cond_value(s, cond);

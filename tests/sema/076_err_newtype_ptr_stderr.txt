@@ -1,0 +1,3 @@
+tests/sema/076_err_newtype_ptr_src.r2:1:9: ERROR: newtype over a pointer is not supported yet
+      1 | newtype P = ptr i32;
+        |         ^

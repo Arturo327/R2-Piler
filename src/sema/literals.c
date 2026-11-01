@@ -2,15 +2,24 @@
 
 static int implicit_cast_ok (TypeId from, TypeId to)
 {
-	const Type *f, *t;
-
 	if (from == to) return 1;
 	if (from == TYPE_ERROR || to == TYPE_ERROR) return 0;
 	if (from == TYPE_VOID || to == TYPE_VOID) return 0;
+
+	TypeKind from_kind = type_kind(from);
+	TypeKind to_kind = type_kind(to);
+
+	if (from == TYPE_NULL) return to_kind == TK_PTR;
+	if (to == TYPE_NULL) return 0;
+	if (from == TYPE_STR)
+		return to_kind == TK_PTR && types[to].base == TYPE_i8;
+
+	if (to == TYPE_STR) return 0;
+	if (from_kind == TK_PTR || to_kind == TK_PTR) return 0;
 	if (type_is_nominal(from) || type_is_nominal(to)) return 0;
 
-	f = &types[from];
-	t = &types[to];
+	const Type *f = &types[from];
+	const Type *t = &types[to];
 
 	if (f->sign && !t->sign) return 0;
 	return t->size > f->size;
@@ -483,10 +492,14 @@ TypeId finalize_type (Sema *s, uint32_t idx, TypeId type)
 
 uint32_t force_cast (Sema *s, uint32_t child, TypeId child_type, TypeId target, int *ok)
 {
+	TypeKind target_kind = type_kind(target);
+
 	*ok = 1;
 	if (child_type == target || child_type == TYPE_ERROR || target == TYPE_ERROR)
 		return child;
-	if (types[target].size && type_kind(child_type) == TK_UNTYPED_INT) {
+	if (types[target].size && type_kind(child_type) == TK_UNTYPED_INT
+			&& target_kind != TK_PTR && target_kind != TK_NULL
+			&& target_kind != TK_STR && target_kind != TK_VOID) {
 		retag_expr(s, child, target);
 		return child;
 	}

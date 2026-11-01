@@ -37,6 +37,7 @@ typedef struct Symbol {
 	TypeId type;
 
 	uint8_t assigned : 1;
+	uint8_t addressed : 1;
 	uint8_t state : 2;
 } Symbol;
 

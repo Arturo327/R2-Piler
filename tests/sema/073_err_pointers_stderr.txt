@@ -1,0 +1,27 @@
+tests/sema/073_err_pointers_src.r2:7:19: ERROR: cannot dereference 'ptr void'; cast it to a typed pointer first
+      7 |     var a : i64 = @n;            // cannot dereference 'ptr void'
+        |                   ^
+tests/sema/073_err_pointers_src.r2:8:25: ERROR: pointer arithmetic on 'ptr void' is not allowed
+      8 |     var b : ptr i32 = n + 1;     // pointer arithmetic on 'ptr void'
+        |                         ^
+tests/sema/073_err_pointers_src.r2:9:21: ERROR: cannot compare a pointer with an integer; use NULL or an explicit cast with 'as'
+      9 |     var c : i64 = p == 0;        // cannot compare a pointer with an integer
+        |                     ^~
+tests/sema/073_err_pointers_src.r2:10:21: ERROR: cannot cast between pointer and non-pointer types; only pointer-to-pointer casts are supported
+     10 |     var d : i64 = p as i64;      // cannot cast between pointer and non-pointer
+        |                     ^~
+tests/sema/073_err_pointers_src.r2:11:25: ERROR: cannot cast between pointer and non-pointer types; only pointer-to-pointer casts are supported
+     11 |     var e : ptr i64 = 5 as ptr i64; // cannot cast between pointer and non-pointer
+        |                         ^~
+tests/sema/073_err_pointers_src.r2:12:9: ERROR: can't initialize 'f' (ptr i32) with a value of type untyped int; use an explicit cast with 'as'
+     12 |     var f : ptr i32 = 7;         // cannot assign untyped int to a variable of type ptr i32
+        |         ^
+tests/sema/073_err_pointers_src.r2:13:19: ERROR: cannot dereference a value of type i64
+     13 |     var g : i64 = @x;            // cannot dereference a value of type i64
+        |                   ^
+tests/sema/073_err_pointers_src.r2:14:25: ERROR: operator cannot be applied to a value of type ptr i32
+     14 |     var h : ptr i32 = p * 2;     // operator cannot be applied to a value of type ptr i32
+        |                         ^
+tests/sema/073_err_pointers_src.r2:15:25: ERROR: cannot use NULL in pointer arithmetic
+     15 |     var i : ptr i32 = n + NULL;  // cannot use NULL in pointer arithmetic
+        |                         ^

@@ -32,20 +32,9 @@ static int type_decl_target (Sema *s, ASTNode *n, uint8_t *done, TypeId *out)
 		return 1;
 	}
 
-	uint32_t ref_idx = (uint32_t)(n - s->ast->nodes) + n->type_node;
-	ASTNode *ref = s->ast->nodes + ref_idx;
-	TypeId id = find_type(ref->str, ref->len);
-
-	if (id == TYPE_ERROR) {
-		error_report(s->err, ERR_ERROR, node_loc(ref),
-				"unknown type '%.*s'", (int)ref->len, ref->str);
-		*out = TYPE_ERROR;
-		return 1;
-	}
-	if (type_kind(id) == TK_ALIAS && !done[id]) return 0;
-	if (type_kind(id) == TK_ALIAS) id = type_canon(id);
-	*out = id;
-	return 1;
+	int deferred = 0;
+	*out = resolve_type_spec(s, n, done, &deferred);
+	return !deferred;
 }
 
 static int resolve_one_type (Sema *s, uint32_t idx, uint8_t *done)
@@ -61,6 +50,10 @@ static int resolve_one_type (Sema *s, uint32_t idx, uint8_t *done)
 
 	types[sym->type].base = target;
 	done[sym->type] = 1;
+	if (n->type_node != NO_TYPE_NODE) {
+		n->type_node = NO_TYPE_NODE;
+		n->data_type = target;
+	}
 	return 1;
 }
 
@@ -133,6 +126,12 @@ static void finalize_one_type (Sema *s, uint32_t idx)
 			error_report(s->err, ERR_ERROR, node_loc(n),
 					"circular type definition '%.*s'",
 					(int)n->len, n->str);
+		types[id].base = TYPE_ERROR;
+		return;
+	}
+	if (type_kind(id) == TK_NEWTYPE && type_kind(repr) == TK_PTR) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"newtype over a pointer is not supported yet");
 		types[id].base = TYPE_ERROR;
 		return;
 	}

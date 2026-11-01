@@ -1,0 +1,21 @@
+type P [1:6] depth=0 type=P base=ptr i64
+type Q [2:6] depth=0 type=Q base=ptr ptr i64
+fn bump [4:4] depth=0 type=ptr i64
+fn main [9:4] depth=0 type=i64
+param p [4:9] depth=1 type=ptr i64
+var x [10:9] depth=1 type=i32
+var p [11:9] depth=1 type=ptr i32
+var q [12:9] depth=1 type=ptr ptr i64
+var r [13:9] depth=1 type=ptr ptr ptr i64
+var n [14:9] depth=1 type=ptr void
+var s [15:9] depth=1 type=u64
+var u [16:9] depth=1 type=u64
+var v [17:9] depth=1 type=u64
+var c [18:9] depth=1 type=ptr i64
+var d [19:9] depth=1 type=ptr i64
+var e [20:9] depth=1 type=ptr i32
+var f [21:9] depth=1 type=i64
+var g [22:9] depth=1 type=i64
+var h [23:9] depth=1 type=i64
+var i [24:9] depth=1 type=ptr i8
+var j [25:9] depth=1 type=u64

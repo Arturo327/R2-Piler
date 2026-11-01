@@ -1,15 +1,12 @@
-tests/sema/022_err_void_src.r2:5:17: ERROR: string literals are not supported yet
+tests/sema/022_err_void_src.r2:5:7: ERROR: can't initialize 'a' (i64) with a value of type string; use an explicit cast with 'as'
       5 |   var a : i64 = "hi";
-        |                 ^~
-tests/sema/022_err_void_src.r2:6:17: ERROR: string literals are not supported yet
+        |       ^
+tests/sema/022_err_void_src.r2:6:21: ERROR: pointer arithmetic requires an integer offset
       6 |   var b : i64 = "a" + "b";
-        |                 ^
-tests/sema/022_err_void_src.r2:6:23: ERROR: string literals are not supported yet
-      6 |   var b : i64 = "a" + "b";
-        |                       ^
-tests/sema/022_err_void_src.r2:7:18: ERROR: string literals are not supported yet
+        |                     ^
+tests/sema/022_err_void_src.r2:7:17: ERROR: operator cannot be applied to a value of type string
       7 |   var c : i64 = -"hi";
-        |                  ^~
+        |                 ^
 tests/sema/022_err_void_src.r2:8:7: ERROR: can't initialize 'd' (i64) with a value of type void; a void value cannot be used here
       8 |   var d : i64 = v();
         |       ^
