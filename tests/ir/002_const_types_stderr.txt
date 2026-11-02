@@ -1,0 +1,18 @@
+tests/ir/002_const_types_src.r2:3:7: WARNING: unused variable 'h'
+      3 |   var h : i64 = 0x10;
+        |       ^
+tests/ir/002_const_types_src.r2:4:7: WARNING: unused variable 'o'
+      4 |   var o : i64 = 0o17;
+        |       ^
+tests/ir/002_const_types_src.r2:5:7: WARNING: unused variable 'b'
+      5 |   var b : i64 = 0b101;
+        |       ^
+tests/ir/002_const_types_src.r2:6:7: WARNING: unused variable 'u'
+      6 |   var u : u64 = 42u;
+        |       ^
+tests/ir/002_const_types_src.r2:7:7: WARNING: unused variable 'big'
+      7 |   var big : u64 = 18446744073709551615u;
+        |       ^~~
+tests/ir/002_const_types_src.r2:8:7: WARNING: unused variable 'c'
+      8 |   var c : char = 'a';
+        |       ^

@@ -1,6 +1,9 @@
 tests/sema/029_err_missing_return_src.r2:1:4: ERROR: function may reach the end without returning
       1 | fn g() : i64 {
         |    ^
+tests/sema/029_err_missing_return_src.r2:2:7: WARNING: unused variable 'x'
+      2 |   var x : i64 = 1;
+        |       ^
 tests/sema/029_err_missing_return_src.r2:5:9: WARNING: condition is always true
       5 |   if (1 == 1) {
         |         ^~

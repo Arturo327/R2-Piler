@@ -1,0 +1,6 @@
+tests/sema/004_ok_types_src.r2:8:7: WARNING: unused variable 'm'
+      8 |   var m : char = -a;
+        |       ^
+tests/sema/004_ok_types_src.r2:9:7: WARNING: unused variable 'n'
+      9 |   var n : char = ~a;
+        |       ^

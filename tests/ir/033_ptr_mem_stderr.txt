@@ -1,0 +1,6 @@
+tests/ir/033_ptr_mem_src.r2:15:9: WARNING: unused variable 's'
+     15 |     var s : ptr i8 = "hello";
+        |         ^
+tests/ir/033_ptr_mem_src.r2:16:9: WARNING: unused variable 't'
+     16 |     var t : ptr i8 = "hello";
+        |         ^

@@ -1,6 +1,12 @@
+tests/sema/026_err_scope_escape_src.r2:2:14: WARNING: unused variable 'y'
+      2 |   if (x) var y : i64 = 1;
+        |              ^
 tests/sema/026_err_scope_escape_src.r2:3:3: ERROR: 'y' is not declared
       3 |   y = 2;
         |   ^
+tests/sema/026_err_scope_escape_src.r2:5:9: WARNING: unused variable 'z'
+      5 |     var z : i64 = i;
+        |         ^
 tests/sema/026_err_scope_escape_src.r2:7:3: ERROR: 'i' is not declared
       7 |   i = 1;
         |   ^

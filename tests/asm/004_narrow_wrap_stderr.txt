@@ -1,0 +1,3 @@
+tests/asm/004_narrow_wrap_src.r2:4:23: WARNING: redundant cast to 'u8'; the value already has that type
+      4 |         var c : u8 = (a + b) as u8;
+        |                              ^~

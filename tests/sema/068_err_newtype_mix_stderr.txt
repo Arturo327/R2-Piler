@@ -13,3 +13,12 @@ tests/sema/068_err_newtype_mix_src.r2:14:11: ERROR: cannot cast between newtype 
 tests/sema/068_err_newtype_mix_src.r2:15:25: ERROR: literal 4294967296 does not fit in type Seconds; use an explicit cast with 'as' to reinterpret the bits
      15 |     var bad : Seconds = 4294967296;
         |                         ^~~~~~~~~~
+tests/sema/068_err_newtype_mix_src.r2:9:9: WARNING: unused variable 'm'
+      9 |     var m : Millis = 4;
+        |         ^
+tests/sema/068_err_newtype_mix_src.r2:10:9: WARNING: value assigned to 'u' is not used
+     10 |     var u : u32 = 5;
+        |         ^
+tests/sema/068_err_newtype_mix_src.r2:15:9: WARNING: unused variable 'bad'
+     15 |     var bad : Seconds = 4294967296;
+        |         ^~~

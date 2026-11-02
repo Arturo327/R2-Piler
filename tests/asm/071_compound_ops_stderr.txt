@@ -1,0 +1,3 @@
+tests/asm/071_compound_ops_src.r2:126:6: WARNING: value assigned to 'v' is not used
+    126 |         var v : i64 = 0;
+        |             ^

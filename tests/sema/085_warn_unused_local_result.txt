@@ -1,0 +1,4 @@
+fn main [1:4] depth=0 type=i64
+var unused [2:9] depth=1 type=i64
+var written [3:9] depth=1 type=i64
+var used [4:9] depth=1 type=i64

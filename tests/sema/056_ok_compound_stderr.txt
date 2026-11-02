@@ -1,0 +1,3 @@
+tests/sema/056_ok_compound_src.r2:16:28: WARNING: redundant cast to 'i64'; the value already has that type
+     16 |     return (a as i64) + (x as i64) + (u as i64) + h;
+        |                            ^~

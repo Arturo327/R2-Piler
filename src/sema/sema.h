@@ -8,6 +8,11 @@
 #include "parser/ast.h"
 #include "sema/symbol.h"
 
+typedef struct DeadWrite {
+	uint32_t sym;
+	uint32_t node;
+} DeadWrite;
+
 typedef struct Sema {
 	SymbolTable table;
 
@@ -18,6 +23,10 @@ typedef struct Sema {
 	uint32_t *init_order;
 	uint32_t init_order_count;
 	uint32_t init_order_cap;
+
+	DeadWrite *dead;
+	uint32_t dead_count;
+	uint32_t dead_cap;
 
 	uint32_t depth;
 	uint32_t init_node;

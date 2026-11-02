@@ -1,0 +1,21 @@
+tests/sema/045_ok_mixed_arith_src.r2:2:7: WARNING: unused variable 'x'
+      2 |   var x : u64 = a as u64 + b;
+        |       ^
+tests/sema/045_ok_mixed_arith_src.r2:3:7: WARNING: unused variable 'y'
+      3 |   var y : i64 = a + c;
+        |       ^
+tests/sema/045_ok_mixed_arith_src.r2:4:7: WARNING: unused variable 'z'
+      4 |   var z : u64 = b + c as u64;
+        |       ^
+tests/sema/045_ok_mixed_arith_src.r2:5:7: WARNING: unused variable 'w'
+      5 |   var w : char = c + c;
+        |       ^
+tests/sema/045_ok_mixed_arith_src.r2:7:7: WARNING: unused variable 't'
+      7 |   var t : char = c >> a;
+        |       ^
+tests/sema/045_ok_mixed_arith_src.r2:8:7: WARNING: unused variable 'u'
+      8 |   var u : i64 = a - c;
+        |       ^
+tests/sema/045_ok_mixed_arith_src.r2:9:7: WARNING: unused variable 'v'
+      9 |   var v : u64 = b * c as u64;
+        |       ^

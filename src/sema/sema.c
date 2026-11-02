@@ -111,6 +111,9 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->init_order_count = 0;
 	s->init_order_cap = 16;
 	s->init_order = arena_alloc(arena, sizeof(uint32_t) * s->init_order_cap);
+	s->dead_count = 0;
+	s->dead_cap = 16;
+	s->dead = arena_alloc(arena, sizeof(DeadWrite) * s->dead_cap);
 	s->expr_depth = 0;
 	s->too_deep = 0;
 

@@ -1,0 +1,9 @@
+tests/sema/040_ok_assign_cond_src.r2:2:7: WARNING: value assigned to 'x' is not used
+      2 |   var x : i64 = 0;
+        |       ^
+tests/sema/040_ok_assign_cond_src.r2:4:5: WARNING: value assigned to 'x' is not used
+      4 |   x = y = 3;
+        |     ^
+tests/sema/040_ok_assign_cond_src.r2:3:7: WARNING: value assigned to 'y' is not used
+      3 |   var y : i64 = 0;
+        |       ^

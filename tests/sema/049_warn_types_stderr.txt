@@ -7,3 +7,18 @@ tests/sema/049_warn_types_src.r2:4:17: WARNING: negating an unsigned value; the 
 tests/sema/049_warn_types_src.r2:6:17: WARNING: constant operand of '&&' is always true
       6 |   var t : i64 = 1 && a;
         |                 ^
+tests/sema/049_warn_types_src.r2:4:7: WARNING: unused variable 'n'
+      4 |   var n : u64 = -u;
+        |       ^
+tests/sema/049_warn_types_src.r2:5:7: WARNING: unused variable 'm'
+      5 |   var m : u64 = 0u - 5u;
+        |       ^
+tests/sema/049_warn_types_src.r2:6:7: WARNING: unused variable 't'
+      6 |   var t : i64 = 1 && a;
+        |       ^
+tests/sema/049_warn_types_src.r2:7:7: WARNING: unused variable 'ok'
+      7 |   var ok : i64 = -9223372036854775808;
+        |       ^~
+tests/sema/049_warn_types_src.r2:8:7: WARNING: unused variable 'big'
+      8 |   var big : u64 = 9223372036854775808;
+        |       ^~~

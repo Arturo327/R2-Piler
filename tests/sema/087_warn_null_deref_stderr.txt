@@ -1,0 +1,3 @@
+tests/sema/087_warn_null_deref_src.r2:5:19: WARNING: null pointer dereference: 'p' is NULL here
+      5 |     var a : i64 = @p;
+        |                   ^

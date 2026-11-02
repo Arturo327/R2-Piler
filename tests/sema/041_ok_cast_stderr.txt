@@ -1,0 +1,15 @@
+tests/sema/041_ok_cast_src.r2:15:9: WARNING: redundant cast to 'i64'; the value already has that type
+     15 |   if (a as i64) {
+        |         ^~
+tests/sema/041_ok_cast_src.r2:9:7: WARNING: unused variable 'c'
+      9 |   var c : i64 = b as i64;
+        |       ^
+tests/sema/041_ok_cast_src.r2:12:7: WARNING: unused variable 'e'
+     12 |   var e : char = a as char;
+        |       ^
+tests/sema/041_ok_cast_src.r2:13:7: WARNING: unused variable 'f'
+     13 |   var f : u64 = id_u64(b);
+        |       ^
+tests/sema/041_ok_cast_src.r2:14:7: WARNING: unused variable 'h2'
+     14 |   var h2 : u64 = id_u64(a as u64);
+        |       ^~

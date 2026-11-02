@@ -1,0 +1,9 @@
+tests/asm/007_shift_src.r2:4:24: WARNING: redundant cast to 'u8'; the value already has that type
+      4 |         var b : u8 = (a << n) as u8;
+        |                               ^~
+tests/asm/007_shift_src.r2:9:24: WARNING: redundant cast to 'i8'; the value already has that type
+      9 |         var d : i8 = (c >> n) as i8;
+        |                               ^~
+tests/asm/007_shift_src.r2:14:24: WARNING: redundant cast to 'u8'; the value already has that type
+     14 |         var f : u8 = (e >> n) as u8;
+        |                               ^~

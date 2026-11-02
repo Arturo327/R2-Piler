@@ -120,3 +120,38 @@ void symtab_pop_scope (SymbolTable *t, uint32_t mark)
 
 	t->act_count = mark;
 }
+
+static uint8_t sym_flags (Symbol *s)
+{
+	return (uint8_t)((s->assigned ? SYM_FLAG_ASSIGNED : 0)
+			| (s->null_known ? SYM_FLAG_NULL_KNOWN : 0));
+}
+
+void symtab_save_flags (SymbolTable *t, uint8_t *dst, uint32_t mark)
+{
+	for (uint32_t i = 0; i < mark; i++)
+		dst[i] = sym_flags(&t->symbols[t->active[i]]);
+}
+
+void symtab_load_flags (SymbolTable *t, uint8_t *src, uint32_t mark)
+{
+	for (uint32_t i = 0; i < mark; i++) {
+		Symbol *s = &t->symbols[t->active[i]];
+
+		s->assigned = (src[i] & SYM_FLAG_ASSIGNED) != 0;
+		s->null_known = (src[i] & SYM_FLAG_NULL_KNOWN) != 0;
+		s->pending_write = 0;
+	}
+}
+
+void symtab_clear_pending (SymbolTable *t)
+{
+	for (uint32_t i = 0; i < t->act_count; i++)
+		t->symbols[t->active[i]].pending_write = 0;
+}
+
+void symtab_intersect_flags (SymbolTable *t, uint8_t *dst, uint32_t mark)
+{
+	for (uint32_t i = 0; i < mark; i++)
+		dst[i] = (uint8_t)(dst[i] & sym_flags(&t->symbols[t->active[i]]));
+}

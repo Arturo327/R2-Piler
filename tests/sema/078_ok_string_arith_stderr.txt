@@ -1,3 +1,6 @@
 tests/sema/078_ok_string_arith_src.r2:5:25: WARNING: subtracting two string literals is probably a mistake; the result is the byte distance between them
       5 |     var d : i64 = "abc" - "ab";
         |                         ^
+tests/sema/078_ok_string_arith_src.r2:3:9: WARNING: unused variable 'q'
+      3 |     var q : ptr i8 = 1 + "abc";
+        |         ^

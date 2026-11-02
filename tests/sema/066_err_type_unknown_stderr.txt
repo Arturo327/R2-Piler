@@ -10,3 +10,6 @@ tests/sema/066_err_type_unknown_src.r2:4:11: ERROR: unknown type 'Ghost'
 tests/sema/066_err_type_unknown_src.r2:4:20: ERROR: unknown type 'Gone'
       4 | fn f (p : Ghost) : Gone {
         |                    ^~~~
+tests/sema/066_err_type_unknown_src.r2:4:7: WARNING: unused parameter 'p'
+      4 | fn f (p : Ghost) : Gone {
+        |       ^

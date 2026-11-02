@@ -1,0 +1,6 @@
+tests/asm/020_logic_shortcircuit_src.r2:7:35: WARNING: redundant cast to 'i64'; the value already has that type
+      7 |         var a : i64 = (inc(0) && inc(1)) as i64;
+        |                                          ^~
+tests/asm/020_logic_shortcircuit_src.r2:14:35: WARNING: redundant cast to 'i64'; the value already has that type
+     14 |         var b : i64 = (inc(1) || inc(0)) as i64;
+        |                                          ^~

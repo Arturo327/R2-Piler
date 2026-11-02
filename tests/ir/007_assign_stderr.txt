@@ -1,0 +1,9 @@
+tests/ir/007_assign_src.r2:3:7: WARNING: value assigned to 'x' is not used
+      3 |   var x : i64 = 1;
+        |       ^
+tests/ir/007_assign_src.r2:7:20: WARNING: value assigned to 'x' is not used
+      7 |   var z : i64 = (x = y);
+        |                    ^
+tests/ir/007_assign_src.r2:4:7: WARNING: value assigned to 'y' is not used
+      4 |   var y : i64 = 2;
+        |       ^

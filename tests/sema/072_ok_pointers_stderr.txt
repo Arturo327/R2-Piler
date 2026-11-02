@@ -1,0 +1,39 @@
+tests/sema/072_ok_pointers_src.r2:31:7: WARNING: value assigned to 'p' is not used
+     31 |     p -= 1;
+        |       ^~
+tests/sema/072_ok_pointers_src.r2:12:9: WARNING: unused variable 'q'
+     12 |     var q : ptr ptr i64;
+        |         ^
+tests/sema/072_ok_pointers_src.r2:13:9: WARNING: unused variable 'r'
+     13 |     var r : ptr ptr ptr i64;
+        |         ^
+tests/sema/072_ok_pointers_src.r2:14:9: WARNING: unused variable 'n'
+     14 |     var n : ptr void = NULL;
+        |         ^
+tests/sema/072_ok_pointers_src.r2:15:9: WARNING: unused variable 's'
+     15 |     var s : u64 = sizeof(i64) + sizeof(ptr i32);
+        |         ^
+tests/sema/072_ok_pointers_src.r2:16:9: WARNING: unused variable 'u'
+     16 |     var u : u64 = sizeof(P);
+        |         ^
+tests/sema/072_ok_pointers_src.r2:17:9: WARNING: unused variable 'v'
+     17 |     var v : u64 = sizeof(@p);
+        |         ^
+tests/sema/072_ok_pointers_src.r2:19:9: WARNING: unused variable 'd'
+     19 |     var d : ptr i64 = bump(c);
+        |         ^
+tests/sema/072_ok_pointers_src.r2:21:9: WARNING: unused variable 'f'
+     21 |     var f : i64 = p - e;
+        |         ^
+tests/sema/072_ok_pointers_src.r2:22:9: WARNING: unused variable 'g'
+     22 |     var g : i64 = p == NULL;
+        |         ^
+tests/sema/072_ok_pointers_src.r2:23:9: WARNING: unused variable 'h'
+     23 |     var h : i64 = NULL == NULL;
+        |         ^
+tests/sema/072_ok_pointers_src.r2:24:9: WARNING: unused variable 'i'
+     24 |     var i : ptr i8 = "hi";
+        |         ^
+tests/sema/072_ok_pointers_src.r2:25:9: WARNING: unused variable 'j'
+     25 |     var j : u64 = sizeof("abc");
+        |         ^

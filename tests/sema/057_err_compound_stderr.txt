@@ -4,3 +4,9 @@ tests/sema/057_err_compound_src.r2:4:7: ERROR: cannot assign i64 to a variable o
 tests/sema/057_err_compound_src.r2:6:10: ERROR: division by zero
       6 |     c /= 0;
         |          ^
+tests/sema/057_err_compound_src.r2:4:7: WARNING: value assigned to 'a' is not used
+      4 |     a += b;
+        |       ^~
+tests/sema/057_err_compound_src.r2:6:7: WARNING: value assigned to 'c' is not used
+      6 |     c /= 0;
+        |       ^~

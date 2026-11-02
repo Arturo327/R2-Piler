@@ -1,0 +1,3 @@
+tests/sema/064_ok_newtype_src.r2:21:19: WARNING: redundant cast to 'Small'; the value already has that type
+     21 |     small = small as Small;
+        |                   ^~

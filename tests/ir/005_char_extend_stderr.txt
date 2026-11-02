@@ -1,0 +1,42 @@
+tests/ir/005_char_extend_src.r2:3:7: WARNING: unused variable 'd'
+      3 |   var d : char = a - b;
+        |       ^
+tests/ir/005_char_extend_src.r2:4:7: WARNING: unused variable 'm'
+      4 |   var m : char = a * b;
+        |       ^
+tests/ir/005_char_extend_src.r2:5:7: WARNING: unused variable 'q'
+      5 |   var q : char = a / b;
+        |       ^
+tests/ir/005_char_extend_src.r2:6:7: WARNING: unused variable 'mo'
+      6 |   var mo : char = a % b;
+        |       ^~
+tests/ir/005_char_extend_src.r2:7:7: WARNING: unused variable 'ban'
+      7 |   var ban : char = a & b;
+        |       ^~~
+tests/ir/005_char_extend_src.r2:8:7: WARNING: unused variable 'bor'
+      8 |   var bor : char = a | b;
+        |       ^~~
+tests/ir/005_char_extend_src.r2:9:7: WARNING: unused variable 'xo'
+      9 |   var xo : char = a ^ b;
+        |       ^~
+tests/ir/005_char_extend_src.r2:10:7: WARNING: unused variable 'ls'
+     10 |   var ls : char = a << b;
+        |       ^~
+tests/ir/005_char_extend_src.r2:11:7: WARNING: unused variable 'rs'
+     11 |   var rs : char = a >> b;
+        |       ^~
+tests/ir/005_char_extend_src.r2:12:7: WARNING: unused variable 'ng'
+     12 |   var ng : char = -a;
+        |       ^~
+tests/ir/005_char_extend_src.r2:13:7: WARNING: unused variable 'nt'
+     13 |   var nt : char = ~a;
+        |       ^~
+tests/ir/005_char_extend_src.r2:14:7: WARNING: unused variable 'cl'
+     14 |   var cl : i64 = a < b;
+        |       ^~
+tests/ir/005_char_extend_src.r2:15:7: WARNING: unused variable 'nl'
+     15 |   var nl : i64 = !a;
+        |       ^~
+tests/ir/005_char_extend_src.r2:19:7: WARNING: unused variable 'c'
+     19 |   var c : char = chars('a', 'b');
+        |       ^

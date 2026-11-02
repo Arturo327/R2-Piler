@@ -13,3 +13,18 @@ tests/sema/048_err_lit_range_src.r2:5:22: ERROR: literal 10000 does not fit in t
 tests/sema/048_err_lit_range_src.r2:6:17: ERROR: literal 9223372036854775808 does not fit in type i64; it is too large (the 'u' suffix makes it a u64 literal)
       6 |   var e : i64 = 9223372036854775808;
         |                 ^~~~~~~~~~~~~~~~~~~
+tests/sema/048_err_lit_range_src.r2:2:7: WARNING: unused variable 'a'
+      2 |   var a : char = 300;
+        |       ^
+tests/sema/048_err_lit_range_src.r2:3:7: WARNING: unused variable 'b'
+      3 |   var b : i64 = 18446744073709551615u;
+        |       ^
+tests/sema/048_err_lit_range_src.r2:4:7: WARNING: unused variable 'c'
+      4 |   var c : u64 = -1;
+        |       ^
+tests/sema/048_err_lit_range_src.r2:5:7: WARNING: unused variable 'd'
+      5 |   var d : char = 100 * 100;
+        |       ^
+tests/sema/048_err_lit_range_src.r2:6:7: WARNING: unused variable 'e'
+      6 |   var e : i64 = 9223372036854775808;
+        |       ^

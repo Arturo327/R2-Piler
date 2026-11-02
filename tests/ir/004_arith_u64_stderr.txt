@@ -1,0 +1,30 @@
+tests/ir/004_arith_u64_src.r2:7:7: WARNING: unused variable 's'
+      7 |   var s : u64 = usum(a, b);
+        |       ^
+tests/ir/004_arith_u64_src.r2:8:7: WARNING: unused variable 'd'
+      8 |   var d : u64 = a - b;
+        |       ^
+tests/ir/004_arith_u64_src.r2:9:7: WARNING: unused variable 'm'
+      9 |   var m : u64 = a * b;
+        |       ^
+tests/ir/004_arith_u64_src.r2:10:7: WARNING: unused variable 'q'
+     10 |   var q : u64 = a / b;
+        |       ^
+tests/ir/004_arith_u64_src.r2:11:7: WARNING: unused variable 'r'
+     11 |   var r : u64 = a % b;
+        |       ^
+tests/ir/004_arith_u64_src.r2:12:7: WARNING: unused variable 'ban'
+     12 |   var ban : u64 = a & b;
+        |       ^~~
+tests/ir/004_arith_u64_src.r2:13:7: WARNING: unused variable 'bor'
+     13 |   var bor : u64 = a | b;
+        |       ^~~
+tests/ir/004_arith_u64_src.r2:14:7: WARNING: unused variable 'xo'
+     14 |   var xo : u64 = a ^ b;
+        |       ^~
+tests/ir/004_arith_u64_src.r2:15:7: WARNING: unused variable 'ls'
+     15 |   var ls : u64 = a << b;
+        |       ^~
+tests/ir/004_arith_u64_src.r2:16:7: WARNING: unused variable 'rs'
+     16 |   var rs : u64 = a >> b;
+        |       ^~

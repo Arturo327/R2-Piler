@@ -1,0 +1,15 @@
+tests/ir/021_cast_basic_src.r2:6:19: WARNING: redundant cast to 'i64'; the value already has that type
+      6 |   var b : i64 = a as i64;
+        |                   ^~
+tests/ir/021_cast_basic_src.r2:6:7: WARNING: unused variable 'b'
+      6 |   var b : i64 = a as i64;
+        |       ^
+tests/ir/021_cast_basic_src.r2:8:7: WARNING: unused variable 'd'
+      8 |   var d : i64 = c as i64;
+        |       ^
+tests/ir/021_cast_basic_src.r2:11:7: WARNING: unused variable 'f'
+     11 |   var f : u64 = ch as u64;
+        |       ^
+tests/ir/021_cast_basic_src.r2:12:7: WARNING: unused variable 'g'
+     12 |   var g : u64 = id_u64(c);
+        |       ^

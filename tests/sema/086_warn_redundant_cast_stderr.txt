@@ -1,0 +1,3 @@
+tests/sema/086_warn_redundant_cast_src.r2:3:24: WARNING: redundant cast to 'i64'; the value already has that type
+      3 |     var same : i64 = a as i64;
+        |                        ^~

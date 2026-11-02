@@ -1,3 +1,6 @@
 tests/sema/031_warn_uninit_src.r2:3:17: WARNING: 'x' is used without being assigned
       3 |   var y : i64 = x;
         |                 ^
+tests/sema/031_warn_uninit_src.r2:3:7: WARNING: unused variable 'y'
+      3 |   var y : i64 = x;
+        |       ^

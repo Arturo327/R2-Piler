@@ -93,6 +93,16 @@ int is_literal_node (Sema *s, uint32_t idx)
 	return lit_node_bits(s, s->ast->nodes + idx, &v);
 }
 
+int is_null_value (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+
+	while (n->type == NODE_CAST && n->child != NO_NODE)
+		n = s->ast->nodes + n->child;
+
+	return n->type == NODE_LIT_NULL;
+}
+
 static void make_fold_lit (ASTNode *n, uint64_t bits, TypeId t)
 {
 	n->type = types[t].sign ? NODE_LIT_i64 : NODE_LIT_u64;

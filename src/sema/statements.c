@@ -16,6 +16,47 @@ static void check_block_body (Sema *s, uint32_t idx)
 	}
 }
 
+static void warn_dead_write (Sema *s, Symbol *sym, uint32_t node)
+{
+	error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + node),
+			"value assigned to '%.*s' is not used", (int)sym->len, sym->name);
+}
+
+static void warn_dead_writes (Sema *s, uint32_t idx, Symbol *sym)
+{
+	for (uint32_t i = 0; i < s->dead_count; i++)
+		if (s->dead[i].sym == idx)
+			warn_dead_write(s, sym, s->dead[i].node);
+
+	if (sym->pending_write && !sym->addressed)
+		warn_dead_write(s, sym, sym->write_node);
+}
+
+static void warn_unused (Sema *s, uint32_t idx, Symbol *sym)
+{
+	if (sym->kind != SYMBOL_VAR && sym->kind != SYMBOL_PARAM) return;
+
+	if (sym->read) {
+		warn_dead_writes(s, idx, sym);
+		return;
+	}
+
+	ErrorLoc loc = { .line = sym->line, .col = sym->col, .len = sym->len };
+
+	error_report(s->err, ERR_WARNING, loc, "unused %s '%.*s'",
+			sym->kind == SYMBOL_PARAM ? "parameter" : "variable",
+			(int)sym->len, sym->name);
+}
+
+static void pop_scope (Sema *s, uint32_t mark)
+{
+	for (uint32_t i = mark; i < s->table.act_count; i++)
+		warn_unused(s, s->table.active[i],
+				&s->table.symbols[s->table.active[i]]);
+
+	symtab_pop_scope(&s->table, mark);
+}
+
 static void check_block (Sema *s, uint32_t idx)
 {
 	uint32_t mark = s->table.act_count;
@@ -24,18 +65,23 @@ static void check_block (Sema *s, uint32_t idx)
 	check_block_body(s, idx);
 
 	s->depth--;
-	symtab_pop_scope(&s->table, mark);
+	pop_scope(s, mark);
 }
 
 static void check_var_dec (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
+	int has_init = n->child != NO_NODE;
+	int is_null = has_init && is_null_value(s, n->child);
 
 	resolve_type_node(s, n);
-	if (n->child != NO_NODE)
+	if (has_init)
 		check_var_init_type(s, n, check_expr(s, n->child));
 
-	sema_declare(s, n->str, n->len, SYMBOL_VAR, n->data_type, idx);
+	uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_VAR, n->data_type, idx);
+
+	if (is_null) s->table.symbols[sym].null_known = 1;
+	if (has_init) sym_write(s, sym, idx);
 }
 
 static void check_main_signature (Sema *s, uint32_t idx)
@@ -85,7 +131,7 @@ void check_fn_dec (Sema *s, uint32_t idx)
 				"function may reach the end without returning");
 
 	s->depth--;
-	symtab_pop_scope(&s->table, mark);
+	pop_scope(s, mark);
 }
 
 void check_extern_fn (Sema *s, uint32_t idx)
@@ -114,7 +160,7 @@ static void check_scoped_statement (Sema *s, uint32_t idx)
 	check_statement(s, idx);
 
 	s->depth--;
-	symtab_pop_scope(&s->table, mark);
+	pop_scope(s, mark);
 }
 
 static void check_body (Sema *s, uint32_t idx)
@@ -160,24 +206,6 @@ static int check_cond (Sema *s, uint32_t cond, int alw_err)
 	return v;
 }
 
-static void save_assigned (Sema *s, uint8_t *dst, uint32_t mark)
-{
-	for (uint32_t i = 0; i < mark; i++)
-		dst[i] = s->table.symbols[s->table.active[i]].assigned;
-}
-
-static void load_assigned (Sema *s, uint8_t *src, uint32_t mark)
-{
-	for (uint32_t i = 0; i < mark; i++)
-		s->table.symbols[s->table.active[i]].assigned = src[i];
-}
-
-static void intersect_assigned (Sema *s, uint8_t *dst, uint32_t mark)
-{
-	for (uint32_t i = 0; i < mark; i++)
-		dst[i] = dst[i] & s->table.symbols[s->table.active[i]].assigned;
-}
-
 static int check_elif_chain (Sema *s, uint32_t idx, uint8_t *snap, uint8_t *acc, uint32_t mark)
 {
 	int has_else = 0;
@@ -186,6 +214,7 @@ static int check_elif_chain (Sema *s, uint32_t idx, uint8_t *snap, uint8_t *acc,
 		ASTNode *n = s->ast->nodes + idx;
 		uint32_t body = n->child;
 
+		symtab_clear_pending(&s->table);
 		if (n->type == NODE_ELIF) {
 			body = s->ast->nodes[n->child].next_bro;
 			check_cond(s, n->child, 1);
@@ -195,8 +224,8 @@ static int check_elif_chain (Sema *s, uint32_t idx, uint8_t *snap, uint8_t *acc,
 		check_body(s, body);
 
 		if (!stmt_returns(s, body))
-			intersect_assigned(s, acc, mark);
-		load_assigned(s, snap, mark);
+			symtab_intersect_flags(&s->table, acc, mark);
+		symtab_load_flags(&s->table, snap, mark);
 		idx = n->next_bro;
 	}
 
@@ -217,20 +246,22 @@ static void check_if (Sema *s, uint32_t idx)
 	memset(acc, 1, mark);
 	if (cv == 1) {
 		check_body(s, body);
-		save_assigned(s, snap, mark);
+		symtab_save_flags(&s->table, snap, mark);
 		check_elif_chain(s, s->ast->nodes[body].next_bro, snap, acc, mark);
-		load_assigned(s, snap, mark);
+		symtab_load_flags(&s->table, snap, mark);
 		return;
 	}
 
-	save_assigned(s, snap, mark);
+	symtab_save_flags(&s->table, snap, mark);
+	symtab_clear_pending(&s->table);
 	check_body(s, body);
 	if (!stmt_returns(s, body))
-		save_assigned(s, acc, mark);
-	load_assigned(s, snap, mark);
+		symtab_save_flags(&s->table, acc, mark);
+	symtab_load_flags(&s->table, snap, mark);
 
-	if (check_elif_chain(s, s->ast->nodes[body].next_bro, snap, acc, mark))
-		load_assigned(s, acc, mark);
+	if (!check_elif_chain(s, s->ast->nodes[body].next_bro, snap, acc, mark))
+		symtab_intersect_flags(&s->table, acc, mark);
+	symtab_load_flags(&s->table, acc, mark);
 }
 
 static void check_while (Sema *s, uint32_t idx)
@@ -240,13 +271,15 @@ static void check_while (Sema *s, uint32_t idx)
 	uint32_t body = s->ast->nodes[cond].next_bro;
 
 	check_cond(s, cond, 0);
+	symtab_clear_pending(&s->table);
 
 	uint32_t mark = s->table.act_count;
 	uint8_t *snap = arena_alloc(s->arena, (size_t)mark);
 
-	save_assigned(s, snap, mark);
+	symtab_save_flags(&s->table, snap, mark);
 	check_body(s, body);
-	load_assigned(s, snap, mark);
+	symtab_intersect_flags(&s->table, snap, mark);
+	symtab_load_flags(&s->table, snap, mark);
 }
 
 static void check_for (Sema *s, uint32_t idx)
@@ -262,19 +295,21 @@ static void check_for (Sema *s, uint32_t idx)
 
 	check_statement(s, init);
 	check_cond(s, cond, 0);
+	symtab_clear_pending(&s->table);
 
 	uint32_t body_mark = s->table.act_count;
 	uint8_t *snap = arena_alloc(s->arena, (size_t)body_mark);
 
-	save_assigned(s, snap, body_mark);
+	symtab_save_flags(&s->table, snap, body_mark);
 	check_body(s, body);
 	if (s->ast->nodes[updt].type == NODE_INC || s->ast->nodes[updt].type == NODE_DEC)
 		check_inc_dec(s, updt);
 	else finalize_type(s, updt, check_expr(s, updt));
-	load_assigned(s, snap, body_mark);
+	symtab_intersect_flags(&s->table, snap, body_mark);
+	symtab_load_flags(&s->table, snap, body_mark);
 
 	s->depth--;
-	symtab_pop_scope(&s->table, mark);
+	pop_scope(s, mark);
 }
 
 static void check_return (Sema *s, uint32_t idx)
@@ -361,6 +396,14 @@ static int stmt_returns (Sema *s, uint32_t idx)
 	}
 }
 
+static void warn_no_effect (Sema *s, uint32_t idx, TypeId type)
+{
+	if (type == TYPE_ERROR || expr_has_effect(s, idx)) return;
+
+	error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + idx),
+			"expression has no effect; its result is discarded");
+}
+
 static void check_statement (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -391,8 +434,11 @@ static void check_statement (Sema *s, uint32_t idx)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"extern declarations can only appear at the top level");
 		return;
-	default:
-		finalize_type(s, idx, check_expr(s, idx));
+	default: {
+		TypeId type = check_expr(s, idx);
+		finalize_type(s, idx, type);
+		warn_no_effect(s, idx, type);
 		return;
+	}
 	}
 }

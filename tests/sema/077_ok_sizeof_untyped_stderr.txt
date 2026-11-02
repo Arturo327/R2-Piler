@@ -1,0 +1,3 @@
+tests/sema/077_ok_sizeof_untyped_src.r2:14:9: WARNING: unused variable 'r'
+     14 |     var r : ptr i64 = sizeof(i64) + p;
+        |         ^

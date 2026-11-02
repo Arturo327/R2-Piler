@@ -1,0 +1,9 @@
+tests/ir/023_mixed_arith_src.r2:4:7: WARNING: unused variable 'c'
+      4 |   var c : u64 = a as u64 + b;
+        |       ^
+tests/ir/023_mixed_arith_src.r2:6:7: WARNING: unused variable 'd'
+      6 |   var d : i64 = a + ch;
+        |       ^
+tests/ir/023_mixed_arith_src.r2:7:7: WARNING: unused variable 'e'
+      7 |   var e : char = ch + ch;
+        |       ^

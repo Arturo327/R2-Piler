@@ -40,3 +40,36 @@ tests/sema/062_enum_err_use_src.r2:30:5: ERROR: 'Dias' is an enum type, not a va
 tests/sema/062_enum_err_use_src.r2:31:16: ERROR: left side of '=' must be a variable
      31 |     Dias.Lunes = 1;
         |                ^
+tests/sema/062_enum_err_use_src.r2:18:9: WARNING: unused variable 'b'
+     18 |     var b : Dias = v.Dias;
+        |         ^
+tests/sema/062_enum_err_use_src.r2:19:9: WARNING: unused variable 'c'
+     19 |     var c : Dias = (1 + 2).Lunes;
+        |         ^
+tests/sema/062_enum_err_use_src.r2:20:9: WARNING: unused variable 'e'
+     20 |     var e : Dias = Dias;
+        |         ^
+tests/sema/062_enum_err_use_src.r2:21:9: WARNING: unused variable 'g'
+     21 |     var g : i64 = Dias;
+        |         ^
+tests/sema/062_enum_err_use_src.r2:22:9: WARNING: unused variable 'h'
+     22 |     var h : u8 = a;
+        |         ^
+tests/sema/062_enum_err_use_src.r2:23:9: WARNING: unused variable 'i'
+     23 |     var i : Dias = 1u as u8;
+        |         ^
+tests/sema/062_enum_err_use_src.r2:24:9: WARNING: unused variable 'j'
+     24 |     var j : Other = a as Other;
+        |         ^
+tests/sema/062_enum_err_use_src.r2:25:9: WARNING: unused variable 'k'
+     25 |     var k : i64 = take(v);
+        |         ^
+tests/sema/062_enum_err_use_src.r2:26:9: WARNING: unused variable 'l'
+     26 |     var l : Dias = 300;
+        |         ^
+tests/sema/062_enum_err_use_src.r2:27:9: WARNING: unused variable 'm'
+     27 |     var m : Nope = 1;
+        |         ^
+tests/sema/062_enum_err_use_src.r2:28:9: WARNING: unused variable 'n'
+     28 |     var n : i64 = Dias();
+        |         ^

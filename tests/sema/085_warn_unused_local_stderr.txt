@@ -1,0 +1,6 @@
+tests/sema/085_warn_unused_local_src.r2:2:9: WARNING: unused variable 'unused'
+      2 |     var unused : i64 = 1;
+        |         ^~~~~~
+tests/sema/085_warn_unused_local_src.r2:3:9: WARNING: unused variable 'written'
+      3 |     var written : i64 = 2;
+        |         ^~~~~~~

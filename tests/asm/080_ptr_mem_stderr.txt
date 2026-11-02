@@ -1,0 +1,6 @@
+tests/asm/080_ptr_mem_src.r2:19:9: WARNING: unused variable 'pp'
+     19 |     var pp : ptr i64 = $@p;
+        |         ^~
+tests/asm/080_ptr_mem_src.r2:21:9: WARNING: unused variable 'qq'
+     21 |     var qq : ptr i64 = @ppp;
+        |         ^~

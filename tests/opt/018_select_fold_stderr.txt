@@ -1,3 +1,6 @@
 tests/opt/018_select_fold_src.r2:3:7: WARNING: condition is always true
       3 |   if (1) {
         |       ^
+tests/opt/018_select_fold_src.r2:2:7: WARNING: value assigned to 'x' is not used
+      2 |   var x : i64 = 0;
+        |       ^

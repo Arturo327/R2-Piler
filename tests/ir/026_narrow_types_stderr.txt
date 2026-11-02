@@ -1,0 +1,18 @@
+tests/ir/026_narrow_types_src.r2:7:7: WARNING: unused variable 'c'
+      7 |   var c : u32 = 3000000000u;
+        |       ^
+tests/ir/026_narrow_types_src.r2:9:7: WARNING: unused variable 't'
+      9 |   var t : u8 = a + 1u;
+        |       ^
+tests/ir/026_narrow_types_src.r2:10:7: WARNING: unused variable 'n'
+     10 |   var n : u8 = ~a;
+        |       ^
+tests/ir/026_narrow_types_src.r2:11:7: WARNING: unused variable 'm'
+     11 |   var m : i16 = -b;
+        |       ^
+tests/ir/026_narrow_types_src.r2:12:7: WARNING: unused variable 'w'
+     12 |   var w : i16 = id16(b);
+        |       ^
+tests/ir/026_narrow_types_src.r2:13:7: WARNING: unused variable 'v'
+     13 |   var v : u64 = a as u64;
+        |       ^

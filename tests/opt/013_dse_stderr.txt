@@ -1,0 +1,3 @@
+tests/opt/013_dse_src.r2:2:7: WARNING: value assigned to 'x' is not used
+      2 |   var x : i64 = a + 1;
+        |       ^

@@ -1,0 +1,12 @@
+tests/ir/025_shift_narrow_src.r2:8:7: WARNING: unused variable 't'
+      8 |   var t : i64 = a >> 2u;
+        |       ^
+tests/ir/025_shift_narrow_src.r2:9:7: WARNING: unused variable 'c'
+      9 |   var c : char = 97;
+        |       ^
+tests/ir/025_shift_narrow_src.r2:10:7: WARNING: unused variable 'c2'
+     10 |   var c2 : char = a as char;
+        |       ^~
+tests/ir/025_shift_narrow_src.r2:11:7: WARNING: unused variable 'd'
+     11 |   var d : u64 = id_u64(b);
+        |       ^

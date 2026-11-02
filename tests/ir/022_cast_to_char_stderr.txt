@@ -1,0 +1,12 @@
+tests/ir/022_cast_to_char_src.r2:8:20: WARNING: redundant cast to 'i8'; the value already has that type
+      8 |   var e : char = c as char;
+        |                    ^~
+tests/ir/022_cast_to_char_src.r2:10:9: WARNING: redundant cast to 'i64'; the value already has that type
+     10 |   if (a as i64) {
+        |         ^~
+tests/ir/022_cast_to_char_src.r2:7:7: WARNING: unused variable 'd'
+      7 |   var d : char = u as char;
+        |       ^
+tests/ir/022_cast_to_char_src.r2:8:7: WARNING: unused variable 'e'
+      8 |   var e : char = c as char;
+        |       ^
