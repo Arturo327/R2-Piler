@@ -1,0 +1,12 @@
+tests/sema/079_ok_null_bool_src.r2:3:9: WARNING: condition is always false
+      3 |     if (NULL) return 1;
+        |         ^~~~
+tests/sema/079_ok_null_bool_src.r2:4:12: WARNING: condition is always false
+      4 |     while (NULL) { }
+        |            ^~~~
+tests/sema/079_ok_null_bool_src.r2:6:9: WARNING: constant operand of '&&' is always false
+      6 |     if (NULL && p) return 3;
+        |         ^~~~
+tests/sema/079_ok_null_bool_src.r2:7:9: WARNING: constant operand of '||' is always false
+      7 |     if (NULL || p) return 4;
+        |         ^~~~

@@ -128,7 +128,7 @@ static TypeId check_deref (Sema *s, uint32_t idx)
 	}
 	if (type_kind(type) != TK_PTR) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
-				"cannot dereference a value of type %s", types[type].name);
+				"cannot dereference a value of type %s", type_display_name(type));
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
@@ -239,7 +239,7 @@ static int sizeof_expr_type (Sema *s, ASTNode *n, TypeId *out, uint64_t *size)
 		}
 		if (type_kind(ptr) != TK_PTR) {
 			error_report(s->err, ERR_ERROR, node_loc(n),
-					"cannot dereference a value of type %s", types[ptr].name);
+					"cannot dereference a value of type %s", type_display_name(ptr));
 			return 0;
 		}
 		if (types[ptr].base == TYPE_VOID) {
@@ -295,13 +295,13 @@ static TypeId check_sizeof (Sema *s, uint32_t idx)
 	}
 
 	n = &s->ast->nodes[idx];
-	n->type = NODE_LIT_u64;
-	n->u64 = size;
-	n->data_type = TYPE_u64;
+	n->type = NODE_LIT_i64;
+	n->i64 = (int64_t)size;
+	n->data_type = TYPE_UNTYPED_INT;
 	n->child = NO_NODE;
 	n->type_node = NO_TYPE_NODE;
 	n->sym = NO_SYMBOL;
-	return TYPE_u64;
+	return TYPE_UNTYPED_INT;
 }
 
 static uint32_t adapt_call_arg (Sema *s, uint32_t arg, TypeId arg_type, TypeId param_type)
@@ -317,7 +317,7 @@ static uint32_t adapt_call_arg (Sema *s, uint32_t arg, TypeId arg_type, TypeId p
 
 	error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[new_arg]),
 			"argument type %s does not match parameter type %s; %s",
-			types[arg_type].name, types[param_type].name, hint);
+			type_display_name(arg_type), types[param_type].name, hint);
 	return new_arg;
 }
 
@@ -471,55 +471,60 @@ static TypeId check_lvalue (Sema *s, uint32_t idx)
 	}
 }
 
+static void mark_assigned (Sema *s, uint32_t left, uint8_t left_kind)
+{
+	uint32_t sym;
+
+	if (left_kind == NODE_DEREF) sym = s->ast->nodes[s->ast->nodes[left].child].sym;
+	else sym = s->ast->nodes[left].sym;
+
+	if (sym != NO_SYMBOL) s->table.symbols[sym].assigned = 1;
+}
+
 static TypeId check_assign (Sema *s, uint32_t idx)
 {
-	ASTNode *assign = &s->ast->nodes[idx];
-	uint32_t left = assign->child;
-	ASTNode *left_node = &s->ast->nodes[left];
-	uint32_t right = left_node->next_bro;
+	uint32_t left = s->ast->nodes[idx].child;
+	uint32_t right = s->ast->nodes[left].next_bro;
+	uint8_t left_kind = s->ast->nodes[left].type;
 
-	if (left_node->type != NODE_ID && left_node->type != NODE_DEREF) {
-		error_report(s->err, ERR_ERROR, node_loc(assign),
+	if (left_kind != NODE_ID && left_kind != NODE_DEREF) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"left side of '=' must be a variable");
 		check_expr(s, right);
-		assign->data_type = TYPE_ERROR;
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
 
 	TypeId l = check_lvalue(s, left);
 	TypeId r = check_expr(s, right);
 
-	if (left_node->type == NODE_ID && left_node->sym != NO_SYMBOL)
-		s->table.symbols[left_node->sym].assigned = 1;
-	else if (left_node->type == NODE_DEREF
-			&& s->ast->nodes[left_node->child].sym != NO_SYMBOL)
-		s->table.symbols[s->ast->nodes[left_node->child].sym].assigned = 1;
+	mark_assigned(s, left, left_kind);
 
 	if (l == TYPE_ERROR || r == TYPE_ERROR) {
-		assign->data_type = TYPE_ERROR;
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
 
 	if (l != r) {
 		int ok;
 		right = force_cast(s, right, r, l, &ok);
-		left_node->next_bro = right;
+		s->ast->nodes[left].next_bro = right;
 
 		if (!ok) {
 			const char *hint = r == TYPE_VOID
 					? "a void value cannot be used here"
 					: "use an explicit cast with 'as'";
 
-			error_report(s->err, ERR_ERROR, node_loc(assign),
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 					"cannot assign %s to a variable of type %s; %s",
-					types[r].name, types[l].name, hint);
+					type_display_name(r), types[l].name, hint);
 
-			assign->data_type = TYPE_ERROR;
+			s->ast->nodes[idx].data_type = TYPE_ERROR;
 			return TYPE_ERROR;
 		}
 	}
 
-	assign->data_type = l;
+	s->ast->nodes[idx].data_type = l;
 	return l;
 }
 
@@ -540,7 +545,7 @@ static TypeId adapt_compound_rhs (Sema *s, uint32_t idx, uint32_t left, uint32_t
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 					"cannot assign %s to a variable of type %s;"
 					" use an explicit cast with 'as'",
-					types[r].name, types[l].name);
+					type_display_name(r), types[l].name);
 			return TYPE_ERROR;
 		}
 		if (s->ast->nodes[cast].data_type == TYPE_ERROR) return TYPE_ERROR;
@@ -575,11 +580,7 @@ static TypeId check_compound_assign (Sema *s, uint32_t idx)
 	TypeId l = check_lvalue(s, left);
 	warn_unassigned(s, left, l);
 	TypeId r = check_expr(s, right);
-	if (left_kind == NODE_ID && s->ast->nodes[left].sym != NO_SYMBOL)
-		s->table.symbols[s->ast->nodes[left].sym].assigned = 1;
-	else if (left_kind == NODE_DEREF
-			&& s->ast->nodes[s->ast->nodes[left].child].sym != NO_SYMBOL)
-		s->table.symbols[s->ast->nodes[s->ast->nodes[left].child].sym].assigned = 1;
+	mark_assigned(s, left, left_kind);
 
 	if (l == TYPE_ERROR || r == TYPE_ERROR) {
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
@@ -637,11 +638,7 @@ void check_inc_dec (Sema *s, uint32_t idx)
 
 	TypeId type = check_lvalue(s, target);
 	warn_unassigned(s, target, type);
-	if (target_kind == NODE_ID && s->ast->nodes[target].sym != NO_SYMBOL)
-		s->table.symbols[s->ast->nodes[target].sym].assigned = 1;
-	else if (target_kind == NODE_DEREF
-			&& s->ast->nodes[s->ast->nodes[target].child].sym != NO_SYMBOL)
-		s->table.symbols[s->ast->nodes[s->ast->nodes[target].child].sym].assigned = 1;
+	mark_assigned(s, target, target_kind);
 
 	if (type != TYPE_ERROR && type != TYPE_VOID
 			&& type_kind(type) != TK_PTR) {
@@ -689,8 +686,8 @@ static TypeId check_unary (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
-	if (operand_type == TYPE_VOID || operand_type == TYPE_NULL || operand_type == TYPE_STR
-			|| (op != NODE_NOT_L && type_kind(operand_type) == TK_PTR)) {
+	if (operand_type == TYPE_VOID || operand_type == TYPE_STR || (op != NODE_NOT_L
+				&& (type_kind(operand_type) == TK_PTR || operand_type == TYPE_NULL))) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"operator cannot be applied to a value of type %s",
 				types[operand_type].name);
@@ -748,6 +745,7 @@ static void warn_const_operand (Sema *s, uint32_t idx, const char *op)
 	case NODE_LIT_i64: tru = n->i64 != 0; break;
 	case NODE_LIT_u64: tru = n->u64 != 0; break;
 	case NODE_LIT_CHAR: tru = n->chr != 0; break;
+	case NODE_LIT_NULL: tru = 0; break;
 	default: return;
 	}
 
@@ -821,6 +819,11 @@ static TypeId pointer_compare (Sema *s, uint32_t idx, uint32_t *left, uint32_t *
 
 static TypeId pointer_arith (Sema *s, uint32_t idx, uint8_t op, uint32_t *left, uint32_t *right, TypeId *l, TypeId *r)
 {
+	int both_str = *l == TYPE_STR && *r == TYPE_STR;
+
+	coerce_string(s, left, l);
+	coerce_string(s, right, r);
+
 	if (type_kind(*l) == TK_PTR && is_integer_operand(*r)) {
 		if (types[*l].base == TYPE_VOID) {
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
@@ -848,6 +851,10 @@ static TypeId pointer_arith (Sema *s, uint32_t idx, uint8_t op, uint32_t *left, 
 					"pointer arithmetic on 'ptr void' is not allowed");
 			return TYPE_ERROR;
 		}
+		if (both_str)
+			error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + idx),
+					"subtracting two string literals is probably a mistake;"
+					" the result is the byte distance between them");
 		return TYPE_i64;
 	}
 	if (type_kind(*l) == TK_PTR && type_kind(*r) == TK_PTR) {
@@ -905,72 +912,75 @@ static int check_pointer_binary (Sema *s, uint32_t idx, uint32_t *left,
 	return 1;
 }
 
+static int check_logic (Sema *s, uint32_t idx, uint32_t left, uint32_t right, TypeId *l, TypeId *r)
+{
+	const char *op = s->ast->nodes[idx].type == NODE_AND_L ? "&&" : "||";
+	TypeId bad = *l == TYPE_STR ? *l : *r;
+
+	if (bad == TYPE_STR) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"operator cannot be applied to a value of type %s",
+				types[bad].name);
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return 0;
+	}
+	warn_const_operand(s, left, op);
+	warn_const_operand(s, right, op);
+	*l = finalize_type(s, left, *l);
+	*r = finalize_type(s, right, *r);
+	return 1;
+}
+
 static TypeId check_binary (Sema *s, uint32_t idx)
 {
-	ASTNode *n = s->ast->nodes + idx;
-	uint32_t left = n->child;
+	uint8_t op_type = s->ast->nodes[idx].type;
+	uint32_t left = s->ast->nodes[idx].child;
 	uint32_t right = s->ast->nodes[left].next_bro;
 	TypeId l = check_expr(s, left);
-	TypeId r = check_rhs(s, n->type, right);
+	TypeId r = check_rhs(s, op_type, right);
 
 	if (l == TYPE_ERROR || r == TYPE_ERROR) {
-		n->data_type = TYPE_ERROR;
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	n = s->ast->nodes + idx;
 	if (l == TYPE_VOID || r == TYPE_VOID) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"operator cannot be applied to a value of type void");
-		n->data_type = TYPE_ERROR;
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
 
-	if (n->type != NODE_AND_L && n->type != NODE_OR_L
+	if (op_type != NODE_AND_L && op_type != NODE_OR_L
 			&& check_pointer_binary(s, idx, &left, &right, &l, &r))
 		return s->ast->nodes[idx].data_type;
 
-	if (n->type == NODE_AND_L || n->type == NODE_OR_L) {
-		const char *op = n->type == NODE_AND_L ? "&&" : "||";
-		TypeId bad = l == TYPE_NULL || l == TYPE_STR ? l : r;
-
-		if (bad == TYPE_NULL || bad == TYPE_STR) {
-			error_report(s->err, ERR_ERROR, node_loc(n),
-					"operator cannot be applied to a value of type %s",
-					types[bad].name);
-			n->data_type = TYPE_ERROR;
-			return TYPE_ERROR;
-		}
-		warn_const_operand(s, left, op);
-		warn_const_operand(s, right, op);
-		finalize_type(s, left, l);
-		finalize_type(s, right, r);
-	} else if (n->type == NODE_LS || n->type == NODE_RS) {
+	if (op_type == NODE_AND_L || op_type == NODE_OR_L) {
+		if (!check_logic(s, idx, left, right, &l, &r)) return TYPE_ERROR;
+	} else if (op_type == NODE_LS || op_type == NODE_RS) {
 		finalize_type(s, right, r);
 		if (!is_literal_node(s, right))
 			l = finalize_type(s, left, l);
 	}
 
-	n = s->ast->nodes + idx;
-	if (l != r && needs_common_type(n->type)
-			&& !unify_operands(s, n, &left, &right, &l, &r)) {
-		n->data_type = TYPE_ERROR;
+	if (l != r && needs_common_type(op_type)
+			&& !unify_operands(s, s->ast->nodes + idx, &left, &right, &l, &r)) {
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
 
-	n->child = left;
+	s->ast->nodes[idx].child = left;
 	s->ast->nodes[left].next_bro = right;
-	n->data_type = binop_result_type(n->type, l);
+	s->ast->nodes[idx].data_type = binop_result_type(op_type, l);
 	try_fold_binary(s, idx);
 	return s->ast->nodes[idx].data_type;
 }
 
 static TypeId check_cast (Sema *s, uint32_t idx)
 {
-	ASTNode *n = s->ast->nodes + idx;
-	TypeId from = check_expr(s, n->child);
-	TypeId to = resolve_type_node(s, n);
+	TypeId from = check_expr(s, s->ast->nodes[idx].child);
+	TypeId to = resolve_type_node(s, s->ast->nodes + idx);
 
-	n = s->ast->nodes + idx;
+	ASTNode *n = s->ast->nodes + idx;
 	if (from == TYPE_ERROR || to == TYPE_ERROR) {
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;

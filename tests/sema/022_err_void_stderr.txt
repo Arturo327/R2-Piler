@@ -1,7 +1,7 @@
 tests/sema/022_err_void_src.r2:5:7: ERROR: can't initialize 'a' (i64) with a value of type string; use an explicit cast with 'as'
       5 |   var a : i64 = "hi";
         |       ^
-tests/sema/022_err_void_src.r2:6:21: ERROR: pointer arithmetic requires an integer offset
+tests/sema/022_err_void_src.r2:6:21: ERROR: cannot add two pointers
       6 |   var b : i64 = "a" + "b";
         |                     ^
 tests/sema/022_err_void_src.r2:7:17: ERROR: operator cannot be applied to a value of type string

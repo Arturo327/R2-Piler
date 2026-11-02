@@ -15,6 +15,8 @@ un cast explícito.
 - Tipos primitivos: `i8`, `u8`, `i16`, `u16`, `i32`, `u32`, `i64`, `u64` y `void`. `char` es un alias de `i8` aceptado solo en el frontend (lexer/parser): en dumps, símbolos y mensajes siempre aparece `i8`.
 - Enums nominales definidos por el usuario (`enum Dias : u8 { Lunes, Martes }`), con un tipo subyacente entero (por defecto `u32`). Ver §3.1.
 - Aliases de tipo transparentes (`type Index = u32`) y tipos nominales nuevos (`newtype Seconds = u32`). Ver §3.2.
+- Punteros (`ptr T`, `ptr void`), `$x` dirección, `@p` desreferencia, el literal `NULL`, `sizeof`, aritmética y comparación de punteros y casts solo entre punteros. Ver §3.
+- Literales string, de tipo `string`, que se comportan como `ptr i8` donde se espera uno. Ver §2.5.
 - Funciones solo a nivel top-level, con parámetros por valor.
 - Scopes de bloque con shadowing entre scopes.
 - Entry point: `fn main() : i64`.
@@ -46,7 +48,10 @@ Keywords (una palabra clave nunca puede usarse como identificador):
 fn  if    for    i8   u8   i16  u16  i32  u32
 i64  u64   var   char  elif  else  void
 while  return  as  enum  type  newtype
+ptr  NULL  sizeof
 ```
+
+`ptr`, `NULL` y `sizeof` son keywords (no identificadores). `@` y `$` son operadores unarios, no palabras clave.
 
 ### 2.3 Literales enteros
 
@@ -66,7 +71,9 @@ while  return  as  enum  type  newtype
 
 - `"..."` con los mismos escapes que char, más `\<newline>` como continuación de línea.
 - Un string no puede contener un newline real sin escapar.
-- Se lexan y parsean, pero el type checker los rechaza: su semántica se define cuando existan los punteros.
+- Un literal string tiene tipo `string` (`TYPE_STR`) y **adopta `ptr i8`** en cualquier contexto que lo pida: `var p : ptr i8 = "abc";`, `f("abc")` con `f(p : ptr i8)`, `return "abc";` desde una función `ptr i8`. `sizeof("abc")` vale `4` (los bytes más el terminador nulo) y el literal vive en memoria estática de solo lectura.
+- Un literal string **no** es un valor de verdad: `if ("abc")`, `!"abc"`, `"abc" && x` son error. Un puntero (`ptr T`) y `NULL` sí lo son.
+- En aritmética y comparaciones se comporta como `ptr i8` (es un puntero más): `"abc" + 1` es `ptr i8` y `p == "abc"` vale con `p : ptr i8`. Restar dos literales string (`"abc" - "ab"`) es válido — da la distancia en bytes — pero advierte (`subtracting two string literals is probably a mistake`). No hay concatenación de strings.
 
 ---
 
@@ -85,6 +92,10 @@ while  return  as  enum  type  newtype
 | `enum E : B` | = `B` | Tipo nominal entero; se representa como su tipo subyacente `B` (por defecto `u32`). |
 | `type X = T` | = `T` | Alias transparente: `X` **es** `T` (se canonicaliza y no llega a sema/IR/codegen). |
 | `newtype X = T` | = `T` | Tipo nominal distinto con la misma representación física que `T`. |
+| `ptr T` | 8 bytes | Puntero a `T`. |
+| `ptr void` | 8 bytes | Puntero sin tipo apuntado (acepta cualquier `ptr T` con `as`; sin aritmética ni desreferencia). |
+| `nil` (`NULL`) | 8 bytes | Tipo propio del único valor `NULL`. Se convierte en silencio a cualquier `ptr T`. |
+| `string` (`"..."`) | 8 bytes | Tipo propio del literal string. Se convierte en silencio a `ptr i8`. |
 | `void` | — | Solo como tipo de retorno de función. |
 
 `char` es un alias de `i8` aceptado solo donde se escribe un tipo (`var x : char`, `fn f(a : char) : char`, `x as char`). No existe como tipo propio: en `--dump-ast`, `--dump-symbols`, `--dump-ir` y en todos los mensajes aparece `i8`.
@@ -104,8 +115,20 @@ Reglas de tipos (estrictas; el único implícito es el que no puede perder valor
 - Comparaciones (`< > <= >= == !=`): ambos operandos del **mismo tipo** (un literal flexible adopta el del otro: `c > 5` con `c : char` compara en `i8`); dos variables de tipos distintos son error. Dos valores del mismo enum sí se comparan (resultado `i64`). Nunca `void`. Resultado siempre `i64` (0 o 1).
 - Lógicos binarios (`&&` `||`): aceptan operandos de **cualquier tipo no-`void` sin conversión**; resultado siempre `i64`.
 - `-` y `~` unarios: preservan el tipo del operando. Negar una variable sin signo compila pero emite un **warning** (`negating an unsigned value; the result wraps`); negar un literal es silencioso (se pliega al valor exacto, también a través de un cast). `!` unario: acepta cualquier tipo no-`void`, resultado `i64`.
-- **Cast explícito `expr as type`** (`type` = cualquier numérico, incluido `char` como alias de `i8`, un alias de tipo, un enum o un newtype): acepta cualquier operando no-`void` (incluido el resultado de otro cast) y devuelve exactamente el tipo escrito. Reinterpreta/trunca bits en silencio. Con enums, el cast explícito está permitido entre un enum y cualquier entero (incluido su subyacente), pero no entre dos enums distintos (ver §3.1). Con newtypes, el cast explícito está permitido entre un newtype y cualquier entero o enum, pero no entre dos newtypes distintos (ver §3.2). `as void` no existe (error de parser: `expected type`). Castear un `void` (p. ej. `f() as i64` con `f : void`) es error de sema (`cannot cast a value of type void`). Castear un operando con error (no declarado, string, etc.) no añade un segundo error: el cast propaga `error`.
+- **Cast explícito `expr as type`** (`type` = cualquier numérico, incluido `char` como alias de `i8`, un alias de tipo, un enum o un newtype): acepta cualquier operando no-`void` (incluido el resultado de otro cast) y devuelve exactamente el tipo escrito. Reinterpreta/trunca bits en silencio. Con enums, el cast explícito está permitido entre un enum y cualquier entero (incluido su subyacente), pero no entre dos enums distintos (ver §3.1). Con newtypes, el cast explícito está permitido entre un newtype y cualquier entero o enum, pero no entre dos newtypes distintos (ver §3.2). `as void` no existe (error de parser: `expected type`). Castear un `void` (p. ej. `f() as i64` con `f : void`) es error de sema (`cannot cast a value of type void`). Castear un operando con error (no declarado, string, etc.) no añade un segundo error: el cast propaga `error`. Un cast que involucre un puntero solo vale entre punteros (`p as ptr i64`, `p as ptr void`): ver el bloque **Punteros** más abajo.
 - `void` no puede aparecer en expresiones (ni en condiciones, ni como operando, ni como init, ni como origen/destino de cast).
+
+**Punteros.** `ptr T` con `T` = cualquier tipo entero, `enum`, `newtype`, alias de esos, `void` o **otro puntero** (`ptr ptr i64`): la base se resuelve recursivamente (los alias se canonicalizan primero, así que `type P = ptr i64; var q : ptr P;` es `ptr ptr i64`) y `ptr` es idempotente sobre el mismo `T`. Un `ptr` de un tipo no resoluble o no válido es error (`invalid pointer base type 'X'`).
+
+- **`$x` (dirección de)**: sobre una variable (`^NODE_ID`) — local, global o parámetro — o sobre una desreferencia (`$@p`, que devuelve el propio `p`). Da `ptr T` con el tipo del operando. `$f` (función) es error (`'f' is a function, not a variable`) y cualquier otro operando también (`operand of '$' must be a variable or a dereference`).
+- **`@p` (desreferencia)**: `p` debe ser `ptr T`; da un *lvalue* de tipo `T`, así que vale como valor y como destino de asignación/`++`/`--`/compuesto (`@p = 7;`, `@p++;`, `@p += 1;`). `@pv` con `p : ptr void` es error (`cannot dereference a value of type ptr void`); `@x` con `x` no puntero, error. Desreferenciar un puntero sin asignar emite el warning normal de "usado sin asignar".
+- **`NULL`**: es el único valor de tipo `nil`. Se convierte **en silencio a cualquier `ptr T`** (init, asignación, argumento, `return`) y se compara con cualquier puntero. No es un entero: `p == 0`, `p + 1` con `0`, `NULL as i64` y `5 as ptr i64` son error.
+- **Aritmética**: `p + n` y `p - n` (con `n` de cualquier tipo entero, que se finaliza a su tipo por defecto) dan `ptr T`; `n + p` también. `p - q` con **el mismo** tipo puntero da `i64`: la distancia en **bytes** (no en elementos). Tipos distintos son error (`pointer type mismatch`) y `ptr void` no admite ninguna aritmética (`pointer arithmetic on 'ptr void' is not allowed`). El **escalado** (`p + 1` avanza `sizeof(T)` bytes) y la distancia en bytes de `p - q` los aplica la IR; el sema solo tipa.
+- **Comparaciones**: `==`/`!=`/`<`/`>`/`<=`/`>=` entre **el mismo** tipo puntero, o contra `NULL`. Resultado `i64`. Un literal string cuenta como `ptr i8`, así que `p == "abc"` vale con `p : ptr i8`.
+- **Casts**: `expr as type` solo está permitido **entre punteros** (`p as ptr i64`, `p as ptr void`); `5 as ptr i64` y `p as i64` son error (`cannot cast between pointer and non-pointer types; only pointer-to-pointer casts are supported`). Un literal flexible **nunca** adopta un tipo puntero: `var p : ptr i32 = 7;` es error y hay que escribir `7 as ptr i32`.
+- **Valores de verdad**: un puntero y `NULL` valen como condición y con `!`, `&&`, `||` (`NULL` es falso y advierte `condition is always false`). Un literal string **no** (`!"abc"`, `if ("abc")` son error). `-` y `~` sobre un puntero son error.
+- **`sizeof`**: ver §5.
+- **Globales puntero**: por ahora su inicializador debe ser `NULL` (o un cast de `NULL`); cualquier otra cosa es error (`global pointer initializers only support NULL for now`).
 
 ### 3.1 Enums
 
@@ -190,8 +213,8 @@ De mayor a menor precedencia. Todos los binarios son asociativos por la izquierd
 
 | Prec | Operadores | Resultado |
 |------|-----------|-----------|
-| unario | `-` `!` `~` (prefijo) | `-`/`~` preservan tipo, `!` → `i64` |
-| cast | `expr as type` (postfijo, asociativo por la izquierda) | el `type` escrito (cualquier numérico) |
+| unario | `-` `!` `~` `@` `$` (prefijo), `sizeof` | `-`/`~` preservan tipo, `!` → `i64`, `@e` → tipo apuntado, `$e` → `ptr T`, `sizeof` → literal flexible (`i64`) |
+| cast | `expr as type` (postfijo, asociativo por la izquierda) | el `type` escrito (cualquier numérico, o un puntero si el operando ya es `ptr`) |
 | 11 | `*` `/` `%` | tipo de los operandos |
 | 10 | `+` `-` | tipo de los operandos |
 | 9 | `>>` `<<` | tipo del operando izquierdo |
@@ -206,10 +229,12 @@ De mayor a menor precedencia. Todos los binarios son asociativos por la izquierd
 
 Los compuestos (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`) son tokens propios, no `+` seguido de `=`; `<<=`/`>>=` son tokens de tres caracteres. `x OP= e` es exactamente `x = x OP e` (misma precedencia de asignación y misma asociatividad por la derecha).
 
-El unario tiene la precedencia más alta y se aplica sobre un primario: `-x + y` es `(-x) + y`. `- -x` está permitido.
+El unario tiene la precedencia más alta y su operando es otro unario: `-x + y` es `(-x) + y`, y `- -x` / `@$x` están permitidos.
+`sizeof` va a la misma altura que el unario, pero su operando no es una expresión cualquiera: admite un tipo o una expresión "cerrada" (una variable, una desreferencia `@p` o un literal string), así que `sizeof(i64)`, `sizeof(x)`, `sizeof(@p)` y `sizeof("abc")` valen y `sizeof($x)` o `sizeof(1 + 2)` son error.
 El cast está justo debajo del unario y por encima de todos los binarios (como en Rust: `unary > as > *`):
 `-x as i64` es `(-x) as i64`, `1 as i64 + 2` es `(1 as i64) + 2`, `1 + 2 as u64` es `1 + (2 as u64)`.
 Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los paréntesis fuerzan otro agrupamiento: `(1 + 2) as i64`.
+Con punteros: `@p + 1` es `(@p) + 1` (suma al *valor* apuntado, no al puntero) y `$x as ptr i64` es `($x) as ptr i64`.
 
 ---
 
@@ -220,7 +245,11 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 - **Cast `expr as type`** (cualquier tipo numérico, `char` = `i8`): conversión explícita que acepta cualquier operando no-`void` y devuelve exactamente el tipo escrito. Todas las combinaciones están permitidas (incluido el cast identidad `x as i64` con `x : i64`). Entre 64 bits (`i64<->u64`) es reinterpretación de bits (wrap/módulo 2^64); hacia un tipo narrow es truncado al ancho; hacia 64 bits desde un narrow es extensión con el signo del origen (`i8`→`i64` extiende con signo, `u8`→`u64` con ceros). El cast no es asignable: `(x as i64) = 1` es error (`left side of '=' must be a variable`). Como cualquier expresión, puede aparecer en inits, args, `return` y condiciones.
 - **Asignación `=`**: es una expresión. El lado izquierdo debe ser una variable; el derecho debe ser del mismo tipo o ensanchar a él en silencio (ver punto 3; si no, error `cannot assign X to a variable of type Y; use an explicit cast with 'as'`, reportado en el `=`). Devuelve **el valor asignado**, por lo que puede encadenarse (`x = y = 1`) y usarse como expresión, incluso como condición.
 - **Asignación compuesta `x OP= e`** (`+= -= *= /= %= &= |= ^= <<= >>=`): es una expresión que lee `x` una sola vez, calcula `x OP e` y guarda el resultado en `x`, devolviéndolo; puede encadenarse (`a += b += 1` es `a += (b += 1)`). El LHS debe ser una variable (si no, error `left side of compound assignment must be a variable`, reportado en el operador). Para `+= -= *= /= %= &= |= ^=`, el RHS se adapta al tipo del LHS con las reglas de asignación (mismo tipo, literal flexible o ensanche implícito); si no, error `cannot assign X to a variable of type Y; use an explicit cast with 'as'` en el operador, igual que `x = x OP e`. `<<=` y `>>=` siguen las reglas del desplazamiento binario: el RHS puede ser cualquier numérico y el resultado tiene el tipo del LHS. `x /= 0` y `x %= 0` reportan `division by zero` en el `0`.
-- **`&&` y `||`**: short-circuit. Si el resultado queda decidido por el operando izquierdo, el derecho no se evalúa. Un operando constante emite un **warning** (`constant operand of '&&' is always true/false`), también a través de un cast (`(1 as i64) && x` advierte).
+- **`&&` y `||`**: short-circuit. Si el resultado queda decidido por el operando izquierdo, el derecho no se evalúa. Un operando constante emite un **warning** (`constant operand of '&&' is always true/false`), también a través de un cast (`(1 as i64) && x` advierte). Un puntero y `NULL` son operandos válidos (y `NULL` advierte); un literal string no.
+- **`$x` (dirección de)**: `NODE_ADDR`, unario, sobre una variable o una desreferencia (`$@p` da el propio `p`). Da `ptr T` con el tipo del operando.
+- **`@p` (desreferencia)**: `NODE_DEREF`, unario, sobre un `ptr T` no-`void`. Es un **lvalue**: vale como valor (`var y : i64 = @p;`) y como destino (`@p = 1;`, `@p++;`, `@p += 2;`). `@` y `$` son prefijos de la máxima precedencia, así que `@p + 1` es `(@p) + 1` (y `$x as ptr i64` es `($x) as ptr i64`).
+- **`sizeof`**: acepta un **tipo** (`sizeof(i64)`, `sizeof(ptr i32)`, `sizeof(MiEnum)`, `sizeof(Alias)`) o una **expresión** que sea una variable, una desreferencia o un literal string (`sizeof(x)`, `sizeof(@p)`, `sizeof("abc")`). Cualquier otra cosa (`sizeof(f())`, `sizeof(1 + 2)`, `sizeof(sizeof(x))`) es error (`operand of sizeof must be a variable, dereference, string literal or type`), igual que `sizeof(void)`. El resultado es una constante plegada en compilación y **flexible como cualquier literal**: adopta el tipo que pida el contexto si cabe (`var t : i64 = sizeof(i32)`, `var u : u64 = sizeof(i32)`, `var a : i8 = 1 + sizeof(i8)`), así que no hay que castear. Un literal string mide sus bytes más el terminador (`sizeof("abc")` = 4).
+- **Aritmética y comparación de punteros**: ver §3 (bloque "Punteros"). `p + n`/`p - n` dan `ptr T`, `p - q` da la distancia en bytes (`i64`) y las comparaciones solo valen entre punteros del mismo tipo o contra `NULL`. Los literales string entran aquí como `ptr i8`; restar dos literales string advierte.
 
 ---
 
@@ -276,6 +305,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 - Solo se siguen **referencias directas** a globals en los inits. Los ciclos a través de llamadas a funciones dentro de inits no se detectan.
 - Las referencias a través de casts cuentan igual que las directas: `var y : u64 = x as u64;` fuerza el init de `x` antes que el de `y`, y `var x : i64 = y as i64; var y : i64 = x as i64;` es circular. Lo mismo para escrituras (`var y : i64 = (x = 1 as i64);` cuenta como referencia a `x`).
 - Los inits pueden llamar funciones; esas llamadas se ejecutan en orden fuente durante el arranque.
+- El init de una global de tipo puntero debe ser, por ahora, `NULL` (o un cast de `NULL`): `var p : ptr i64 = q;` es error (`global pointer initializers only support NULL for now`).
 
 ---
 
@@ -283,6 +313,7 @@ Se encadena por la izquierda: `x as i64 as u64` es `(x as i64) as u64`. Los par�
 
 - Toda condición (`if`, `elif`, `while`, `for`) es una expresión de tipo no-`void` (un cast vale como condición: `if (x as i64)` es válido si `x` no es `void`).
 - Cualquier valor **distinto de cero es verdadero**; cero es falso.
+- Un **puntero** (y `NULL`) es una condición válida: `if (p)` es falso si `p` es `NULL`. `NULL` es una constante, así que advierte (`condition is always false`). Un **literal string** no es una condición válida (`expression with resulting type string is not valid as a condition`).
 - La cond vacía de `for` cuenta como verdadera.
 - Una condición constante (literal o expresión plegada a literal, también tras un cast: `if (1)`, `if (0)`, `if (1 == 1)`, `while (0)`) emite un **warning** (`condition is always true` / `condition is always false`). La cond vacía de `for` no advierte.
 
@@ -306,6 +337,7 @@ No se añade ninguna lógica para evitarlo; el resultado es lo que haga el hardw
 - División o módulo por cero en runtime (divisor no conocido en compilación): fault del hardware (`SIGFPE`). Un divisor cero conocido en compilación (literal, plegado o tras un cast) es error de compilación.
 - División o módulo con el mínimo negativo de un narrow (`INT8_MIN / -1`, `INT16_MIN / -1` y análogos): fault del hardware (`#DE`), porque la división corre al ancho nativo del tipo. También cuando es constante: sema no la pliega (a diferencia de otras constantes, que sí se pliegan), así que el fault es el mismo que en runtime.
 - Leer una local sin asignar: valor indefinido. El compilador no garantiza ninguna invariancia para esas lecturas: el valor puede diferir entre niveles de optimización (p. ej. una constante condicional que antes se materializaba en todo uso ya no lo hace).
+- **Desreferenciar un puntero inválido** (`NULL`, uno sin inicializar, o uno que apunte a memoria que el programa no posee): no se comprueba nada, es responsabilidad del programador. La aritmética de punteros tampoco se valida contra ningún límite.
 
 El **wrap** aritmético NO es indefinido: está definido como complemento a 2 (y módulo 2^64 para `u64`). Tampoco lo son los shifts con cuenta menor que 64: se calculan a 64 bits sobre el valor extendido y el resultado se trunca al tipo del operando izquierdo (p. ej. `u8 << 9` vale 0 y `i8 >> 9` rellena con el signo).
 
@@ -355,7 +387,8 @@ fn_decl        = "fn" IDENT "(" [ params ] ")" [ ":" ret_type ] block ;
 params         = param { "," param } ;
 param          = IDENT ":" type ;
 ret_type       = "void" | type ;
-type           = "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "char" | IDENT ;
+type           = "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "char"
+               | "ptr" type | IDENT ;
 enum_decl      = "enum" IDENT [ ":" type ] "{" enum_val { "," enum_val } [ "," ] "}" [ ";" ] ;
 enum_val       = IDENT [ "=" expr ] ;
 type_decl      = "type" IDENT "=" type ";" ;
@@ -365,7 +398,8 @@ statement      = var_decl | block | if_stmt | while_stmt | for_stmt
                | "return" [ expr ] ";"
                | inc_dec_stmt
                | expr ";" ;
-inc_dec_stmt   = IDENT ( "++" | "--" ) ";" ;
+inc_dec_stmt   = inc_dec_target ( "++" | "--" ) ";" ;
+inc_dec_target = IDENT | "@" unary ;
 var_decl       = "var" IDENT ":" type [ "=" expr ] ";" ;
 if_stmt        = "if" "(" expr ")" statement
                  { "elif" "(" expr ")" statement }
@@ -374,7 +408,7 @@ while_stmt     = "while" "(" expr ")" statement ;
 for_stmt       = "for" "(" for_init for_cond for_updt ")" statement ;
 for_init       = var_decl | [ expr ] ";" ;
 for_cond       = [ expr ] ";" ;
-for_updt       = [ expr | IDENT ( "++" | "--" ) ] ;
+for_updt       = [ expr | inc_dec_target ( "++" | "--" ) ] ;
 expr           = assignment ;
 assignment     = logic_or [ ( "=" | "+=" | "-=" | "*=" | "/=" | "%="
                             | "&=" | "|=" | "^=" | "<<=" | ">>=" ) assignment ] ;
@@ -389,15 +423,18 @@ shift          = additive { ( "<<" | ">>" ) additive } ;
 additive       = multiplicative { ( "+" | "-" ) multiplicative } ;
 multiplicative = cast { ( "*" | "/" | "%" ) cast } ;
 cast           = unary { "as" type } ;
-unary          = ( "-" | "!" | "~" ) unary | primary ;
-primary        = INT_LIT | CHAR_LIT | STRING_LIT
+unary          = ( "-" | "!" | "~" | "@" | "$" ) unary
+               | "sizeof" "(" ( type | sizeof_arg ) ")"
+               | primary ;
+sizeof_arg     = IDENT | "@" unary | STRING_LIT ;
+primary        = INT_LIT | CHAR_LIT | STRING_LIT | "NULL"
                | IDENT | IDENT "(" [ args ] ")"
                | IDENT "." IDENT
                | "(" expr ")" ;
 args           = expr { "," expr } ;
 ```
 
-Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se definen en la sección 2. `char` es alias de `i8` en cualquier posición de `type`. Por leniencia el parser acepta una coma final en parámetros (`fn f(a : i64,)`) y argumentos (`f(a,)`), aunque la EBNF no la muestra. El cast es postfijo y asociativo por la izquierda (`x as i64 as u64` = `(x as i64) as u64`); el tipo tras `as` nunca puede ser `void`. En `type`, un `IDENT` se resuelve contra los enums y las declaraciones `type`/`newtype` (también las declaradas más tarde); un nombre no declarado es `unknown type 'Foo'`. `enum_decl` exige al menos una variante (el parser acepta `{}` para que sema emita `enum 'E' must have at least one variant`); la coma final y el `;` tras `}` son opcionales. El valor de una variante debe ser un literal, `-literal`, `~literal` o un cast de esas formas; sema rechaza cualquier otra expresión. En `IDENT "." IDENT`, el identificador izquierdo debe ser un enum o un tipo cuyo tipo representado sea un enum (alias o newtype); el valor resultante tiene el tipo nominal escrito.
+Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se definen en la sección 2. `char` es alias de `i8` en cualquier posición de `type`. Por leniencia el parser acepta una coma final en parámetros (`fn f(a : i64,)`) y argumentos (`f(a,)`), aunque la EBNF no la muestra. El cast es postfijo y asociativo por la izquierda (`x as i64 as u64` = `(x as i64) as u64`); el tipo tras `as` nunca puede ser `void`. En `type`, un `IDENT` se resuelve contra los enums y las declaraciones `type`/`newtype` (también las declaradas más tarde); un nombre no declarado es `unknown type 'Foo'`. `enum_decl` exige al menos una variante (el parser acepta `{}` para que sema emita `enum 'E' must have at least one variant`); la coma final y el `;` tras `}` son opcionales. El valor de una variante debe ser un literal, `-literal`, `~literal` o un cast de esas formas; sema rechaza cualquier otra expresión. En `IDENT "." IDENT`, el identificador izquierdo debe ser un enum o un tipo cuyo tipo representado sea un enum (alias o newtype); el valor resultante tiene el tipo nominal escrito. `@` y `$` son operadores prefijos del nivel `unary`, así que `@p + 1` es `(@p) + 1`; `sizeof` también es prefijo y su operando está restringido a `type`, `IDENT`, `@` sobre una expresión unaria o un literal string (cualquier otra cosa es `operand of sizeof must be a variable, dereference, string literal or type`). La recursión de `ptr` en `type` también está limitada por la profundidad del parser (`type nested too deeply`). El objetivo de `++`/`--` puede ser una variable o una desreferencia (`@p++`), nunca una dirección (`$x++`) ni un lvalue calculado.
 
 ---
 
@@ -422,7 +459,7 @@ make
 | `-v` / `--version` | Muestra la versión |
 | `-h` / `--help` | Muestra la ayuda |
 
-Nota: sin flags de dump, `r2p` compila y escribe el assembly a `<fuente>.s` (o a la ruta de `-o`; `-` es stdout). `-a arm`, `-a riscv` y `-e` abortan en codegen con `Error: <backend> backend is not implemented` (`ARM`, `RISC-V` o `interpreter`). Los modos de dump no pasan por codegen, así que pueden inspeccionar un programa aunque la arquitectura elegida no tenga backend. Si se pasan varios ficheros, solo se compila el primero y se avisa por stderr.
+Nota: sin flags de dump, `r2p` compila y escribe el assembly a `<fuente>.s` (o a la ruta de `-o`; `-` es stdout). `-a arm`, `-a riscv` y `-e` abortan en codegen con `Error: <backend> backend is not implemented` (`ARM`, `RISC-V` o `interpreter`). Los modos de dump no pasan por codegen, así que pueden inspeccionar un programa aunque la arquitectura elegida no tenga backend. Los punteros están completos en el frontend pero **no en el backend**: un programa que desreferencie (`@p`) o tome una dirección (`$x`) se analiza sin problemas (`--dump-tokens`/`--dump-ast`/`--dump-symbols`) pero aborta al generar la IR (`assert(node_to_ir[n->type] != IR_NOP)` en `src/ir/ir.c`). Si se pasan varios ficheros, solo se compila el primero y se avisa por stderr.
 
 Para ejecutar un programa:
 

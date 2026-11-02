@@ -1,0 +1,8 @@
+fn main [1:4] depth=0 type=i64
+var p [2:9] depth=1 type=ptr i8
+var q [3:9] depth=1 type=ptr i8
+var r [4:9] depth=1 type=i64
+var d [5:9] depth=1 type=i64
+var e [6:9] depth=1 type=i64
+var f [7:9] depth=1 type=i64
+var g [8:9] depth=1 type=i64

@@ -223,7 +223,8 @@ void check_var_init_type (Sema *s, ASTNode *n, TypeId init_type)
 
 	error_report(s->err, ERR_ERROR, node_loc(n),
 			"can't initialize '%.*s' (%s) with a value of type %s; %s",
-			(int)n->len, n->str, types[n->data_type].name, types[init_type].name, hint);
+			(int)n->len, n->str, types[n->data_type].name,
+			type_display_name(init_type), hint);
 }
 
 static void record_init_order (Sema *s, uint32_t idx)

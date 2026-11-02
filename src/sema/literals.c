@@ -299,7 +299,7 @@ static int flex_literal (Sema *s, uint32_t idx, LitVal *v)
 	return 1;
 }
 
-static const char *type_display_name (TypeId type)
+const char *type_display_name (TypeId type)
 {
 	switch (type)
 	{

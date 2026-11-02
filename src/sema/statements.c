@@ -121,6 +121,7 @@ static int const_cond_value (Sema *s, uint32_t idx)
 	case NODE_LIT_i64: return n->i64 != 0 ? 1 : 0;
 	case NODE_LIT_u64: return n->u64 != 0 ? 1 : 0;
 	case NODE_LIT_CHAR: return n->chr != 0 ? 1 : 0;
+	case NODE_LIT_NULL: return 0;
 	default: return -1;
 	}
 }
@@ -129,8 +130,7 @@ static int check_cond (Sema *s, uint32_t cond, int alw_err)
 {
 	TypeId type = check_expr(s, cond);
 
-	if ((type == TYPE_VOID && s->ast->nodes[cond].type != NODE_EMPTY)
-			|| type == TYPE_NULL || type == TYPE_STR)
+	if ((type == TYPE_VOID && s->ast->nodes[cond].type != NODE_EMPTY) || type == TYPE_STR)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
 				"expression with resulting type %s is not valid as a condition",
 				types[type].name);
@@ -292,7 +292,7 @@ static void check_return (Sema *s, uint32_t idx)
 
 	error_report(s->err, ERR_ERROR, node_loc(n),
 			"cannot return %s from a function returning %s; %s",
-			types[val_type].name, types[s->curr_ret].name, hint);
+			type_display_name(val_type), types[s->curr_ret].name, hint);
 }
 
 static int block_returns (Sema *s, uint32_t idx)

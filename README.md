@@ -13,19 +13,25 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **195 dump fixtures** pass (`make test`): 42 lexer, 48 parser, 58 sema,
-  28 IR and 19 optimizer tests.
-- **71 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+- **230 dump fixtures** pass (`make test`): 45 lexer, 53 parser, 80 sema,
+  31 IR and 21 optimizer tests.
+- **78 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
   “backend is not implemented”.
-- The language currently has integers, functions, locals, globals, blocks,
-  `if`/`elif`/`else`, `while`, `for`, `return`, casts, short-circuit logic,
+- The language currently has integers, `enum`/`type`/`newtype` declarations,
+  functions, locals, globals, blocks, `if`/`elif`/`else`, `while`, `for`,
+  `return`, casts, short-circuit logic,
   the full integer/bitwise operator set, compound assignment (`+=`, `-=`, …)
   and postfix statement-only `++`/`--` (also in the `for` update).
-- Pointers, arrays, strings, structs, enums, modules/imports, classes and
-  floating point are **not implemented yet**. See [Roadmap](#roadmap).
+- **Pointer** support is complete in the frontend: `ptr T` types, `@` deref and
+  `$` address-of, `NULL`, `sizeof`, C-like pointer arithmetic and comparison,
+  explicit pointer casts and string literals (`TYPE_STR`, adopting `ptr i8`).
+  The backend does not lower pointers yet, so a program that dereferences or
+  takes the address of a variable still aborts during IR generation.
+- Arrays/slices, structs, modules/imports, classes and floating point are
+  **not implemented yet**.
 
 ---
 
@@ -37,6 +43,10 @@ tested:
 - Full statement set: `var` declarations, blocks, `if`/`elif`/`else`, `while`,
   `for` and `return`, plus top-level functions with parameters by value,
   recursion and forward references.
+- Pointers: `ptr T` and `ptr void` types, `@` dereference, `$` address-of,
+  the `NULL` literal, `sizeof`, C-like pointer arithmetic and comparison, and
+  explicit pointer-to-pointer casts.
+- String literals, typed as `string` and usable wherever `ptr i8` is expected.
 - Top-level globals with well-defined initialization order; cyclic initializers
   are diagnosed.
 - Short-circuit `&&` and `||`.

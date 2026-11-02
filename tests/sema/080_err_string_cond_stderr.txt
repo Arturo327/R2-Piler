@@ -1,0 +1,15 @@
+tests/sema/080_err_string_cond_src.r2:2:9: ERROR: expression with resulting type string is not valid as a condition
+      2 |     if ("abc") return 1;
+        |         ^~~
+tests/sema/080_err_string_cond_src.r2:3:9: ERROR: operator cannot be applied to a value of type string
+      3 |     if (!"abc") return 2;
+        |         ^
+tests/sema/080_err_string_cond_src.r2:4:15: ERROR: operator cannot be applied to a value of type string
+      4 |     if ("abc" && 1) return 3;
+        |               ^~
+tests/sema/080_err_string_cond_src.r2:5:11: ERROR: operator cannot be applied to a value of type string
+      5 |     if (1 || "abc") return 4;
+        |           ^~
+tests/sema/080_err_string_cond_src.r2:6:12: ERROR: operator cannot be applied to a value of type string
+      6 |     return -"abc";
+        |            ^

@@ -91,12 +91,12 @@ static void syncro (Parser *p, Token start)
 	if (same_token_pos(p->curr, start)) advance(p);
 }
 
-static int enter_depth (Parser *p)
+static int enter_depth (Parser *p, const char *what)
 {
 	if (p->depth >= MAX_PARSE_DEPTH) {
 		if (!p->panic_mode) {
 			ErrorLoc loc = { p->curr.line, p->curr.col, 1 };
-			error_report(p->err, ERR_ERROR, loc, "expression or statement nested too deeply");
+			error_report(p->err, ERR_ERROR, loc, "%s nested too deeply", what);
 		}
 		p->panic_mode = 1;
 		return 0;
@@ -435,7 +435,7 @@ static uint32_t parse_dot (Parser *p, uint32_t left)
 
 static uint32_t parse_primary (Parser *p)
 {
-	if (!enter_depth(p))
+	if (!enter_depth(p, "expression or statement"))
 		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
 
 	uint32_t node = parse_primary_inner(p);
@@ -449,13 +449,13 @@ static uint32_t parse_expr (Parser *p, int min_prec)
 {
 	uint16_t extra = 0;
 
-	if (!enter_depth(p))
+	if (!enter_depth(p, "expression or statement"))
 		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
 
 	uint32_t left = parse_cast(p);
 	int prec = binop_prec[p->curr.type];
 
-	while (prec > 0 && prec >= min_prec && enter_depth(p)) {
+	while (prec > 0 && prec >= min_prec && enter_depth(p, "expression or statement")) {
 		Token op = p->curr;
 		int compound = is_compound_assign[op.type];
 		int next_min = (op.type == TOK_ASSIGN || compound) ? prec : prec + 1;
@@ -473,7 +473,7 @@ static uint32_t parse_expr (Parser *p, int min_prec)
 	return left;
 }
 
-static TypeId parse_type (Parser *p, int allow_void, uint32_t owner, uint16_t *type_node)
+static TypeId parse_type_inner (Parser *p, int allow_void, uint32_t owner, uint16_t *type_node)
 {
 	TokenType t = p->curr.type;
 	int valid = (t == TOK_i8 || t == TOK_u8 || t == TOK_i16 || t == TOK_u16
@@ -515,12 +515,24 @@ static TypeId parse_type (Parser *p, int allow_void, uint32_t owner, uint16_t *t
 	return TYPE_ERROR;
 }
 
+static TypeId parse_type (Parser *p, int allow_void, uint32_t owner, uint16_t *type_node)
+{
+	if (!enter_depth(p, "type")) {
+		*type_node = NO_TYPE_NODE;
+		return TYPE_ERROR;
+	}
+
+	TypeId id = parse_type_inner(p, allow_void, owner, type_node);
+	p->depth--;
+	return id;
+}
+
 static uint32_t parse_cast (Parser *p)
 {
 	uint32_t node = parse_primary(p);
 	uint16_t extra = 0;
 
-	while (p->curr.type == TOK_AS && enter_depth(p)) {
+	while (p->curr.type == TOK_AS && enter_depth(p, "expression or statement")) {
 		uint16_t line = p->curr.line;
 		uint16_t col = p->curr.col;
 		uint32_t cast;
@@ -934,7 +946,7 @@ static uint32_t parse_statement_inner (Parser *p)
 
 static uint32_t parse_statement (Parser *p)
 {
-	if (!enter_depth(p))
+	if (!enter_depth(p, "expression or statement"))
 		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
 
 	uint32_t node = parse_statement_inner(p);
