@@ -1,0 +1,1 @@
+extern var optind : i32 = 1;

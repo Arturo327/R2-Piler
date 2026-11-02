@@ -101,6 +101,8 @@ void x86_make_call (X86Fn *f, IRInstr *i)
 	CodeGen *c = f->cg;
 
 	if (i->argc == 0) move_call_live(f, i, 0);
+	if (c->ir->fns[i->target].is_extern)
+		cg_printf(c, "\txorl %%eax, %%eax\n");
 	cg_printf(c, "\tcall ");
 	x86_print_fn_name(c, c->ir->fns + i->target);
 	cg_printf(c, "\n");
@@ -144,6 +146,8 @@ int x86_make_tail_call (X86Fn *f, IRInstr *i)
 	} else {
 		x86_move_saved(f, f->ctx.callee_used, 1);
 		if (!f->leaf) cg_printf(c, "\tleave\n");
+		if (c->ir->fns[i->target].is_extern)
+			cg_printf(c, "\txorl %%eax, %%eax\n");
 		cg_printf(c, "\tjmp ");
 		x86_print_fn_name(c, c->ir->fns + i->target);
 		cg_printf(c, "\n");

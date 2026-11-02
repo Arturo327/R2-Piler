@@ -1,0 +1,3 @@
+tests/parser/056_err_extern_keyword_src.r2:1:8: ERROR: expected 'fn' or 'var' after 'extern'
+      1 | extern puts (s : ptr char) : i32;
+        |        ^~~~

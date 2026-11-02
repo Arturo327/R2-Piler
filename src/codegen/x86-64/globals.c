@@ -13,7 +13,7 @@ static void make_global_data (CodeGen *c, uint32_t i)
 	IRGlobal *g = c->ir->globals + i;
 	uint8_t size = types[g->type].size;
 
-	cg_printf(c, "\t.balign %u\n" SYM_PREFIX "%.*s:\t", size, (int)g->len, g->name);
+	cg_printf(c, "\t.balign %u\n%s%.*s:\t", size, GLOBAL_PREFIX(g), (int)g->len, g->name);
 	if (g->init_kind == IR_INIT_STR) {
 		cg_printf(c, ".quad .LC%u\n", g->init_ref);
 		return;
@@ -21,7 +21,7 @@ static void make_global_data (CodeGen *c, uint32_t i)
 	if (g->init_kind == IR_INIT_ADDR) {
 		IRGlobal *ref = c->ir->globals + g->init_ref;
 
-		cg_printf(c, ".quad " SYM_PREFIX "%.*s\n", (int)ref->len, ref->name);
+		cg_printf(c, ".quad %s%.*s\n", GLOBAL_PREFIX(ref), (int)ref->len, ref->name);
 		return;
 	}
 	cg_printf(c, "%s ", asm_size_name[size]);
@@ -34,7 +34,7 @@ static void make_global_bss (CodeGen *c, uint32_t i)
 {
 	IRGlobal *g = c->ir->globals + i;
 	uint8_t size = types[g->type].size;
-	cg_printf(c, "\t.balign %u\n" SYM_PREFIX "%.*s:\t", size, (int)g->len, g->name);
+	cg_printf(c, "\t.balign %u\n%s%.*s:\t", size, GLOBAL_PREFIX(g), (int)g->len, g->name);
 	cg_printf(c, ".zero %u\n", size);
 }
 
@@ -44,7 +44,7 @@ void x86_make_globals (CodeGen *c)
 	int printed = 0;
 
 	for (uint32_t i = 0; i < ir->global_count; i++) {
-		if (!ir->globals[i].has_init) continue;
+		if (ir->globals[i].is_extern || !ir->globals[i].has_init) continue;
 		if (!printed) {
 			printed = 1;
 			cg_printf(c, "\t.section .data\n");
@@ -53,7 +53,7 @@ void x86_make_globals (CodeGen *c)
 	}
 	printed = 0;
 	for (uint32_t i = 0; i < ir->global_count; i++) {
-		if (ir->globals[i].has_init) continue;
+		if (ir->globals[i].is_extern || ir->globals[i].has_init) continue;
 		if (!printed) {
 			printed = 1;
 			cg_printf(c, "\t.section .bss\n");
@@ -71,8 +71,8 @@ void x86_make_ld_global (X86Fn *f, IRInstr *i)
 	uint8_t size;
 	const char *op = x86_load_op(g->type, &size);
 
-	cg_printf(c, "\t%s " SYM_PREFIX "%.*s(%%rip), %s\n", op,
-			(int)g->len, g->name, reg_name(w, size));
+	cg_printf(c, "\t%s %s%.*s(%%rip), %s\n", op,
+			GLOBAL_PREFIX(g), (int)g->len, g->name, reg_name(w, size));
 	if (p < 0) x86_store_reg(f, w, i->dst);
 }
 
@@ -90,23 +90,23 @@ void x86_make_str_global (X86Fn *f, IRInstr *i)
 			uint8_t w = x86_grab(f);
 			cg_printf(c, "\tmovabsq $0x%llx, %s\n",
 					(unsigned long long)v, reg_name(w, 8));
-			cg_printf(c, "\tmovq %s, " SYM_PREFIX "%.*s(%%rip)\n",
-					reg_name(w, 8), (int)g->len, g->name);
+			cg_printf(c, "\tmovq %s, %s%.*s(%%rip)\n",
+					reg_name(w, 8), GLOBAL_PREFIX(g), (int)g->len, g->name);
 			return;
 		}
 		if (s == 4) v = (int32_t)v;
 		else if (s == 2) v = (int16_t)v;
 		else if (s == 1) v = (int8_t)v;
-		cg_printf(c, "\tmov%c $%lld, " SYM_PREFIX "%.*s(%%rip)\n", x86_mem_suf[s],
-				(long long)v, (int)g->len, g->name);
+		cg_printf(c, "\tmov%c $%lld, %s%.*s(%%rip)\n", x86_mem_suf[s],
+				(long long)v, GLOBAL_PREFIX(g), (int)g->len, g->name);
 		return;
 	}
 	if (p < 0) {
 		p = x86_grab(f);
 		x86_load_reg(f, (uint8_t)p, i->src1);
 	}
-	cg_printf(c, "\tmov%c %s, " SYM_PREFIX "%.*s(%%rip)\n", x86_mem_suf[s],
-			reg_name(p, s), (int)g->len, g->name);
+	cg_printf(c, "\tmov%c %s, %s%.*s(%%rip)\n", x86_mem_suf[s],
+			reg_name(p, s), GLOBAL_PREFIX(g), (int)g->len, g->name);
 }
 
 uint32_t x86_str_global_scratch (X86Fn *f, IRInstr *i, const int8_t *h)

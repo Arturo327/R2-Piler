@@ -13,9 +13,9 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **235 dump fixtures** pass (`make test`): 45 lexer, 53 parser, 81 sema,
-  34 IR and 22 optimizer tests.
-- **81 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+- **243 dump fixtures** pass (`make test`): 46 lexer, 56 parser, 83 sema,
+  35 IR and 23 optimizer tests.
+- **83 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
@@ -36,8 +36,13 @@ tested:
   address of a global (`$g`) — and at `-O2`/`-O3` they are bound statically
   into `.data` (`.quad .LC0`, `.quad __r2_g`) instead of running in
   `__r2_init`.
-- Arrays/slices, structs, modules/imports, classes, `extern`, `pub`, `static`,
-  optional arguments, multiple returns and floating point are
+- **C interop** through `extern fn` / `extern var` declarations: they have no
+  body or initializer, calls are type-checked like normal functions, and the
+  emitted symbol keeps its plain C name (`call puts`, `optind(%rip)`) with
+  `gcc` resolving it at link time. `%al` is zeroed before every extern call
+  (SysV variadic ABI).
+- Arrays/slices, structs, modules/imports, classes, `pub`, `static`,
+  `export`, optional arguments, multiple returns and floating point are
   **not implemented yet**.
 
 ---

@@ -151,8 +151,9 @@ uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 		.type = data_type
 	};
 
+	ASTNode *decl = s->ast->nodes + decl_node;
 	if (kind == SYMBOL_PARAM || (kind == SYMBOL_VAR
-				&& s->ast->nodes[decl_node].child != NO_NODE))
+				&& (decl->child != NO_NODE || decl->type == NODE_EXTERN_VAR_DEC)))
 		sym.assigned = 1;
 
 	uint32_t sym_idx = symtab_declare(&s->table, s->arena, sym);
@@ -456,9 +457,9 @@ static void check_root (Sema *s)
 		ASTNode *n = s->ast->nodes + idx;
 		if (n->type == NODE_VAR_DEC) check_global_var_init(s, idx);
 		else if (n->type == NODE_FN_DEC) check_fn_dec(s, idx);
-		else if (n->type != NODE_ENUM_DEC
-				&& n->type != NODE_TYPE_DEC
-				&& n->type != NODE_NEWTYPE_DEC)
+		else if (n->type == NODE_EXTERN_FN_DEC) check_extern_fn(s, idx);
+		else if (n->type != NODE_ENUM_DEC && n->type != NODE_TYPE_DEC
+				&& n->type != NODE_NEWTYPE_DEC && n->type != NODE_EXTERN_VAR_DEC)
 			error_report(s->err, ERR_ERROR, node_loc(n),
 					"only variable, function, enum and type declarations are allowed at the top level");
 		idx = n->next_bro;
@@ -472,12 +473,12 @@ static void decl_globals (Sema *s)
 	while (idx != NO_NODE) {
 		ASTNode *n = s->ast->nodes + idx;
 
-		if (n->type == NODE_FN_DEC) {
+		if (n->type == NODE_FN_DEC || n->type == NODE_EXTERN_FN_DEC) {
 			uint32_t ret = s->ast->nodes[n->child].next_bro;
 			resolve_fn_types(s, idx);
 			sema_declare(s, n->str, n->len, SYMBOL_FN,
 					s->ast->nodes[ret].data_type, idx);
-		} else if (n->type == NODE_VAR_DEC) {
+		} else if (n->type == NODE_VAR_DEC || n->type == NODE_EXTERN_VAR_DEC) {
 			resolve_type_node(s, n);
 			if (n->len == 4 && memcmp(n->str, "main", 4) == 0)
 				error_report(s->err, ERR_ERROR, node_loc(n),

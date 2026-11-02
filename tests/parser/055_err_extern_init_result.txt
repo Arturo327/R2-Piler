@@ -1,0 +1,2 @@
+NODE_ROOT [0:0]
+  NODE_EXTERN_VAR_DEC [1:12] name="optind" type=i32

@@ -116,6 +116,7 @@ static void init_opt (Optimizer *opt, IR *ir, Arena *a, OptLevel level)
 static void optimize_all (Optimizer *opt)
 {
 	for (uint32_t i = 0; i < opt->ir->fn_count; i++) {
+		if (opt->ir->fns[i].is_extern) continue;
 		opt->cur.fn = opt->ir->fns + i;
 		optimize_fn(opt, &opt->cur);
 	}

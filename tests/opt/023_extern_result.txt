@@ -1,0 +1,26 @@
+extern global optind : i32
+
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+extern fn puts(1 params, 0 regs) : i32
+
+fn hello(0 params, 2 regs) : i32
+    r0 = str_lit.string .LC0
+    arg r0 #0
+    r1 = call.i32 puts
+    ret.i32 r1
+    ret
+
+fn main(0 params, 9 regs) : i64
+    r0 = call.i32 hello
+    r1 = str_lit.string .LC1
+    arg r1 #0
+    r2 = call.i32 puts
+    r5 = add.i32 r0, r2
+    r6 = ld_global.i32 @optind
+    r7 = add.i32 r5, r6
+    r8 = extend.i64 r7
+    ret.i64 r8
+    ret
+

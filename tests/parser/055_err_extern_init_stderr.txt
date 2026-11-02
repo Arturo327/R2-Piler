@@ -1,0 +1,3 @@
+tests/parser/055_err_extern_init_src.r2:1:25: ERROR: extern variables cannot have an initializer
+      1 | extern var optind : i32 = 1;
+        |                         ^

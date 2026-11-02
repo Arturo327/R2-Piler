@@ -10,6 +10,7 @@
 
 #define SYM_PREFIX "__r2_"
 #define INIT_SYM "__r2.init"
+#define GLOBAL_PREFIX(g) ((g)->is_extern ? "" : SYM_PREFIX)
 
 #define RED_ZONE 128
 #define X86_REG_NUM 14

@@ -1,0 +1,5 @@
+NODE_ROOT [0:0]
+  NODE_EXTERN_FN_DEC [1:8] name="puts"
+    NODE_ARGS_DEC [1:13]
+      NODE_VAR_DEC [1:14] name="s" type=ptr i8
+    NODE_RET_DEC [1:28] type=i32

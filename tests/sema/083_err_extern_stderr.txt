@@ -1,0 +1,15 @@
+tests/sema/083_err_extern_src.r2:2:12: ERROR: 'main' must be a function
+      2 | extern var main : i64;
+        |            ^~~~
+tests/sema/083_err_extern_src.r2:2:12: ERROR: 'main' already declared in this scope
+      2 | extern var main : i64;
+        |            ^~~~
+tests/sema/083_err_extern_src.r2:1:11: ERROR: 'main' cannot be declared extern
+      1 | extern fn main () : i64;
+        |           ^~~~
+tests/sema/083_err_extern_src.r2:5:13: ERROR: extern declarations can only appear at the top level
+      5 |         extern var x : i64;
+        |                    ^
+tests/sema/083_err_extern_src.r2:6:9: ERROR: 'x' is not declared
+      6 |         return x;
+        |                ^

@@ -56,6 +56,7 @@ typedef struct IRFn {
 
 	uint16_t len;
 	TypeId ret_type;
+	uint8_t is_extern;
 } IRFn;
 
 enum {
@@ -72,6 +73,7 @@ typedef struct IRGlobal {
 	uint8_t has_init;
 	uint8_t written;
 	uint8_t init_kind;
+	uint8_t is_extern;
 	uint32_t init_ref;
 } IRGlobal;
 

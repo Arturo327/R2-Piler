@@ -66,7 +66,7 @@ static void syncro_advance (Parser *p)
 
 		case TOK_FN: case TOK_VAR: case TOK_IF:
 		case TOK_WHILE: case TOK_FOR: case TOK_RET:
-		case TOK_RKEY:
+		case TOK_EXTERN: case TOK_RKEY:
 			return;
 
 		default: break;
@@ -700,6 +700,66 @@ static uint32_t parse_fn_decl (Parser *p)
 	return node;
 }
 
+static uint32_t parse_extern_fn (Parser *p)
+{
+	consume(p, TOK_FN, "expected 'fn' or 'var' after 'extern'");
+
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	uint32_t node = new_node(p, NODE_EXTERN_FN_DEC, line, col);
+
+	if (consume(p, TOK_ID, "expected function name")) {
+		p->ast.nodes[node].str = p->prev.str;
+		p->ast.nodes[node].len = p->prev.len;
+	}
+
+	uint32_t args = parse_args_dec(p);
+	uint32_t ret = parse_ret_dec(p);
+	uint32_t last = NO_NODE;
+
+	append_child(p, node, &last, args);
+	append_child(p, node, &last, ret);
+	consume(p, TOK_SEMCOL, "expected ';' after extern declaration");
+	return node;
+}
+
+static uint32_t parse_extern_var (Parser *p)
+{
+	consume(p, TOK_VAR, "expected 'var'");
+
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	uint32_t node = new_node(p, NODE_EXTERN_VAR_DEC, line, col);
+
+	if (consume(p, TOK_ID, "expected variable name")) {
+		p->ast.nodes[node].str = p->prev.str;
+		p->ast.nodes[node].len = p->prev.len;
+	}
+
+	consume(p, TOK_COL, "expected ':', followed by the type");
+	uint16_t type_node;
+	TypeId type = parse_type(p, 0, node, &type_node);
+	p->ast.nodes[node].data_type = type;
+	p->ast.nodes[node].type_node = type_node;
+
+	if (p->curr.type == TOK_ASSIGN) {
+		error_report(p->err, ERR_ERROR, token_loc(p->curr),
+				"extern variables cannot have an initializer");
+		while (p->curr.type != TOK_SEMCOL && p->curr.type != TOK_EOF)
+			advance(p);
+	}
+
+	consume(p, TOK_SEMCOL, "expected ';' at the end of the declaration");
+	return node;
+}
+
+static uint32_t parse_extern_decl (Parser *p)
+{
+	consume(p, TOK_EXTERN, "expected 'extern'");
+	if (p->curr.type == TOK_VAR) return parse_extern_var(p);
+	return parse_extern_fn(p);
+}
+
 static inline uint32_t parse_cond (Parser *p, const char *msg)
 {
 	consume(p, TOK_LPAREN, msg);
@@ -928,6 +988,7 @@ static uint32_t parse_statement_inner (Parser *p)
 	case TOK_VAR: return parse_var_dec(p);
 	case TOK_LKEY: return parse_block(p);
 	case TOK_FN: return parse_fn_decl(p);
+	case TOK_EXTERN: return parse_extern_decl(p);
 	case TOK_ENUM: return parse_enum(p);
 	case TOK_TYPE: return parse_type_dec(p, 0);
 	case TOK_NEWTYPE: return parse_type_dec(p, 1);
@@ -1032,6 +1093,8 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_TYPE_REF] = "NODE_TYPE_REF",
 	[NODE_TYPE_DEC] = "NODE_TYPE_DEC",
 	[NODE_NEWTYPE_DEC] = "NODE_NEWTYPE_DEC",
+	[NODE_EXTERN_FN_DEC] = "NODE_EXTERN_FN_DEC",
+	[NODE_EXTERN_VAR_DEC] = "NODE_EXTERN_VAR_DEC",
 	[NODE_DEREF] = "NODE_DEREF",
 	[NODE_ADDR] = "NODE_ADDR",
 	[NODE_SIZEOF] = "NODE_SIZEOF",
@@ -1067,6 +1130,7 @@ static void dump_node_value (ASTNode *n)
 	case NODE_VAR_DEC: case NODE_FN_DEC: case NODE_FN_CALL:
 	case NODE_ENUM_DEC: case NODE_ENUM_VAL:
 	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
+	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
 		if (n->str) printf(" name=\"%.*s\"", (int)n->len, n->str);
 		break;
 	case NODE_DOT:
@@ -1120,11 +1184,9 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 
 		dump_node_value(n);
 
-		if (n->type == NODE_VAR_DEC || n->type == NODE_RET_DEC
-				|| n->type == NODE_CAST || n->type == NODE_ENUM_DEC
-				|| n->type == NODE_TYPE_DEC
-				|| n->type == NODE_NEWTYPE_DEC
-				|| (n->type == NODE_SIZEOF && n->child == NO_NODE))
+		if (n->type == NODE_VAR_DEC || n->type == NODE_EXTERN_VAR_DEC || n->type == NODE_RET_DEC
+				|| n->type == NODE_CAST || n->type == NODE_ENUM_DEC || n->type == NODE_TYPE_DEC
+				|| n->type == NODE_NEWTYPE_DEC || (n->type == NODE_SIZEOF && n->child == NO_NODE))
 			dump_type(ast, n);
 
 		printf("\n");

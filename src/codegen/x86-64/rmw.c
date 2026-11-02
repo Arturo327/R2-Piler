@@ -147,7 +147,7 @@ static void print_rmw_loc (X86Fn *f, IRInstr *a, uint8_t s)
 		return;
 	}
 	IRGlobal *g = f->cg->ir->globals + a->target;
-	cg_printf(f->cg, SYM_PREFIX "%.*s(%%rip)\n", (int)g->len, g->name);
+	cg_printf(f->cg, "%s%.*s(%%rip)\n", GLOBAL_PREFIX(g), (int)g->len, g->name);
 }
 
 int x86_make_rmw (X86Fn *f, IRInstr *a)

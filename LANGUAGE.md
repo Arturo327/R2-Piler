@@ -18,6 +18,7 @@ un cast explícito.
 - Punteros (`ptr T`, `ptr void`), `$x` dirección, `@p` desreferencia, el literal `NULL`, `sizeof`, aritmética y comparación de punteros y casts solo entre punteros. Ver §3.
 - Literales string, de tipo `string`, que se comportan como `ptr i8` donde se espera uno. Ver §2.5.
 - Funciones solo a nivel top-level, con parámetros por valor.
+- Interoperabilidad con C vía declaraciones `extern fn` / `extern var`, que no llevan cuerpo ni init y se emiten con su nombre C sin mangling. Ver §8.1.
 - Scopes de bloque con shadowing entre scopes.
 - Entry point: `fn main() : i64`.
 - El compilador emite assembly x86-64 AT&T (no binarios: el binario final se produce ensamblando, p. ej. `gcc prog.s -o prog`). Una compilación sin flags de dump escribe `<fuente>.s` (la ruta del fuente con la extensión cambiada por `.s`) o la ruta de `-o`.
@@ -47,7 +48,7 @@ Keywords (una palabra clave nunca puede usarse como identificador):
 ```
 fn  if    for    i8   u8   i16  u16  i32  u32
 i64  u64   var   char  elif  else  void
-while  return  as  enum  type  newtype
+while  return  as  enum  type  newtype  extern
 ptr  NULL  sizeof
 ```
 
@@ -292,11 +293,21 @@ Con punteros: `@p + 1` es `(@p) + 1` (suma al *valor* apuntado, no al puntero) y
   - Un `if` garantiza solo si tiene `else` final y todas las ramas (then/elif/else) garantizan.
   - `while`/`for` garantizan solo si su condición es constante verdadera (`while (1)`, `for (;;)`): sin `break`, el bucle solo sale con `return`. Con condición no constante nunca garantizan.
 
+### 8.1 `extern` (interoperabilidad con C)
+
+- `extern fn nombre(params)? (: ret_type)? ;` declara una función definida fuera del programa (típicamente libc), y `extern var nombre : type ;` una variable global definida fuera. Ambas son solo top-level.
+- Nunca llevan cuerpo ni inicializador: `extern var x : i64 = 1;` es error de parser (`extern variables cannot have an initializer`).
+- sema comprueba arity y tipos en cada llamada igual que con una función propia, pero no exige cuerpo. Una `extern var` cuenta como siempre asignada (no dispara el warning de lectura sin asignar).
+- El nombre no se mangla ni lleva prefijo: el assembly emite `call puts` / `movl optind(%rip), %eax`, y la resolución queda para el `gcc` final. La dirección `$optind` también usa el símbolo plano.
+- Antes de cada llamada a una función `extern` el backend emite `xorl %eax, %eax` (ABI SysV: `%al` = número de registros vectoriales para funciones variádicas; el compilador lo emite siempre, con o sin variádicos).
+- No puede llamarse `main`: `'main' cannot be declared extern` (`extern fn`) y `'main' must be a function` (`extern var`). Los nombres con prefijo `__r2_` siguen reservados.
+- `extern` no cambia la representación: los parámetros y el retorno siguen la ABI entera SysV AMD64 (hasta 6 argumentos en registros, el resto en la pila) y los punteros/`ptr void` se pasan como punteros C.
+
 ---
 
 ## 9. Globals
 
-- `var ID : type (= expr)? ;` a nivel top-level. Cualquier otra cosa a nivel top-level es error: `only variable, function and enum declarations are allowed at the top level`.
+- `var ID : type (= expr)? ;` a nivel top-level. Cualquier otra cosa a nivel top-level es error: `only variable, function, enum and type declarations are allowed at the top level`.
 - Todas se declaran antes de chequear los inits: las **forward references están permitidas**.
 - Referencias a variables globales futuras permitido, ej: `var x:i64 = y; var y:i64 = 73` es válido
 - Una global **sin init vale 0** en runtime (vive en `.bss`), pero su lectura **sí advierte** igual que una local sin asignar: solo la evitan un init o una asignación previa en el flujo (una asignación en una función chequeada antes también la silencia, en orden fuente).
@@ -375,6 +386,8 @@ Solo en `-O3`:
 - **Inlining**: inlinea pequeñas funciones hoja.
 - **`select`**: if-conversion de `if (c) x = a; else x = b;` con ramas simples (no aparece en `--dump-ir`; sí en `--dump-opt`).
 
+Las declaraciones `extern` quedan fuera de las optimizaciones: una función `extern` no tiene cuerpo (no se optimiza ni se inlinia) y una `extern var` nunca se considera constante, porque cualquier llamada a C puede modificarla.
+
 El codegen aplica además optimizaciones locales (operaciones read-modify-write, fusión de comparación con salto, tail calls) en todos los niveles; `-O0` fuerza que los valores vivan en pila.
 
 ---
@@ -382,7 +395,9 @@ El codegen aplica además optimizaciones locales (operaciones read-modify-write,
 ## 14. Gramática (EBNF)
 
 ```
-program        = { fn_decl | var_decl | enum_decl | type_decl | newtype_decl } ;
+program        = { fn_decl | var_decl | enum_decl | type_decl | newtype_decl | extern_decl } ;
+extern_decl    = "extern" ( "fn" IDENT "(" [ params ] ")" [ ":" ret_type ] ";"
+                          | "var" IDENT ":" type ";" ) ;
 fn_decl        = "fn" IDENT "(" [ params ] ")" [ ":" ret_type ] block ;
 params         = param { "," param } ;
 param          = IDENT ":" type ;

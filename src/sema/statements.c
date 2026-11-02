@@ -88,6 +88,24 @@ void check_fn_dec (Sema *s, uint32_t idx)
 	symtab_pop_scope(&s->table, mark);
 }
 
+void check_extern_fn (Sema *s, uint32_t idx)
+{
+	resolve_fn_types(s, idx);
+	ASTNode *n = s->ast->nodes + idx;
+	uint32_t count = 0;
+
+	if (n->len == 4 && memcmp(n->str, "main", 4) == 0)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'main' cannot be declared extern");
+
+	for (uint32_t param = s->ast->nodes[n->child].child; param != NO_NODE;
+			param = s->ast->nodes[param].next_bro)
+		count++;
+	if (count > MAX_PARAMS)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"too many parameters (max %d)", MAX_PARAMS);
+}
+
 static void check_scoped_statement (Sema *s, uint32_t idx)
 {
 	uint32_t mark = s->table.act_count;
@@ -368,6 +386,10 @@ static void check_statement (Sema *s, uint32_t idx)
 	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"types can only be declared at the top level");
+		return;
+	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"extern declarations can only appear at the top level");
 		return;
 	default:
 		finalize_type(s, idx, check_expr(s, idx));

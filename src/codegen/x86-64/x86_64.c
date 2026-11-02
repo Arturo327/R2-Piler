@@ -53,6 +53,7 @@ int gen_x86_64 (CodeGen *c)
 
 	for (uint32_t i = 0; i < ir->fn_count; i++) {
 		if (init_empty && i == ir->init_fn) continue;
+		if (ir->fns[i].is_extern) continue;
 		ArenaMark mark = arena_mark(c->arena);
 		f.fn = ir->fns + i;
 		x86_layout_fn(&f);

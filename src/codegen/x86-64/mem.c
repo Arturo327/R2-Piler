@@ -74,8 +74,8 @@ static void load_global (X86Fn *f, uint8_t reg, uint32_t vreg)
 	uint8_t w;
 	const char *op = x86_load_op(f->fn->reg_types[vreg], &w);
 
-	cg_printf(f->cg, "\t%s " SYM_PREFIX "%.*s(%%rip), %s\n", op,
-			(int)g->len, g->name, reg_name(reg, w));
+	cg_printf(f->cg, "\t%s %s%.*s(%%rip), %s\n", op,
+			GLOBAL_PREFIX(g), (int)g->len, g->name, reg_name(reg, w));
 }
 
 void x86_load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
@@ -166,8 +166,8 @@ void x86_op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg)
 	} else if (f->regs[vreg].cstate == VR_GLOBAL
 			&& types[f->fn->reg_types[vreg]].size == 8) {
 		IRGlobal *g = f->cg->ir->globals + f->regs[vreg].cval;
-		cg_printf(f->cg, "\t%sq " SYM_PREFIX "%.*s(%%rip), %s\n", op,
-				(int)g->len, g->name, reg_name(w, 8));
+		cg_printf(f->cg, "\t%sq %s%.*s(%%rip), %s\n", op,
+				GLOBAL_PREFIX(g), (int)g->len, g->name, reg_name(w, 8));
 	} else if (!is_const && types[f->fn->reg_types[vreg]].size == 8) {
 		cg_printf(f->cg, "\t%sq -%u(%s), %s\n", op,
 				f->regs[vreg].slot, f->base, reg_name(w, 8));

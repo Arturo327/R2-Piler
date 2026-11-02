@@ -3,6 +3,7 @@
 void x86_print_fn_name (CodeGen *c, IRFn *fn)
 {
 	if (fn == c->ir->fns + c->ir->init_fn) cg_printf(c, INIT_SYM);
+	else if (fn->is_extern) cg_printf(c, "%.*s", (int)fn->len, fn->name);
 	else cg_printf(c, SYM_PREFIX "%.*s", (int)fn->len, fn->name);
 }
 

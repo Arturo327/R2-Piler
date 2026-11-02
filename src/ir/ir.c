@@ -189,6 +189,7 @@ static uint32_t declare_fn (IR *ir, ASTNode *n, Symbol *sym)
 	fn.len = n->len;
 	fn.ret_type = sym->type;
 	fn.param_count = count_bros(ir, ir->ast->nodes[n->child].child);
+	fn.is_extern = n->type == NODE_EXTERN_FN_DEC;
 	return push_fn(ir, fn);
 }
 
@@ -198,6 +199,7 @@ static uint32_t declare_global (IR *ir, ASTNode *n, Symbol *sym)
 	global.name = n->str;
 	global.len = n->len;
 	global.type = sym->type;
+	global.is_extern = n->type == NODE_EXTERN_VAR_DEC;
 	return push_global(ir, global);
 }
 
@@ -208,13 +210,15 @@ static void declare_globals (IR *ir)
 	while (idx != NO_NODE) {
 		ASTNode *n = ir->ast->nodes + idx;
 
-		if (n->type != NODE_FN_DEC && n->type != NODE_VAR_DEC) {
+		if (n->type != NODE_FN_DEC && n->type != NODE_VAR_DEC
+				&& n->type != NODE_EXTERN_FN_DEC
+				&& n->type != NODE_EXTERN_VAR_DEC) {
 			idx = n->next_bro;
 			continue;
 		}
 
 		Symbol *s = ir->symtab->symbols + n->sym;
-		if (n->type == NODE_FN_DEC)
+		if (n->type == NODE_FN_DEC || n->type == NODE_EXTERN_FN_DEC)
 			s->ir_id = declare_fn(ir, n, s);
 		else s->ir_id = declare_global(ir, n, s);
 
@@ -1073,7 +1077,8 @@ static void dump_fn (IR *ir, uint32_t idx)
 {
 	IRFn *fn = ir->fns + idx;
 
-	printf("fn %.*s(%u params, %u regs) : %s\n", (int)fn->len, fn->name,
+	printf("%sfn %.*s(%u params, %u regs) : %s\n",
+			fn->is_extern ? "extern " : "", (int)fn->len, fn->name,
 			fn->param_count, fn->reg_count, types[fn->ret_type].name);
 	for (uint32_t k = 0; k < fn->count; k++)
 		dump_instr(ir, ir->instrs + fn->start + k);
@@ -1083,7 +1088,9 @@ static void dump_fn (IR *ir, uint32_t idx)
 void dump_ir (IR *ir)
 {
 	for (uint32_t i = 0; i < ir->global_count; i++)
-		printf("global %.*s : %s\n", (int)ir->globals[i].len, ir->globals[i].name,
+		printf("%sglobal %.*s : %s\n",
+				ir->globals[i].is_extern ? "extern " : "",
+				(int)ir->globals[i].len, ir->globals[i].name,
 				types[ir->globals[i].type].name);
 	if (ir->global_count)
 		printf("\n");

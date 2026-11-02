@@ -1,0 +1,1 @@
+extern puts (s : ptr char) : i32;

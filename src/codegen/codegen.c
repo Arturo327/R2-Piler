@@ -69,6 +69,9 @@ static int write_output (CodeGen *c)
 
 static void mark_written_globals (IR *ir)
 {
+	for (uint32_t g = 0; g < ir->global_count; g++)
+		if (ir->globals[g].is_extern) ir->globals[g].written = 1;
+
 	for (uint32_t f = 0; f < ir->fn_count; f++) {
 		IRFn *fn = ir->fns + f;
 

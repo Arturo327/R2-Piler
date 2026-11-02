@@ -18,8 +18,8 @@ void x86_make_addr_global (X86Fn *f, IRInstr *i)
 	int p = x86_phys_reg(f, i->dst);
 	uint8_t w = p >= 0 ? (uint8_t)p : x86_grab(f);
 
-	cg_printf(c, "\tleaq " SYM_PREFIX "%.*s(%%rip), %s\n",
-			(int)g->len, g->name, reg_name(w, 8));
+	cg_printf(c, "\tleaq %s%.*s(%%rip), %s\n",
+			GLOBAL_PREFIX(g), (int)g->len, g->name, reg_name(w, 8));
 	if (p < 0) x86_store_reg(f, w, i->dst);
 }
 

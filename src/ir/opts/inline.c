@@ -39,7 +39,8 @@ static void mark_eligible (Inliner *n)
 {
 	for (uint32_t i = 0; i < n->ir->fn_count; i++) {
 		IRFn *fn = n->fns + i;
-		int ok = i != n->ir->init_fn && fn->count <= INLINE_MAX_INSTRS;
+		int ok = i != n->ir->init_fn && !fn->is_extern
+				&& fn->count <= INLINE_MAX_INSTRS;
 
 		for (uint32_t j = 0; ok && j < fn->count; j++)
 			ok = n->src[fn->start + j].op != IR_CALL;

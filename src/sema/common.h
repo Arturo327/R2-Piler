@@ -29,5 +29,6 @@ int unify_operands (Sema *s, ASTNode *n, uint32_t *left, uint32_t *right, TypeId
 TypeId check_expr (Sema *s, uint32_t idx);
 void check_inc_dec (Sema *s, uint32_t idx);
 void check_fn_dec (Sema *s, uint32_t idx);
+void check_extern_fn (Sema *s, uint32_t idx);
 
 #endif

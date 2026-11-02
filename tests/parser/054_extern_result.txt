@@ -1,0 +1,26 @@
+NODE_ROOT [0:0]
+  NODE_EXTERN_FN_DEC [1:11] name="puts"
+    NODE_ARGS_DEC [1:16]
+      NODE_VAR_DEC [1:17] name="s" type=ptr i8
+    NODE_RET_DEC [1:31] type=i32
+  NODE_EXTERN_FN_DEC [2:11] name="abs"
+    NODE_ARGS_DEC [2:15]
+      NODE_VAR_DEC [2:16] name="x" type=i32
+    NODE_RET_DEC [2:25] type=i32
+  NODE_EXTERN_VAR_DEC [3:12] name="optind" type=i32
+  NODE_FN_DEC [5:4] name="main"
+    NODE_ARGS_DEC [5:9]
+    NODE_RET_DEC [5:12] type=i64
+    NODE_BLOCK [5:18]
+      NODE_VAR_DEC [6:6] name="n" type=i32
+        NODE_FN_CALL [6:16] name="abs"
+          NODE_NEG [6:20]
+            NODE_LIT_i64 [6:21] i64=3
+      NODE_FN_CALL [7:2] name="puts"
+        NODE_LIT_STR [7:7] str="hola"
+      NODE_RET [8:2]
+        NODE_ADD [8:23]
+          NODE_CAST [8:16] type=i64
+            NODE_ID [8:9] str="optind"
+          NODE_CAST [8:27] type=i64
+            NODE_ID [8:25] str="n"
