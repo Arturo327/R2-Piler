@@ -141,8 +141,14 @@ src/
 │   └── lexer.c/h    # Tokenizer: keywords, literals, operators, comments
 ├── parser/
 │   ├── ast.h        # AST definition: nodes, types, source spans
-│   ├── parser.c     # Recursive-descent parser
-│   └── parser.h     # Parser state and entry points
+│   ├── parser.h     # Parser state and entry points
+│   ├── common.h     # Private cross-file declarations for parser/
+│   ├── parser.c     # Driver: token cursor, panic sync, node helpers, parse()
+│   ├── expressions.c # Precedence, primaries, calls, casts, unary, ++/--
+│   ├── types.c      # Type syntax: parse_type, sizeof, pointer types
+│   ├── statements.c # Blocks, if/elif/else, while, for, return, var decls
+│   ├── declarations.c # fn/extern decls, enums, type/newtype declarations
+│   └── dump.c       # AST dump for --dump-ast
 ├── sema/
 │   ├── sema.c/h     # Semantic driver: declarations, global inits, symbol dump
 │   ├── common.h     # Private cross-file declarations for sema/
