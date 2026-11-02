@@ -89,8 +89,14 @@ void x86_store_imm (X86Fn *f, uint32_t vreg, int64_t v);
 void x86_op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg);
 
 void x86_make_globals (CodeGen *c);
+void x86_make_strings (CodeGen *c);
 void x86_make_ld_global (X86Fn *f, IRInstr *i);
 void x86_make_str_global (X86Fn *f, IRInstr *i);
+void x86_make_addr_local (X86Fn *f, IRInstr *i);
+void x86_make_addr_global (X86Fn *f, IRInstr *i);
+void x86_make_ld_ptr (X86Fn *f, IRInstr *i);
+void x86_make_str_ptr (X86Fn *f, IRInstr *i);
+void x86_make_str_lit (X86Fn *f, IRInstr *i);
 
 void x86_make_edge (X86Fn *f, uint32_t at, int taken);
 void x86_make_stubs (X86Fn *f);
@@ -131,6 +137,8 @@ int x86_rmw_fits (X86Fn *f, IRInstr *i, int8_t src2_home);
 uint32_t x86_const_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
 uint32_t x86_move_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
 uint32_t x86_str_global_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
+uint32_t x86_ld_ptr_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
+uint32_t x86_str_ptr_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
 uint32_t x86_arith_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
 uint32_t x86_unary_scratch (X86Fn *f, IRInstr *i, const int8_t *h);
 uint32_t x86_divmod_scratch (X86Fn *f, IRInstr *i, const int8_t *h);

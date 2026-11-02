@@ -48,6 +48,7 @@ int gen_x86_64 (CodeGen *c)
 
 	int init_empty = ir->fns[ir->init_fn].count <= 1;
 	x86_make_globals(c);
+	x86_make_strings(c);
 	cg_printf(c, "\t.text\n");
 
 	for (uint32_t i = 0; i < ir->fn_count; i++) {

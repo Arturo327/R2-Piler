@@ -1,0 +1,56 @@
+global g : i64
+global s : ptr i8
+global p : ptr i64
+global v : ptr void
+global n : ptr i64
+
+fn __r2_init(0 params, 5 regs) : void
+    r0 = const.i64 7
+    str_global.i64 r0 @g
+    r1 = str_lit.string .LC0
+    str_global.ptr i8 r1 @s
+    r2 = addr_global.ptr i64 @g
+    str_global.ptr i64 r2 @p
+    r3 = addr_global.ptr i64 @g
+    str_global.ptr void r3 @v
+    r4 = const.nil 0
+    str_global.ptr i64 r4 @n
+    ret
+
+fn main(0 params, 26 regs) : i64
+    r0 = ld_global.ptr i64 @p
+    r1 = ld_global.ptr i64 @p
+    r2 = ld_ptr.i64 r1
+    r3 = const.i64 1
+    r4 = add.i64 r2, r3
+    str_ptr.i64 r0, r4
+    r5 = ld_global.ptr i8 @s
+    r6 = ld_ptr.i8 r5
+    r7 = extend.i64 r6
+    r8 = const.i64 0
+    r9 = ld_global.ptr i64 @n
+    r10 = const.nil 0
+    r11 = eq.ptr i64 r9, r10
+    jz r11 -> L0
+    r12 = move.i64 r8
+    r13 = const.i64 1
+    r14 = add.i64 r12, r13
+    r8 = move.i64 r14
+  L0:
+    r15 = ld_global.ptr void @v
+    r16 = const.nil 0
+    r17 = ne.ptr void r15, r16
+    jz r17 -> L1
+    r18 = move.i64 r8
+    r19 = const.i64 2
+    r20 = add.i64 r18, r19
+    r8 = move.i64 r20
+  L1:
+    r21 = ld_global.i64 @g
+    r22 = move.i64 r7
+    r23 = add.i64 r21, r22
+    r24 = move.i64 r8
+    r25 = add.i64 r23, r24
+    ret.i64 r25
+    ret
+

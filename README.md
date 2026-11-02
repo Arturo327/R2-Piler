@@ -13,9 +13,9 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **231 dump fixtures** pass (`make test`): 45 lexer, 53 parser, 80 sema,
-  32 IR and 21 optimizer tests.
-- **79 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+- **235 dump fixtures** pass (`make test`): 45 lexer, 53 parser, 81 sema,
+  34 IR and 22 optimizer tests.
+- **81 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
@@ -25,15 +25,19 @@ tested:
   `return`, casts, short-circuit logic,
   the full integer/bitwise operator set, compound assignment (`+=`, `-=`, …)
   and postfix statement-only `++`/`--` (also in the `for` update).
-- **Pointer** support is complete in the frontend: `ptr T` types, `@` deref and
+- **Pointer** support is complete end to end: `ptr T` types, `@` deref and
   `$` address-of, `NULL`, `sizeof`, C-like pointer arithmetic and comparison,
   explicit pointer casts and string literals (`TYPE_STR`, adopting `ptr i8`).
   Pointer arithmetic is lowered with C semantics: `p + n` scales by
-  `sizeof(T)` and `p - q` yields the distance in **elements**, both in the IR.
-  The backend does not lower dereference or address-of yet, so a program that
-  uses `@`, `$`, `NULL` or a string literal still aborts during IR
-  generation; pointer arithmetic and pointer-to-pointer casts already run.
-- Arrays/slices, structs, modules/imports, classes and floating point are
+  `sizeof(T)` and `p - q` yields the distance in **elements**. The backend
+  lowers address-of, dereference, loads/stores and a deduplicated `.rodata`
+  string pool; address-taken locals get a stack slot. Global pointer
+  initializers must be link-time constants — `NULL`, a string literal or the
+  address of a global (`$g`) — and at `-O2`/`-O3` they are bound statically
+  into `.data` (`.quad .LC0`, `.quad __r2_g`) instead of running in
+  `__r2_init`.
+- Arrays/slices, structs, modules/imports, classes, `extern`, `pub`, `static`,
+  optional arguments, multiple returns and floating point are
   **not implemented yet**.
 
 ---
@@ -140,6 +144,7 @@ src/
 │   ├── expressions.c # Expression checking: ids, calls, assignment, operators
 │   ├── literals.c   # Literal folding, flexible literals, casts, unification
 │   ├── statements.c # Blocks, if/elif/else, loops, return, main signature
+│   ├── types.c      # Enum/type/newtype declaration resolution
 │   └── symbol.c/h   # Symbol and symbol-table definitions
 ├── ir/
 │   ├── ir.c/h       # IR definition, generation and dump
@@ -168,11 +173,12 @@ src/
 │   │   ├── common.h     # Graph/coloring structures shared by regalloc files
 │   │   ├── color.c      # Loop weights + per-partition coloring driver
 │   │   ├── graph.c      # Interference graph, block reservations, scratch search
-│   │   └── paint.c      # Graph simplification/coloring and spill selection
+│   │   ├── paint.c      # Graph simplification/coloring and spill selection
+│   │   └── verifiy.c    # Generic regalloc contract checks (filename as-is)
 │   └── x86-64/
 │       ├── common.h   # Shared X86Fn state, masks, cross-file declarations
-│       ├── x86_64.c/h # Backend entry point (gen_x86_64) and op needs table
-│       ├── layout.c   # Frame layout + regalloc wiring
+│       ├── x86_64.c/h # Backend entry point (gen_x86_64)
+│       ├── layout.c   # Frame layout + regalloc wiring + op needs table
 │       ├── edges.c    # Edge moves and .LE stubs
 │       ├── regs.c     # Register helpers + regalloc contract checks
 │       ├── mem.c      # Loads/stores, register names, scratch allocation
@@ -183,6 +189,7 @@ src/
 │       ├── cmp.c      # Comparisons, select, jumps
 │       ├── flow.c     # Calls, arguments, returns, tail calls
 │       ├── rmw.c      # Read-modify-write fusion
+│       ├── ptr.c      # Address-of/deref loads/stores + .rodata strings
 │       └── func.c     # Per-function instruction dispatch/body
 └── ...
 ```

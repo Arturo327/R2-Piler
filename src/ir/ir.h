@@ -58,6 +58,12 @@ typedef struct IRFn {
 	TypeId ret_type;
 } IRFn;
 
+enum {
+	IR_INIT_NUM = 0,
+	IR_INIT_STR = 1,
+	IR_INIT_ADDR = 2
+};
+
 typedef struct IRGlobal {
 	char *name;
 	int64_t init;
@@ -65,6 +71,8 @@ typedef struct IRGlobal {
 	TypeId type;
 	uint8_t has_init;
 	uint8_t written;
+	uint8_t init_kind;
+	uint32_t init_ref;
 } IRGlobal;
 
 typedef struct IRString {

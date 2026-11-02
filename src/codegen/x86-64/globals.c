@@ -14,6 +14,16 @@ static void make_global_data (CodeGen *c, uint32_t i)
 	uint8_t size = types[g->type].size;
 
 	cg_printf(c, "\t.balign %u\n" SYM_PREFIX "%.*s:\t", size, (int)g->len, g->name);
+	if (g->init_kind == IR_INIT_STR) {
+		cg_printf(c, ".quad .LC%u\n", g->init_ref);
+		return;
+	}
+	if (g->init_kind == IR_INIT_ADDR) {
+		IRGlobal *ref = c->ir->globals + g->init_ref;
+
+		cg_printf(c, ".quad " SYM_PREFIX "%.*s\n", (int)ref->len, ref->name);
+		return;
+	}
 	cg_printf(c, "%s ", asm_size_name[size]);
 
 	if (types[g->type].sign) cg_printf(c, "%lld\n", (long long)g->init);

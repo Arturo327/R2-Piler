@@ -1,3 +1,4 @@
-var x [1:5] depth=0 type=i32
-var p [2:5] depth=0 type=ptr i32
-fn main [4:4] depth=0 type=i64
+var g [1:5] depth=0 type=i64
+var q [2:5] depth=0 type=ptr i64
+var p [3:5] depth=0 type=ptr i64
+fn main [5:4] depth=0 type=i64

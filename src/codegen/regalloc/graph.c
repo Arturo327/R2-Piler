@@ -152,6 +152,7 @@ static uint32_t add_node (Graph *g, uint32_t v)
 
 	if (g->id[r] != GRAPH_NO_NODE) return g->id[r];
 	if (reg->cstate != VR_MEM || !reg->uses) return GRAPH_NO_NODE;
+	if (reg_addressed(g->cr->fn, r)) return GRAPH_NO_NODE;
 	if (g->node_num >= g->cap) return GRAPH_NO_NODE;
 
 	CRNode *n = g->nodes + g->node_num;

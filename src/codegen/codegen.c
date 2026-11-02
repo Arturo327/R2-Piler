@@ -77,6 +77,7 @@ static void mark_written_globals (IR *ir)
 			IRInstr *in = ir->instrs + fn->start + j;
 
 			if (in->op == IR_STR_GLOBAL) ir->globals[in->target].written = 1;
+			if (in->op == IR_ADDR_GLOBAL) ir->globals[in->target].written = 1;
 		}
 	}
 }

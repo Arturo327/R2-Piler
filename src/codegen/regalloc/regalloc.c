@@ -30,6 +30,7 @@ static void handle_alias (RegAlloc *ra, uint32_t i, uint8_t *ok, IRInstr *in, in
 	uint32_t s = in->src1;
 
 	if (in->op != IR_MOVE || !same_rep(fn, d, s)) return;
+	if (reg_addressed(fn, d) || reg_addressed(fn, s)) return;
 	if (regs[s].cstate == VR_CONST) {
 		if (i >= ra->entry && !ok[d]) return;
 		regs[d].cstate = VR_CONST;
@@ -97,6 +98,7 @@ static void clasf_regs (RegAlloc *ra, int spill_all, uint32_t entry)
 
 		if (in->op == IR_NOP || in->dst == NO_REG) continue;
 		regs[in->dst].cstate = VR_MEM;
+		if (reg_addressed(fn, in->dst)) continue;
 		if (regs[in->dst].defs != 1) continue;
 
 		if (in->op == IR_CONST && (i < entry || ok[in->dst])) {
@@ -127,7 +129,10 @@ static void set_home (Reg *reg, uint32_t block_count, int h)
 static void default_homes (IRFn *fn, Reg *regs, uint32_t block_count)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
-		if (regs[r].cstate == VR_CONST || regs[r].cstate == VR_ALIAS
+		if (reg_addressed(fn, r)) {
+			set_home(regs + r, block_count, VR_SPILL);
+			regs[r].spill = 1;
+		} else if (regs[r].cstate == VR_CONST || regs[r].cstate == VR_ALIAS
 				|| regs[r].cstate == VR_GLOBAL)
 			set_home(regs + r, block_count, VR_NO_HOME);
 		else if (!regs[r].uses)
@@ -155,6 +160,7 @@ static void mark_remat (RegAlloc *ra)
 	for (uint32_t i = 0; i < fn->count; i++) {
 		IRInstr *in = ir->instrs + fn->start + i;
 		if (in->op != IR_LD_GLOBAL || ir->globals[in->target].written) continue;
+		if (reg_addressed(fn, in->dst)) continue;
 		Reg *r = ra->regs + in->dst;
 		if (r->cstate != VR_MEM || r->defs != 1 || r->uses < 2) continue;
 
@@ -326,6 +332,13 @@ static uint32_t span_sweep (RegAlloc *ra, SlotMap *sm, uint32_t c, uint8_t size)
 			sm->stack[nfree++] = regs[r].slot;
 	}
 	return c;
+}
+
+static int share_slots (IRFn *fn)
+{
+	for (uint32_t r = 0; r < fn->reg_count; r++)
+		if (reg_addressed(fn, r)) return 0;
+	return 1;
 }
 
 static void lay_sizes (RegAlloc *ra, int share)
@@ -633,7 +646,7 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, int spill
 	if (!spill_all) mark_remat(&ra);
 	default_homes(fn, regs, ctx->block_count);
 	if (!spill_all) color_all(&ra);
-	lay_sizes(&ra, !spill_all && ra.words);
+	lay_sizes(&ra, !spill_all && ra.words && share_slots(fn));
 
 	resolve(fn, regs, ctx->block_count);
 	if (!spill_all) {

@@ -1,0 +1,8 @@
+var g [1:5] depth=0 type=i64
+var s [2:5] depth=0 type=ptr i8
+var p [3:5] depth=0 type=ptr i64
+var v [4:5] depth=0 type=ptr void
+var n [5:5] depth=0 type=ptr i64
+var n2 [6:5] depth=0 type=ptr i32
+fn main [8:4] depth=0 type=i64
+var r [9:9] depth=1 type=i64

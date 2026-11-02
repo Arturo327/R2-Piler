@@ -1,4 +1,5 @@
-var base : ptr i64;
+var base : ptr i64 = $anchor;
+var anchor : i64 = 42;
 
 fn diff (a : ptr i64, b : ptr i64) : i64 {
     return a - b;
@@ -32,5 +33,5 @@ fn main () : i64 {
 
     return (diff(eight, b) == 1) + (up == 8) * 2 + (neg == -1) * 4
             + (many == 24) * 8 + (many_elem == 3) * 16
-            + (nadv == 16) * 32 + (nby == 24) * 64;
+            + (nadv == 16) * 32 + (nby == 24) * 64 + (@base == 42) * 128;
 }

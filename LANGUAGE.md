@@ -128,7 +128,7 @@ Reglas de tipos (estrictas; el único implícito es el que no puede perder valor
 - **Casts**: `expr as type` solo está permitido **entre punteros** (`p as ptr i64`, `p as ptr void`); `5 as ptr i64` y `p as i64` son error (`cannot cast between pointer and non-pointer types; only pointer-to-pointer casts are supported`). Un literal flexible **nunca** adopta un tipo puntero: `var p : ptr i32 = 7;` es error y hay que escribir `7 as ptr i32`.
 - **Valores de verdad**: un puntero y `NULL` valen como condición y con `!`, `&&`, `||` (`NULL` es falso y advierte `condition is always false`). Un literal string **no** (`!"abc"`, `if ("abc")` son error). `-` y `~` sobre un puntero son error.
 - **`sizeof`**: ver §5.
-- **Globales puntero**: por ahora su inicializador debe ser `NULL` (o un cast de `NULL`); cualquier otra cosa es error (`global pointer initializers only support NULL for now`).
+- **Globales puntero**: su inicializador debe ser una **constante de enlace**: `NULL` (o un cast de `NULL`), un literal string (que adopta `ptr i8`) o la **dirección de una global** (`$g`, también a través de un cast como `$g as ptr void`). Cualquier otra cosa es error (`global pointer initializers only support NULL, a string literal or the address of a global`). En `-O2`/`-O3` esos inits se ligan estáticamente en `.data` (`.quad 0`, `.quad .LCn`, `.quad __r2_g`) y `__r2_init` deja de escribirlos; en `-O0`/`-O1` se escriben en runtime durante `__r2_init`.
 
 ### 3.1 Enums
 
@@ -305,7 +305,7 @@ Con punteros: `@p + 1` es `(@p) + 1` (suma al *valor* apuntado, no al puntero) y
 - Solo se siguen **referencias directas** a globals en los inits. Los ciclos a través de llamadas a funciones dentro de inits no se detectan.
 - Las referencias a través de casts cuentan igual que las directas: `var y : u64 = x as u64;` fuerza el init de `x` antes que el de `y`, y `var x : i64 = y as i64; var y : i64 = x as i64;` es circular. Lo mismo para escrituras (`var y : i64 = (x = 1 as i64);` cuenta como referencia a `x`).
 - Los inits pueden llamar funciones; esas llamadas se ejecutan en orden fuente durante el arranque.
-- El init de una global de tipo puntero debe ser, por ahora, `NULL` (o un cast de `NULL`): `var p : ptr i64 = q;` es error (`global pointer initializers only support NULL for now`).
+- El init de una global de tipo puntero debe ser una **constante de enlace**: `NULL` (o un cast de `NULL`), un literal string (a `ptr i8`) o la dirección de una global (`$g`). Un valor es error: `var p : ptr i64 = q;` (`global pointer initializers only support NULL, a string literal or the address of a global`); `$@p` tampoco vale, porque depende de un valor. En `-O2`/`-O3` estos inits se ligan estáticamente en `.data`; en `-O0`/`-O1` los escribe `__r2_init` en runtime.
 
 ---
 
@@ -459,7 +459,7 @@ make
 | `-v` / `--version` | Muestra la versión |
 | `-h` / `--help` | Muestra la ayuda |
 
-Nota: sin flags de dump, `r2p` compila y escribe el assembly a `<fuente>.s` (o a la ruta de `-o`; `-` es stdout). `-a arm`, `-a riscv` y `-e` abortan en codegen con `Error: <backend> backend is not implemented` (`ARM`, `RISC-V` o `interpreter`). Los modos de dump no pasan por codegen, así que pueden inspeccionar un programa aunque la arquitectura elegida no tenga backend. Los punteros están completos en el frontend pero **no en el backend**: la aritmética (`p ± n`, `p - q` en elementos, `p++`/`p--`, `p += n`) y los casts entre punteros ya se bajan a IR y se ejecutan, pero un programa que desreferencie (`@p`), tome una dirección (`$x`), use `NULL` o un literal string se analiza sin problemas (`--dump-tokens`/`--dump-ast`/`--dump-symbols`) y aborta al generar la IR (`assert(node_to_ir[n->type] != IR_NOP)` en `src/ir/ir.c`). Si se pasan varios ficheros, solo se compila el primero y se avisa por stderr.
+Nota: sin flags de dump, `r2p` compila y escribe el assembly a `<fuente>.s` (o a la ruta de `-o`; `-` es stdout). `-a arm`, `-a riscv` y `-e` abortan en codegen con `Error: <backend> backend is not implemented` (`ARM`, `RISC-V` o `interpreter`). Los modos de dump no pasan por codegen, así que pueden inspeccionar un programa aunque la arquitectura elegida no tenga backend. Los punteros y los literales string están completos de punta a punta: la aritmética (`p ± n`, `p - q` en elementos, `p++`/`p--`, `p += n`), los casts entre punteros, `@p`, `$x`, `NULL` y los literales string se analizan y se generan a assembly (los strings van a una piscina deduplicada en `.rodata`; las locales cuya dirección se toma reciben slot de pila; los inits globales de puntero que son constantes de enlace — `NULL`, string o `$g` — se ligan estáticamente en `.data`). Si se pasan varios ficheros, solo se compila el primero y se avisa por stderr.
 
 Para ejecutar un programa:
 

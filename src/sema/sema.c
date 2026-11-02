@@ -238,13 +238,20 @@ static void record_init_order (Sema *s, uint32_t idx)
 	s->init_order[s->init_order_count++] = idx;
 }
 
-static int is_null_init (Sema *s, uint32_t idx)
+static int is_const_ptr_init (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
 
 	while (n->type == NODE_CAST && n->child != NO_NODE)
 		n = &s->ast->nodes[n->child];
-	return n->type == NODE_LIT_NULL;
+
+	if (n->type == NODE_LIT_NULL || n->type == NODE_LIT_STR) return 1;
+	if (n->type != NODE_ADDR || n->child == NO_NODE) return 0;
+
+	ASTNode *child = &s->ast->nodes[n->child];
+
+	if (child->type != NODE_ID || child->sym == NO_SYMBOL) return 0;
+	return s->table.symbols[child->sym].depth == 0;
 }
 
 void check_global_var_init (Sema *s, uint32_t idx)
@@ -261,13 +268,12 @@ void check_global_var_init (Sema *s, uint32_t idx)
 	TypeId init_type = check_expr(s, n->child);
 	n = s->ast->nodes + idx;
 
-	if (n->data_type != TYPE_ERROR && type_kind(n->data_type) == TK_PTR
-			&& init_type != TYPE_ERROR
+	if (n->data_type != TYPE_ERROR && type_kind(n->data_type) == TK_PTR && init_type != TYPE_ERROR
 			&& (type_kind(init_type) == TK_PTR || init_type == TYPE_NULL
-				|| init_type == TYPE_STR)
-			&& !is_null_init(s, n->child))
+			|| init_type == TYPE_STR) && !is_const_ptr_init(s, n->child))
 		error_report(s->err, ERR_ERROR, node_loc(n),
-				"global pointer initializers only support NULL for now");
+				"global pointer initializers only support NULL, a string literal"
+				" or the address of a global");
 
 	check_var_init_type(s, n, init_type);
 	s->init_node = saved;

@@ -6,6 +6,27 @@ static const uint8_t stops_static[IR_COUNT] = {
 	[IR_JMP] = 1, [IR_JZ] = 1, [IR_JNZ] = 1, [IR_LABEL] = 1, [IR_RET] = 1
 };
 
+static int bind_value (Optimizer *opt, IRInstr *cst, IRGlobal *g)
+{
+	uint8_t size = types[g->type].size;
+
+	if (cst->op == IR_STR_LIT || cst->op == IR_ADDR_GLOBAL) {
+		uint32_t limit = cst->op == IR_STR_LIT
+				? opt->ir->string_count : opt->ir->global_count;
+
+		if (size != 8 || types[cst->data_type].size != 8 || cst->target >= limit) return 0;
+		g->init_kind = cst->op == IR_STR_LIT ? IR_INIT_STR : IR_INIT_ADDR;
+		g->init_ref = cst->target;
+		return 1;
+	}
+	if (cst->op != IR_CONST) return 0;
+	if (types[cst->data_type].size != size) return 0;
+	if (size < 8 && cst->data_type != g->type) return 0;
+
+	g->init = cst->imm64;
+	return 1;
+}
+
 static int bind_static (Optimizer *opt, OptFn *f, IRInstr *st)
 {
 	IRInstr *first = opt->ir->instrs + f->fn->start;
@@ -15,13 +36,10 @@ static int bind_static (Optimizer *opt, OptFn *f, IRInstr *st)
 	if (st == first) return 0;
 	cst = st - 1;
 	while (cst > first && cst->op == IR_NOP) cst--;
-	if (cst->op != IR_CONST || cst->dst != st->src1) return 0;
-
-	if (types[cst->data_type].size != types[g->type].size) return 0;
-	if (types[g->type].size < 8 && cst->data_type != g->type) return 0;
+	if (cst->dst != st->src1) return 0;
+	if (!bind_value(opt, cst, g)) return 0;
 
 	g->has_init = 1;
-	g->init = cst->imm64;
 	if (f->uses[cst->dst] == 1) kill_instr(cst);
 	kill_instr(st);
 	return 1;
