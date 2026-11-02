@@ -14,6 +14,7 @@ typedef enum {
 	IR_NOP = 0,
 	IR_CONST, IR_PARAM,
 	IR_LD_GLOBAL, IR_STR_GLOBAL,
+	IR_ADDR_LOCAL, IR_ADDR_GLOBAL, IR_LD_PTR, IR_STR_PTR, IR_STR_LIT,
 	IR_MOVE, IR_EXTEND, IR_SELECT,
 	IR_ADD, IR_SUB, IR_MUL, IR_DIV, IR_MOD,
 	IR_AND_A, IR_OR_A, IR_XOR, IR_RS, IR_LS,
@@ -43,6 +44,7 @@ typedef struct IRInstr {
 typedef struct IRFn {
 	char *name;
 	TypeId *reg_types;
+	uint8_t *addressed;
 
 	uint64_t *gtouch;
 
@@ -65,6 +67,11 @@ typedef struct IRGlobal {
 	uint8_t written;
 } IRGlobal;
 
+typedef struct IRString {
+	char *data;
+	uint32_t len;
+} IRString;
+
 typedef struct IR {
 	IRInstr *instrs;
 	uint32_t instr_count;
@@ -78,6 +85,10 @@ typedef struct IR {
 	uint32_t global_count;
 	uint32_t global_cap;
 
+	IRString *strings;
+	uint32_t string_count;
+	uint32_t string_cap;
+
 	uint32_t init_fn;
 
 	uint32_t *init_order;
@@ -88,6 +99,9 @@ typedef struct IR {
 
 	TypeId *reg_types;
 	uint32_t reg_type_cap;
+
+	uint8_t *addressed;
+	uint32_t addressed_cap;
 
 	uint8_t use_select;
 
@@ -104,6 +118,11 @@ static inline int get_srcs (IRInstr *in, uint32_t *out[3])
 	if (in->src2 != NO_REG) out[n++] = &in->src2;
 	if (in->op == IR_SELECT) out[n++] = &in->cond;
 	return n;
+}
+
+static inline int reg_addressed (IRFn *fn, uint32_t reg)
+{
+	return fn->addressed && reg < fn->reg_count && fn->addressed[reg];
 }
 
 static inline int same_rep (IRFn *fn, uint32_t a, uint32_t b)

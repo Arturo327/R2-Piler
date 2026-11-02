@@ -1,0 +1,3 @@
+tests/asm/079_ptr_elem_arith_src.r2:23:23: WARNING: 'base' is used without being assigned
+     23 |     var b : ptr i64 = base;
+        |                       ^~~~

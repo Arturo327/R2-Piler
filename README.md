@@ -13,9 +13,9 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **230 dump fixtures** pass (`make test`): 45 lexer, 53 parser, 80 sema,
-  31 IR and 21 optimizer tests.
-- **78 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+- **231 dump fixtures** pass (`make test`): 45 lexer, 53 parser, 80 sema,
+  32 IR and 21 optimizer tests.
+- **79 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
@@ -28,8 +28,11 @@ tested:
 - **Pointer** support is complete in the frontend: `ptr T` types, `@` deref and
   `$` address-of, `NULL`, `sizeof`, C-like pointer arithmetic and comparison,
   explicit pointer casts and string literals (`TYPE_STR`, adopting `ptr i8`).
-  The backend does not lower pointers yet, so a program that dereferences or
-  takes the address of a variable still aborts during IR generation.
+  Pointer arithmetic is lowered with C semantics: `p + n` scales by
+  `sizeof(T)` and `p - q` yields the distance in **elements**, both in the IR.
+  The backend does not lower dereference or address-of yet, so a program that
+  uses `@`, `$`, `NULL` or a string literal still aborts during IR
+  generation; pointer arithmetic and pointer-to-pointer casts already run.
 - Arrays/slices, structs, modules/imports, classes and floating point are
   **not implemented yet**.
 

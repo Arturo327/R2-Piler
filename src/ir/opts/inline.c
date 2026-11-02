@@ -11,6 +11,7 @@ typedef struct Inliner {
 	IRInstr *src;
 	IRInstr *out;
 	uint8_t *elig;
+	uint8_t *addressed;
 	TypeId *types;
 	uint32_t count;
 	uint32_t regs;
@@ -153,6 +154,8 @@ static void inl_site (Inliner *n, IRInstr *call, const uint32_t *args)
 	n->ir->label_count = s.end + 1;
 	if (callee->reg_count)
 		memcpy(n->types + n->regs, callee->reg_types, callee->reg_count * sizeof(TypeId));
+	for (uint32_t r = 0; r < callee->reg_count; r++)
+		n->addressed[n->regs + r] = (uint8_t)reg_addressed(callee, r);
 
 	n->regs += callee->reg_count;
 	for (uint32_t j = 0; j < callee->count; j++)
@@ -188,10 +191,15 @@ static void inl_fn (Inliner *n, uint32_t idx)
 
 	inl_measure(n, old, &instrs, &regs);
 	n->types = old->reg_types;
+	n->addressed = old->addressed;
 	if (regs != old->reg_count) {
 		n->types = arena_alloc(n->arena, regs * sizeof(TypeId));
-		if (old->reg_count)
+		n->addressed = arena_alloc(n->arena, regs);
+		if (old->reg_count) {
 			memcpy(n->types, old->reg_types, old->reg_count * sizeof(TypeId));
+			if (old->addressed)
+				memcpy(n->addressed, old->addressed, old->reg_count);
+		}
 	}
 
 	n->regs = old->reg_count;
@@ -206,6 +214,7 @@ static void inl_fn (Inliner *n, uint32_t idx)
 	fn->count = n->count - fn->start;
 	fn->reg_count = n->regs;
 	fn->reg_types = n->types;
+	fn->addressed = n->addressed;
 }
 
 int inline_ir (IR *ir, Arena *a)

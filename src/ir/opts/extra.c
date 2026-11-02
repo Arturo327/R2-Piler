@@ -7,6 +7,7 @@ static int strength_instr (Optimizer *opt, OptFn *f, IRInstr *in)
 
 	if (in->dst == NO_REG || in->src2 == NO_REG) return 0;
 	if (in->op != IR_MUL && in->op != IR_DIV && in->op != IR_MOD) return 0;
+	if (reg_addressed(f->fn, in->src2)) return 0;
 	if (f->defs[in->src2] != 1 || f->uses[in->src2] != 1) return 0;
 	if (f->def_at[in->src2] - f->fn->start >= f->entry_end) return 0;
 
@@ -75,6 +76,7 @@ static int globals_block (Optimizer *opt, OptFn *f, CfgBlock *blk)
 		IRInstr *in = code + i;
 
 		if (in->op == IR_CALL) f->gepoch++;
+		else if (in->op == IR_STR_PTR) f->gepoch++;
 		else if (in->op == IR_STR_GLOBAL) note_global(f, in, in->src1);
 		else if (in->op == IR_LD_GLOBAL && fwd_global(f, in)) changed = 1;
 		else if (in->op == IR_LD_GLOBAL) note_global(f, in, in->dst);
@@ -102,8 +104,9 @@ static int dse_block (Optimizer *opt, OptFn *f, CfgBlock *blk)
 		IRInstr *in = code + i;
 
 		if (in->op == IR_NOP) continue;
+		if (in->op == IR_STR_PTR) f->depoch++;
 		if (in->dst != NO_REG && f->dstamp[in->dst] == f->depoch
-				&& is_deletable[in->op]) {
+				&& is_deletable[in->op] && !reg_addressed(f->fn, in->dst)) {
 			kill_instr(in);
 			changed = 1;
 			continue;

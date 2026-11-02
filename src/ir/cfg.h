@@ -37,6 +37,7 @@ void cfg_build_edges (IR *ir, Cfg *cfg);
 void cfg_mark_reachable (Cfg *cfg);
 
 int cfg_live_step (IRInstr *in, uint64_t *live);
+void cfg_live_step_full (IRInstr *in, uint64_t *live);
 void cfg_live_out (Cfg *cfg, uint32_t b, uint64_t *out, uint32_t words);
 void cfg_live_solve (IR *ir, Cfg *cfg, uint64_t *live, uint64_t *tmp, uint32_t words);
 void cfg_live_solve_full (IR *ir, Cfg *cfg, uint64_t *live, uint64_t *tmp, uint32_t words);

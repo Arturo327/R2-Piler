@@ -4,6 +4,7 @@ int reg_const (Optimizer *opt, OptFn *f, uint32_t reg, int64_t *val)
 {
 	IRInstr *def;
 
+	if (reg_addressed(f->fn, reg)) return 0;
 	if (f->kstamp[reg] == f->epoch) {
 		*val = f->kval[reg];
 		return 1;

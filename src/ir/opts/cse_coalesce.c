@@ -13,6 +13,7 @@ int opt_coalesce (Optimizer *opt, OptFn *f)
 
 		if (!can || a->dst == NO_REG) continue;
 		if (f->defs[a->dst] != 1 || f->uses[a->dst] != 1) continue;
+		if (reg_addressed(f->fn, a->dst)) continue;
 
 		m = next_real(code, i + 1, f->fn->count);
 		if (!m || m->op != IR_MOVE || m->src1 != a->dst || m->dst == a->dst) continue;
@@ -94,6 +95,7 @@ static int cse_block (Optimizer *opt, OptFn *f, CfgBlock *blk)
 				&& !reg_const(opt, f, in->src2, &k);
 		CseEntry *e = cand ? cse_find(f, in) : NULL;
 
+		if (in->op == IR_STR_PTR) f->cse_count = 0;
 		if (e && same_rep(f->fn, in->dst, e->dst)) {
 			cse_replace(f, in, e);
 			changed = 1;

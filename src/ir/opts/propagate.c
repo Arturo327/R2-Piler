@@ -35,6 +35,7 @@ int opt_propagate (Optimizer *opt, OptFn *f)
 
 			if (mv->op != IR_MOVE || f->defs[mv->dst] != 1) continue;
 			if (mv->dst == mv->src1 || !same_rep(f->fn, mv->dst, mv->src1)) continue;
+			if (reg_addressed(f->fn, mv->dst) || reg_addressed(f->fn, mv->src1)) continue;
 			changed |= forward_copy(code + i + 1, n - i - 1, mv, f->uses[mv->dst]);
 		}
 	}

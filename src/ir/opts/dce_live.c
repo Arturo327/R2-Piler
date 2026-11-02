@@ -11,6 +11,7 @@ int opt_dce (Optimizer *opt, OptFn *f)
 		IRInstr *in = code + i;
 
 		if (in->dst == NO_REG || f->uses[in->dst] || !is_deletable[in->op]) continue;
+		if (reg_addressed(f->fn, in->dst)) continue;
 
 		uint32_t *src[3];
 		int n = get_srcs(in, src);
@@ -30,6 +31,12 @@ static int live_sweep (Optimizer *opt, OptFn *f, Cfg *cfg, uint32_t b, uint32_t 
 
 	cfg_live_out(cfg, b, f->live_tmp, words);
 	for (uint32_t i = cfg->blocks[b].count; i-- > 0;) {
+		IRInstr *in = code + i;
+
+		if (in->dst != NO_REG && reg_addressed(f->fn, in->dst)) {
+			cfg_live_step_full(in, f->live_tmp);
+			continue;
+		}
 		if (!cfg_live_step(code + i, f->live_tmp)) continue;
 		kill_instr(code + i);
 		changed = 1;

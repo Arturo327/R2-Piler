@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 static uint32_t push_instr (IR *ir, IRInstr instr)
 {
@@ -45,6 +46,20 @@ static uint32_t push_global (IR *ir, IRGlobal global)
 	return idx;
 }
 
+static uint32_t push_string (IR *ir, IRString string)
+{
+	if (ir->string_count >= ir->string_cap) {
+		uint32_t old_cap = ir->string_cap;
+		ir->string_cap = old_cap ? old_cap << 1 : 8;
+		ir->strings = arena_realloc(ir->arena, ir->strings,
+				old_cap * sizeof(IRString), ir->string_cap * sizeof(IRString));
+	}
+
+	uint32_t idx = ir->string_count++;
+	ir->strings[idx] = string;
+	return idx;
+}
+
 static const IRInstr blank_instr = {
 	.dst = NO_REG,
 	.src1 = NO_REG,
@@ -82,7 +97,9 @@ static const uint8_t node_to_ir[NODE_COUNT] = {
 
 const uint8_t is_deletable[IR_COUNT] =
 {
-	[IR_CONST] = 1, [IR_MOVE] = 1, [IR_EXTEND] = 1, [IR_SELECT] = 1,
+	[IR_CONST] = 1, [IR_ADDR_LOCAL] = 1, [IR_ADDR_GLOBAL] = 1, [IR_STR_LIT] = 1,
+	[IR_LD_PTR] = 1,
+	[IR_MOVE] = 1, [IR_EXTEND] = 1, [IR_SELECT] = 1,
 	[IR_ADD] = 1, [IR_SUB] = 1, [IR_MUL] = 1,
 	[IR_AND_A] = 1, [IR_OR_A] = 1, [IR_XOR] = 1,
 	[IR_RS] = 1, [IR_LS] = 1, [IR_NEG] = 1,
@@ -101,7 +118,14 @@ static uint32_t new_reg (IR *ir, TypeId type)
 		ir->reg_types = arena_realloc(ir->arena, ir->reg_types,
 				old * sizeof(TypeId), ir->reg_type_cap * sizeof(TypeId));
 	}
+	if (r >= ir->addressed_cap) {
+		uint32_t old = ir->addressed_cap;
+		ir->addressed_cap = old ? old << 1 : 64;
+		ir->addressed = arena_realloc(ir->arena, ir->addressed,
+				old * sizeof(uint8_t), ir->addressed_cap * sizeof(uint8_t));
+	}
 	ir->reg_types[r] = type;
+	ir->addressed[r] = 0;
 	return r;
 }
 
@@ -127,6 +151,8 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select)
 
 	ir->reg_types = NULL;
 	ir->reg_type_cap = 0;
+	ir->addressed = NULL;
+	ir->addressed_cap = 0;
 
 	ir->instr_count = 0;
 	ir->instr_cap = 256;
@@ -139,6 +165,10 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select)
 	ir->global_count = 0;
 	ir->global_cap = 16;
 	ir->globals = arena_alloc(arena, sizeof(IRGlobal) * ir->global_cap);
+
+	ir->string_count = 0;
+	ir->string_cap = 0;
+	ir->strings = NULL;
 }
 
 static uint32_t count_bros (IR *ir, uint32_t first)
@@ -249,6 +279,74 @@ static void make_str_global (IR *ir, uint32_t idx, uint32_t val, TypeId type)
 	push_instr(ir, i);
 }
 
+static void make_addr_local (IR *ir, uint32_t dst, uint32_t var, TypeId type)
+{
+	IRInstr i = blank_instr;
+	i.op = IR_ADDR_LOCAL;
+	i.dst = dst;
+	i.src1 = var;
+	i.data_type = type;
+	push_instr(ir, i);
+}
+
+static void make_addr_global (IR *ir, uint32_t dst, uint32_t global, TypeId type)
+{
+	IRInstr i = blank_instr;
+	i.op = IR_ADDR_GLOBAL;
+	i.dst = dst;
+	i.target = global;
+	i.data_type = type;
+	push_instr(ir, i);
+}
+
+static uint32_t make_ld_ptr (IR *ir, uint32_t ptr, TypeId type)
+{
+	IRInstr i = blank_instr;
+	i.op = IR_LD_PTR;
+	i.dst = new_reg(ir, type);
+	i.src1 = ptr;
+	i.data_type = type;
+	push_instr(ir, i);
+	return i.dst;
+}
+
+static void make_str_ptr (IR *ir, uint32_t ptr, uint32_t val, TypeId type)
+{
+	IRInstr i = blank_instr;
+	i.op = IR_STR_PTR;
+	i.src1 = ptr;
+	i.src2 = val;
+	i.data_type = type;
+	push_instr(ir, i);
+}
+
+static uint32_t intern_string (IR *ir, ASTNode *n)
+{
+	for (uint32_t i = 0; i < ir->string_count; i++) {
+		IRString *s = ir->strings + i;
+
+		if (s->len == n->len && !memcmp(s->data, n->str, n->len)) return i;
+	}
+
+	IRString string;
+	string.data = arena_alloc(ir->arena, (size_t)n->len + 1);
+	memcpy(string.data, n->str, n->len);
+	string.data[n->len] = '\0';
+	string.len = n->len;
+	return push_string(ir, string);
+}
+
+static uint32_t make_str_lit (IR *ir, ASTNode *n)
+{
+	IRInstr i = blank_instr;
+	i.op = IR_STR_LIT;
+	i.dst = new_reg(ir, n->data_type);
+	i.target = intern_string(ir, n);
+	i.data_type = n->data_type;
+	push_instr(ir, i);
+	return i.dst;
+}
+
 static uint32_t make_call (IR *ir, uint32_t idx, uint16_t argc, TypeId ret_type)
 {
 	IRInstr i = blank_instr;
@@ -313,6 +411,39 @@ static void gen_stmt (IR *ir, ASTNode *n);
 static void gen_block (IR *ir, ASTNode *parent);
 static uint32_t gen_expr (IR *ir, ASTNode *n);
 static void gen_jump_if (IR *ir, ASTNode *n, uint32_t label, int when);
+static uint32_t ptr_scale (IR *ir, uint32_t val, TypeId ptr_type, int up);
+
+static uint32_t gen_addr (IR *ir, ASTNode *n)
+{
+	ASTNode *child = ir->ast->nodes + n->child;
+	uint32_t dst;
+
+	if (child->type == NODE_DEREF)
+		return gen_expr(ir, ir->ast->nodes + child->child);
+
+	Symbol *s = ir->symtab->symbols + child->sym;
+	dst = new_reg(ir, n->data_type);
+	if (!s->depth) {
+		make_addr_global(ir, dst, s->ir_id, n->data_type);
+		return dst;
+	}
+	ir->addressed[s->ir_id] = 1;
+	make_addr_local(ir, dst, s->ir_id, n->data_type);
+	return dst;
+}
+
+static uint32_t gen_deref (IR *ir, ASTNode *n)
+{
+	uint32_t ptr = gen_expr(ir, ir->ast->nodes + n->child);
+
+	return make_ld_ptr(ir, ptr, n->data_type);
+}
+
+static uint32_t gen_lvalue_addr (IR *ir, ASTNode *lhs)
+{
+	if (lhs->type != NODE_DEREF) return NO_REG;
+	return gen_expr(ir, ir->ast->nodes + lhs->child);
+}
 
 static uint32_t load_var (IR *ir, Symbol *s)
 {
@@ -345,9 +476,15 @@ static uint32_t gen_call (IR *ir, ASTNode *n)
 static uint32_t gen_assign (IR *ir, ASTNode *n)
 {
 	ASTNode *lhs = ir->ast->nodes + n->child;
-	Symbol *s = ir->symtab->symbols + lhs->sym;
+	uint32_t addr = gen_lvalue_addr(ir, lhs);
 	uint32_t val = gen_expr(ir, ir->ast->nodes + lhs->next_bro);
 
+	if (addr != NO_REG) {
+		make_str_ptr(ir, addr, val, lhs->data_type);
+		return val;
+	}
+
+	Symbol *s = ir->symtab->symbols + lhs->sym;
 	if (!s->depth) make_str_global(ir, s->ir_id, val, s->type);
 	else make_move(ir, s->ir_id, val, s->type);
 	return val;
@@ -357,11 +494,18 @@ static uint32_t gen_compound_assign (IR *ir, ASTNode *n)
 {
 	ASTNode *lhs = ir->ast->nodes + n->child;
 	ASTNode *rhs = ir->ast->nodes + lhs->next_bro;
-	Symbol *s = ir->symtab->symbols + lhs->sym;
-	uint32_t a = load_var(ir, s);
-	uint32_t b = gen_expr(ir, rhs);
+	uint32_t addr = gen_lvalue_addr(ir, lhs);
+	uint32_t a = addr != NO_REG ? make_ld_ptr(ir, addr, lhs->data_type)
+			: load_var(ir, ir->symtab->symbols + lhs->sym);
+	uint32_t b = ptr_scale(ir, gen_expr(ir, rhs), lhs->data_type, 1);
 	uint32_t val = make_op(ir, node_to_ir[n->type], a, b, lhs->data_type);
 
+	if (addr != NO_REG) {
+		make_str_ptr(ir, addr, val, lhs->data_type);
+		return val;
+	}
+
+	Symbol *s = ir->symtab->symbols + lhs->sym;
 	if (!s->depth) make_str_global(ir, s->ir_id, val, s->type);
 	else make_move(ir, s->ir_id, val, s->type);
 	return val;
@@ -370,11 +514,23 @@ static uint32_t gen_compound_assign (IR *ir, ASTNode *n)
 static void gen_inc_dec (IR *ir, ASTNode *n)
 {
 	ASTNode *target = ir->ast->nodes + n->child;
-	Symbol *s = ir->symtab->symbols + target->sym;
-	uint32_t a = load_var(ir, s);
-	uint32_t one = make_const(ir, 1, target->data_type);
-	uint32_t val = make_op(ir, n->type == NODE_INC ? IR_ADD : IR_SUB, a, one, target->data_type);
+	TypeId type = target->data_type;
+	uint32_t addr = gen_lvalue_addr(ir, target);
+	uint32_t step = 1;
+	uint32_t a = addr != NO_REG ? make_ld_ptr(ir, addr, type)
+			: load_var(ir, ir->symtab->symbols + target->sym);
 
+	if (type_kind(type) == TK_PTR)
+		step = types[types[type].base].size;
+
+	uint32_t val = make_op(ir, n->type == NODE_INC ? IR_ADD : IR_SUB, a,
+			make_const(ir, step, type), type);
+	if (addr != NO_REG) {
+		make_str_ptr(ir, addr, val, type);
+		return;
+	}
+
+	Symbol *s = ir->symtab->symbols + target->sym;
 	if (!s->depth) make_str_global(ir, s->ir_id, val, s->type);
 	else make_move(ir, s->ir_id, val, s->type);
 }
@@ -387,10 +543,41 @@ static uint32_t gen_unary (IR *ir, ASTNode *n)
 	return make_op(ir, node_to_ir[n->type], a, NO_REG, operand->data_type);
 }
 
+static uint32_t ptr_scale (IR *ir, uint32_t val, TypeId ptr_type, int up)
+{
+	if (type_kind(ptr_type) != TK_PTR) return val;
+	uint32_t size = types[types[ptr_type].base].size;
+	if (size < 2) return val;
+	uint8_t op = up ? IR_MUL : IR_DIV;
+	return make_op(ir, op, val, make_const(ir, size, TYPE_i64), TYPE_i64);
+}
+
+static int is_ptr_arith (ASTNode *n, ASTNode *l, ASTNode *r)
+{
+	if (n->type != NODE_ADD && n->type != NODE_SUB) return 0;
+	return type_kind(l->data_type) == TK_PTR || type_kind(r->data_type) == TK_PTR;
+}
+
+static uint32_t gen_ptr_arith (IR *ir, ASTNode *n, ASTNode *l, ASTNode *r)
+{
+	int ptr_left = type_kind(l->data_type) == TK_PTR;
+	TypeId type = ptr_left ? l->data_type : r->data_type;
+	uint32_t a = gen_expr(ir, l);
+	uint32_t b = gen_expr(ir, r);
+
+	if (ptr_left && type_kind(r->data_type) == TK_PTR)
+		return ptr_scale(ir, make_op(ir, IR_SUB, a, b, TYPE_i64), type, 0);
+	if (ptr_left)
+		return make_op(ir, node_to_ir[n->type], a, ptr_scale(ir, b, type, 1), type);
+	return make_op(ir, IR_ADD, ptr_scale(ir, a, type, 1), b, type);
+}
+
 static uint32_t gen_binary (IR *ir, ASTNode *n)
 {
 	ASTNode *l = ir->ast->nodes + n->child;
 	ASTNode *r = ir->ast->nodes + l->next_bro;
+
+	if (is_ptr_arith(n, l, r)) return gen_ptr_arith(ir, n, l, r);
 	uint32_t a = gen_expr(ir, l);
 	uint32_t b = gen_expr(ir, r);
 
@@ -581,6 +768,10 @@ static uint32_t gen_expr (IR *ir, ASTNode *n)
 	case NODE_LIT_CHAR: return make_const(ir, (int8_t)n->chr, n->data_type);
 
 	case NODE_ID: return load_var(ir, ir->symtab->symbols + n->sym);;
+	case NODE_DEREF: return gen_deref(ir, n);
+	case NODE_ADDR: return gen_addr(ir, n);
+	case NODE_LIT_NULL: return make_const(ir, 0, TYPE_NULL);
+	case NODE_LIT_STR: return make_str_lit(ir, n);
 	case NODE_FN_CALL: return gen_call(ir, n);
 	case NODE_ASSIGN: return gen_assign(ir, n);
 	case NODE_ADD_ASSIGN: case NODE_SUB_ASSIGN: case NODE_MUL_ASSIGN:
@@ -601,9 +792,13 @@ static uint32_t gen_expr (IR *ir, ASTNode *n)
 static void gen_var_dec (IR *ir, ASTNode *n)
 {
 	Symbol *s = ir->symtab->symbols + n->sym;
+	uint32_t reg;
 
-	if (n->child == NO_NODE) s->ir_id = new_reg(ir, s->type);
-	else s->ir_id = gen_expr(ir, ir->ast->nodes + n->child);
+	if (n->child == NO_NODE) reg = new_reg(ir, s->type);
+	else reg = gen_expr(ir, ir->ast->nodes + n->child);
+
+	s->ir_id = reg;
+	if (s->addressed) ir->addressed[reg] = 1;
 }
 
 static void gen_return (IR *ir, ASTNode *n)
@@ -724,6 +919,7 @@ static void gen_args_dec (IR *ir, uint32_t node)
 		Symbol *s = ir->symtab->symbols + n->sym;
 
 		s->ir_id = new_reg(ir, s->type);
+		if (s->addressed) ir->addressed[s->ir_id] = 1;
 		make_arg_dec(ir, s->ir_id, idx++, s->type);
 		p = n->next_bro;
 	}
@@ -737,6 +933,7 @@ static void fn_end (IR *ir, uint32_t idx)
 	fn->count = ir->instr_count - fn->start;
 	fn->reg_count = ir->reg_count;
 	fn->reg_types = ir->reg_types;
+	fn->addressed = ir->addressed;
 }
 
 static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
@@ -748,6 +945,8 @@ static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
 	ir->reg_count = 0;
 	ir->reg_types = NULL;
 	ir->reg_type_cap = 0;
+	ir->addressed = NULL;
+	ir->addressed_cap = 0;
 
 	ir->fns[fn_idx].start = ir->instr_count;
 	gen_args_dec(ir, args);
@@ -760,6 +959,8 @@ static void gen_init_fn (IR *ir)
 	ir->reg_count = 0;
 	ir->reg_types = NULL;
 	ir->reg_type_cap = 0;
+	ir->addressed = NULL;
+	ir->addressed_cap = 0;
 	ir->fns[ir->init_fn].start = ir->instr_count;
 
 	for (uint32_t i = 0; i < ir->init_order_count; i++) {
@@ -802,6 +1003,8 @@ void ir_gen (IR *ir)
 static const char *const op_names[IR_COUNT] = {
 	[IR_NOP] = "nop", [IR_CONST] = "const", [IR_PARAM] = "param",
 	[IR_LD_GLOBAL] = "ld_global", [IR_STR_GLOBAL] = "str_global",
+	[IR_ADDR_LOCAL] = "addr_local", [IR_ADDR_GLOBAL] = "addr_global",
+	[IR_LD_PTR] = "ld_ptr", [IR_STR_PTR] = "str_ptr", [IR_STR_LIT] = "str_lit",
 	[IR_MOVE] = "move", [IR_EXTEND] = "extend", [IR_SELECT] = "select",
 	[IR_ADD] = "add", [IR_SUB] = "sub", [IR_MUL] = "mul",
 	[IR_DIV] = "div", [IR_MOD] = "mod",
@@ -832,7 +1035,11 @@ static void dump_extra (IR *ir, IRInstr *i)
 		printf(" %.*s", (int)ir->fns[i->target].len, ir->fns[i->target].name);
 		break;
 	case IR_LD_GLOBAL: case IR_STR_GLOBAL:
+	case IR_ADDR_GLOBAL:
 		printf(" @%.*s", (int)ir->globals[i->target].len, ir->globals[i->target].name);
+		break;
+	case IR_STR_LIT:
+		printf(" .LC%u", i->target);
 		break;
 	default:
 		break;

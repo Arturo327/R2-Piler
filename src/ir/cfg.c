@@ -142,7 +142,7 @@ int cfg_live_step (IRInstr *in, uint64_t *live)
 	return 0;
 }
 
-static void cfg_live_step_full (IRInstr *in, uint64_t *live)
+void cfg_live_step_full (IRInstr *in, uint64_t *live)
 {
 	uint32_t *src[3];
 	int n = get_srcs(in, src);
