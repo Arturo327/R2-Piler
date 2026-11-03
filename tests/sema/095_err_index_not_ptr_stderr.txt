@@ -1,0 +1,3 @@
+tests/sema/095_err_index_not_ptr_src.r2:3:10: ERROR: cannot index a value of type i64
+      3 |         return x[0];
+        |                 ^

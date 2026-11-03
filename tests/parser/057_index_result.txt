@@ -1,0 +1,54 @@
+NODE_ROOT [0:0]
+  NODE_FN_DEC [1:4] name="main"
+    NODE_ARGS_DEC [1:9]
+    NODE_RET_DEC [1:12] type=i64
+    NODE_BLOCK [1:18]
+      NODE_VAR_DEC [2:6] name="i" type=i64
+        NODE_LIT_i64 [2:16] i64=1
+      NODE_VAR_DEC [3:6] name="p" type=ptr i64
+        NODE_LIT_NULL [3:20]
+      NODE_VAR_DEC [4:6] name="pp" type=ptr ptr i64
+        NODE_LIT_NULL [4:25]
+      NODE_VAR_DEC [5:6] name="a" type=i64
+        NODE_ADD [5:28]
+          NODE_ADD [5:21]
+            NODE_INDEX [5:17]
+              NODE_ID [5:16] str="p"
+              NODE_LIT_i64 [5:18] i64=0
+            NODE_INDEX [5:24]
+              NODE_ID [5:23] str="p"
+              NODE_ID [5:25] str="i"
+          NODE_INDEX [5:31]
+            NODE_ID [5:30] str="p"
+            NODE_ADD [5:34]
+              NODE_ID [5:32] str="i"
+              NODE_LIT_i64 [5:36] i64=1
+      NODE_VAR_DEC [6:6] name="b" type=i64
+        NODE_INDEX [6:21]
+          NODE_INDEX [6:18]
+            NODE_ID [6:16] str="pp"
+            NODE_ID [6:19] str="i"
+          NODE_LIT_i64 [6:22] i64=0
+      NODE_ASSIGN [7:7]
+        NODE_INDEX [7:3]
+          NODE_ID [7:2] str="p"
+          NODE_ID [7:4] str="i"
+        NODE_ID [7:9] str="a"
+      NODE_ADD_ASSIGN [8:7]
+        NODE_INDEX [8:3]
+          NODE_ID [8:2] str="p"
+          NODE_ID [8:4] str="i"
+        NODE_ID [8:10] str="b"
+      NODE_INC [9:6]
+        NODE_INDEX [9:3]
+          NODE_ID [9:2] str="p"
+          NODE_ID [9:4] str="i"
+      NODE_VAR_DEC [10:6] name="c" type=ptr i64
+        NODE_ADDR [10:20]
+          NODE_INDEX [10:22]
+            NODE_ID [10:21] str="p"
+            NODE_ID [10:23] str="i"
+      NODE_RET [11:2]
+        NODE_ADD [11:11]
+          NODE_ID [11:9] str="a"
+          NODE_ID [11:13] str="b"

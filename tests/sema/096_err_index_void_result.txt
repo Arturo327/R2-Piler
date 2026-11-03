@@ -1,0 +1,2 @@
+fn main [1:4] depth=0 type=i64
+var p [2:6] depth=1 type=ptr void

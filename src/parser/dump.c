@@ -71,6 +71,7 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_SIZEOF] = "NODE_SIZEOF",
 	[NODE_LIT_NULL] = "NODE_LIT_NULL",
 	[NODE_TYPE_PTR] = "NODE_TYPE_PTR",
+	[NODE_INDEX] = "NODE_INDEX",
 };
 
 static inline void indent (int depth)

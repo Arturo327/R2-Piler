@@ -1,0 +1,3 @@
+tests/sema/096_err_index_void_src.r2:3:10: ERROR: cannot index 'ptr void'; cast it to a typed pointer first
+      3 |         return p[0] as i64;
+        |                 ^

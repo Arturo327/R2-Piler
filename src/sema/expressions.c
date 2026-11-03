@@ -10,6 +10,8 @@ static const uint8_t compound_base[NODE_COUNT] = {
 	[NODE_LS_ASSIGN] = NODE_LS, [NODE_RS_ASSIGN] = NODE_RS
 };
 
+static TypeId check_index (Sema *s, uint32_t idx);
+
 static TypeId check_literal (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
@@ -220,9 +222,12 @@ static TypeId check_addr (Sema *s, uint32_t idx)
 	} else if (child->type == NODE_DEREF) {
 		type = check_deref(s, n->child);
 		n = &s->ast->nodes[idx];
+	} else if (child->type == NODE_INDEX) {
+		type = check_index(s, n->child);
+		n = &s->ast->nodes[idx];
 	} else {
 		error_report(s->err, ERR_ERROR, node_loc(n),
-				"operand of '$' must be a variable or a dereference");
+				"operand of '$' must be a variable, a dereference or an index");
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
@@ -289,7 +294,9 @@ static int sizeof_expr_type (Sema *s, ASTNode *n, TypeId *out, uint64_t *size)
 	case NODE_LIT_i64: *out = TYPE_i64; *size = 8; return 1;
 	case NODE_LIT_u64: *out = TYPE_u64; *size = 8; return 1;
 	case NODE_LIT_CHAR: *out = TYPE_i8; *size = 1; return 1;
-	case NODE_DEREF: {
+	case NODE_DEREF:
+	case NODE_INDEX: {
+		const char *op = n->type == NODE_INDEX ? "index" : "dereference";
 		TypeId ptr;
 		uint64_t ptr_size;
 
@@ -301,12 +308,12 @@ static int sizeof_expr_type (Sema *s, ASTNode *n, TypeId *out, uint64_t *size)
 		}
 		if (type_kind(ptr) != TK_PTR) {
 			error_report(s->err, ERR_ERROR, node_loc(n),
-					"cannot dereference a value of type %s", type_display_name(ptr));
+					"cannot %s a value of type %s", op, type_display_name(ptr));
 			return 0;
 		}
 		if (types[ptr].base == TYPE_VOID) {
 			error_report(s->err, ERR_ERROR, node_loc(n),
-					"cannot dereference 'ptr void'; cast it to a typed pointer first");
+					"cannot %s 'ptr void'; cast it to a typed pointer first", op);
 			return 0;
 		}
 		*out = types[ptr].base;
@@ -315,7 +322,7 @@ static int sizeof_expr_type (Sema *s, ASTNode *n, TypeId *out, uint64_t *size)
 	}
 	default:
 		error_report(s->err, ERR_ERROR, node_loc(n),
-				"operand of sizeof must be a variable, dereference, string literal or type");
+				"operand of sizeof must be a variable, dereference, index, string literal or type");
 		return 0;
 	}
 }
@@ -523,24 +530,63 @@ static inline int is_pointer_operand (TypeId type)
 	return type_kind(type) == TK_PTR || type == TYPE_NULL || type == TYPE_STR;
 }
 
+static TypeId check_index (Sema *s, uint32_t idx)
+{
+	ASTNode *n = &s->ast->nodes[idx];
+	uint32_t base = n->child;
+	uint32_t index = s->ast->nodes[base].next_bro;
+	TypeId ptr = check_expr(s, base);
+	TypeId off = check_expr(s, index);
+
+	n = &s->ast->nodes[idx];
+	if (ptr == TYPE_ERROR || off == TYPE_ERROR) {
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	if (type_kind(ptr) != TK_PTR) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot index a value of type %s", type_display_name(ptr));
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	if (types[ptr].base == TYPE_VOID) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot index 'ptr void'; cast it to a typed pointer first");
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	if (!is_integer_operand(off)) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"pointer indexing requires an integer index");
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	finalize_type(s, index, off);
+	n->data_type = types[ptr].base;
+	warn_null_deref(s, idx, base);
+	return n->data_type;
+}
+
 static TypeId check_lvalue (Sema *s, uint32_t idx)
 {
 	switch (s->ast->nodes[idx].type)
 	{
 	case NODE_ID: return check_var_ref(s, idx, 1);
 	case NODE_DEREF: return check_deref(s, idx);
+	case NODE_INDEX: return check_index(s, idx);
 	default: return TYPE_ERROR;
 	}
 }
 
-static void mark_assigned (Sema *s, uint32_t left, uint8_t left_kind)
+static void mark_assigned (Sema *s, uint32_t left)
 {
-	uint32_t sym;
+	ASTNode *n = &s->ast->nodes[left];
 
-	if (left_kind == NODE_DEREF) sym = s->ast->nodes[s->ast->nodes[left].child].sym;
-	else sym = s->ast->nodes[left].sym;
-
-	if (sym != NO_SYMBOL) s->table.symbols[sym].assigned = 1;
+	while (n->type == NODE_DEREF || n->type == NODE_INDEX)
+		n = &s->ast->nodes[n->child];
+	if (n->type == NODE_ID && n->sym != NO_SYMBOL)
+		s->table.symbols[n->sym].assigned = 1;
 }
 
 static void warn_self_assign (Sema *s, uint32_t left, uint32_t right)
@@ -574,7 +620,7 @@ static TypeId check_assign (Sema *s, uint32_t idx)
 	uint32_t right = s->ast->nodes[left].next_bro;
 	uint8_t left_kind = s->ast->nodes[left].type;
 
-	if (left_kind != NODE_ID && left_kind != NODE_DEREF) {
+	if (left_kind != NODE_ID && left_kind != NODE_DEREF && left_kind != NODE_INDEX) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"left side of '=' must be a variable");
 		check_expr(s, right);
@@ -586,7 +632,7 @@ static TypeId check_assign (Sema *s, uint32_t idx)
 	TypeId r = check_expr(s, right);
 
 	warn_self_assign(s, left, right);
-	mark_assigned(s, left, left_kind);
+	mark_assigned(s, left);
 	set_null_state(s, left, left_kind, is_null_value(s, right));
 	if (left_kind == NODE_ID) sym_write(s, s->ast->nodes[left].sym, idx);
 
@@ -648,7 +694,7 @@ static TypeId check_compound_assign (Sema *s, uint32_t idx)
 	uint32_t right = s->ast->nodes[left].next_bro;
 	uint8_t op = compound_base[s->ast->nodes[idx].type];
 
-	if (left_kind != NODE_ID && left_kind != NODE_DEREF) {
+	if (left_kind != NODE_ID && left_kind != NODE_DEREF && left_kind != NODE_INDEX) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"left side of compound assignment must be a variable");
 		check_expr(s, right);
@@ -660,7 +706,7 @@ static TypeId check_compound_assign (Sema *s, uint32_t idx)
 	warn_unassigned(s, left, l);
 	mark_read(s, left);
 	TypeId r = check_expr(s, right);
-	mark_assigned(s, left, left_kind);
+	mark_assigned(s, left);
 	set_null_state(s, left, left_kind, 0);
 	if (left_kind == NODE_ID) sym_write(s, s->ast->nodes[left].sym, idx);
 
@@ -710,7 +756,7 @@ void check_inc_dec (Sema *s, uint32_t idx)
 	uint32_t target = s->ast->nodes[idx].child;
 	uint8_t target_kind = s->ast->nodes[target].type;
 
-	if (target_kind != NODE_ID && target_kind != NODE_DEREF) {
+	if (target_kind != NODE_ID && target_kind != NODE_DEREF && target_kind != NODE_INDEX) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"operand of '%s' must be a variable",
 				s->ast->nodes[idx].type == NODE_INC ? "++" : "--");
@@ -721,7 +767,7 @@ void check_inc_dec (Sema *s, uint32_t idx)
 	TypeId type = check_lvalue(s, target);
 	warn_unassigned(s, target, type);
 	mark_read(s, target);
-	mark_assigned(s, target, target_kind);
+	mark_assigned(s, target);
 	set_null_state(s, target, target_kind, 0);
 	if (target_kind == NODE_ID) sym_write(s, s->ast->nodes[target].sym, idx);
 
@@ -1127,6 +1173,7 @@ static TypeId check_expr_node (Sema *s, uint32_t idx)
 	case NODE_ID: return check_id(s, idx);
 	case NODE_LIT_NULL: n->data_type = TYPE_NULL; return TYPE_NULL;
 	case NODE_DEREF: return check_deref(s, idx);
+	case NODE_INDEX: return check_index(s, idx);
 	case NODE_ADDR: return check_addr(s, idx);
 	case NODE_SIZEOF: return check_sizeof(s, idx);
 	case NODE_DOT: return check_dot(s, idx);
@@ -1188,6 +1235,9 @@ int expr_has_effect (Sema *s, uint32_t idx)
 	case NODE_NEG: case NODE_NOT_L: case NODE_NOT_A:
 	case NODE_SIZEOF: case NODE_CAST:
 		return expr_has_effect(s, child);
+	case NODE_INDEX:
+		return expr_has_effect(s, child)
+				|| expr_has_effect(s, s->ast->nodes[child].next_bro);
 	default:
 		break;
 	}

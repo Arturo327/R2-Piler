@@ -79,7 +79,8 @@ uint32_t maybe_inc_dec (Parser *p, uint32_t node)
 	if (op.type != TOK_INC && op.type != TOK_DEC)
 		return node;
 	if (p->ast.nodes[node].type == NODE_ID
-			|| p->ast.nodes[node].type == NODE_DEREF)
+			|| p->ast.nodes[node].type == NODE_DEREF
+			|| p->ast.nodes[node].type == NODE_INDEX)
 		return parse_inc_dec(p, node);
 
 	error_report(p->err, ERR_ERROR, token_loc(op),
@@ -220,14 +221,30 @@ static uint32_t parse_dot (Parser *p, uint32_t left)
 	return node;
 }
 
+static uint32_t parse_index (Parser *p, uint32_t left)
+{
+	Token open = p->curr;
+	advance(p);
+
+	uint32_t node = new_node(p, NODE_INDEX, open.line, open.col);
+	uint32_t index = parse_expr(p, 0);
+
+	p->ast.nodes[node].child = left;
+	p->ast.nodes[left].next_bro = index;
+	consume(p, TOK_RBRACE, "expected ']' after index");
+	return node;
+}
+
 static uint32_t parse_primary (Parser *p)
 {
 	if (!enter_depth(p, "expression or statement"))
 		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
 
 	uint32_t node = parse_primary_inner(p);
-	while (p->curr.type == TOK_DOT)
-		node = parse_dot(p, node);
+	while (p->curr.type == TOK_DOT || p->curr.type == TOK_LBRACE) {
+		if (p->curr.type == TOK_DOT) node = parse_dot(p, node);
+		else node = parse_index(p, node);
+	}
 	p->depth--;
 	return node;
 }

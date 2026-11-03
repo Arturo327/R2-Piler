@@ -416,6 +416,7 @@ static void gen_block (IR *ir, ASTNode *parent);
 static uint32_t gen_expr (IR *ir, ASTNode *n);
 static void gen_jump_if (IR *ir, ASTNode *n, uint32_t label, int when);
 static uint32_t ptr_scale (IR *ir, uint32_t val, TypeId ptr_type, int up);
+static uint32_t gen_index_addr (IR *ir, ASTNode *n);
 
 static uint32_t gen_addr (IR *ir, ASTNode *n)
 {
@@ -424,6 +425,8 @@ static uint32_t gen_addr (IR *ir, ASTNode *n)
 
 	if (child->type == NODE_DEREF)
 		return gen_expr(ir, ir->ast->nodes + child->child);
+	if (child->type == NODE_INDEX)
+		return gen_index_addr(ir, child);
 
 	Symbol *s = ir->symtab->symbols + child->sym;
 	dst = new_reg(ir, n->data_type);
@@ -443,8 +446,19 @@ static uint32_t gen_deref (IR *ir, ASTNode *n)
 	return make_ld_ptr(ir, ptr, n->data_type);
 }
 
+static uint32_t gen_index_addr (IR *ir, ASTNode *n)
+{
+	ASTNode *base = ir->ast->nodes + n->child;
+	TypeId ptr = base->data_type;
+	uint32_t a = gen_expr(ir, base);
+	uint32_t b = gen_expr(ir, ir->ast->nodes + base->next_bro);
+
+	return make_op(ir, IR_ADD, a, ptr_scale(ir, b, ptr, 1), ptr);
+}
+
 static uint32_t gen_lvalue_addr (IR *ir, ASTNode *lhs)
 {
+	if (lhs->type == NODE_INDEX) return gen_index_addr(ir, lhs);
 	if (lhs->type != NODE_DEREF) return NO_REG;
 	return gen_expr(ir, ir->ast->nodes + lhs->child);
 }
@@ -773,6 +787,7 @@ static uint32_t gen_expr (IR *ir, ASTNode *n)
 
 	case NODE_ID: return load_var(ir, ir->symtab->symbols + n->sym);;
 	case NODE_DEREF: return gen_deref(ir, n);
+	case NODE_INDEX: return make_ld_ptr(ir, gen_index_addr(ir, n), n->data_type);
 	case NODE_ADDR: return gen_addr(ir, n);
 	case NODE_LIT_NULL: return make_const(ir, 0, TYPE_NULL);
 	case NODE_LIT_STR: return make_str_lit(ir, n);
