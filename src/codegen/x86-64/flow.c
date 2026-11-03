@@ -119,7 +119,7 @@ void x86_make_ret (X86Fn *f, IRInstr *i)
 		x86_take_fixed(f, RAX, i->src1);
 		x86_load_reg(f, RAX, i->src1);
 	}
-	x86_move_saved(f, f->ctx.callee_used, 1);
+	x86_move_saved(f, f->ctx.restore_at[f->at], 1);
 	cg_printf(f->cg, f->leaf ? "\tret\n" : "\tleave\n\tret\n");
 }
 
@@ -146,7 +146,7 @@ int x86_make_tail_call (X86Fn *f, IRInstr *i)
 	if (c->ir->fns + i->target == f->fn) {
 		cg_printf(c, "\tjmp .LS%u\n", i->target);
 	} else {
-		x86_move_saved(f, f->ctx.callee_used, 1);
+		x86_move_saved(f, f->ctx.restore_at[f->at], 1);
 		if (!f->leaf) cg_printf(c, "\tleave\n");
 		if (c->ir->fns[i->target].is_extern)
 			cg_printf(c, "\txorl %%eax, %%eax\n");

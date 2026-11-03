@@ -124,5 +124,6 @@ uint64_t needs_mask (const ArchDesc *arch, Reg *regs, IRInstr *in);
 void verify_regalloc (RegAlloc *ra);
 
 void color_regs (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, Cfg *cfg);
+void shrink_wrap (RegAlloc *ra);
 
 #endif

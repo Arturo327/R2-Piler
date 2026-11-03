@@ -95,6 +95,8 @@ typedef struct RegCtx {
 
 	uint32_t *ins_block;
 	uint64_t *save;
+	uint64_t *save_in;
+	uint64_t *restore_at;
 	uint64_t *free_regs;
 
 	EdgeMoves *edges;

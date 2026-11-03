@@ -624,6 +624,12 @@ static void init_state (RegAlloc *ra, Arena *arena, IR *ir, IRFn *fn, Reg *regs,
 	ra->all = ~0ull >> (64 - ctx->arch->reg_num);
 	ra->words = (fn->reg_count + 63) >> 6;
 
+	uint32_t count = fn->count ? fn->count : 1;
+	ctx->save_in = arena_alloc(arena, (size_t)count * sizeof(uint64_t));
+	ctx->restore_at = arena_alloc(arena, (size_t)count * sizeof(uint64_t));
+	memset(ctx->save_in, 0, (size_t)count * sizeof(uint64_t));
+	memset(ctx->restore_at, 0, (size_t)count * sizeof(uint64_t));
+
 	if (!ra->words || ra->spill_all) return;
 	alloc_regalloc(ra);
 	build_cfg(ra);
@@ -656,6 +662,7 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, int spill
 	if (!spill_all) {
 		build_edges(&ra);
 		fill_ctx(&ra);
+		shrink_wrap(&ra);
 	}
 
 	verify_regalloc(&ra);

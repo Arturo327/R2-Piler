@@ -83,6 +83,7 @@ static void make_body (X86Fn *f)
 			i++;
 			continue;
 		}
+		if (f->ctx.save_in[i]) x86_move_saved(f, f->ctx.save_in[i], 0);
 		uint32_t n = make_instr(f, instr);
 		last = instr + n - 1;
 		dead = last->op == IR_RET || last->op == IR_JMP
@@ -107,7 +108,6 @@ void x86_make_fn (X86Fn *f)
 	cg_printf(c, ":\n");
 	if (!f->leaf) cg_printf(c, "\tpushq %%rbp\n\tmovq %%rsp, %%rbp\n");
 	if (f->frame) cg_printf(c, "\tsubq $%u, %%rsp\n", f->frame);
-	x86_move_saved(f, f->ctx.callee_used, 0);
 	cg_printf(c, ".LS%u:\n", (uint32_t)(fn - c->ir->fns));
 
 	make_body(f);
