@@ -124,10 +124,11 @@ int cg_is_tail_call (IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx,
 	uint32_t at = (uint32_t)(call - (ir->instrs + fn->start));
 	TypeId from = ir->fns[call->target].ret_type;
 	TypeId to = fn->ret_type;
+	uint32_t extra = call->argc > max_args ? call->argc - max_args : 0;
+	uint32_t avail = fn->param_count > max_args ? fn->param_count - max_args : 0;
 
 	while (ret < end && ret->op == IR_LABEL) ret++;
-	if (ret >= end || ret->op != IR_RET || call->argc > max_args)
-		return 0;
+	if (ret >= end || ret->op != IR_RET || extra > avail) return 0;
 	if (ret->src1 != call->dst) return 0;
 	if (call->dst != NO_REG && regs[call->dst].uses != 1) return 0;
 	if (ctx->edges[at].fall) return 0;

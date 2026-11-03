@@ -21,22 +21,24 @@ static void protect_args (X86Fn *f, IRInstr *first, uint32_t n)
 		f->busy |= x86_home_bit(f, first[k].src1);
 }
 
-static void make_stack_arg (X86Fn *f, IRInstr *a)
+static void make_stack_arg (X86Fn *f, IRInstr *a, int tail)
 {
-	uint32_t off = (a->target - 6) << 3;
+	uint32_t off = tail ? (f->leaf ? 8 : 16) + ((a->target - 6) << 3)
+			: (a->target - 6) << 3;
+	const char *base = tail ? f->base : "%rsp";
 	int is_const = f->regs[a->src1].cstate == VR_CONST;
 	int64_t v = is_const ? x86_const_ext(f, a->src1) : 0;
 	int p = x86_phys_reg(f, a->src1);
 	uint64_t keep = f->pool;
 
 	if (is_const && v == (int32_t)v) {
-		cg_printf(f->cg, "\tmovq $%lld, %u(%%rsp)\n", (long long)v, off);
+		cg_printf(f->cg, "\tmovq $%lld, %u(%s)\n", (long long)v, off, base);
 		return;
 	}
 
 	uint8_t w = p >= 0 ? (uint8_t)p : x86_grab(f);
 	if (p < 0) x86_load_reg(f, w, a->src1);
-	cg_printf(f->cg, "\tmovq %s, %u(%%rsp)\n", reg_name(w, 8), off);
+	cg_printf(f->cg, "\tmovq %s, %u(%s)\n", reg_name(w, 8), off, base);
 	f->pool = keep;
 }
 
@@ -79,16 +81,16 @@ int x86_make_arg (X86Fn *f, IRInstr *i)
 	IRInstr *call = group_call(i, end);
 	uint32_t n = (uint32_t)(call - i);
 	uint32_t blk = f->blk;
+	int tail = x86_tail_match(f, call);
 
 	if (i->target != 0) return 1;
 	x86_check_arg_group(f, i, end);
 	f->blk = blk;
-	if (!x86_tail_match(f, call))
-		move_call_live(f, call, 0);
+	if (!tail) move_call_live(f, call, 0);
 
 	protect_args(f, i, n);
 	for (uint32_t k = 6; k < n; k++)
-		make_stack_arg(f, i + k);
+		make_stack_arg(f, i + k, tail);
 
 	uint32_t count = build_arg_moves(f, i, n);
 	x86_parallel_move(f, f->moves, count);
