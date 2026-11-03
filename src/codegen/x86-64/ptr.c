@@ -7,6 +7,7 @@ void x86_make_addr_local (X86Fn *f, IRInstr *i)
 	int p = x86_phys_reg(f, i->dst);
 	uint8_t w = p >= 0 ? (uint8_t)p : x86_grab(f);
 
+	x86_clobber(f, w);
 	cg_printf(c, "\tleaq -%u(%s), %s\n", src->slot, f->base, reg_name(w, 8));
 	if (p < 0) x86_store_reg(f, w, i->dst);
 }
@@ -18,6 +19,7 @@ void x86_make_addr_global (X86Fn *f, IRInstr *i)
 	int p = x86_phys_reg(f, i->dst);
 	uint8_t w = p >= 0 ? (uint8_t)p : x86_grab(f);
 
+	x86_clobber(f, w);
 	cg_printf(c, "\tleaq %s%.*s(%%rip), %s\n",
 			GLOBAL_PREFIX(g), (int)g->len, g->name, reg_name(w, 8));
 	if (p < 0) x86_store_reg(f, w, i->dst);
@@ -29,6 +31,7 @@ void x86_make_str_lit (X86Fn *f, IRInstr *i)
 	int p = x86_phys_reg(f, i->dst);
 	uint8_t w = p >= 0 ? (uint8_t)p : x86_grab(f);
 
+	x86_clobber(f, w);
 	cg_printf(c, "\tleaq .LC%u(%%rip), %s\n", i->target, reg_name(w, 8));
 	if (p < 0) x86_store_reg(f, w, i->dst);
 }
@@ -52,6 +55,7 @@ void x86_make_ld_ptr (X86Fn *f, IRInstr *i)
 	int d = x86_phys_reg(f, i->dst);
 
 	if (d >= 0) {
+		x86_clobber(f, (uint8_t)d);
 		cg_printf(c, "\t%s (%s), %s\n", op, reg_name(base, 8),
 				reg_name((uint8_t)d, w));
 		return;

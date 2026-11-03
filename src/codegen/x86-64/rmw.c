@@ -160,6 +160,11 @@ int x86_make_rmw (X86Fn *f, IRInstr *a)
 	if (!c || !rmw_shape_ok(f, a, b)) return 0;
 	uint8_t s = rmw_width(f, a);
 
+	if (a->op != IR_LD_GLOBAL) {
+		int8_t h = f->regs[a->src1].home[f->blk];
+
+		if (h >= 0) x86_clobber(f, (uint8_t)h);
+	}
 	if (rmw_operand(f, b, s, &op, &v)) {
 		cg_printf(f->cg, "\t%s%c ", op, x86_mem_suf[s]);
 		if (rmw_kind[b->op] != RMW_UNARY)
@@ -185,6 +190,7 @@ int x86_try_rmw_inplace (X86Fn *f, IRInstr *i)
 	uint32_t x = i->dst;
 	int8_t h = f->regs[x].home[f->blk];
 	if (f->regs[x].cstate != VR_MEM || (h != VR_SPILL && h < 0)) return 0;
+	if (h >= 0) x86_clobber(f, (uint8_t)h);
 	uint8_t s = types[f->fn->reg_types[x]].size;
 
 	int64_t v = 0;

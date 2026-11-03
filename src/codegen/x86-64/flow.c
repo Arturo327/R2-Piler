@@ -100,6 +100,7 @@ void x86_make_call (X86Fn *f, IRInstr *i)
 {
 	CodeGen *c = f->cg;
 
+	f->clobbers |= x86_call_clobbers(f, i);
 	if (i->argc == 0) move_call_live(f, i, 0);
 	if (c->ir->fns[i->target].is_extern)
 		cg_printf(c, "\txorl %%eax, %%eax\n");
@@ -141,6 +142,7 @@ int x86_make_tail_call (X86Fn *f, IRInstr *i)
 	IRInstr *ret = x86_tail_ret(i);
 	if (!x86_tail_match(f, i)) return 0;
 
+	f->clobbers |= x86_call_clobbers(f, i);
 	if (c->ir->fns + i->target == f->fn) {
 		cg_printf(c, "\tjmp .LS%u\n", i->target);
 	} else {

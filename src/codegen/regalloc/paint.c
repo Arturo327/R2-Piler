@@ -64,12 +64,14 @@ static void neighbor_masks (Graph *g, CRNode *n, uint64_t *used, uint64_t *want)
 static int pick_color (Graph *g, CRNode *n, uint64_t ok, uint64_t want)
 {
 	uint64_t callee = g->cr->ctx->arch->callee_mask;
-	uint64_t cls = n->cross ? ok & callee : ok & ~callee;
+	uint64_t caller = g->cr->ctx->arch->caller_mask;
+	uint64_t safe = callee | (caller & ~n->crossmask);
+	uint64_t cls = ok & safe;
 
 	if (!cls) {
 		if (n->cross && n->cross * 2 >= n->cost) return -1;
 		cls = ok;
-	}
+	} else if (cls & caller) cls &= caller;
 	uint64_t pick = cls & n->hint & n->pref;
 	if (!pick) pick = cls & n->hint;
 	if (!pick) pick = cls & n->pref;
@@ -175,6 +177,7 @@ static void merge_nodes (Graph *g, uint32_t a, uint32_t b)
 	}
 	na->cost += nb->cost;
 	na->cross += nb->cross;
+	na->crossmask |= nb->crossmask;
 	na->pref |= nb->pref;
 	na->hint |= nb->hint;
 	na->forbid |= nb->forbid;

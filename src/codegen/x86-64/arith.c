@@ -27,6 +27,7 @@ static void make_mul_pm1 (X86Fn *f, uint8_t w, uint64_t k, int plus)
 	const char *wn = reg_name(w, 8);
 	const char *tn = reg_name(t, 8);
 
+	x86_clobber(f, w);
 	cg_printf(c, "\tmovq %s, %s\n\tshlq $%llu, %s\n", wn, tn, (unsigned long long)k, tn);
 	if (plus) cg_printf(c, "\taddq %s, %s\n", tn, wn);
 	else cg_printf(c, "\tsubq %s, %s\n\tmovq %s, %s\n", wn, tn, tn, wn);
@@ -78,6 +79,7 @@ static int make_lea (X86Fn *f, IRInstr *i)
 	int pd = x86_phys_reg(f, i->dst);
 	if (pa < 0 || pb < 0 || pd < 0) return 0;
 
+	x86_clobber(f, (uint8_t)pd);
 	cg_printf(f->cg, "\tleaq (%s,%s), %s\n",
 			reg_name((uint8_t)pa, 8), reg_name((uint8_t)pb, 8),
 			reg_name((uint8_t)pd, 8));

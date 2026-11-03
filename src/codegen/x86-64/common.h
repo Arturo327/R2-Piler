@@ -49,6 +49,9 @@ typedef struct X86Fn {
 	uint64_t pool;
 	uint64_t busy;
 
+	uint64_t *fn_clobber;
+	uint64_t clobbers;
+
 	uint32_t outgoing;
 	uint32_t frame;
 	uint64_t savemask;
@@ -77,6 +80,8 @@ uint64_t x86_home_bit (X86Fn *f, uint32_t vreg);
 uint8_t x86_grab (X86Fn *f);
 void x86_take_fixed (X86Fn *f, uint8_t r, uint32_t keeps);
 void x86_take_fixed_rw (X86Fn *f, uint8_t r);
+void x86_clobber (X86Fn *f, uint8_t r);
+uint64_t x86_call_clobbers (void *user, IRInstr *call);
 uint8_t x86_work_reg (X86Fn *f, uint32_t dst, uint64_t avoid);
 void x86_check_arg_group (X86Fn *f, IRInstr *first, IRInstr *end);
 

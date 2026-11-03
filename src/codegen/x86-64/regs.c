@@ -2,6 +2,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+void x86_clobber (X86Fn *f, uint8_t r)
+{
+	if (r < 64) f->clobbers |= 1ull << r;
+}
+
+uint64_t x86_call_clobbers (void *user, IRInstr *call)
+{
+	X86Fn *f = user;
+	const ArchDesc *arch = f->ctx.arch;
+	uint64_t mask = f->fn_clobber ? f->fn_clobber[call->target] : X86_CALLER_MASK;
+	uint32_t n = call->argc < arch->arg_reg_max ? call->argc : arch->arg_reg_max;
+
+	for (uint32_t k = 0; k < n; k++)
+		mask |= 1ull << arch->arg_regs[k];
+	return mask;
+}
+
 void x86_move_saved (X86Fn *f, uint64_t mask, int restore)
 {
 	uint32_t off = f->regsave;
@@ -11,9 +28,10 @@ void x86_move_saved (X86Fn *f, uint64_t mask, int restore)
 		off += 8;
 		if (!(mask >> k & 1)) continue;
 
-		if (restore)
+		if (restore) {
 			cg_printf(f->cg, "\tmovq -%u(%s), %s\n", off, f->base, reg_name(k, 8));
-		else cg_printf(f->cg, "\tmovq %s, -%u(%s)\n", reg_name(k, 8), off, f->base);
+			x86_clobber(f, (uint8_t)k);
+		} else cg_printf(f->cg, "\tmovq %s, -%u(%s)\n", reg_name(k, 8), off, f->base);
 	}
 }
 
@@ -67,6 +85,7 @@ uint8_t x86_grab (X86Fn *f)
 
 	uint8_t r = (uint8_t)__builtin_ctzll(m);
 	f->pool &= ~(1ull << r);
+	x86_clobber(f, r);
 	return r;
 }
 
@@ -75,12 +94,14 @@ void x86_take_fixed (X86Fn *f, uint8_t r, uint32_t keeps)
 	if (keeps != NO_REG && x86_phys_reg(f, keeps) == r) return;
 	if (!(f->pool >> r & 1)) regalloc_fixed_violation(f, r);
 	f->pool &= ~(1ull << r);
+	x86_clobber(f, r);
 }
 
 void x86_take_fixed_rw (X86Fn *f, uint8_t r)
 {
 	if (!(f->pool >> r & 1)) regalloc_fixed_violation(f, r);
 	f->pool &= ~(1ull << r);
+	x86_clobber(f, r);
 }
 
 uint8_t x86_work_reg (X86Fn *f, uint32_t dst, uint64_t avoid)

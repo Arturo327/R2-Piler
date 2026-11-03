@@ -33,6 +33,7 @@ typedef struct CRNode {
 	uint64_t pref;
 	uint64_t hint;
 	uint64_t forbid;
+	uint64_t crossmask;
 	uint32_t rep;
 	uint32_t vreg;
 	uint32_t cost;

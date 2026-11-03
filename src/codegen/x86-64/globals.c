@@ -71,6 +71,7 @@ void x86_make_ld_global (X86Fn *f, IRInstr *i)
 	uint8_t size;
 	const char *op = x86_load_op(g->type, &size);
 
+	x86_clobber(f, w);
 	cg_printf(c, "\t%s %s%.*s(%%rip), %s\n", op,
 			GLOBAL_PREFIX(g), (int)g->len, g->name, reg_name(w, size));
 	if (p < 0) x86_store_reg(f, w, i->dst);
@@ -105,6 +106,7 @@ void x86_make_str_global (X86Fn *f, IRInstr *i)
 		p = x86_grab(f);
 		x86_load_reg(f, (uint8_t)p, i->src1);
 	}
+	x86_clobber(f, (uint8_t)p);
 	cg_printf(c, "\tmov%c %s, %s%.*s(%%rip)\n", x86_mem_suf[s],
 			reg_name(p, s), GLOBAL_PREFIX(g), (int)g->len, g->name);
 }

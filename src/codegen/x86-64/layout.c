@@ -99,6 +99,7 @@ static const ArchDesc x86_arch = {
 	.needs = x86_64_needs,
 	.arg_regs = x86_arg_regs,
 	.scratch_need = x86_scratch_need,
+	.call_clobbers = x86_call_clobbers,
 	.callee_mask = X86_CALLEE_MASK,
 	.caller_mask = X86_CALLER_MASK,
 	.reg_num = X86_REG_NUM,

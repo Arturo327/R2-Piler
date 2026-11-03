@@ -60,6 +60,7 @@ void x86_load_imm (X86Fn *f, uint8_t reg, int64_t v)
 {
 	CodeGen *c = f->cg;
 
+	x86_clobber(f, reg);
 	if (v >= 0 && v <= UINT32_MAX)
 		cg_printf(c, "\tmovl $%lld, %s\n", (long long)v, reg_name(reg, 4));
 	else if (v == (int32_t)v)
@@ -82,6 +83,7 @@ void x86_load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 {
 	int p = x86_phys_reg(f, vreg);
 
+	x86_clobber(f, reg);
 	if (f->regs[vreg].cstate == VR_CONST) {
 		x86_load_imm(f, reg, x86_const_ext(f, vreg));
 		return;
@@ -118,6 +120,7 @@ void x86_store_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 	uint8_t s = types[t].size;
 	int p = x86_phys_reg(f, vreg);
 
+	if (p >= 0) x86_clobber(f, (uint8_t)p);
 	if (!f->regs[vreg].uses) return;
 	if (p >= 0) {
 		store_phys(f, reg, (uint8_t)p, t);
@@ -159,6 +162,7 @@ void x86_op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg)
 	int p = x86_phys_reg(f, vreg);
 	uint64_t keep = f->pool;
 
+	x86_clobber(f, w);
 	if (is_const && v == (int32_t)v) {
 		cg_printf(f->cg, "\t%sq $%lld, %s\n", op, (long long)v, reg_name(w, 8));
 	} else if (p >= 0) {

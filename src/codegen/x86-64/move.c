@@ -11,14 +11,18 @@ static void make_action (X86Fn *f, const PMAction *a)
 	case PM_ACT_LOAD:
 		uint8_t w;
 		const char *op = x86_load_op_bits(a->size, a->sign, &w);
+		x86_clobber(f, a->to);
 		cg_printf(f->cg, "\t%s -%u(%s), %s\n", op,
 				a->slot, f->base, reg_name(a->to, w));
 		return;
 	case PM_ACT_SWAP:
+		x86_clobber(f, a->from);
+		x86_clobber(f, a->to);
 		cg_printf(f->cg, "\txchgq %s, %s\n",
 				reg_name(a->from, 8), reg_name(a->to, 8));
 		return;
 	case PM_ACT_MOVE:
+		x86_clobber(f, a->to);
 		cg_printf(f->cg, "\tmovq %s, %s\n",
 				reg_name(a->from, 8), reg_name(a->to, 8));
 		return;
@@ -71,6 +75,7 @@ static void extend_home (X86Fn *f, uint8_t reg, TypeId type)
 	const char *op = x86_load_op_bits(size, types[type].sign, &w);
 
 	if (size == 8) return;
+	x86_clobber(f, reg);
 	cg_printf(f->cg, "\t%s %s, %s\n", op, reg_name(reg, size), reg_name(reg, w));
 }
 
@@ -129,6 +134,7 @@ void x86_make_move (X86Fn *f, IRInstr *i)
 		if (!f->regs[i->dst].uses) return;
 		if (same_rep(f->fn, i->dst, i->src1)) {
 			if (p == pd) return;
+			x86_clobber(f, (uint8_t)pd);
 			cg_printf(f->cg, "\tmovq %s, %s\n",
 					reg_name((uint8_t)p, 8), reg_name((uint8_t)pd, 8));
 			return;

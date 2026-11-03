@@ -570,8 +570,12 @@ static void sweep_block (RegAlloc *ra, uint32_t b)
 		ra->ctx->free_regs[at] = ra->all & ~hm & allowed;
 
 		if (in->op == IR_CALL &&
-				!cg_is_tail_call(ra->ir, ra->fn, ra->regs, ra->ctx, in, ra->ctx->arch->arg_reg_max))
-			ra->ctx->save[at] = hm & caller;
+				!cg_is_tail_call(ra->ir, ra->fn, ra->regs, ra->ctx, in, ra->ctx->arch->arg_reg_max)) {
+			uint64_t clob = ra->ctx->arch->call_clobbers
+					? ra->ctx->arch->call_clobbers(ra->ctx->user, in) : caller;
+
+			ra->ctx->save[at] = hm & clob;
+		}
 		for (int k = 0; k < n; k++)
 			ra->tmp[*src[k] >> 6] |= 1ull << (*src[k] & 63);
 	}

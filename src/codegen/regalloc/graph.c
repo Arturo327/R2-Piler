@@ -165,6 +165,7 @@ static uint32_t add_node (Graph *g, uint32_t v)
 	n->forbid = 0;
 	n->cost = 0;
 	n->cross = 0;
+	n->crossmask = 0;
 	n->deg = 0;
 	n->state = CRN_ACTIVE;
 	g->id[r] = g->node_num++;
@@ -289,7 +290,7 @@ static void clique_live (Graph *g)
 	}
 }
 
-static void cross_live (Graph *g, uint32_t wt)
+static void cross_live (Graph *g, uint32_t wt, uint64_t clob)
 {
 	for (uint32_t w = 0; w < g->stride; w++) {
 		uint64_t bits = g->live[w];
@@ -298,6 +299,7 @@ static void cross_live (Graph *g, uint32_t wt)
 			uint32_t id = (w << 6) + (uint32_t)__builtin_ctzll(bits);
 			bits &= bits - 1;
 			g->nodes[id].cross += wt;
+			g->nodes[id].crossmask |= clob;
 		}
 	}
 }
@@ -355,7 +357,13 @@ static void sweep_instr (Graph *g, IRInstr *in, uint32_t at)
 		g->live[d >> 6] &= ~(1ull << (d & 63));
 	}
 
-	if (in->op == IR_CALL) cross_live(g, wt);
+	if (in->op == IR_CALL) {
+		const ArchDesc *arch = g->cr->ctx->arch;
+		uint64_t clob = arch->call_clobbers
+				? arch->call_clobbers(g->cr->ctx->user, in) : arch->caller_mask;
+
+		if (clob) cross_live(g, wt, clob);
+	}
 	uint64_t mask = needs_mask(g->cr->ctx->arch, g->cr->regs, in);
 	if (mask) forbid_live(g, mask);
 

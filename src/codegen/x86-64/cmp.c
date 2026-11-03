@@ -85,6 +85,7 @@ static void select_move (X86Fn *f, IRInstr *sel, const char *yes, const char *no
 	if (pd >= 0 && pd == pb) {
 		uint8_t r = pa >= 0 ? (uint8_t)pa : x86_grab(f);
 		if (pa < 0) x86_load_reg(f, r, sel->src1);
+		x86_clobber(f, (uint8_t)pd);
 		cg_printf(f->cg, "\tcmov%s %s, %s\n", yes, reg_name(r, 8), reg_name(pd, 8));
 		return;
 	}

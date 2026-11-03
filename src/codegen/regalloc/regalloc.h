@@ -74,11 +74,13 @@ enum {
 };
 
 typedef uint32_t (*ScratchFn) (void *user, IRInstr *in, const int8_t *homes);
+typedef uint64_t (*ClobberFn) (void *user, IRInstr *call);
 
 typedef struct ArchDesc {
 	const OpNeeds *needs;
 	const uint8_t *arg_regs;
 	ScratchFn scratch_need;
+	ClobberFn call_clobbers;
 
 	uint64_t callee_mask;
 	uint64_t caller_mask;
