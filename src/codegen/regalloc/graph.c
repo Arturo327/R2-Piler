@@ -472,7 +472,9 @@ static uint32_t instr_scratch (Graph *g, IRInstr *in)
 	uint32_t v[SC_COUNT] = { in->dst, in->src1, in->src2, NO_REG };
 	int8_t homes[SC_COUNT];
 
-	if (cg_is_silent(cr->regs, in)) return 0;
+	if (cg_is_silent(cr->regs,
+			cr->ctx->dead + (uint32_t)(in - (cr->ir->instrs + cr->fn->start)), in))
+		return 0;
 	if (in->op == IR_SELECT) v[SC_COND] = in->cond;
 	for (uint32_t k = 0; k < SC_COUNT; k++) {
 		if (v[k] == NO_REG) homes[k] = VR_NO_HOME;

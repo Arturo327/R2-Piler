@@ -9,7 +9,9 @@ void x86_print_fn_name (CodeGen *c, IRFn *fn)
 
 static int make_instr (X86Fn *f, IRInstr *i)
 {
-	if (cg_is_silent(f->regs, i)) return 1;
+	uint32_t at = (uint32_t)(i - (f->cg->ir->instrs + f->fn->start));
+
+	if (cg_is_silent(f->regs, f->ctx.dead + at, i)) return 1;
 	x86_begin_instr(f, i);
 	if (x86_try_rmw_inplace(f, i)) return 1;
 	int n;
@@ -42,9 +44,14 @@ static int make_instr (X86Fn *f, IRInstr *i)
 	case IR_EXTEND: x86_make_move(f, i); return 1;
 
 	case IR_ADD: case IR_SUB: case IR_AND_A: case IR_OR_A: case IR_MUL: case IR_XOR:
-		x86_make_arith(f, i); return 1;
+		return x86_make_arith(f, i);
 	case IR_DIV: case IR_MOD: x86_make_divmod(f, i); return 1;
-	case IR_RS: case IR_LS: x86_make_shift(f, i); return 1;
+	case IR_RS: x86_make_shift(f, i); return 1;
+	case IR_LS:
+		n = x86_try_mul_add(f, i);
+		if (n) return n;
+		x86_make_shift(f, i);
+		return 1;
 
 	case IR_NEG: x86_make_unary(f, i, "neg"); return 1;
 	case IR_NOT_A: x86_make_unary(f, i, "not"); return 1;

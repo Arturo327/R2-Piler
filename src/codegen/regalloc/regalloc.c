@@ -581,6 +581,27 @@ static void sweep_block (RegAlloc *ra, uint32_t b)
 	}
 }
 
+static void mark_dead (RegAlloc *ra)
+{
+	Cfg *cfg = &ra->cfg;
+
+	for (uint32_t b = 0; b < cfg->block_count; b++) {
+		CfgBlock *blk = cfg->blocks + b;
+		uint32_t base = blk->start - ra->fn->start;
+
+		cfg_live_out(cfg, b, ra->tmp, ra->words);
+		for (uint32_t i = blk->count; i-- > 0;) {
+			IRInstr *in = ra->ir->instrs + blk->start + i;
+
+			if (in->dst != NO_REG && in->op != IR_PARAM && is_deletable[in->op]
+					&& !reg_addressed(ra->fn, in->dst)
+					&& !(ra->tmp[in->dst >> 6] >> (in->dst & 63) & 1))
+				ra->ctx->dead[base + i] = 1;
+			cfg_live_step_full(in, ra->tmp);
+		}
+	}
+}
+
 static void reset_regs (IRFn *fn, Reg *regs)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
@@ -627,13 +648,16 @@ static void init_state (RegAlloc *ra, Arena *arena, IR *ir, IRFn *fn, Reg *regs,
 	uint32_t count = fn->count ? fn->count : 1;
 	ctx->save_in = arena_alloc(arena, (size_t)count * sizeof(uint64_t));
 	ctx->restore_at = arena_alloc(arena, (size_t)count * sizeof(uint64_t));
+	ctx->dead = arena_alloc(arena, count);
 	memset(ctx->save_in, 0, (size_t)count * sizeof(uint64_t));
 	memset(ctx->restore_at, 0, (size_t)count * sizeof(uint64_t));
+	memset(ctx->dead, 0, count);
 
 	if (!ra->words || ra->spill_all) return;
 	alloc_regalloc(ra);
 	build_cfg(ra);
 	partition(ra);
+	mark_dead(ra);
 }
 
 static void fill_ctx (RegAlloc *ra)

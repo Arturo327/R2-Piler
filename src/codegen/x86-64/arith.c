@@ -103,12 +103,64 @@ static int make_incdec (X86Fn *f, IRInstr *i)
 	return 1;
 }
 
-void x86_make_arith (X86Fn *f, IRInstr *i)
+static int make_mul_add (X86Fn *f, IRInstr *i, IRInstr *next)
 {
-	if (i->op == IR_MUL && make_mul_const(f, i)) return;
-	if (make_arith_inplace(f, i)) return;
-	if (make_lea(f, i)) return;
-	if (make_incdec(f, i)) return;
+	if (next->op != IR_ADD || types[next->data_type].size != 8) return 0;
+	if (f->regs[i->src2].cstate != VR_CONST) return 0;
+	if (f->regs[i->dst].uses != 1 || !f->regs[next->dst].uses) return 0;
+	if (types[i->data_type].size != 8) return 0;
+
+	uint32_t other;
+	if (next->src1 == i->dst) other = next->src2;
+	else if (next->src2 == i->dst) other = next->src1;
+	else return 0;
+
+	int64_t k = x86_const_ext(f, i->src2);
+	if (i->op == IR_LS) k = (int64_t)1 << (k & 63);
+	if (!(k == 2 || k == 3 || k == 4 || k == 5 || k == 8 || k == 9)) return 0;
+
+	int pb = x86_phys_reg(f, i->src1);
+	int po = x86_phys_reg(f, other);
+	int pd = x86_phys_reg(f, next->dst);
+	if (pb < 0 || po < 0 || pd < 0) return 0;
+
+	int64_t scale = (k == 3 || k == 5 || k == 9) ? k - 1 : k;
+	x86_clobber(f, (uint8_t)pd);
+	if (pd == pb && k != 2 && k != 4 && k != 8) {
+		cg_printf(f->cg, "\tleaq (%s,%s,%lld), %s\n", reg_name((uint8_t)pb, 8),
+				reg_name((uint8_t)pb, 8), (long long)scale, reg_name((uint8_t)pd, 8));
+		cg_printf(f->cg, "\taddq %s, %s\n", reg_name((uint8_t)po, 8),
+				reg_name((uint8_t)pd, 8));
+		return 1;
+	}
+	cg_printf(f->cg, "\tleaq (%s,%s,%lld), %s\n", reg_name((uint8_t)po, 8),
+			reg_name((uint8_t)pb, 8), (long long)scale, reg_name((uint8_t)pd, 8));
+	if (k == 3 || k == 5 || k == 9)
+		cg_printf(f->cg, "\taddq %s, %s\n", reg_name((uint8_t)pb, 8),
+				reg_name((uint8_t)pd, 8));
+	return 1;
+}
+
+int x86_try_mul_add (X86Fn *f, IRInstr *i)
+{
+	IRInstr *end = f->cg->ir->instrs + f->fn->start + f->fn->count;
+	IRInstr *next;
+
+	if (i->op != IR_MUL && i->op != IR_LS) return 0;
+	next = x86_next_live(f, i, end);
+	if (next == end || !make_mul_add(f, i, next)) return 0;
+	return (int)(next - i) + 1;
+}
+
+int x86_make_arith (X86Fn *f, IRInstr *i)
+{
+	int n = x86_try_mul_add(f, i);
+
+	if (n) return n;
+	if (i->op == IR_MUL && make_mul_const(f, i)) return 1;
+	if (make_arith_inplace(f, i)) return 1;
+	if (make_lea(f, i)) return 1;
+	if (make_incdec(f, i)) return 1;
 
 	uint8_t w = x86_work_reg(f, i->dst, x86_home_bit(f, i->src2));
 	uint8_t os = i->op == IR_MUL ? 8 : types[i->data_type].size;
@@ -116,6 +168,7 @@ void x86_make_arith (X86Fn *f, IRInstr *i)
 	x86_load_reg(f, w, i->src1);
 	x86_op_reg(f, arith_ops[i->op], w, i->src2, os);
 	x86_store_reg(f, w, i->dst);
+	return 1;
 }
 
 void x86_make_shift (X86Fn *f, IRInstr *i)

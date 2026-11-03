@@ -135,10 +135,11 @@ int cg_is_tail_call (IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx,
 	return from == to || (types[from].size == 8 && types[to].size == 8);
 }
 
-int cg_is_silent (Reg *regs, IRInstr *i)
+int cg_is_silent (Reg *regs, const uint8_t *dead, IRInstr *i)
 {
 	if (i->op == IR_NOP) return 1;
 	if (i->dst == NO_REG) return 0;
+	if (dead && *dead) return 1;
 	if (regs[i->dst].cstate == VR_CONST || regs[i->dst].cstate == VR_ALIAS
 			|| regs[i->dst].cstate == VR_GLOBAL)
 		return 1;

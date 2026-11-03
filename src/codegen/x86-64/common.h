@@ -114,7 +114,8 @@ int x86_make_param (X86Fn *f, IRInstr *i);
 void x86_make_move (X86Fn *f, IRInstr *i);
 
 uint64_t x86_shift_amt (uint64_t v);
-void x86_make_arith (X86Fn *f, IRInstr *i);
+int x86_make_arith (X86Fn *f, IRInstr *i);
+int x86_try_mul_add (X86Fn *f, IRInstr *i);
 void x86_make_shift (X86Fn *f, IRInstr *i);
 void x86_make_unary (X86Fn *f, IRInstr *i, const char *op);
 void x86_make_not_l (X86Fn *f, IRInstr *i);

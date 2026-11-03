@@ -3,7 +3,9 @@
 IRInstr *x86_next_live (X86Fn *f, IRInstr *i, IRInstr *end)
 {
 	i++;
-	while (i < end && cg_is_silent(f->regs, i)) i++;
+	while (i < end && cg_is_silent(f->regs,
+			f->ctx.dead + (uint32_t)(i - (f->cg->ir->instrs + f->fn->start)), i))
+		i++;
 	return i;
 }
 
