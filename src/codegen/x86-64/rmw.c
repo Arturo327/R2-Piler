@@ -55,7 +55,11 @@ static int rmw_operand (X86Fn *f, IRInstr *b, uint8_t s, const char **op, int64_
 	switch (rmw_kind[b->op])
 	{
 	case RMW_UNARY: *op = rmw_names[b->op]; return 1;
-	case RMW_ARITH: return rmw_arith(f, b, s, op, v);
+	case RMW_ARITH:
+		if (!rmw_arith(f, b, s, op, v)) return 0;
+		if (*v == 1 && (b->op == IR_ADD || b->op == IR_SUB))
+			*op = b->op == IR_ADD ? "inc" : "dec";
+		return 1;
 	case RMW_SHIFT: return rmw_shift(f, b, s, op, v);
 	default: return 0;
 	}
@@ -148,7 +152,8 @@ int x86_make_rmw (X86Fn *f, IRInstr *a)
 	}
 	if (rmw_operand(f, b, s, &op, &v)) {
 		cg_printf(f->cg, "\t%s%c ", op, x86_mem_suf[s]);
-		if (rmw_kind[b->op] != RMW_UNARY)
+		if (rmw_kind[b->op] != RMW_UNARY &&
+				!(v == 1 && (b->op == IR_ADD || b->op == IR_SUB)))
 			cg_printf(f->cg, "$%lld, ", (long long)v);
 		print_rmw_loc(f, a, s);
 		return (int)(c - a) + 1;
@@ -176,7 +181,8 @@ int x86_try_rmw_inplace (X86Fn *f, IRInstr *i)
 	const char *op = NULL;
 	if (rmw_operand(f, i, s, &op, &v)) {
 		cg_printf(f->cg, "\t%s%c ", op, x86_mem_suf[s]);
-		if (rmw_kind[i->op] != RMW_UNARY)
+		if (rmw_kind[i->op] != RMW_UNARY &&
+				!(v == 1 && (i->op == IR_ADD || i->op == IR_SUB)))
 			cg_printf(f->cg, "$%lld, ", (long long)v);
 		print_rmw_loc(f, i, s);
 		return 1;

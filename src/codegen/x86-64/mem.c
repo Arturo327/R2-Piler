@@ -64,7 +64,9 @@ void x86_load_imm (X86Fn *f, uint8_t reg, int64_t v)
 	CodeGen *c = f->cg;
 
 	x86_clobber(f, reg);
-	if (v >= 0 && v <= UINT32_MAX)
+	if (v == 0)
+		cg_printf(c, "\txorl %s, %s\n", reg_name(reg, 4), reg_name(reg, 4));
+	else if (v >= 0 && v <= UINT32_MAX)
 		cg_printf(c, "\tmovl $%lld, %s\n", (long long)v, reg_name(reg, 4));
 	else if (v == (int32_t)v)
 		cg_printf(c, "\tmovq $%lld, %s\n", (long long)v, reg_name(reg, 8));

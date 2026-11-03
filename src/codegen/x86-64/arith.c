@@ -87,11 +87,28 @@ static int make_lea (X86Fn *f, IRInstr *i)
 	return 1;
 }
 
+static int make_incdec (X86Fn *f, IRInstr *i)
+{
+	if (i->op != IR_ADD && i->op != IR_SUB) return 0;
+	if (f->regs[i->src2].cstate != VR_CONST) return 0;
+	if (x86_const_ext(f, i->src2) != 1) return 0;
+
+	uint8_t s = types[i->data_type].size;
+	uint8_t w = x86_work_reg(f, i->dst, 0);
+
+	x86_load_reg(f, w, i->src1);
+	cg_printf(f->cg, "\t%s%c %s\n", i->op == IR_ADD ? "inc" : "dec",
+			x86_mem_suf[s], reg_name(w, s));
+	x86_store_reg(f, w, i->dst);
+	return 1;
+}
+
 void x86_make_arith (X86Fn *f, IRInstr *i)
 {
 	if (i->op == IR_MUL && make_mul_const(f, i)) return;
 	if (make_arith_inplace(f, i)) return;
 	if (make_lea(f, i)) return;
+	if (make_incdec(f, i)) return;
 
 	uint8_t w = x86_work_reg(f, i->dst, x86_home_bit(f, i->src2));
 	uint8_t os = i->op == IR_MUL ? 8 : types[i->data_type].size;
