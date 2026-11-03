@@ -5,15 +5,15 @@ static void make_action (X86Fn *f, const PMAction *a)
 	switch (a->kind)
 	{
 	case PM_ACT_STORE:
-		cg_printf(f->cg, "\tmov%c %s, -%u(%s)\n", x86_mem_suf[a->size],
-			reg_name(a->from, a->size), a->slot, f->base);
+		cg_printf(f->cg, "\tmov%c %s, %d(%s)\n", x86_mem_suf[a->size],
+			reg_name(a->from, a->size), x86_slot_off(f, a->slot), f->base);
 		return;
 	case PM_ACT_LOAD:
 		uint8_t w;
 		const char *op = x86_load_op_bits(a->size, a->sign, &w);
 		x86_clobber(f, a->to);
-		cg_printf(f->cg, "\t%s -%u(%s), %s\n", op,
-				a->slot, f->base, reg_name(a->to, w));
+		cg_printf(f->cg, "\t%s %d(%s), %s\n", op,
+				x86_slot_off(f, a->slot), f->base, reg_name(a->to, w));
 		return;
 	case PM_ACT_SWAP:
 		x86_clobber(f, a->from);
@@ -74,7 +74,7 @@ static void make_stack_param (X86Fn *f, IRInstr *p)
 	uint8_t w = x86_work_reg(f, p->dst, 0);
 
 	cg_printf(f->cg, "\tmovq %u(%s), %s\n",
-			(f->leaf ? 8 : 16) + ((p->target - 6) << 3),
+			(f->frame ? f->frame + 8 : 8) + ((p->target - 6) << 3),
 			f->base, reg_name(w, 8));
 	x86_store_reg(f, w, p->dst);
 	f->pool = keep;

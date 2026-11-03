@@ -102,18 +102,22 @@ void x86_make_fn (X86Fn *f)
 	x86_print_fn_name(c, fn);
 	cg_printf(c, "\n\t.type ");
 	x86_print_fn_name(c, fn);
-	cg_printf(c, ", @function\n");
+	cg_printf(c, ", @function\n\t.cfi_startproc\n");
 	x86_print_fn_name(c, fn);
 
 	cg_printf(c, ":\n");
-	if (!f->leaf) cg_printf(c, "\tpushq %%rbp\n\tmovq %%rsp, %%rbp\n");
-	if (f->frame) cg_printf(c, "\tsubq $%u, %%rsp\n", f->frame);
+	if (f->frame) {
+		cg_printf(c, "\tsubq $%u, %%rsp\n", f->frame);
+		cg_printf(c, "\t.cfi_def_cfa_offset %u\n", f->frame + 8);
+	} else {
+		cg_printf(c, "\t.cfi_def_cfa %%rsp, 8\n");
+	}
 	cg_printf(c, ".LS%u:\n", (uint32_t)(fn - c->ir->fns));
 
 	make_body(f);
 	x86_make_stubs(f);
 
-	cg_printf(c, "\t.size ");
+	cg_printf(c, "\t.cfi_endproc\n\t.size ");
 	x86_print_fn_name(c, fn);
 	cg_printf(c, ", .-");
 	x86_print_fn_name(c, fn);

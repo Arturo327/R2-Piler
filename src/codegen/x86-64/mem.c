@@ -103,8 +103,9 @@ void x86_load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 		return;
 	}
 
-	cg_printf(f->cg, "\t%s -%u(%s), %s\n", raw_ops[s],
-			f->regs[vreg].slot, f->base, reg_name(reg, s == 8 ? 8 : 4));
+	cg_printf(f->cg, "\t%s %d(%s), %s\n", raw_ops[s],
+			x86_slot_off(f, f->regs[vreg].slot), f->base,
+			reg_name(reg, s == 8 ? 8 : 4));
 }
 
 void x86_load_reg64 (X86Fn *f, uint8_t reg, uint32_t vreg)
@@ -131,8 +132,8 @@ void x86_load_reg64 (X86Fn *f, uint8_t reg, uint32_t vreg)
 				reg_name((uint8_t)p, s), reg_name(reg, w));
 		return;
 	}
-	cg_printf(f->cg, "\t%s -%u(%s), %s\n",
-			op, f->regs[vreg].slot, f->base, reg_name(reg, w));
+	cg_printf(f->cg, "\t%s %d(%s), %s\n",
+			op, x86_slot_off(f, f->regs[vreg].slot), f->base, reg_name(reg, w));
 }
 
 void x86_store_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
@@ -149,8 +150,9 @@ void x86_store_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 		return;
 	}
 	if (!f->regs[vreg].uses) return;
-	cg_printf(f->cg, "\tmov%c %s, -%u(%s)\n",
-			x86_mem_suf[s], reg_name(reg, s), f->regs[vreg].slot, f->base);
+	cg_printf(f->cg, "\tmov%c %s, %d(%s)\n",
+			x86_mem_suf[s], reg_name(reg, s), x86_slot_off(f, f->regs[vreg].slot),
+			f->base);
 }
 
 void x86_store_imm (X86Fn *f, uint32_t vreg, int64_t v)
@@ -174,8 +176,9 @@ void x86_store_imm (X86Fn *f, uint32_t vreg, int64_t v)
 	else if (s == 2) v = (int16_t)v;
 	else if (s == 1) v = (int8_t)v;
 
-	cg_printf(c, "\tmov%c $%lld, -%u(%s)\n",
-			x86_mem_suf[s], (long long)v, f->regs[vreg].slot, f->base);
+	cg_printf(c, "\tmov%c $%lld, %d(%s)\n",
+			x86_mem_suf[s], (long long)v, x86_slot_off(f, f->regs[vreg].slot),
+			f->base);
 }
 
 void x86_op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg, uint8_t size)
@@ -202,8 +205,8 @@ void x86_op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg, uint8_t siz
 		cg_printf(f->cg, "\t%s%c %s%.*s(%%rip), %s\n", op, x86_mem_suf[size],
 				GLOBAL_PREFIX(g), (int)g->len, g->name, reg_name(w, size));
 	} else if (s == size && !is_const) {
-		cg_printf(f->cg, "\t%s%c -%u(%s), %s\n", op, x86_mem_suf[size],
-				f->regs[vreg].slot, f->base, reg_name(w, size));
+		cg_printf(f->cg, "\t%s%c %d(%s), %s\n", op, x86_mem_suf[size],
+				x86_slot_off(f, f->regs[vreg].slot), f->base, reg_name(w, size));
 	} else {
 		uint8_t t = x86_grab(f);
 		x86_load_reg(f, t, vreg);

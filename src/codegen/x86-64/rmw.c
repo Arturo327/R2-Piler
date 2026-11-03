@@ -124,7 +124,7 @@ static void print_rmw_loc (X86Fn *f, IRInstr *a, uint8_t s)
 			cg_printf(f->cg, "%s\n", reg_name((uint8_t)h, s));
 			return;
 		}
-		cg_printf(f->cg, "-%u(%s)\n", f->regs[a->src1].slot, f->base);
+		cg_printf(f->cg, "%d(%s)\n", x86_slot_off(f, f->regs[a->src1].slot), f->base);
 		return;
 	}
 	IRGlobal *g = f->cg->ir->globals + a->target;

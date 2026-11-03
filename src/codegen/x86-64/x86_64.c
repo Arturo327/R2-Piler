@@ -12,12 +12,15 @@ static void make_entry (CodeGen *c, int run_init)
 {
 	if (find_main(c->ir) == NO_REG) return;
 	if (run_init) {
-		cg_printf(c, "\t.globl main\nmain:\n\tsubq $8, %%rsp\n");
-		cg_printf(c, "\tcall " INIT_SYM "\n\taddq $8, %%rsp\n");
-		cg_printf(c, "\tjmp " SYM_PREFIX "main\n");
+		cg_printf(c, "\t.globl main\nmain:\n\t.cfi_startproc\n");
+		cg_printf(c, "\t.cfi_def_cfa %%rsp, 8\n\tsubq $8, %%rsp\n");
+		cg_printf(c, "\t.cfi_def_cfa_offset 16\n\tcall " INIT_SYM "\n");
+		cg_printf(c, "\taddq $8, %%rsp\n\t.cfi_def_cfa_offset 8\n");
+		cg_printf(c, "\tjmp " SYM_PREFIX "main\n\t.cfi_endproc\n");
 		return;
 	}
-	cg_printf(c, "\t.globl main\nmain:\n\tjmp " SYM_PREFIX "main\n");
+	cg_printf(c, "\t.globl main\nmain:\n\t.cfi_startproc\n\t.cfi_def_cfa %%rsp, 8\n");
+	cg_printf(c, "\tjmp " SYM_PREFIX "main\n\t.cfi_endproc\n");
 }
 
 static void gen_fn (X86Fn *f, uint32_t i, uint8_t *state, int init_empty)

@@ -29,9 +29,14 @@ void x86_move_saved (X86Fn *f, uint64_t mask, int restore)
 		if (!(mask >> k & 1)) continue;
 
 		if (restore) {
-			cg_printf(f->cg, "\tmovq -%u(%s), %s\n", off, f->base, reg_name(k, 8));
+			cg_printf(f->cg, "\tmovq %d(%s), %s\n", x86_slot_off(f, off), f->base, reg_name(k, 8));
 			x86_clobber(f, (uint8_t)k);
-		} else cg_printf(f->cg, "\tmovq %s, -%u(%s)\n", reg_name(k, 8), off, f->base);
+			continue;
+		}
+		cg_printf(f->cg, "\tmovq %s, %d(%s)\n", reg_name(k, 8),
+				x86_slot_off(f, off), f->base);
+		if (X86_CALLEE_MASK >> k & 1)
+			cg_printf(f->cg, "\t.cfi_offset %s, %d\n", reg_name(k, 8), -(int)(off + 8));
 	}
 }
 

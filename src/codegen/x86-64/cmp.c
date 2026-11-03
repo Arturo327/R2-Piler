@@ -20,8 +20,8 @@ static int cmp_mem_imm (X86Fn *f, IRInstr *i)
 	else if (s == 2) v = (int16_t)v;
 	else if (s == 1) v = (int8_t)v;
 
-	cg_printf(f->cg, "\tcmp%c $%lld, -%u(%s)\n", x86_mem_suf[s],
-			(long long)v, f->regs[a].slot, f->base);
+	cg_printf(f->cg, "\tcmp%c $%lld, %d(%s)\n", x86_mem_suf[s],
+			(long long)v, x86_slot_off(f, f->regs[a].slot), f->base);
 	return 1;
 }
 
@@ -148,7 +148,8 @@ static void test_zero (X86Fn *f, uint32_t vreg)
 	}
 	if (p >= 0) cg_printf(f->cg, "\ttest%c %s, %s\n", x86_mem_suf[s],
 			reg_name(p, s), reg_name(p, s));
-	else cg_printf(f->cg, "\tcmp%c $0, -%u(%s)\n", x86_mem_suf[s], f->regs[vreg].slot, f->base);
+	else cg_printf(f->cg, "\tcmp%c $0, %d(%s)\n", x86_mem_suf[s],
+			x86_slot_off(f, f->regs[vreg].slot), f->base);
 }
 
 int x86_const_jump (X86Fn *f, IRInstr *i)

@@ -23,7 +23,7 @@ static void protect_args (X86Fn *f, IRInstr *first, uint32_t n)
 
 static void make_stack_arg (X86Fn *f, IRInstr *a, int tail)
 {
-	uint32_t off = tail ? (f->leaf ? 8 : 16) + ((a->target - 6) << 3)
+	uint32_t off = tail ? (f->frame ? f->frame + 8 : 8) + ((a->target - 6) << 3)
 			: (a->target - 6) << 3;
 	const char *base = tail ? f->base : "%rsp";
 	int is_const = f->regs[a->src1].cstate == VR_CONST;
@@ -122,7 +122,12 @@ void x86_make_ret (X86Fn *f, IRInstr *i)
 		x86_load_reg(f, RAX, i->src1);
 	}
 	x86_move_saved(f, f->ctx.restore_at[f->at], 1);
-	cg_printf(f->cg, f->leaf ? "\tret\n" : "\tleave\n\tret\n");
+	if (!f->frame) {
+		cg_printf(f->cg, "\tret\n");
+		return;
+	}
+	cg_printf(f->cg, "\t.cfi_remember_state\n\taddq $%u, %%rsp\n", f->frame);
+	cg_printf(f->cg, "\t.cfi_def_cfa_offset 8\n\tret\n\t.cfi_restore_state\n");
 }
 
 IRInstr *x86_tail_ret (IRInstr *call)
@@ -149,12 +154,15 @@ int x86_make_tail_call (X86Fn *f, IRInstr *i)
 		cg_printf(c, "\tjmp .LS%u\n", i->target);
 	} else {
 		x86_move_saved(f, f->ctx.restore_at[f->at], 1);
-		if (!f->leaf) cg_printf(c, "\tleave\n");
+		if (f->frame)
+			cg_printf(c, "\t.cfi_remember_state\n\taddq $%u, %%rsp\n\t.cfi_def_cfa_offset 8\n",
+					f->frame);
 		if (c->ir->fns[i->target].is_extern)
 			cg_printf(c, "\txorl %%eax, %%eax\n");
 		cg_printf(c, "\tjmp ");
 		x86_print_fn_name(c, c->ir->fns + i->target);
 		cg_printf(c, "\n");
+		if (f->frame) cg_printf(c, "\t.cfi_restore_state\n");
 	}
 
 	return ret == i + 1 ? 2 : 1;

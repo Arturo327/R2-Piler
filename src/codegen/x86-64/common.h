@@ -72,6 +72,7 @@ static inline const char *reg_name (uint8_t reg, uint8_t size)
 
 IRInstr *x86_next_live (X86Fn *f, IRInstr *i, IRInstr *end);
 void x86_layout_fn (X86Fn *f);
+int x86_slot_off (X86Fn *f, uint32_t slot);
 
 void x86_move_saved (X86Fn *f, uint64_t mask, int restore);
 void x86_begin_instr (X86Fn *f, IRInstr *i);

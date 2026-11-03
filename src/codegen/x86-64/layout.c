@@ -140,6 +140,12 @@ void x86_layout_fn (X86Fn *f)
 	c += f->outgoing;
 
 	f->leaf = f->leaf && c <= RED_ZONE;
-	f->frame = f->leaf ? 0 : (c + 15) & ~15u;
-	f->base = f->leaf ? "%rsp" : "%rbp";
+	f->frame = f->leaf ? 0 : ((c + 7) & ~15u) + 8;
+	f->base = "%rsp";
+}
+
+int x86_slot_off (X86Fn *f, uint32_t slot)
+{
+	if (!f->frame) return -(int)slot;
+	return (int)(f->frame - slot);
 }
