@@ -90,9 +90,10 @@ const char *x86_load_op_bits (uint8_t size, uint8_t sign, uint8_t *w);
 int64_t x86_const_ext (X86Fn *f, uint32_t vreg);
 void x86_load_imm (X86Fn *f, uint8_t reg, int64_t v);
 void x86_load_reg (X86Fn *f, uint8_t reg, uint32_t vreg);
+void x86_load_reg64 (X86Fn *f, uint8_t reg, uint32_t vreg);
 void x86_store_reg (X86Fn *f, uint8_t reg, uint32_t vreg);
 void x86_store_imm (X86Fn *f, uint32_t vreg, int64_t v);
-void x86_op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg);
+void x86_op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg, uint8_t size);
 
 void x86_make_globals (CodeGen *c);
 void x86_make_strings (CodeGen *c);
@@ -137,7 +138,7 @@ int x86_try_rmw_inplace (X86Fn *f, IRInstr *i);
 void x86_print_fn_name (CodeGen *c, IRFn *fn);
 void x86_make_fn (X86Fn *f);
 
-int x86_op_reg_tmp (X86Fn *f, uint32_t vreg, int8_t home);
+int x86_op_reg_tmp (X86Fn *f, uint32_t vreg, uint8_t size);
 int x86_rmw_fits (X86Fn *f, IRInstr *i, int8_t src2_home);
 
 uint32_t x86_const_scratch (X86Fn *f, IRInstr *i, const int8_t *h);

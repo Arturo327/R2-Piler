@@ -35,7 +35,7 @@ static void write_cmp (X86Fn *f, IRInstr *i)
 		p = x86_grab(f);
 		x86_load_reg(f, (uint8_t)p, i->src1);
 	}
-	x86_op_reg(f, "cmp", (uint8_t)p, i->src2);
+	x86_op_reg(f, "cmp", (uint8_t)p, i->src2, types[i->data_type].size);
 	f->pool = keep;
 }
 
@@ -135,7 +135,8 @@ static void test_zero (X86Fn *f, uint32_t vreg)
 	if (f->regs[vreg].cstate == VR_CONST) {
 		uint8_t t = x86_grab(f);
 		x86_load_reg(f, t, vreg);
-		cg_printf(f->cg, "\ttestq %s, %s\n", reg_name(t, 8), reg_name(t, 8));
+		cg_printf(f->cg, "\ttest%c %s, %s\n", x86_mem_suf[s],
+				reg_name(t, s), reg_name(t, s));
 		f->pool = keep;
 		return;
 	}
@@ -145,7 +146,8 @@ static void test_zero (X86Fn *f, uint32_t vreg)
 				x86_mem_suf[s], GLOBAL_PREFIX(g), (int)g->len, g->name);
 		return;
 	}
-	if (p >= 0) cg_printf(f->cg, "\ttestq %s, %s\n", reg_name(p, 8), reg_name(p, 8));
+	if (p >= 0) cg_printf(f->cg, "\ttest%c %s, %s\n", x86_mem_suf[s],
+			reg_name(p, s), reg_name(p, s));
 	else cg_printf(f->cg, "\tcmp%c $0, -%u(%s)\n", x86_mem_suf[s], f->regs[vreg].slot, f->base);
 }
 
@@ -197,20 +199,10 @@ static int cmp_fused (X86Fn *f, IRInstr *i)
 	return n->op == IR_SELECT && n->cond == i->dst && f->regs[i->dst].uses == 1;
 }
 
-static uint32_t write_cmp_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
-{
-	uint8_t s = types[f->fn->reg_types[i->src1]].size;
-
-	if (f->regs[i->src2].cstate == VR_CONST && h[SC_SRC1] == VR_SPILL) {
-		int64_t v = x86_const_ext(f, i->src2);
-		if (s != 8 || v == (int32_t)v) return 0;
-	}
-	return (h[SC_SRC1] < 0) + x86_op_reg_tmp(f, i->src2, h[SC_SRC2]);
-}
 
 uint32_t x86_cmp_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
 {
-	uint32_t need = write_cmp_scratch(f, i, h);
+	uint32_t need = (uint32_t)(h[SC_SRC1] < 0) + x86_op_reg_tmp(f, i->src2, types[i->data_type].size);
 
 	if (cmp_fused(f, i) || h[SC_DST] != VR_SPILL) return need;
 	return need > 1 ? need : 1;

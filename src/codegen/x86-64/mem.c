@@ -34,6 +34,9 @@ static const char *const load_ops[8] = {
 	"movzbl", "movsbq", "movzwl", "movswq",
 	"movl", "movslq", "movq", "movq"
 };
+static const char *const raw_ops[9] = {
+	[1] = "movzbl", [2] = "movzwl", [4] = "movl", [8] = "movq"
+};
 
 const char *x86_load_op_bits (uint8_t size, uint8_t sign, uint8_t *w)
 {
@@ -81,6 +84,8 @@ static void load_global (X86Fn *f, uint8_t reg, uint32_t vreg)
 
 void x86_load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 {
+	TypeId t = f->fn->reg_types[vreg];
+	uint8_t s = types[t].size;
 	int p = x86_phys_reg(f, vreg);
 
 	x86_clobber(f, reg);
@@ -98,20 +103,36 @@ void x86_load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 		return;
 	}
 
-	uint8_t w;
-	const char *op = x86_load_op(f->fn->reg_types[vreg], &w);
-	cg_printf(f->cg, "\t%s -%u(%s), %s\n",
-			op, f->regs[vreg].slot, f->base, reg_name(reg, w));
+	cg_printf(f->cg, "\t%s -%u(%s), %s\n", raw_ops[s],
+			f->regs[vreg].slot, f->base, reg_name(reg, s == 8 ? 8 : 4));
 }
 
-static void store_phys (X86Fn *f, uint8_t from, uint8_t to, TypeId type)
+void x86_load_reg64 (X86Fn *f, uint8_t reg, uint32_t vreg)
 {
-	uint8_t s = types[type].size;
-	if (from == to && s == 8) return;
+	x86_clobber(f, reg);
+	if (f->regs[vreg].cstate == VR_CONST) {
+		x86_load_imm(f, reg, x86_const_ext(f, vreg));
+		return;
+	}
+	if (f->regs[vreg].cstate == VR_GLOBAL) {
+		load_global(f, reg, vreg);
+		return;
+	}
 
+	TypeId t = f->fn->reg_types[vreg];
+	uint8_t s = types[t].size;
+	int p = x86_phys_reg(f, vreg);
 	uint8_t w;
-	const char *op = x86_load_op(type, &w);
-	cg_printf(f->cg, "\t%s %s, %s\n", op, reg_name(from, s), reg_name(to, w));
+	const char *op = x86_load_op_bits(s, types[t].sign, &w);
+
+	if (p >= 0) {
+		if (p == reg && s == 8) return;
+		cg_printf(f->cg, "\t%s %s, %s\n", op,
+				reg_name((uint8_t)p, s), reg_name(reg, w));
+		return;
+	}
+	cg_printf(f->cg, "\t%s -%u(%s), %s\n",
+			op, f->regs[vreg].slot, f->base, reg_name(reg, w));
 }
 
 void x86_store_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
@@ -120,12 +141,14 @@ void x86_store_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 	uint8_t s = types[t].size;
 	int p = x86_phys_reg(f, vreg);
 
-	if (p >= 0) x86_clobber(f, (uint8_t)p);
-	if (!f->regs[vreg].uses) return;
 	if (p >= 0) {
-		store_phys(f, reg, (uint8_t)p, t);
+		x86_clobber(f, (uint8_t)p);
+		if (reg != p && f->regs[vreg].uses)
+			cg_printf(f->cg, "\tmov%c %s, %s\n", x86_mem_suf[s],
+					reg_name(reg, s), reg_name((uint8_t)p, s));
 		return;
 	}
+	if (!f->regs[vreg].uses) return;
 	cg_printf(f->cg, "\tmov%c %s, -%u(%s)\n",
 			x86_mem_suf[s], reg_name(reg, s), f->regs[vreg].slot, f->base);
 }
@@ -155,40 +178,47 @@ void x86_store_imm (X86Fn *f, uint32_t vreg, int64_t v)
 			x86_mem_suf[s], (long long)v, f->regs[vreg].slot, f->base);
 }
 
-void x86_op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg)
+void x86_op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg, uint8_t size)
 {
+	uint8_t s = types[f->fn->reg_types[vreg]].size;
 	int is_const = f->regs[vreg].cstate == VR_CONST;
 	int64_t v = is_const ? x86_const_ext(f, vreg) : 0;
 	int p = x86_phys_reg(f, vreg);
 	uint64_t keep = f->pool;
 
 	x86_clobber(f, w);
-	if (is_const && v == (int32_t)v) {
-		cg_printf(f->cg, "\t%sq $%lld, %s\n", op, (long long)v, reg_name(w, 8));
+	if (size == 4) v = (int32_t)v;
+	else if (size == 2) v = (int16_t)v;
+	else if (size == 1) v = (int8_t)v;
+
+	if (is_const && (size < 8 || v == (int32_t)v)) {
+		cg_printf(f->cg, "\t%s%c $%lld, %s\n", op, x86_mem_suf[size],
+				(long long)v, reg_name(w, size));
 	} else if (p >= 0) {
-		cg_printf(f->cg, "\t%sq %s, %s\n", op, reg_name(p, 8), reg_name(w, 8));
-	} else if (f->regs[vreg].cstate == VR_GLOBAL
-			&& types[f->fn->reg_types[vreg]].size == 8) {
+		cg_printf(f->cg, "\t%s%c %s, %s\n", op, x86_mem_suf[size],
+				reg_name(p, size), reg_name(w, size));
+	} else if (s == size && f->regs[vreg].cstate == VR_GLOBAL) {
 		IRGlobal *g = f->cg->ir->globals + f->regs[vreg].cval;
-		cg_printf(f->cg, "\t%sq %s%.*s(%%rip), %s\n", op,
-				GLOBAL_PREFIX(g), (int)g->len, g->name, reg_name(w, 8));
-	} else if (!is_const && types[f->fn->reg_types[vreg]].size == 8) {
-		cg_printf(f->cg, "\t%sq -%u(%s), %s\n", op,
-				f->regs[vreg].slot, f->base, reg_name(w, 8));
+		cg_printf(f->cg, "\t%s%c %s%.*s(%%rip), %s\n", op, x86_mem_suf[size],
+				GLOBAL_PREFIX(g), (int)g->len, g->name, reg_name(w, size));
+	} else if (s == size && !is_const) {
+		cg_printf(f->cg, "\t%s%c -%u(%s), %s\n", op, x86_mem_suf[size],
+				f->regs[vreg].slot, f->base, reg_name(w, size));
 	} else {
 		uint8_t t = x86_grab(f);
 		x86_load_reg(f, t, vreg);
-		cg_printf(f->cg, "\t%sq %s, %s\n", op, reg_name(t, 8), reg_name(w, 8));
+		cg_printf(f->cg, "\t%s%c %s, %s\n", op, x86_mem_suf[size],
+				reg_name(t, size), reg_name(w, size));
 	}
 	f->pool = keep;
 }
 
-int x86_op_reg_tmp (X86Fn *f, uint32_t vreg, int8_t home)
+int x86_op_reg_tmp (X86Fn *f, uint32_t vreg, uint8_t size)
 {
-	if (f->regs[vreg].cstate == VR_CONST) {
-		int64_t v = x86_const_ext(f, vreg);
-		return v != (int32_t)v;
-	}
-	if (home >= 0) return 0;
-	return types[f->fn->reg_types[vreg]].size != 8;
+	uint8_t s = types[f->fn->reg_types[vreg]].size;
+
+	if (f->regs[vreg].cstate == VR_CONST)
+		return size == 8 && x86_const_ext(f, vreg) != (int32_t)x86_const_ext(f, vreg);
+	if (x86_phys_reg(f, vreg) >= 0) return 0;
+	return s != size;
 }

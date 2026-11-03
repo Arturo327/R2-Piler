@@ -50,7 +50,7 @@ static int make_mul_const (X86Fn *f, IRInstr *i)
 		make_mul_pm1(f, w, x86_shift_amt((uint64_t)(v - 1)), 1);
 	else if (v > 3 && !((uint64_t)v & ((uint64_t)v + 1)))
 		make_mul_pm1(f, w, x86_shift_amt((uint64_t)v + 1), 0);
-	else x86_op_reg(f, "imul", w, i->src2);
+	else x86_op_reg(f, "imul", w, i->src2, 8);
 
 	x86_store_reg(f, w, i->dst);
 	return 1;
@@ -60,12 +60,13 @@ static int make_arith_inplace (X86Fn *f, IRInstr *i)
 {
 	int pb = x86_phys_reg(f, i->src2);
 	int pd = x86_phys_reg(f, i->dst);
+	uint8_t os = i->op == IR_MUL ? 8 : types[i->data_type].size;
 
 	if (pd < 0 || pd != pb) return 0;
 	if (!(i->op == IR_ADD || i->op == IR_MUL || i->op == IR_AND_A ||
 		i->op == IR_OR_A || i->op == IR_XOR)) return 0;
 
-	x86_op_reg(f, arith_ops[i->op], (uint8_t)pd, i->src1);
+	x86_op_reg(f, arith_ops[i->op], (uint8_t)pd, i->src1, os);
 	x86_store_reg(f, (uint8_t)pd, i->dst);
 	return 1;
 }
@@ -93,9 +94,10 @@ void x86_make_arith (X86Fn *f, IRInstr *i)
 	if (make_lea(f, i)) return;
 
 	uint8_t w = x86_work_reg(f, i->dst, x86_home_bit(f, i->src2));
+	uint8_t os = i->op == IR_MUL ? 8 : types[i->data_type].size;
 
 	x86_load_reg(f, w, i->src1);
-	x86_op_reg(f, arith_ops[i->op], w, i->src2);
+	x86_op_reg(f, arith_ops[i->op], w, i->src2, os);
 	x86_store_reg(f, w, i->dst);
 }
 
@@ -118,7 +120,7 @@ void x86_make_shift (X86Fn *f, IRInstr *i)
 	}
 
 	uint8_t w = x86_work_reg(f, i->dst, avoid);
-	x86_load_reg(f, w, i->src1);
+	x86_load_reg64(f, w, i->src1);
 
 	if (imm) {
 		cg_printf(f->cg, "\t%sq $%lld, %s\n", op, (long long)v, reg_name(w, 8));
@@ -131,22 +133,24 @@ void x86_make_shift (X86Fn *f, IRInstr *i)
 
 void x86_make_unary (X86Fn *f, IRInstr *i, const char *op)
 {
+	uint8_t s = types[i->data_type].size;
 	uint8_t w = x86_work_reg(f, i->dst, 0);
 
 	x86_load_reg(f, w, i->src1);
-	cg_printf(f->cg, "\t%sq %s\n", op, reg_name(w, 8));
+	cg_printf(f->cg, "\t%s%c %s\n", op, x86_mem_suf[s], reg_name(w, s));
 	x86_store_reg(f, w, i->dst);
 }
 
 void x86_make_not_l (X86Fn *f, IRInstr *i)
 {
+	uint8_t s = types[i->data_type].size;
 	uint8_t w = x86_work_reg(f, i->dst, 0);
-	const char *q = reg_name(w, 8);
+	const char *q = reg_name(w, s);
 	const char *b = reg_name(w, 1);
 
 	x86_load_reg(f, w, i->src1);
-	cg_printf(f->cg, "\ttestq %s, %s\n\tsete %s\n\tmovzbl %s, %s\n",
-			q, q, b, b, reg_name(w, 4));
+	cg_printf(f->cg, "\ttest%c %s, %s\n\tsete %s\n\tmovzbl %s, %s\n",
+			x86_mem_suf[s], q, q, b, b, reg_name(w, 4));
 	x86_store_reg(f, w, i->dst);
 }
 
@@ -167,11 +171,13 @@ uint32_t x86_arith_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
 	if (i->op == IR_MUL && f->regs[i->src2].cstate == VR_CONST)
 		return (d < 0) + mul_tmp(x86_const_ext(f, i->src2));
 
+	uint8_t os = i->op == IR_MUL ? 8 : types[i->data_type].size;
+
 	if (i->op != IR_SUB && d >= 0 && d == h[SC_SRC2])
-		return x86_op_reg_tmp(f, i->src1, h[SC_SRC1]);
+		return x86_op_reg_tmp(f, i->src1, os);
 
 	uint32_t w = d < 0 || d == h[SC_SRC2];
-	return w + x86_op_reg_tmp(f, i->src2, h[SC_SRC2]);
+	return w + x86_op_reg_tmp(f, i->src2, os);
 }
 
 static uint32_t shift_scratch (X86Fn *f, IRInstr *i, const int8_t *h)

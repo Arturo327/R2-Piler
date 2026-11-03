@@ -68,28 +68,6 @@ static uint32_t build_param_moves (X86Fn *f, IRInstr *first, uint32_t n)
 	return count;
 }
 
-static void extend_home (X86Fn *f, uint8_t reg, TypeId type)
-{
-	uint8_t size = types[type].size;
-	uint8_t w;
-	const char *op = x86_load_op_bits(size, types[type].sign, &w);
-
-	if (size == 8) return;
-	x86_clobber(f, reg);
-	cg_printf(f->cg, "\t%s %s, %s\n", op, reg_name(reg, size), reg_name(reg, w));
-}
-
-static void normalize_params (X86Fn *f, IRInstr *first, uint32_t n)
-{
-	for (uint32_t k = 0; k < n; k++) {
-		IRInstr *p = first + k;
-		int h = f->regs[p->dst].home[f->blk];
-
-		if (p->target >= 6 || !f->regs[p->dst].uses || h < 0) continue;
-		extend_home(f, (uint8_t)h, f->fn->reg_types[p->dst]);
-	}
-}
-
 static void make_stack_param (X86Fn *f, IRInstr *p)
 {
 	uint64_t keep = f->pool;
@@ -110,7 +88,6 @@ int x86_make_param (X86Fn *f, IRInstr *i)
 	for (uint32_t k = 0; k < n; k++)
 		f->busy |= x86_home_bit(f, i[k].dst);
 	x86_parallel_move(f, f->moves, count);
-	normalize_params(f, i, n);
 	for (uint32_t k = 0; k < n; k++)
 		if (i[k].target >= 6 && f->regs[i[k].dst].uses)
 			make_stack_param(f, i + k);
@@ -124,13 +101,14 @@ void x86_make_move (X86Fn *f, IRInstr *i)
 		x86_store_imm(f, i->dst, x86_const_ext(f, i->src1));
 		return;
 	}
+	int widen = types[f->fn->reg_types[i->dst]].size > types[f->fn->reg_types[i->src1]].size;
 	int p = x86_phys_reg(f, i->src1);
 	int pd = x86_phys_reg(f, i->dst);
 
-	if (p < 0 && pd < 0 && f->regs[i->dst].slot != 0 &&
+	if (!widen && p < 0 && pd < 0 && f->regs[i->dst].slot != 0 &&
 			f->regs[i->dst].slot == f->regs[i->src1].slot)
 		return;
-	if (p >= 0 && pd >= 0) {
+	if (!widen && p >= 0 && pd >= 0) {
 		if (!f->regs[i->dst].uses) return;
 		if (same_rep(f->fn, i->dst, i->src1)) {
 			if (p == pd) return;
@@ -142,12 +120,14 @@ void x86_make_move (X86Fn *f, IRInstr *i)
 		x86_store_reg(f, (uint8_t)p, i->dst);
 		return;
 	}
-	if (p >= 0) {
+	if (!widen && p >= 0) {
 		x86_store_reg(f, (uint8_t)p, i->dst);
 		return;
 	}
 	uint8_t w = x86_work_reg(f, i->dst, 0);
-	x86_load_reg(f, w, i->src1);
+
+	if (widen) x86_load_reg64(f, w, i->src1);
+	else x86_load_reg(f, w, i->src1);
 	x86_store_reg(f, w, i->dst);
 }
 

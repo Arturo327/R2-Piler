@@ -112,7 +112,7 @@ static int make_divmod_const (X86Fn *f, IRInstr *i)
 	int pow2 = (v & (v - 1)) == 0;
 	if (pow2 && !is_div && v - 1 != (int32_t)(v - 1)) return 0;
 
-	x86_load_reg(f, RAX, i->src1);
+	x86_load_reg64(f, RAX, i->src1);
 	if (pow2) make_div_pow2(f, sign, is_div, v);
 	else if (sign) make_sdiv_magic(f, x86_grab(f), is_div, (uint64_t)v);
 	else make_udiv_magic(f, x86_grab(f), is_div, (uint64_t)v);

@@ -116,25 +116,6 @@ static int rmw_shape_ok (X86Fn *f, IRInstr *a, IRInstr *b)
 	return types[rt[a->dst]].size == s && types[rt[b->dst]].size == s;
 }
 
-static const char *const rmw_ext_ops[8] = {
-	[1] = "movsbq", [2] = "movswq", [4] = "movslq"
-};
-
-static void rmw_sext (X86Fn *f, IRInstr *a)
-{
-	if (a->op == IR_LD_GLOBAL) return;
-	int8_t h = f->regs[a->src1].home[f->blk];
-	if (h < 0) return;
-
-	TypeId t = f->fn->reg_types[a->src1];
-	uint8_t s = types[t].size;
-	if (s == 8 || !types[t].sign) return;
-
-	uint8_t r = (uint8_t)h;
-	cg_printf(f->cg, "\t%s %s, %s\n", rmw_ext_ops[s], reg_name(r, s),
-			reg_name(r, 8));
-}
-
 static void print_rmw_loc (X86Fn *f, IRInstr *a, uint8_t s)
 {
 	if (a->op != IR_LD_GLOBAL) {
@@ -170,7 +151,6 @@ int x86_make_rmw (X86Fn *f, IRInstr *a)
 		if (rmw_kind[b->op] != RMW_UNARY)
 			cg_printf(f->cg, "$%lld, ", (long long)v);
 		print_rmw_loc(f, a, s);
-		rmw_sext(f, a);
 		return (int)(c - a) + 1;
 	}
 
@@ -178,7 +158,6 @@ int x86_make_rmw (X86Fn *f, IRInstr *a)
 	uint8_t r = (uint8_t)x86_phys_reg(f, b->src2);
 	cg_printf(f->cg, "\t%s%c %s, ", op, x86_mem_suf[s], reg_name(r, s));
 	print_rmw_loc(f, a, s);
-	rmw_sext(f, a);
 
 	return (int)(c - a) + 1;
 }
@@ -200,7 +179,6 @@ int x86_try_rmw_inplace (X86Fn *f, IRInstr *i)
 		if (rmw_kind[i->op] != RMW_UNARY)
 			cg_printf(f->cg, "$%lld, ", (long long)v);
 		print_rmw_loc(f, i, s);
-		rmw_sext(f, i);
 		return 1;
 	}
 
@@ -208,7 +186,6 @@ int x86_try_rmw_inplace (X86Fn *f, IRInstr *i)
 	uint8_t r = (uint8_t)x86_phys_reg(f, i->src2);
 	cg_printf(f->cg, "\t%s%c %s, ", op, x86_mem_suf[s], reg_name(r, s));
 	print_rmw_loc(f, i, s);
-	rmw_sext(f, i);
 
 	return 1;
 }
