@@ -1,9 +1,17 @@
 fn malloc [1:11] depth=0 type=ptr void
-fn take [3:4] depth=0 type=i32
-fn make [7:4] depth=0 type=ptr i16
-fn main [11:4] depth=0 type=i64
-param p [3:9] depth=1 type=ptr i32
-var a [12:9] depth=1 type=ptr i32
-var b [13:9] depth=1 type=ptr u8
-var c [14:9] depth=1 type=ptr i16
-var d [15:9] depth=1 type=ptr ptr i64
+fn free [2:11] depth=0 type=void
+fn memset [3:11] depth=0 type=ptr void
+fn take [5:4] depth=0 type=i32
+fn make [9:4] depth=0 type=ptr i16
+fn wipe [13:4] depth=0 type=i32
+fn main [18:4] depth=0 type=i64
+param p [5:9] depth=1 type=ptr i32
+param s [13:9] depth=1 type=i32[]
+param n [13:20] depth=1 type=u64
+var a [19:9] depth=1 type=ptr i32
+var b [20:9] depth=1 type=ptr u8
+var c [21:9] depth=1 type=ptr i16
+var d [22:9] depth=1 type=ptr ptr i64
+var v [23:9] depth=1 type=ptr void
+var w [24:9] depth=1 type=ptr void
+var e [25:9] depth=1 type=i32[2]
