@@ -1,0 +1,18 @@
+fn take [1:4] depth=0 type=i64
+fn bad [5:4] depth=0 type=i64
+fn main [18:4] depth=0 type=i64
+param x [1:9] depth=1 type=i32[3]
+param v [5:8] depth=1 type=i32[]
+param p [5:19] depth=1 type=ptr i32
+param a [5:32] depth=1 type=i32[2]
+param b [5:44] depth=1 type=i64[3]
+param c [5:56] depth=1 type=i32[3]
+var t [6:6] depth=1 type=i64
+var u [7:6] depth=1 type=i64
+var w [8:6] depth=1 type=i64
+var y [9:6] depth=1 type=i64
+var z [10:6] depth=1 type=i64
+var m [11:6] depth=1 type=i64
+var n [12:6] depth=1 type=i64
+var o [13:6] depth=1 type=i64
+var g [19:6] depth=1 type=i32[3]

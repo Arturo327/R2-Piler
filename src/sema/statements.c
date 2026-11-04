@@ -131,12 +131,7 @@ static void check_signature_types (Sema *s, uint32_t idx, int is_extern)
 	while (p != NO_NODE) {
 		TypeId type = s->ast->nodes[p].data_type;
 
-		if (type == TYPE_ERROR) continue;
-		if (type_kind(type) == TK_ARRAY)
-			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
-					"array parameters are not supported;"
-					" use a slice 'T[]' or a pointer 'ptr T'");
-		else if (is_extern && type_kind(type) == TK_SLICE)
+		if (type != TYPE_ERROR && is_extern && type_kind(type) == TK_SLICE)
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
 					"extern functions cannot take slice parameters");
 

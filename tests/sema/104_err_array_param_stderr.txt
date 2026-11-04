@@ -1,0 +1,21 @@
+tests/sema/104_err_array_param_src.r2:6:21: ERROR: argument type i32[] does not match parameter type i32[3]; an array parameter requires an array of exactly that length and element type
+      6 |         var t : i64 = take(v);
+        |                            ^
+tests/sema/104_err_array_param_src.r2:7:21: ERROR: argument type ptr i32 does not match parameter type i32[3]; an array parameter requires an array of exactly that length and element type
+      7 |         var u : i64 = take(p);
+        |                            ^
+tests/sema/104_err_array_param_src.r2:8:21: ERROR: argument type i32[2] does not match parameter type i32[3]; an array parameter requires an array of exactly that length and element type
+      8 |         var w : i64 = take(a);
+        |                            ^
+tests/sema/104_err_array_param_src.r2:9:21: ERROR: argument type i64[3] does not match parameter type i32[3]; an array parameter requires an array of exactly that length and element type
+      9 |         var y : i64 = take(b);
+        |                            ^
+tests/sema/104_err_array_param_src.r2:11:18: ERROR: operator cannot be applied to a value of type i32[3]
+     11 |         var m : i64 = c * 2;
+        |                         ^
+tests/sema/104_err_array_param_src.r2:12:18: ERROR: operator cannot be applied to a value of type i32[3]
+     12 |         var n : i64 = c == c;
+        |                         ^~
+tests/sema/104_err_array_param_src.r2:13:18: ERROR: cannot add two pointers
+     13 |         var o : i64 = c + c;
+        |                         ^

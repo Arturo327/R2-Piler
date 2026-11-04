@@ -16,7 +16,7 @@ tests/sema/101_err_array_ops_src.r2:12:3: ERROR: operator cannot be applied to a
 tests/sema/101_err_array_ops_src.r2:13:6: ERROR: operator cannot be applied to a value of type i32[3]
      13 |         x = -a;
         |             ^
-tests/sema/101_err_array_ops_src.r2:14:8: ERROR: operator cannot be applied to a value of type i32[3]
+tests/sema/101_err_array_ops_src.r2:14:8: ERROR: cannot add two pointers
      14 |         x = a + b;
         |               ^
 tests/sema/101_err_array_ops_src.r2:15:6: ERROR: expression with resulting type i32[3] is not valid as a condition

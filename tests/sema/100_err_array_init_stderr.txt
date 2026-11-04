@@ -22,7 +22,7 @@ tests/sema/100_err_array_init_src.r2:11:28: ERROR: nested array initializers are
 tests/sema/100_err_array_init_src.r2:12:18: ERROR: string literal needs 4 bytes including the terminator, but the array has room for 2
      12 |         arr g : i8[2] = "abc";
         |                         ^~~
-tests/sema/100_err_array_init_src.r2:13:19: ERROR: string initializer requires an i8 or u8 array
+tests/sema/100_err_array_init_src.r2:13:19: ERROR: string initializer requires an i8, u8 or char array
      13 |         arr h : i16[4] = "abc";
         |                          ^~~
 tests/sema/100_err_array_init_src.r2:14:22: ERROR: literal 300 does not fit in type i8; use an explicit cast with 'as' to reinterpret the bits
@@ -31,9 +31,6 @@ tests/sema/100_err_array_init_src.r2:14:22: ERROR: literal 300 does not fit in t
 tests/sema/100_err_array_init_src.r2:15:19: ERROR: literal -1 does not fit in type u8; u8 is unsigned and cannot hold a negative value; use an explicit cast with 'as' to reinterpret the bits
      15 |         arr j : u8[3] = {-1, 0, 0};
         |                          ^~
-tests/sema/100_err_array_init_src.r2:16:16: ERROR: '{...}' initializer requires an array type
-     16 |         var k : i32 = {1};
-        |                       ^
 tests/sema/100_err_array_init_src.r2:7:6: WARNING: unused variable 'b'
       7 |         arr b : i32[2] = {1, 2, 3};
         |             ^
@@ -62,5 +59,5 @@ tests/sema/100_err_array_init_src.r2:15:6: WARNING: unused variable 'j'
      15 |         arr j : u8[3] = {-1, 0, 0};
         |             ^
 tests/sema/100_err_array_init_src.r2:16:6: WARNING: unused variable 'k'
-     16 |         var k : i32 = {1};
+     16 |         var k : i32 = 1;
         |             ^

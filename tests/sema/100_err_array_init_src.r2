@@ -13,6 +13,6 @@ fn main() : i64 {
 	arr h : i16[4] = "abc";
 	arr i : i8[2] = {1, 300};
 	arr j : u8[3] = {-1, 0, 0};
-	var k : i32 = {1};
+	var k : i32 = 1;
 	return a[0];
 }

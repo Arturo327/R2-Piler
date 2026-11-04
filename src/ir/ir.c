@@ -429,6 +429,7 @@ static void gen_jump_if (IR *ir, ASTNode *n, uint32_t label, int when);
 static uint32_t ptr_scale (IR *ir, uint32_t val, TypeId ptr_type, int up);
 static uint32_t gen_index_addr (IR *ir, ASTNode *n);
 static uint32_t gen_array_addr (IR *ir, ASTNode *n);
+static uint32_t read_reg (IR *ir, uint32_t reg, TypeId type);
 
 static uint32_t gen_addr (IR *ir, ASTNode *n)
 {
@@ -493,6 +494,8 @@ static uint32_t gen_array_addr (IR *ir, ASTNode *n)
 	if (n->type == NODE_INDEX) return gen_index_addr(ir, n);
 
 	Symbol *s = ir->symtab->symbols + n->sym;
+	if (s->kind == SYMBOL_PARAM)
+		return read_reg(ir, s->ir_id, type_ptr_to(types[s->type].base));
 	if (!s->depth) {
 		uint32_t dst = new_reg(ir, TYPE_i64);
 
@@ -1096,7 +1099,12 @@ static void gen_args_dec (IR *ir, uint32_t node)
 		ASTNode *n = ir->ast->nodes + p;
 		Symbol *s = ir->symtab->symbols + n->sym;
 
-		if (type_kind(s->type) == TK_SLICE) {
+		if (type_kind(s->type) == TK_ARRAY) {
+			TypeId ptr = type_ptr_to(types[s->type].base);
+
+			s->ir_id = new_reg(ir, ptr);
+			make_arg_dec(ir, s->ir_id, idx++, ptr);
+		} else if (type_kind(s->type) == TK_SLICE) {
 			TypeId ptr = type_ptr_to(types[s->type].base);
 
 			s->ir_id = new_reg(ir, ptr);

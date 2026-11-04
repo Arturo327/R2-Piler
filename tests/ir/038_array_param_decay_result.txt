@@ -1,0 +1,68 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn take(1 params, 13 regs) : i64
+    r0 = param.ptr i32 #0
+    r1 = move.ptr i32 r0
+    r2 = const.i64 1
+    r3 = const.i64 4
+    r4 = mul.i64 r2, r3
+    r5 = add.ptr i32 r1, r4
+    r6 = move.ptr i32 r5
+    r7 = const.i64 0
+    r8 = const.i64 4
+    r9 = mul.i64 r7, r8
+    r10 = add.ptr i32 r6, r9
+    r11 = ld_ptr.i32 r10
+    r12 = extend.i64 r11
+    ret.i64 r12
+    ret
+
+fn relay(2 params, 20 regs) : i64
+    r0 = param.ptr i32 #0
+    r1 = param.i64 #1
+    r2 = move.ptr i32 r0
+    r3 = const.i64 1
+    r4 = const.i64 4
+    r5 = mul.i64 r3, r4
+    r6 = add.ptr i32 r2, r5
+    r7 = move.ptr i32 r6
+    r8 = move.ptr i32 r0
+    r9 = sub.i64 r7, r8
+    r10 = const.i64 4
+    r11 = div.i64 r9, r10
+    r12 = move.ptr i32 r6
+    r13 = const.i64 0
+    r14 = const.i64 4
+    r15 = mul.i64 r13, r14
+    r16 = add.ptr i32 r12, r15
+    r17 = ld_ptr.i32 r16
+    r18 = extend.i64 r17
+    r19 = add.i64 r11, r18
+    ret.i64 r19
+    ret
+
+fn main(0 params, 15 regs) : i64
+    r1 = addr_local.i32[3] r0
+    r2 = const.i32 1
+    str_ptr.i32 r1, r2
+    r3 = const.i32 2
+    r4 = const.i64 4
+    r5 = add.i64 r1, r4
+    str_ptr.i32 r5, r3
+    r6 = const.i32 3
+    r7 = const.i64 8
+    r8 = add.i64 r1, r7
+    str_ptr.i32 r8, r6
+    r9 = addr_local.i32[3] r0
+    arg r9 #0
+    r10 = call.i64 take
+    r11 = addr_local.i32[3] r0
+    r12 = const.i64 3
+    arg r11 #0
+    arg r12 #1
+    r13 = call.i64 relay
+    r14 = add.i64 r10, r13
+    ret.i64 r14
+    ret
+

@@ -395,9 +395,13 @@ static uint32_t adapt_call_arg (Sema *s, uint32_t arg, TypeId arg_type, TypeId p
 
 	if (ok) return new_arg;
 
-	const char *hint = arg_type == TYPE_VOID
-			? "a void value cannot be used here"
-			: "use an explicit cast with 'as'";
+	const char *hint;
+
+	if (arg_type == TYPE_VOID) hint = "a void value cannot be used here";
+	else if (type_kind(param_type) == TK_ARRAY)
+		hint = "an array parameter requires an array of exactly that length"
+				" and element type";
+	else hint = "use an explicit cast with 'as'";
 
 	error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[new_arg]),
 			"argument type %s does not match parameter type %s; %s",
@@ -1193,6 +1197,19 @@ static int check_logic (Sema *s, uint32_t idx, uint32_t left, uint32_t right, Ty
 	return 1;
 }
 
+static void decay_operand (Sema *s, uint32_t *idx, TypeId *type)
+{
+	TypeKind kind = type_kind(*type);
+	TypeId ptr;
+
+	if (kind != TK_ARRAY && kind != TK_SLICE) return;
+	ptr = type_ptr_to(types[*type].base);
+	if (type_kind(ptr) != TK_PTR) return;
+
+	*idx = sema_wrap_cast(s, *idx, ptr);
+	*type = ptr;
+}
+
 static TypeId check_binary (Sema *s, uint32_t idx)
 {
 	uint8_t op_type = s->ast->nodes[idx].type;
@@ -1204,6 +1221,10 @@ static TypeId check_binary (Sema *s, uint32_t idx)
 	if (l == TYPE_ERROR || r == TYPE_ERROR) {
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
+	}
+	if (op_type == NODE_ADD || op_type == NODE_SUB) {
+		decay_operand(s, &left, &l);
+		decay_operand(s, &right, &r);
 	}
 	if (type_kind(l) == TK_ARRAY || type_kind(l) == TK_SLICE
 			|| type_kind(r) == TK_ARRAY || type_kind(r) == TK_SLICE) {

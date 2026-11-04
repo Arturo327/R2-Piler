@@ -1,0 +1,28 @@
+enum E [1:6] depth=0 type=E base=u8
+  variant A = 0
+  variant B = 1
+newtype N [2:9] depth=0 type=N base=u16
+fn take27 [4:4] depth=0 type=i64
+fn relay [8:4] depth=0 type=i64
+fn first [12:4] depth=0 type=i64
+fn sized [21:4] depth=0 type=i64
+fn main [25:4] depth=0 type=i64
+param x [4:11] depth=1 type=i32[27]
+param x [8:10] depth=1 type=i32[27]
+param v [12:10] depth=1 type=i32[]
+var p [13:6] depth=1 type=ptr i32
+var q [14:6] depth=1 type=ptr i32
+var r [15:6] depth=1 type=ptr i32
+var d [16:6] depth=1 type=i64
+param e [21:10] depth=1 type=E[2]
+param n [21:20] depth=1 type=N[2]
+var a [26:6] depth=1 type=i32[27]
+var b [27:6] depth=1 type=i32[3]
+var e [28:6] depth=1 type=E[2]
+var n [29:6] depth=1 type=N[2]
+var p [30:6] depth=1 type=ptr i32
+var q [31:6] depth=1 type=ptr i32
+var r [32:6] depth=1 type=ptr i32
+var d [33:6] depth=1 type=i64
+var w [34:6] depth=1 type=i64
+var t [35:6] depth=1 type=i64
