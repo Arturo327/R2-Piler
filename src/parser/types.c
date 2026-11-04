@@ -1,5 +1,27 @@
 #include "parser/common.h"
 
+enum {
+	TS_BUILTIN = 0,
+	TS_REF,
+	TS_PTR,
+	TS_ARRAY,
+	TS_SLICE
+};
+
+typedef struct TypeSpec {
+	struct TypeSpec *base;
+
+	char *str;
+	uint32_t dim;
+
+	uint16_t len;
+	uint16_t line;
+	uint16_t col;
+
+	uint8_t kind;
+	TypeId builtin;
+} TypeSpec;
+
 static TypeId tok_to_datatype (TokenType t)
 {
 	switch (t)
@@ -30,58 +52,125 @@ static int is_type_token (TokenType type)
 	}
 }
 
-static TypeId parse_type_inner (Parser *p, int allow_void, uint32_t owner, uint16_t *type_node)
+static TypeSpec *new_spec (Parser *p, uint8_t kind, Token t)
 {
-	TokenType t = p->curr.type;
-	int valid = (t == TOK_i8 || t == TOK_u8 || t == TOK_i16 || t == TOK_u16
-		|| t == TOK_i32 || t == TOK_u32 || t == TOK_i64 || t == TOK_u64
-		|| t == TOK_CHAR || (allow_void && t == TOK_VOID));
+	TypeSpec *ts = arena_alloc(p->arena, sizeof(TypeSpec));
 
-	*type_node = NO_TYPE_NODE;
-	if (t == TOK_PTR) {
-		uint16_t line = p->curr.line;
-		uint16_t col = p->curr.col;
+	ts->base = NULL;
+	ts->str = NULL;
+	ts->dim = NO_NODE;
+	ts->len = t.len;
+	ts->line = t.line;
+	ts->col = t.col;
+	ts->kind = kind;
+	ts->builtin = TYPE_VOID;
+	return ts;
+}
+
+static TypeSpec *wrap_spec (Parser *p, TypeSpec *base, uint8_t kind, Token t, uint32_t dim)
+{
+	TypeSpec *ts = new_spec(p, kind, t);
+
+	ts->base = base;
+	ts->dim = dim;
+	return ts;
+}
+
+static TypeSpec *parse_type_spec (Parser *p, int allow_void)
+{
+	Token t = p->curr;
+	TypeSpec *ts;
+
+	if (!enter_depth(p, "type")) return NULL;
+
+	if (t.type == TOK_PTR) {
 		advance(p);
-
-		uint32_t ptr = new_node(p, NODE_TYPE_PTR, line, col);
-		uint16_t base_node;
-		TypeId base = parse_type(p, 1, ptr, &base_node);
-		p->ast.nodes[ptr].data_type = base;
-		p->ast.nodes[ptr].type_node = base_node;
-		*type_node = (uint16_t)(ptr - owner);
-		return TYPE_VOID;
+		ts = new_spec(p, TS_PTR, t);
+		ts->base = parse_type_spec(p, 1);
+	} else if (is_type_token(t.type)
+			&& (allow_void || t.type != TOK_VOID)) {
+		advance(p);
+		ts = new_spec(p, TS_BUILTIN, t);
+		ts->builtin = tok_to_datatype(t.type);
+	} else if (t.type == TOK_ID) {
+		advance(p);
+		ts = new_spec(p, TS_REF, t);
+		ts->str = t.str;
+	} else {
+		if (!p->panic_mode)
+			error_report(p->err, ERR_ERROR, token_loc(t), "expected type");
+		p->panic_mode = 1;
+		p->depth--;
+		return NULL;
 	}
-	if (valid) {
-		TypeId data_type = tok_to_datatype(t);
+
+	while (p->curr.type == TOK_LBRACE) {
+		Token open = p->curr;
 		advance(p);
-		return data_type;
+
+		if (p->curr.type == TOK_RBRACE) {
+			advance(p);
+			ts = wrap_spec(p, ts, TS_SLICE, open, NO_NODE);
+			continue;
+		}
+		uint32_t dim = parse_expr(p, 0);
+		consume(p, TOK_RBRACE, "expected ']' after array size");
+		ts = wrap_spec(p, ts, TS_ARRAY, open, dim);
 	}
 
-	if (t == TOK_ID) {
-		uint32_t ref = new_node(p, NODE_TYPE_REF, p->curr.line, p->curr.col);
-		p->ast.nodes[ref].str = p->curr.str;
-		p->ast.nodes[ref].len = p->curr.len;
-		*type_node = (uint16_t)(ref - owner);
-		advance(p);
+	p->depth--;
+	return ts;
+}
+
+static TypeId make_type_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t *type_node)
+{
+	uint32_t node;
+	TypeId base;
+	uint16_t base_node;
+
+	if (ts->kind == TS_BUILTIN) {
+		*type_node = NO_TYPE_NODE;
+		return ts->builtin;
+	}
+	if (ts->kind == TS_REF) {
+		node = new_node(p, NODE_TYPE_REF, ts->line, ts->col);
+		p->ast.nodes[node].str = ts->str;
+		p->ast.nodes[node].len = ts->len;
+		*type_node = (uint16_t)(node - owner);
 		return TYPE_ERROR;
 	}
 
-	if (!p->panic_mode)
-		error_report(p->err, ERR_ERROR, token_loc(p->curr), "expected type");
-	p->panic_mode = 1;
+	switch (ts->kind)
+	{
+	case TS_PTR:
+		node = new_node(p, NODE_TYPE_PTR, ts->line, ts->col);
+		break;
+	case TS_ARRAY:
+		node = new_node(p, NODE_TYPE_ARRAY, ts->line, ts->col);
+		p->ast.nodes[node].child = ts->dim;
+		break;
+	default:
+		node = new_node(p, NODE_TYPE_SLICE, ts->line, ts->col);
+		break;
+	}
+
+	base = ts->base ? make_type_spec(p, ts->base, node, &base_node) : TYPE_ERROR;
+	if (!ts->base) base_node = NO_TYPE_NODE;
+	p->ast.nodes[node].data_type = base;
+	p->ast.nodes[node].type_node = base_node;
+	*type_node = (uint16_t)(node - owner);
 	return TYPE_ERROR;
 }
 
 TypeId parse_type (Parser *p, int allow_void, uint32_t owner, uint16_t *type_node)
 {
-	if (!enter_depth(p, "type")) {
+	TypeSpec *ts = parse_type_spec(p, allow_void);
+
+	if (!ts) {
 		*type_node = NO_TYPE_NODE;
 		return TYPE_ERROR;
 	}
-
-	TypeId id = parse_type_inner(p, allow_void, owner, type_node);
-	p->depth--;
-	return id;
+	return make_type_spec(p, ts, owner, type_node);
 }
 
 uint32_t parse_sizeof (Parser *p)

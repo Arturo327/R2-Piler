@@ -1,0 +1,11 @@
+fn main [1:4] depth=0 type=i64
+var n [2:6] depth=1 type=i64
+var a [3:6] depth=1 type=error
+var b [4:6] depth=1 type=error
+var c [5:6] depth=1 type=error
+var d [6:6] depth=1 type=error
+var e [7:6] depth=1 type=error
+var f [8:6] depth=1 type=error
+var g [9:6] depth=1 type=error
+var h [10:6] depth=1 type=i64[268435456]
+var i [11:6] depth=1 type=i32[7]

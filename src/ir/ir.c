@@ -182,13 +182,25 @@ static uint32_t count_bros (IR *ir, uint32_t first)
 	return count;
 }
 
+static uint32_t param_slots (IR *ir, ASTNode *n)
+{
+	uint32_t count = 0;
+	uint32_t p = ir->ast->nodes[n->child].child;
+
+	while (p != NO_NODE) {
+		count += type_kind(ir->ast->nodes[p].data_type) == TK_SLICE ? 2 : 1;
+		p = ir->ast->nodes[p].next_bro;
+	}
+	return count;
+}
+
 static uint32_t declare_fn (IR *ir, ASTNode *n, Symbol *sym)
 {
 	IRFn fn = {0};
 	fn.name = n->str;
 	fn.len = n->len;
 	fn.ret_type = sym->type;
-	fn.param_count = count_bros(ir, ir->ast->nodes[n->child].child);
+	fn.param_count = param_slots(ir, n);
 	fn.is_extern = n->type == NODE_EXTERN_FN_DEC;
 	return push_fn(ir, fn);
 }
@@ -210,9 +222,8 @@ static void declare_globals (IR *ir)
 	while (idx != NO_NODE) {
 		ASTNode *n = ir->ast->nodes + idx;
 
-		if (n->type != NODE_FN_DEC && n->type != NODE_VAR_DEC
-				&& n->type != NODE_EXTERN_FN_DEC
-				&& n->type != NODE_EXTERN_VAR_DEC) {
+		if (n->type != NODE_FN_DEC && n->type != NODE_VAR_DEC && n->type != NODE_ARR_DEC
+				&& n->type != NODE_EXTERN_FN_DEC && n->type != NODE_EXTERN_VAR_DEC) {
 			idx = n->next_bro;
 			continue;
 		}
@@ -417,6 +428,7 @@ static uint32_t gen_expr (IR *ir, ASTNode *n);
 static void gen_jump_if (IR *ir, ASTNode *n, uint32_t label, int when);
 static uint32_t ptr_scale (IR *ir, uint32_t val, TypeId ptr_type, int up);
 static uint32_t gen_index_addr (IR *ir, ASTNode *n);
+static uint32_t gen_array_addr (IR *ir, ASTNode *n);
 
 static uint32_t gen_addr (IR *ir, ASTNode *n)
 {
@@ -446,14 +458,117 @@ static uint32_t gen_deref (IR *ir, ASTNode *n)
 	return make_ld_ptr(ir, ptr, n->data_type);
 }
 
+static uint32_t elem_scale (IR *ir, uint32_t val, TypeId elem)
+{
+	uint32_t size = types[elem].size;
+
+	if (size < 2) return val;
+	return make_op(ir, IR_MUL, val, make_const(ir, size, TYPE_i64), TYPE_i64);
+}
+
 static uint32_t gen_index_addr (IR *ir, ASTNode *n)
 {
 	ASTNode *base = ir->ast->nodes + n->child;
-	TypeId ptr = base->data_type;
-	uint32_t a = gen_expr(ir, base);
+	TypeId type = base->data_type;
+	TypeKind kind = type_kind(type);
+	uint32_t a = kind == TK_ARRAY ? gen_array_addr(ir, base) : gen_expr(ir, base);
 	uint32_t b = gen_expr(ir, ir->ast->nodes + base->next_bro);
 
-	return make_op(ir, IR_ADD, a, ptr_scale(ir, b, ptr, 1), ptr);
+	if (kind == TK_PTR)
+		return make_op(ir, IR_ADD, a, ptr_scale(ir, b, type, 1), type);
+	return make_op(ir, IR_ADD, a, elem_scale(ir, b, types[type].base), TYPE_i64);
+}
+
+static uint32_t local_storage_addr (IR *ir, Symbol *s, TypeId type)
+{
+	uint32_t dst = new_reg(ir, TYPE_i64);
+
+	ir->addressed[s->ir_id] = 1;
+	make_addr_local(ir, dst, s->ir_id, type);
+	return dst;
+}
+
+static uint32_t gen_array_addr (IR *ir, ASTNode *n)
+{
+	if (n->type == NODE_INDEX) return gen_index_addr(ir, n);
+
+	Symbol *s = ir->symtab->symbols + n->sym;
+	if (!s->depth) {
+		uint32_t dst = new_reg(ir, TYPE_i64);
+
+		make_addr_global(ir, dst, s->ir_id, n->data_type);
+		return dst;
+	}
+	return local_storage_addr(ir, s, n->data_type);
+}
+
+static uint32_t read_reg (IR *ir, uint32_t reg, TypeId type)
+{
+	uint32_t tmp = new_reg(ir, type);
+
+	make_move(ir, tmp, reg, type);
+	return tmp;
+}
+
+static uint32_t add_offset (IR *ir, uint32_t base, uint64_t off)
+{
+	if (!off) return base;
+	return make_op(ir, IR_ADD, base, make_const(ir, (int64_t)off, TYPE_i64), TYPE_i64);
+}
+
+static void store_string (IR *ir, uint32_t base, ASTNode *lit, TypeId elem)
+{
+	uint32_t zero = make_const(ir, 0, elem);
+
+	for (uint16_t i = 0; i < lit->len; i++) {
+		uint32_t c = make_const(ir, (uint8_t)lit->str[i], elem);
+
+		make_str_ptr(ir, add_offset(ir, base, i), c, elem);
+	}
+	make_str_ptr(ir, add_offset(ir, base, lit->len), zero, elem);
+}
+
+static void zero_fill (IR *ir, uint32_t base, uint32_t from, uint32_t count, TypeId elem)
+{
+	uint32_t loop = ir->label_count++;
+	uint32_t end = ir->label_count++;
+	uint32_t i = new_reg(ir, TYPE_i64);
+	uint32_t zero = make_const(ir, 0, elem);
+	uint32_t one = make_const(ir, 1, TYPE_i64);
+	uint32_t limit = make_const(ir, count, TYPE_i64);
+
+	make_const_into(ir, i, from, TYPE_i64);
+	make_label(ir, loop);
+	make_jump(ir, IR_JNZ, make_op(ir, IR_GE, i, limit, TYPE_i64), end);
+	make_str_ptr(ir, make_op(ir, IR_ADD, base, i, TYPE_i64), zero, elem);
+	make_move(ir, i, make_op(ir, IR_ADD, i, one, TYPE_i64), TYPE_i64);
+	make_jump(ir, IR_JMP, NO_REG, loop);
+	make_label(ir, end);
+}
+
+static void gen_array_init (IR *ir, uint32_t base, uint32_t init_idx, TypeId arr, int zero)
+{
+	ASTNode *init = ir->ast->nodes + init_idx;
+	TypeId elem = types[arr].base;
+	uint32_t elem_size = types[elem].size;
+
+	if (init->type == NODE_LIT_STR) {
+		store_string(ir, base, init, elem);
+		if (zero && (uint32_t)init->len + 1 < types[arr].count)
+			zero_fill(ir, base, (uint32_t)init->len + 1, types[arr].count, elem);
+		return;
+	}
+
+	uint32_t i = 0;
+	uint32_t item = init->child;
+
+	while (item != NO_NODE) {
+		uint32_t val = gen_expr(ir, ir->ast->nodes + item);
+
+		make_str_ptr(ir, add_offset(ir, base, (uint64_t)i * elem_size), val, elem);
+		item = ir->ast->nodes[item].next_bro;
+		i++;
+	}
 }
 
 static uint32_t gen_lvalue_addr (IR *ir, ASTNode *lhs)
@@ -478,17 +593,35 @@ static uint32_t gen_call (IR *ir, ASTNode *n)
 {
 	Symbol *fn = ir->symtab->symbols + n->sym;
 	uint32_t argc = count_bros(ir, n->child);
-	uint32_t regs[argc + 1];
+	uint32_t regs[argc * 2 + 1];
+	uint32_t params = ir->ast->nodes[fn->decl].child;
+	uint32_t param = ir->ast->nodes[params].child;
 	uint32_t arg = n->child;
+	uint32_t k = 0;
 
 	for (uint32_t i = 0; i < argc; i++) {
-		regs[i] = gen_expr(ir, ir->ast->nodes + arg);
-		arg = ir->ast->nodes[arg].next_bro;
+		ASTNode *a = ir->ast->nodes + arg;
+		TypeId pt = param == NO_NODE ? TYPE_VOID : ir->ast->nodes[param].data_type;
+
+		if (type_kind(pt) == TK_SLICE && type_kind(a->data_type) == TK_ARRAY) {
+			regs[k++] = gen_array_addr(ir, a);
+			regs[k++] = make_const(ir, types[a->data_type].count, TYPE_i64);
+		} else if (type_kind(pt) == TK_SLICE) {
+			Symbol *s = ir->symtab->symbols + a->sym;
+			TypeId ptr = type_ptr_to(types[s->type].base);
+
+			regs[k++] = read_reg(ir, s->ir_id, ptr);
+			regs[k++] = read_reg(ir, s->ir_id2, TYPE_i64);
+		} else {
+			regs[k++] = gen_expr(ir, a);
+		}
+		arg = a->next_bro;
+		if (param != NO_NODE) param = ir->ast->nodes[param].next_bro;
 	}
-	for (uint32_t i = 0; i < argc; i++)
+	for (uint32_t i = 0; i < k; i++)
 		make_arg(ir, regs[i], i);
 
-	return make_call(ir, fn->ir_id, (uint16_t)argc, fn->type);
+	return make_call(ir, fn->ir_id, (uint16_t)k, fn->type);
 }
 
 static uint32_t gen_assign (IR *ir, ASTNode *n)
@@ -768,6 +901,9 @@ static uint32_t gen_cast (IR *ir, ASTNode *n)
 	ASTNode *operand = ir->ast->nodes + n->child;
 	uint32_t src = gen_expr(ir, operand);
 
+	if (type_kind(operand->data_type) == TK_ARRAY
+			|| type_kind(operand->data_type) == TK_SLICE)
+		return src;
 	if (types[n->data_type].size == 8 && types[operand->data_type].size == 8) {
 		ir->reg_types[src] = n->data_type;
 		return src;
@@ -785,7 +921,19 @@ static uint32_t gen_expr (IR *ir, ASTNode *n)
 	case NODE_LIT_u64: return make_const(ir, (int64_t)n->u64, n->data_type);
 	case NODE_LIT_CHAR: return make_const(ir, (int8_t)n->chr, n->data_type);
 
-	case NODE_ID: return load_var(ir, ir->symtab->symbols + n->sym);;
+	case NODE_ID: {
+		Symbol *s = ir->symtab->symbols + n->sym;
+
+		if (type_kind(s->type) == TK_ARRAY) return gen_array_addr(ir, n);
+		if (type_kind(s->type) == TK_SLICE)
+			return read_reg(ir, s->ir_id, type_ptr_to(types[s->type].base));
+		return load_var(ir, s);
+	}
+	case NODE_DOT: {
+		Symbol *s = ir->symtab->symbols + ir->ast->nodes[n->child].sym;
+
+		return read_reg(ir, s->ir_id2, TYPE_i64);
+	}
 	case NODE_DEREF: return gen_deref(ir, n);
 	case NODE_INDEX: return make_ld_ptr(ir, gen_index_addr(ir, n), n->data_type);
 	case NODE_ADDR: return gen_addr(ir, n);
@@ -812,6 +960,16 @@ static void gen_var_dec (IR *ir, ASTNode *n)
 {
 	Symbol *s = ir->symtab->symbols + n->sym;
 	uint32_t reg;
+
+	if (type_kind(s->type) == TK_ARRAY) {
+		reg = new_reg(ir, s->type);
+		s->ir_id = reg;
+		ir->addressed[reg] = 1;
+		if (n->child != NO_NODE)
+			gen_array_init(ir, local_storage_addr(ir, s, s->type),
+					n->child, s->type, 1);
+		return;
+	}
 
 	if (n->child == NO_NODE) reg = new_reg(ir, s->type);
 	else reg = gen_expr(ir, ir->ast->nodes + n->child);
@@ -907,6 +1065,7 @@ static void gen_stmt (IR *ir, ASTNode *n)
 	switch (n->type)
 	{
 	case NODE_VAR_DEC: gen_var_dec(ir, n); return;
+	case NODE_ARR_DEC: gen_var_dec(ir, n); return;
 	case NODE_BLOCK: gen_block(ir, n); return;
 	case NODE_RET: gen_return(ir, n); return;
 	case NODE_WHILE: gen_while(ir, n); return;
@@ -937,9 +1096,18 @@ static void gen_args_dec (IR *ir, uint32_t node)
 		ASTNode *n = ir->ast->nodes + p;
 		Symbol *s = ir->symtab->symbols + n->sym;
 
-		s->ir_id = new_reg(ir, s->type);
-		if (s->addressed) ir->addressed[s->ir_id] = 1;
-		make_arg_dec(ir, s->ir_id, idx++, s->type);
+		if (type_kind(s->type) == TK_SLICE) {
+			TypeId ptr = type_ptr_to(types[s->type].base);
+
+			s->ir_id = new_reg(ir, ptr);
+			s->ir_id2 = new_reg(ir, TYPE_i64);
+			make_arg_dec(ir, s->ir_id, idx++, ptr);
+			make_arg_dec(ir, s->ir_id2, idx++, TYPE_i64);
+		} else {
+			s->ir_id = new_reg(ir, s->type);
+			if (s->addressed) ir->addressed[s->ir_id] = 1;
+			make_arg_dec(ir, s->ir_id, idx++, s->type);
+		}
 		p = n->next_bro;
 	}
 }
@@ -985,6 +1153,14 @@ static void gen_init_fn (IR *ir)
 	for (uint32_t i = 0; i < ir->init_order_count; i++) {
 		ASTNode *n = ir->ast->nodes + ir->init_order[i];
 		Symbol *s = ir->symtab->symbols + n->sym;
+
+		if (type_kind(s->type) == TK_ARRAY) {
+			uint32_t base = new_reg(ir, TYPE_i64);
+
+			make_addr_global(ir, base, s->ir_id, s->type);
+			gen_array_init(ir, base, n->child, s->type, 0);
+			continue;
+		}
 		uint32_t val = gen_expr(ir, ir->ast->nodes + n->child);
 
 		make_str_global(ir, s->ir_id, val, s->type);

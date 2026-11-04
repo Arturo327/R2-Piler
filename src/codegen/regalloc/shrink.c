@@ -75,8 +75,7 @@ static void touch_instrs (Shrink *s)
 	}
 }
 
-static void touch_edge_live (Shrink *s, uint32_t b, uint32_t ps, uint32_t pt,
-		const uint64_t *live)
+static void touch_edge_live (Shrink *s, uint32_t b, uint32_t ps, uint32_t pt, const uint64_t *live)
 {
 	for (uint32_t w = 0; w < s->ra->words; w++) {
 		uint64_t bits = live[w];

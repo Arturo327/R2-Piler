@@ -72,6 +72,10 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_LIT_NULL] = "NODE_LIT_NULL",
 	[NODE_TYPE_PTR] = "NODE_TYPE_PTR",
 	[NODE_INDEX] = "NODE_INDEX",
+	[NODE_ARR_DEC] = "NODE_ARR_DEC",
+	[NODE_ARRAY_INIT] = "NODE_ARRAY_INIT",
+	[NODE_TYPE_ARRAY] = "NODE_TYPE_ARRAY",
+	[NODE_TYPE_SLICE] = "NODE_TYPE_SLICE",
 };
 
 static inline void indent (int depth)
@@ -99,7 +103,7 @@ static void dump_node_value (ASTNode *n)
 		print_escaped(n->str, n->len, '"');
 		printf("\"");
 		break;
-	case NODE_VAR_DEC: case NODE_FN_DEC: case NODE_FN_CALL:
+	case NODE_VAR_DEC: case NODE_ARR_DEC: case NODE_FN_DEC: case NODE_FN_CALL:
 	case NODE_ENUM_DEC: case NODE_ENUM_VAL:
 	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
@@ -113,6 +117,24 @@ static void dump_node_value (ASTNode *n)
 	}
 }
 
+static void dump_dim (AST *ast, uint32_t idx)
+{
+	if (idx == NO_NODE) {
+		printf("?");
+		return;
+	}
+
+	ASTNode *n = &ast->nodes[idx];
+
+	switch (n->type)
+	{
+	case NODE_LIT_i64: printf("%lld", (long long)n->i64); break;
+	case NODE_LIT_u64: printf("%llu", (unsigned long long)n->u64); break;
+	case NODE_LIT_CHAR: printf("%d", (int)n->chr); break;
+	default: printf("?"); break;
+	}
+}
+
 static void dump_type_name (AST *ast, ASTNode *n)
 {
 	if (n->type == NODE_TYPE_PTR) {
@@ -122,6 +144,21 @@ static void dump_type_name (AST *ast, ASTNode *n)
 			dump_type_name(ast, &ast->nodes[idx]);
 		} else {
 			printf("%s", types[n->data_type].name);
+		}
+		return;
+	}
+	if (n->type == NODE_TYPE_ARRAY || n->type == NODE_TYPE_SLICE) {
+		if (n->type_node != NO_TYPE_NODE) {
+			uint32_t idx = (uint32_t)(n - ast->nodes) + n->type_node;
+			dump_type_name(ast, &ast->nodes[idx]);
+		} else {
+			printf("%s", types[n->data_type].name);
+		}
+		if (n->type == NODE_TYPE_SLICE) printf("[]");
+		else {
+			printf("[");
+			dump_dim(ast, n->child);
+			printf("]");
 		}
 		return;
 	}
@@ -156,7 +193,8 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 
 		dump_node_value(n);
 
-		if (n->type == NODE_VAR_DEC || n->type == NODE_EXTERN_VAR_DEC || n->type == NODE_RET_DEC
+		if (n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC
+				|| n->type == NODE_EXTERN_VAR_DEC || n->type == NODE_RET_DEC
 				|| n->type == NODE_CAST || n->type == NODE_ENUM_DEC || n->type == NODE_TYPE_DEC
 				|| n->type == NODE_NEWTYPE_DEC || (n->type == NODE_SIZEOF && n->child == NO_NODE))
 			dump_type(ast, n);

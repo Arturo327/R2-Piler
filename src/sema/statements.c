@@ -75,9 +75,25 @@ static void check_var_dec (Sema *s, uint32_t idx)
 	int is_null = has_init && is_null_value(s, n->child);
 
 	resolve_type_node(s, n);
-	if (has_init)
-		check_var_init_type(s, n, check_expr(s, n->child));
+	n = s->ast->nodes + idx;
+	check_storage_decl(s, n);
 
+	if (has_init) {
+		n = s->ast->nodes + idx;
+		TypeKind kind = n->data_type == TYPE_ERROR
+				? TK_ERROR : type_kind(n->data_type);
+
+		if (kind == TK_ARRAY) {
+			check_array_init(s, idx);
+		} else if (s->ast->nodes[n->child].type == NODE_ARRAY_INIT) {
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + n->child),
+					"'{...}' initializer requires an array type");
+		} else {
+			check_var_init_type(s, n, check_expr(s, n->child));
+		}
+	}
+
+	n = s->ast->nodes + idx;
 	uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_VAR, n->data_type, idx);
 
 	if (is_null) s->table.symbols[sym].null_known = 1;
@@ -99,9 +115,39 @@ static void check_main_signature (Sema *s, uint32_t idx)
 				"'main' must be declared as 'fn main() : i64'");
 }
 
+static void check_signature_types (Sema *s, uint32_t idx, int is_extern)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	uint32_t args = n->child;
+	uint32_t ret = s->ast->nodes[args].next_bro;
+	TypeId ret_type = s->ast->nodes[ret].data_type;
+
+	if (ret_type != TYPE_ERROR
+			&& (type_kind(ret_type) == TK_ARRAY || type_kind(ret_type) == TK_SLICE))
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"functions cannot return an array or a slice");
+
+	uint32_t p = s->ast->nodes[args].child;
+	while (p != NO_NODE) {
+		TypeId type = s->ast->nodes[p].data_type;
+
+		if (type == TYPE_ERROR) continue;
+		if (type_kind(type) == TK_ARRAY)
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
+					"array parameters are not supported;"
+					" use a slice 'T[]' or a pointer 'ptr T'");
+		else if (is_extern && type_kind(type) == TK_SLICE)
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
+					"extern functions cannot take slice parameters");
+
+		p = s->ast->nodes[p].next_bro;
+	}
+}
+
 void check_fn_dec (Sema *s, uint32_t idx)
 {
 	resolve_fn_types(s, idx);
+	check_signature_types(s, idx, 0);
 	check_main_signature(s, idx);
 	uint32_t args = s->ast->nodes[idx].child;
 	uint32_t ret = s->ast->nodes[args].next_bro;
@@ -137,6 +183,7 @@ void check_fn_dec (Sema *s, uint32_t idx)
 void check_extern_fn (Sema *s, uint32_t idx)
 {
 	resolve_fn_types(s, idx);
+	check_signature_types(s, idx, 1);
 	ASTNode *n = s->ast->nodes + idx;
 	uint32_t count = 0;
 
@@ -194,7 +241,9 @@ static int check_cond (Sema *s, uint32_t cond, int alw_err)
 {
 	TypeId type = check_expr(s, cond);
 
-	if ((type == TYPE_VOID && s->ast->nodes[cond].type != NODE_EMPTY) || type == TYPE_STR)
+	if (((type == TYPE_VOID && s->ast->nodes[cond].type != NODE_EMPTY) || type == TYPE_STR)
+			|| (type != TYPE_ERROR && (type_kind(type) == TK_ARRAY
+			|| type_kind(type) == TK_SLICE)))
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
 				"expression with resulting type %s is not valid as a condition",
 				types[type].name);
@@ -410,7 +459,7 @@ static void check_statement (Sema *s, uint32_t idx)
 
 	switch (n->type)
 	{
-	case NODE_VAR_DEC: check_var_dec(s, idx); return;
+	case NODE_VAR_DEC: case NODE_ARR_DEC: check_var_dec(s, idx); return;
 	case NODE_BLOCK: check_block(s, idx); return;
 	case NODE_RET: check_return(s, idx); return;
 	case NODE_WHILE: check_while(s, idx); return;

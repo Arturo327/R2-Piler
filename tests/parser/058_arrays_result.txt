@@ -1,0 +1,36 @@
+NODE_ROOT [0:0]
+  NODE_ARR_DEC [1:5] name="g" type=i32[3]
+    NODE_ARRAY_INIT [1:18]
+      NODE_LIT_i64 [1:19] i64=1
+      NODE_LIT_i64 [1:22] i64=2
+      NODE_LIT_i64 [1:25] i64=3
+  NODE_ARR_DEC [2:5] name="s" type=i8[8]
+    NODE_LIT_STR [2:17] str="hi"
+  NODE_FN_DEC [4:4] name="sum"
+    NODE_ARGS_DEC [4:7]
+      NODE_VAR_DEC [4:8] name="v" type=i32[]
+    NODE_RET_DEC [4:19] type=i64
+    NODE_BLOCK [4:25]
+      NODE_RET [5:2]
+        NODE_ADD [5:15]
+          NODE_DOT [5:10] field="len"
+            NODE_ID [5:9] str="v"
+          NODE_INDEX [5:18]
+            NODE_ID [5:17] str="v"
+            NODE_LIT_i64 [5:19] i64=0
+  NODE_FN_DEC [8:4] name="main"
+    NODE_ARGS_DEC [8:8]
+    NODE_RET_DEC [8:11] type=i64
+    NODE_BLOCK [8:17]
+      NODE_ARR_DEC [9:6] name="a" type=i32[2]
+        NODE_ARRAY_INIT [9:19]
+          NODE_LIT_i64 [9:20] i64=4
+          NODE_LIT_i64 [9:23] i64=5
+      NODE_VAR_DEC [10:6] name="n" type=i64
+        NODE_DOT [10:17] field="len"
+          NODE_ID [10:16] str="a"
+      NODE_RET [11:2]
+        NODE_ADD [11:16]
+          NODE_FN_CALL [11:9] name="sum"
+            NODE_ID [11:13] str="a"
+          NODE_ID [11:18] str="n"

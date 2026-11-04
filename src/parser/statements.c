@@ -1,12 +1,35 @@
 #include "parser/common.h"
 
-static uint32_t parse_var_dec (Parser *p)
+static uint32_t parse_array_init (Parser *p)
 {
-	consume(p, TOK_VAR, "expected 'var'");
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	uint32_t node = new_node(p, NODE_ARRAY_INIT, line, col);
+	uint32_t last = NO_NODE;
+
+	consume(p, TOK_LKEY, "expected '{' for array initializer");
+
+	while (p->curr.type != TOK_RKEY && p->curr.type != TOK_EOF) {
+		uint32_t item = p->curr.type == TOK_LKEY
+				? parse_array_init(p) : parse_expr(p, 0);
+
+		append_child(p, node, &last, item);
+		if (p->curr.type != TOK_COMMA) break;
+		advance(p);
+	}
+
+	consume(p, TOK_RKEY, "expected '}' at the end of the array initializer");
+	return node;
+}
+
+static uint32_t parse_decl (Parser *p, int is_arr)
+{
+	consume(p, is_arr ? TOK_ARR : TOK_VAR,
+			is_arr ? "expected 'arr'" : "expected 'var'");
 
 	uint16_t line = p->curr.line;
 	uint16_t col = p->curr.col;
-	uint32_t node = new_node(p, NODE_VAR_DEC, line, col);
+	uint32_t node = new_node(p, is_arr ? NODE_ARR_DEC : NODE_VAR_DEC, line, col);
 
 	if (consume(p, TOK_ID, "expected variable name")) {
 		p->ast.nodes[node].str = p->prev.str;
@@ -21,7 +44,8 @@ static uint32_t parse_var_dec (Parser *p)
 
 	if (p->curr.type == TOK_ASSIGN) {
 		advance(p);
-		uint32_t value = parse_expr(p, 0);
+		uint32_t value = is_arr && p->curr.type == TOK_LKEY
+				? parse_array_init(p) : parse_expr(p, 0);
 		p->ast.nodes[node].child = value;
 	}
 
@@ -147,7 +171,9 @@ static uint32_t parse_for_init (Parser *p)
 		return e;
 	}
 	if (p->curr.type == TOK_VAR && !p->panic_mode)
-		return parse_var_dec(p);
+		return parse_decl(p, 0);
+	if (p->curr.type == TOK_ARR && !p->panic_mode)
+		return parse_decl(p, 1);
 	uint32_t e = parse_expr(p, 0);
 	consume(p, TOK_SEMCOL, "expected ';' between for expressions");
 	return e;
@@ -216,7 +242,8 @@ static uint32_t parse_statement_inner (Parser *p)
 {
 	switch (p->curr.type)
 	{
-	case TOK_VAR: return parse_var_dec(p);
+	case TOK_VAR: return parse_decl(p, 0);
+	case TOK_ARR: return parse_decl(p, 1);
 	case TOK_LKEY: return parse_block(p);
 	case TOK_FN: return parse_fn_decl(p);
 	case TOK_EXTERN: return parse_extern_decl(p);

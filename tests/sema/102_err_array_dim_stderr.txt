@@ -1,0 +1,51 @@
+tests/sema/102_err_array_dim_src.r2:3:13: ERROR: array size must be greater than zero
+      3 |         arr a : i32[0];
+        |                    ^
+tests/sema/102_err_array_dim_src.r2:4:13: ERROR: array is too large
+      4 |         arr b : i32[-1];
+        |                    ^
+tests/sema/102_err_array_dim_src.r2:5:13: ERROR: array size must be greater than zero
+      5 |         arr c : i32[1 - 1];
+        |                    ^
+tests/sema/102_err_array_dim_src.r2:6:13: ERROR: array size must be a constant integer expression
+      6 |         arr d : i32[n];
+        |                    ^
+tests/sema/102_err_array_dim_src.r2:7:13: ERROR: array size must be a constant integer expression
+      7 |         arr e : i32[1 / 0];
+        |                    ^
+tests/sema/102_err_array_dim_src.r2:8:13: ERROR: array size must be a constant integer expression
+      8 |         arr f : i32[1 << 64];
+        |                    ^
+tests/sema/102_err_array_dim_src.r2:9:13: ERROR: array is too large
+      9 |         arr g : i32[4294967296];
+        |                    ^
+tests/sema/102_err_array_dim_src.r2:2:6: WARNING: unused variable 'n'
+      2 |         var n : i64 = 2;
+        |             ^
+tests/sema/102_err_array_dim_src.r2:3:6: WARNING: unused variable 'a'
+      3 |         arr a : i32[0];
+        |             ^
+tests/sema/102_err_array_dim_src.r2:4:6: WARNING: unused variable 'b'
+      4 |         arr b : i32[-1];
+        |             ^
+tests/sema/102_err_array_dim_src.r2:5:6: WARNING: unused variable 'c'
+      5 |         arr c : i32[1 - 1];
+        |             ^
+tests/sema/102_err_array_dim_src.r2:6:6: WARNING: unused variable 'd'
+      6 |         arr d : i32[n];
+        |             ^
+tests/sema/102_err_array_dim_src.r2:7:6: WARNING: unused variable 'e'
+      7 |         arr e : i32[1 / 0];
+        |             ^
+tests/sema/102_err_array_dim_src.r2:8:6: WARNING: unused variable 'f'
+      8 |         arr f : i32[1 << 64];
+        |             ^
+tests/sema/102_err_array_dim_src.r2:9:6: WARNING: unused variable 'g'
+      9 |         arr g : i32[4294967296];
+        |             ^
+tests/sema/102_err_array_dim_src.r2:10:6: WARNING: unused variable 'h'
+     10 |         arr h : i64[268435456];
+        |             ^
+tests/sema/102_err_array_dim_src.r2:11:6: WARNING: unused variable 'i'
+     11 |         arr i : i32[1 + 2 * 3];
+        |             ^

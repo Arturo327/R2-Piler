@@ -1,5 +1,7 @@
 #include "sema/common.h"
 
+#include <string.h>
+
 #define MAX_EXPR_DEPTH 5000
 
 static const uint8_t compound_base[NODE_COUNT] = {
@@ -236,6 +238,13 @@ static TypeId check_addr (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+	if (type_kind(type) == TK_ARRAY || type_kind(type) == TK_SLICE) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot take the address of an array; the array itself decays to a pointer to its first element, use it directly");
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
 	if (type == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot take the address of a value of type void");
@@ -306,7 +315,13 @@ static int sizeof_expr_type (Sema *s, ASTNode *n, TypeId *out, uint64_t *size)
 			*out = TYPE_ERROR;
 			return 1;
 		}
-		if (type_kind(ptr) != TK_PTR) {
+		TypeKind kind = type_kind(ptr);
+		if (kind == TK_ARRAY || kind == TK_SLICE) {
+			*out = types[ptr].base;
+			*size = types[*out].size;
+			return 1;
+		}
+		if (kind != TK_PTR) {
 			error_report(s->err, ERR_ERROR, node_loc(n),
 					"cannot %s a value of type %s", op, type_display_name(ptr));
 			return 0;
@@ -406,8 +421,9 @@ static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 
 		if (param == NO_NODE) {
 			count_ok = 0;
-		} else if (arg_type != TYPE_ERROR && param_type != TYPE_ERROR
-				&& arg_type != param_type) {
+		} else if (arg_type != TYPE_ERROR && param_type != TYPE_ERROR && arg_type != param_type
+				&& !(type_kind(arg_type) == TK_ARRAY && type_kind(param_type) == TK_SLICE
+				&& types[arg_type].base == types[param_type].base)) {
 			arg = adapt_call_arg(s, arg, arg_type, param_type);
 			if (prev == NO_NODE) call->child = arg;
 			else s->ast->nodes[prev].next_bro = arg;
@@ -465,10 +481,55 @@ static TypeId check_fn_call (Sema *s, uint32_t idx)
 	return n->data_type;
 }
 
+static TypeId check_len_field (Sema *s, uint32_t idx, uint32_t left, TypeId type)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	TypeKind kind = type_kind(type);
+
+	if (n->len != 3 || memcmp(n->str, "len", 3) != 0) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"type %s has no field '%.*s'", types[type].name,
+				(int)n->len, n->str);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	mark_read(s, left);
+	if (kind == TK_SLICE) {
+		n->data_type = TYPE_i64;
+		return TYPE_i64;
+	}
+
+	uint32_t count = types[type].count;
+	n->type = NODE_LIT_i64;
+	n->i64 = (int64_t)count;
+	n->data_type = TYPE_UNTYPED_INT;
+	n->child = NO_NODE;
+	n->sym = NO_SYMBOL;
+	n->type_node = NO_TYPE_NODE;
+	return TYPE_UNTYPED_INT;
+}
+
 static TypeId check_dot (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
-	ASTNode *left = &s->ast->nodes[n->child];
+	ASTNode *n = s->ast->nodes + idx;
+	ASTNode *left = s->ast->nodes + n->child;
+
+	if (left->type == NODE_INDEX) {
+		TypeId type = check_index(s, n->child);
+
+		n = s->ast->nodes + idx;
+		if (type == TYPE_ERROR) {
+			n->data_type = TYPE_ERROR;
+			return TYPE_ERROR;
+		}
+		if (type_kind(type) == TK_ARRAY || type_kind(type) == TK_SLICE)
+			return check_len_field(s, idx, n->child, type);
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"left side of '.' must be an enum type");
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
 
 	if (left->type != NODE_ID) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
@@ -486,6 +547,25 @@ static TypeId check_dot (Sema *s, uint32_t idx)
 	}
 
 	Symbol *sym = s->table.symbols + sym_idx;
+	if (sym->kind == SYMBOL_VAR || sym->kind == SYMBOL_PARAM) {
+		TypeKind kind = type_kind(sym->type);
+
+		if (kind != TK_ARRAY && kind != TK_SLICE) {
+			error_report(s->err, ERR_ERROR, node_loc(left),
+					"'%.*s' is not an enum type", (int)left->len, left->str);
+			n->data_type = TYPE_ERROR;
+			return TYPE_ERROR;
+		}
+		TypeId type = check_var_ref(s, n->child, 1);
+
+		n = &s->ast->nodes[idx];
+		if (type == TYPE_ERROR) {
+			n->data_type = TYPE_ERROR;
+			return TYPE_ERROR;
+		}
+		return check_len_field(s, idx, n->child, type);
+	}
+
 	TypeId val_type = sym->kind == SYMBOL_TYPE ? type_canon(sym->type) : sym->type;
 	TypeId enum_id = type_repr(val_type);
 	if (sym->kind != SYMBOL_ENUM && (sym->kind != SYMBOL_TYPE
@@ -543,13 +623,15 @@ static TypeId check_index (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (type_kind(ptr) != TK_PTR) {
+
+	TypeKind kind = type_kind(ptr);
+	if (kind != TK_PTR && kind != TK_ARRAY && kind != TK_SLICE) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot index a value of type %s", type_display_name(ptr));
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (types[ptr].base == TYPE_VOID) {
+	if (kind == TK_PTR && types[ptr].base == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot index 'ptr void'; cast it to a typed pointer first");
 		n->data_type = TYPE_ERROR;
@@ -557,14 +639,32 @@ static TypeId check_index (Sema *s, uint32_t idx)
 	}
 	if (!is_integer_operand(off)) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
-				"pointer indexing requires an integer index");
+				kind == TK_PTR ? "pointer indexing requires an integer index"
+				: kind == TK_ARRAY ? "array indexing requires an integer index"
+				: "slice indexing requires an integer index");
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
 
-	finalize_type(s, index, off);
+	TypeId index_type = finalize_type(s, index, off);
+	n = &s->ast->nodes[idx];
+
+	if (kind == TK_ARRAY) {
+		uint64_t bits;
+		uint32_t count = types[ptr].count;
+
+		if (lit_node_bits(s, s->ast->nodes + index, &bits)) {
+			int neg = types[index_type].sign && (int64_t)bits < 0;
+
+			if (neg || bits >= count)
+				error_report(s->err, ERR_ERROR, node_loc(n),
+						"index %lld is out of bounds for an array of size %u",
+						(long long)(int64_t)bits, count);
+		}
+	}
+
 	n->data_type = types[ptr].base;
-	warn_null_deref(s, idx, base);
+	if (kind == TK_PTR) warn_null_deref(s, idx, base);
 	return n->data_type;
 }
 
@@ -637,6 +737,14 @@ static TypeId check_assign (Sema *s, uint32_t idx)
 	if (left_kind == NODE_ID) sym_write(s, s->ast->nodes[left].sym, idx);
 
 	if (l == TYPE_ERROR || r == TYPE_ERROR) {
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+
+	if (type_kind(l) == TK_ARRAY || type_kind(l) == TK_SLICE) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"cannot assign a value of type %s; arrays and slices"
+				" must be modified element by element", types[l].name);
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
@@ -714,6 +822,13 @@ static TypeId check_compound_assign (Sema *s, uint32_t idx)
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+	if (type_kind(l) == TK_ARRAY || type_kind(l) == TK_SLICE) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"operator cannot be applied to a value of type %s",
+				types[l].name);
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
 	if (l == TYPE_VOID || r == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"operator cannot be applied to a value of type void");
@@ -771,6 +886,14 @@ void check_inc_dec (Sema *s, uint32_t idx)
 	set_null_state(s, target, target_kind, 0);
 	if (target_kind == NODE_ID) sym_write(s, s->ast->nodes[target].sym, idx);
 
+	if (type != TYPE_ERROR
+			&& (type_kind(type) == TK_ARRAY || type_kind(type) == TK_SLICE)) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"operator cannot be applied to a value of type %s",
+				types[type].name);
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return;
+	}
 	if (type != TYPE_ERROR && type != TYPE_VOID
 			&& type_kind(type) != TK_PTR) {
 		s->ast->nodes[idx].data_type = type;
@@ -813,6 +936,14 @@ static TypeId check_unary (Sema *s, uint32_t idx)
 
 	n = &s->ast->nodes[idx];
 	if (operand_type == TYPE_ERROR) {
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	if (type_kind(operand_type) == TK_ARRAY
+			|| type_kind(operand_type) == TK_SLICE) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"operator cannot be applied to a value of type %s",
+				types[operand_type].name);
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
@@ -1071,6 +1202,16 @@ static TypeId check_binary (Sema *s, uint32_t idx)
 	TypeId r = check_rhs(s, op_type, right);
 
 	if (l == TYPE_ERROR || r == TYPE_ERROR) {
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	if (type_kind(l) == TK_ARRAY || type_kind(l) == TK_SLICE
+			|| type_kind(r) == TK_ARRAY || type_kind(r) == TK_SLICE) {
+		TypeId bad = type_kind(l) == TK_ARRAY || type_kind(l) == TK_SLICE ? l : r;
+
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"operator cannot be applied to a value of type %s",
+				types[bad].name);
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}

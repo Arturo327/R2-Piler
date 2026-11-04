@@ -62,7 +62,7 @@ static void syncro_advance (Parser *p)
 			advance(p);
 			return;
 
-		case TOK_FN: case TOK_VAR: case TOK_IF:
+		case TOK_FN: case TOK_VAR: case TOK_ARR: case TOK_IF:
 		case TOK_WHILE: case TOK_FOR: case TOK_RET:
 		case TOK_EXTERN: case TOK_RKEY:
 			return;

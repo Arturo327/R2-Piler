@@ -16,6 +16,8 @@ void sema_finalize_types (Sema *s);
 uint32_t sema_wrap_cast (Sema *s, uint32_t child, TypeId to_type);
 void check_global_var_init (Sema *s, uint32_t idx);
 void check_var_init_type (Sema *s, ASTNode *n, TypeId init_type);
+void check_storage_decl (Sema *s, ASTNode *n);
+void check_array_init (Sema *s, uint32_t decl_idx);
 
 const char *type_display_name (TypeId type);
 uint32_t force_cast (Sema *s, uint32_t child, TypeId child_type, TypeId target, int *ok);

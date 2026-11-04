@@ -1,0 +1,63 @@
+tests/sema/101_err_array_ops_src.r2:2:8: ERROR: left side of '=' must be a variable
+      2 |         v.len = 3;
+        |               ^
+tests/sema/101_err_array_ops_src.r2:1:12: WARNING: unused parameter 'v'
+      1 | fn set_len(v : i32[]) : void {
+        |            ^
+tests/sema/101_err_array_ops_src.r2:10:4: ERROR: cannot assign a value of type i32[3]; arrays and slices must be modified element by element
+     10 |         a = b;
+        |           ^
+tests/sema/101_err_array_ops_src.r2:11:4: ERROR: operator cannot be applied to a value of type i32[3]
+     11 |         a += b;
+        |           ^~
+tests/sema/101_err_array_ops_src.r2:12:3: ERROR: operator cannot be applied to a value of type i32[3]
+     12 |         a++;
+        |          ^~
+tests/sema/101_err_array_ops_src.r2:13:6: ERROR: operator cannot be applied to a value of type i32[3]
+     13 |         x = -a;
+        |             ^
+tests/sema/101_err_array_ops_src.r2:14:8: ERROR: operator cannot be applied to a value of type i32[3]
+     14 |         x = a + b;
+        |               ^
+tests/sema/101_err_array_ops_src.r2:15:6: ERROR: expression with resulting type i32[3] is not valid as a condition
+     15 |         if (a) { return 1; }
+        |             ^
+tests/sema/101_err_array_ops_src.r2:16:6: ERROR: operator cannot be applied to a value of type i32[3]
+     16 |         if (!a) { return 2; }
+        |             ^
+tests/sema/101_err_array_ops_src.r2:17:8: ERROR: left side of '=' must be a variable
+     17 |         a.len = 3;
+        |               ^
+tests/sema/101_err_array_ops_src.r2:19:17: ERROR: type i32[3] has no field 'foo'
+     19 |         var z : i64 = b.foo;
+        |                        ^~~
+tests/sema/101_err_array_ops_src.r2:20:22: ERROR: cannot cast between pointer and non-pointer types; only pointer-to-pointer casts are supported
+     20 |         var w : ptr i32 = a as ptr i32;
+        |                             ^~
+tests/sema/101_err_array_ops_src.r2:21:20: ERROR: cannot take the address of an array; the array itself decays to a pointer to its first element, use it directly
+     21 |         var q : ptr i32 = $a;
+        |                           ^
+tests/sema/101_err_array_ops_src.r2:22:10: ERROR: index 3 is out of bounds for an array of size 3
+     22 |         return a[3] + a[-1] + b[a] + y;
+        |                 ^
+tests/sema/101_err_array_ops_src.r2:22:17: ERROR: index -1 is out of bounds for an array of size 3
+     22 |         return a[3] + a[-1] + b[a] + y;
+        |                        ^
+tests/sema/101_err_array_ops_src.r2:22:25: ERROR: array indexing requires an integer index
+     22 |         return a[3] + a[-1] + b[a] + y;
+        |                                ^
+tests/sema/101_err_array_ops_src.r2:6:6: WARNING: value assigned to 'a' is not used
+      6 |         arr a : i32[3] = {1, 2, 3};
+        |             ^
+tests/sema/101_err_array_ops_src.r2:8:6: WARNING: unused variable 'x'
+      8 |         var x : i64 = 0;
+        |             ^
+tests/sema/101_err_array_ops_src.r2:19:6: WARNING: unused variable 'z'
+     19 |         var z : i64 = b.foo;
+        |             ^
+tests/sema/101_err_array_ops_src.r2:20:6: WARNING: unused variable 'w'
+     20 |         var w : ptr i32 = a as ptr i32;
+        |             ^
+tests/sema/101_err_array_ops_src.r2:21:6: WARNING: unused variable 'q'
+     21 |         var q : ptr i32 = $a;
+        |             ^

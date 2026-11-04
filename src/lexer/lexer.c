@@ -421,6 +421,7 @@ static const Keyword keywords[] = {
 	{"i8", TOK_i8},
 	{"if", TOK_IF},
 	{"u8", TOK_u8},
+	{"arr", TOK_ARR},
 	{"for", TOK_FOR},
 	{"i16", TOK_i16},
 	{"i32", TOK_i32},
@@ -575,7 +576,7 @@ Token get_token (Lexer *l)
 
 #define TN(t) [t] = #t
 static const char *const token_names[TOK_COUNT] = {
-	TN(TOK_NONE), TN(TOK_INVALID), TN(TOK_EOF), TN(TOK_VAR), TN(TOK_ID),
+	TN(TOK_NONE), TN(TOK_INVALID), TN(TOK_EOF), TN(TOK_VAR), TN(TOK_ARR), TN(TOK_ID),
 	TN(TOK_FN), TN(TOK_ENUM), TN(TOK_TYPE), TN(TOK_NEWTYPE), TN(TOK_EXTERN),
 	TN(TOK_SEMCOL), TN(TOK_COMMA), TN(TOK_COL),
 	TN(TOK_DOT), TN(TOK_LPAREN), TN(TOK_RPAREN), TN(TOK_LKEY), TN(TOK_RKEY),

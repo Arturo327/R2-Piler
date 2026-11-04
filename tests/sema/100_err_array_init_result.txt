@@ -1,0 +1,13 @@
+fn val [1:4] depth=0 type=i32
+fn main [5:4] depth=0 type=i64
+var a [6:6] depth=1 type=i32[2]
+var b [7:6] depth=1 type=i32[2]
+var c [8:6] depth=1 type=i32[2]
+var d [9:6] depth=1 type=i32[2]
+var e [10:6] depth=1 type=i32[2]
+var f [11:6] depth=1 type=i32[2]
+var g [12:6] depth=1 type=i8[2]
+var h [13:6] depth=1 type=i16[4]
+var i [14:6] depth=1 type=i8[2]
+var j [15:6] depth=1 type=u8[3]
+var k [16:6] depth=1 type=i32

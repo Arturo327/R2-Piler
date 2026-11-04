@@ -33,6 +33,8 @@ static int bind_static (Optimizer *opt, OptFn *f, IRInstr *st)
 	IRGlobal *g = opt->ir->globals + st->target;
 	IRInstr *cst;
 
+	if (type_kind(g->type) == TK_ARRAY || type_kind(g->type) == TK_SLICE)
+		return 0;
 	if (st == first) return 0;
 	cst = st - 1;
 	while (cst > first && cst->op == IR_NOP) cst--;

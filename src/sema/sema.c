@@ -48,6 +48,114 @@ static TypeId resolve_type_ref (Sema *s, ASTNode *ref, uint8_t *done, int *defer
 	return id;
 }
 
+static uint64_t trunc_dim (uint64_t v, TypeId type)
+{
+	if (type == TYPE_ERROR || !types[type].size) return v;
+	uint32_t bits = (uint32_t)types[type].size * 8u;
+	if (bits >= 64) return v;
+
+	uint64_t mask = ((uint64_t)1 << bits) - 1;
+	v &= mask;
+	if (types[type].sign && (v >> (bits - 1)) & 1) v |= ~mask;
+	return v;
+}
+
+static int dim_value (Sema *s, uint32_t idx, uint64_t *out)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	uint64_t a;
+
+	switch (n->type)
+	{
+	case NODE_LIT_i64:
+	case NODE_LIT_u64: *out = n->u64; return 1;
+	case NODE_LIT_CHAR: *out = (uint64_t)(int64_t)n->chr; return 1;
+	case NODE_CAST:
+		if (!dim_value(s, n->child, &a)) return 0;
+		*out = trunc_dim(a, n->data_type);
+		return 1;
+	case NODE_NEG:
+		if (!dim_value(s, n->child, &a)) return 0;
+		*out = 0 - a;
+		return 1;
+	case NODE_NOT_A:
+		if (!dim_value(s, n->child, &a)) return 0;
+		*out = ~a;
+		return 1;
+	default:
+		break;
+	}
+
+	if (n->child == NO_NODE) return 0;
+	if (!dim_value(s, n->child, &a)) return 0;
+
+	uint64_t b;
+	if (!dim_value(s, s->ast->nodes[n->child].next_bro, &b)) return 0;
+
+	switch (n->type)
+	{
+	case NODE_ADD: *out = a + b; return 1;
+	case NODE_SUB: *out = a - b; return 1;
+	case NODE_MUL: *out = a * b; return 1;
+	case NODE_DIV: if (!b) return 0; *out = a / b; return 1;
+	case NODE_MOD: if (!b) return 0; *out = a % b; return 1;
+	case NODE_AND_A: *out = a & b; return 1;
+	case NODE_OR_A: *out = a | b; return 1;
+	case NODE_XOR: *out = a ^ b; return 1;
+	case NODE_LS: if (b >= 64) return 0; *out = a << b; return 1;
+	case NODE_RS: if (b >= 64) return 0; *out = a >> b; return 1;
+	default: return 0;
+	}
+}
+
+static TypeId resolve_array_spec (Sema *s, ASTNode *ref, uint8_t *done, int *deferred, int slice)
+{
+	TypeId id = resolve_type_spec(s, ref, done, deferred);
+
+	if (deferred && *deferred) return TYPE_ERROR;
+	if (id == TYPE_ERROR) return TYPE_ERROR;
+
+	TypeKind kind = type_kind(id);
+	if (kind == TK_ARRAY || kind == TK_SLICE) {
+		error_report(s->err, ERR_ERROR, node_loc(ref),
+				"multidimensional arrays are not supported yet");
+		return TYPE_ERROR;
+	}
+	if (!types[id].size) {
+		error_report(s->err, ERR_ERROR, node_loc(ref),
+				"%s element type cannot be void", slice ? "slice" : "array");
+		return TYPE_ERROR;
+	}
+	if (type_count >= TYPE_MAX) {
+		error_report(s->err, ERR_ERROR, node_loc(ref), "too many types");
+		return TYPE_ERROR;
+	}
+	if (slice) return type_slice_of(id);
+
+	uint64_t count;
+	if (!dim_value(s, ref->child, &count)) {
+		error_report(s->err, ERR_ERROR, node_loc(ref),
+				"array size must be a constant integer expression");
+		return TYPE_ERROR;
+	}
+	if (!count) {
+		error_report(s->err, ERR_ERROR, node_loc(ref),
+				"array size must be greater than zero");
+		return TYPE_ERROR;
+	}
+	if (count > UINT32_MAX) {
+		error_report(s->err, ERR_ERROR, node_loc(ref), "array is too large");
+		return TYPE_ERROR;
+	}
+
+	id = type_array_of(id, (uint32_t)count);
+	if (id == TYPE_ERROR) {
+		error_report(s->err, ERR_ERROR, node_loc(ref), "array is too large");
+		return TYPE_ERROR;
+	}
+	return id;
+}
+
 TypeId resolve_type_spec (Sema *s, ASTNode *owner, uint8_t *done, int *deferred)
 {
 	if (owner->type_node == NO_TYPE_NODE) return owner->data_type;
@@ -55,6 +163,9 @@ TypeId resolve_type_spec (Sema *s, ASTNode *owner, uint8_t *done, int *deferred)
 	uint32_t ref_idx = (uint32_t)(owner - s->ast->nodes) + owner->type_node;
 	ASTNode *ref = s->ast->nodes + ref_idx;
 
+	if (ref->type == NODE_TYPE_ARRAY || ref->type == NODE_TYPE_SLICE)
+		return resolve_array_spec(s, ref, done, deferred,
+				ref->type == NODE_TYPE_SLICE);
 	if (ref->type != NODE_TYPE_PTR)
 		return resolve_type_ref(s, ref, done, deferred);
 
@@ -155,8 +266,12 @@ uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 	};
 
 	ASTNode *decl = s->ast->nodes + decl_node;
-	if (kind == SYMBOL_PARAM || (kind == SYMBOL_VAR
-				&& (decl->child != NO_NODE || decl->type == NODE_EXTERN_VAR_DEC)))
+	int aggregate = decl->data_type != TYPE_ERROR
+			&& (type_kind(decl->data_type) == TK_ARRAY
+			|| type_kind(decl->data_type) == TK_SLICE);
+
+	if (kind == SYMBOL_PARAM || (kind == SYMBOL_VAR && (decl->child != NO_NODE 
+			|| decl->type == NODE_EXTERN_VAR_DEC || aggregate)))
 		sym.assigned = 1;
 
 	uint32_t sym_idx = symtab_declare(&s->table, s->arena, sym);
@@ -207,6 +322,99 @@ static void reserve_cast_nodes (Sema *s)
 	s->ast->nodes = arena_realloc(s->arena, s->ast->nodes,
 			(size_t)old_cap * sizeof(ASTNode), (size_t)new_cap * sizeof(ASTNode));
 	s->ast->cap = new_cap;
+}
+
+void check_storage_decl (Sema *s, ASTNode *n)
+{
+	if (n->data_type == TYPE_ERROR) return;
+
+	TypeKind kind = type_kind(n->data_type);
+	int is_arr = n->type == NODE_ARR_DEC;
+
+	if (kind == TK_SLICE) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"slice types are only allowed as function parameters");
+		n->data_type = TYPE_ERROR;
+		return;
+	}
+	if (is_arr && kind != TK_ARRAY) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'arr' declarations must have an array type");
+		n->data_type = TYPE_ERROR;
+		return;
+	}
+	if (!is_arr && kind == TK_ARRAY) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"array declarations must use 'arr'");
+		n->data_type = TYPE_ERROR;
+		return;
+	}
+}
+
+void check_array_init (Sema *s, uint32_t decl_idx)
+{
+	ASTNode *d = s->ast->nodes + decl_idx;
+	TypeId arr = d->data_type;
+	TypeId elem = types[arr].base;
+	uint32_t count = types[arr].count;
+	uint32_t init_idx = d->child;
+	ASTNode *init = s->ast->nodes + init_idx;
+
+	if (init->type == NODE_LIT_STR) {
+		if (types[elem].size != 1 || (elem != TYPE_i8 && elem != TYPE_u8))
+			error_report(s->err, ERR_ERROR, node_loc(init),
+					"string initializer requires an i8, u8 or char array");
+		else if ((uint32_t)init->len + 1 > count)
+			error_report(s->err, ERR_ERROR, node_loc(init),
+					"string literal needs %u bytes including the terminator, but the array has room for %u",
+					(unsigned)init->len + 1, count);
+		init->data_type = TYPE_STR;
+		return;
+	}
+	if (init->type != NODE_ARRAY_INIT) {
+		error_report(s->err, ERR_ERROR, node_loc(init),
+				"array initializer must be a '{...}' list or a string literal");
+		return;
+	}
+
+	uint32_t n = 0;
+	uint32_t item = s->ast->nodes[init_idx].child;
+	uint32_t prev = NO_NODE;
+
+	while (item != NO_NODE) {
+		uint32_t next = s->ast->nodes[item].next_bro;
+
+		if (s->ast->nodes[item].type == NODE_ARRAY_INIT) {
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + item),
+					"nested array initializers are not supported yet");
+		} else {
+			TypeId type = check_expr(s, item);
+
+			if (type != TYPE_ERROR && type != elem) {
+				int ok;
+				uint32_t cast = force_cast(s, item, type, elem, &ok);
+
+				if (!ok) {
+					error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + item),
+							"cannot initialize an array element of type %s"
+							" with a value of type %s; use an explicit cast with 'as'",
+							types[elem].name, type_display_name(type));
+				} else {
+					if (prev == NO_NODE) s->ast->nodes[init_idx].child = cast;
+					else s->ast->nodes[prev].next_bro = cast;
+					item = cast;
+				}
+			}
+		}
+
+		prev = item;
+		item = next;
+		n++;
+	}
+
+	if (n != count)
+		error_report(s->err, ERR_ERROR, node_loc(init),
+				"array initializer must have exactly %u elements (found %u)", count, n);
 }
 
 void check_var_init_type (Sema *s, ASTNode *n, TypeId init_type)
@@ -269,17 +477,21 @@ void check_global_var_init (Sema *s, uint32_t idx)
 
 	sym->state = INIT_CHECKING;
 	s->init_node = idx;
-	TypeId init_type = check_expr(s, n->child);
-	n = s->ast->nodes + idx;
 
-	if (n->data_type != TYPE_ERROR && type_kind(n->data_type) == TK_PTR && init_type != TYPE_ERROR
-			&& (type_kind(init_type) == TK_PTR || init_type == TYPE_NULL
-			|| init_type == TYPE_STR) && !is_const_ptr_init(s, n->child))
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"global pointer initializers only support NULL, a string literal"
-				" or the address of a global");
+	if (n->data_type != TYPE_ERROR && type_kind(n->data_type) == TK_ARRAY) {
+		check_array_init(s, idx);
+	} else {
+		TypeId init_type = check_expr(s, n->child);
+		n = s->ast->nodes + idx;
 
-	check_var_init_type(s, n, init_type);
+		if (n->data_type != TYPE_ERROR && type_kind(n->data_type) == TK_PTR && init_type != TYPE_ERROR
+				&& (type_kind(init_type) == TK_PTR || init_type == TYPE_NULL
+				|| init_type == TYPE_STR) && !is_const_ptr_init(s, n->child))
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"global pointer initializers only support NULL, a string literal or the address of a global");
+
+		check_var_init_type(s, n, init_type);
+	}
 	s->init_node = saved;
 	sym->state = INIT_DONE;
 	record_init_order(s, idx);
@@ -458,7 +670,8 @@ static void check_root (Sema *s)
 
 	while (idx != NO_NODE) {
 		ASTNode *n = s->ast->nodes + idx;
-		if (n->type == NODE_VAR_DEC) check_global_var_init(s, idx);
+		if (n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC)
+			check_global_var_init(s, idx);
 		else if (n->type == NODE_FN_DEC) check_fn_dec(s, idx);
 		else if (n->type == NODE_EXTERN_FN_DEC) check_extern_fn(s, idx);
 		else if (n->type != NODE_ENUM_DEC && n->type != NODE_TYPE_DEC
@@ -481,8 +694,10 @@ static void decl_globals (Sema *s)
 			resolve_fn_types(s, idx);
 			sema_declare(s, n->str, n->len, SYMBOL_FN,
 					s->ast->nodes[ret].data_type, idx);
-		} else if (n->type == NODE_VAR_DEC || n->type == NODE_EXTERN_VAR_DEC) {
+		} else if (n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC
+				|| n->type == NODE_EXTERN_VAR_DEC) {
 			resolve_type_node(s, n);
+			check_storage_decl(s, n);
 			if (n->len == 4 && memcmp(n->str, "main", 4) == 0)
 				error_report(s->err, ERR_ERROR, node_loc(n),
 						"'main' must be a function");

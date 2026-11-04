@@ -1,0 +1,10 @@
+fn set_len [1:4] depth=0 type=void
+fn main [5:4] depth=0 type=i64
+param v [1:12] depth=1 type=i32[]
+var a [6:6] depth=1 type=i32[3]
+var b [7:6] depth=1 type=i32[3]
+var x [8:6] depth=1 type=i64
+var y [18:6] depth=1 type=i64
+var z [19:6] depth=1 type=i64
+var w [20:6] depth=1 type=ptr i32
+var q [21:6] depth=1 type=ptr i32

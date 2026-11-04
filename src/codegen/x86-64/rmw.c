@@ -200,11 +200,11 @@ int x86_rmw_fits (X86Fn *f, IRInstr *i, int8_t src2_home)
 {
 	if (!rmw_kind[i->op] || i->dst != i->src1) return 0;
 
-	int8_t s = types[f->fn->reg_types[i->dst]].size;
+	int8_t s = (int8_t)types[f->fn->reg_types[i->dst]].size;
 	const char *op = NULL;
 	int64_t v = 0;
 
-	if (rmw_operand(f, i, s, &op, &v)) return 1;
+	if (rmw_operand(f, i, (uint8_t)s, &op, &v)) return 1;
 	if (rmw_kind[i->op] != RMW_ARITH || src2_home < 0) return 0;
-	return types[f->fn->reg_types[i->src2]].size == s;
+	return types[f->fn->reg_types[i->src2]].size == (uint32_t)s;
 }
