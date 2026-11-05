@@ -1,0 +1,36 @@
+tests/sema/107_err_matrix_src.r2:10:20: ERROR: argument type i32[2] does not match parameter type i32[][]; a slice parameter requires an array or slice of the same rank and element type
+     10 |         var t : i64 = sum(a);
+        |                           ^
+tests/sema/107_err_matrix_src.r2:11:20: ERROR: argument type ptr i32 does not match parameter type i32[][]; a slice parameter requires an array or slice of the same rank and element type
+     11 |         var u : i64 = sum(p);
+        |                           ^
+tests/sema/107_err_matrix_src.r2:12:22: ERROR: argument type i32[2][3] does not match parameter type i32[]; a slice parameter requires an array or slice of the same rank and element type
+     12 |         var w : i64 = total(m);
+        |                             ^
+tests/sema/107_err_matrix_src.r2:15:6: ERROR: can't initialize 'z' (i64) with a value of type i32[3]; use an explicit cast with 'as'
+     15 |         var z : i64 = m[0];
+        |             ^
+tests/sema/107_err_matrix_src.r2:16:17: ERROR: index 2 is out of bounds for an array of size 2
+     16 |         var o : i64 = m[2][0] as i64;
+        |                        ^
+tests/sema/107_err_matrix_src.r2:17:20: ERROR: index 3 is out of bounds for an array of size 3
+     17 |         var q : i64 = m[0][3] as i64;
+        |                           ^
+tests/sema/107_err_matrix_src.r2:23:13: ERROR: a concrete array cannot have a slice element type
+     23 |         arr a : i32[2][];
+        |                    ^
+tests/sema/107_err_matrix_src.r2:24:13: ERROR: a generic slice cannot have a concrete array element type
+     24 |         arr b : i32[][3];
+        |                    ^
+tests/sema/107_err_matrix_src.r2:25:13: ERROR: generic slices with more than 2 dimensions are not supported yet
+     25 |         arr c : i32[][][];
+        |                    ^
+tests/sema/107_err_matrix_src.r2:23:6: WARNING: unused variable 'a'
+     23 |         arr a : i32[2][];
+        |             ^
+tests/sema/107_err_matrix_src.r2:24:6: WARNING: unused variable 'b'
+     24 |         arr b : i32[][3];
+        |             ^
+tests/sema/107_err_matrix_src.r2:25:6: WARNING: unused variable 'c'
+     25 |         arr c : i32[][][];
+        |             ^

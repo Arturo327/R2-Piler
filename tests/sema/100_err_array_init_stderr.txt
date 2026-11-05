@@ -13,10 +13,10 @@ tests/sema/100_err_array_init_src.r2:9:19: ERROR: array initializer must be a '{
 tests/sema/100_err_array_init_src.r2:10:20: ERROR: cannot initialize an array element of type i32 with a value of type string; use an explicit cast with 'as'
      10 |         arr e : i32[2] = {"a", 1};
         |                           ^
-tests/sema/100_err_array_init_src.r2:11:20: ERROR: nested array initializers are not supported yet
+tests/sema/100_err_array_init_src.r2:11:20: ERROR: array element of type i32 cannot be initialized with a '{...}' list
      11 |         arr f : i32[2] = {{1, 2}, {3, 4}};
         |                           ^
-tests/sema/100_err_array_init_src.r2:11:28: ERROR: nested array initializers are not supported yet
+tests/sema/100_err_array_init_src.r2:11:28: ERROR: array element of type i32 cannot be initialized with a '{...}' list
      11 |         arr f : i32[2] = {{1, 2}, {3, 4}};
         |                                   ^
 tests/sema/100_err_array_init_src.r2:12:18: ERROR: string literal needs 4 bytes including the terminator, but the array has room for 2

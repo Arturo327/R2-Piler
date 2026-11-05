@@ -388,6 +388,20 @@ static TypeId check_sizeof (Sema *s, uint32_t idx)
 	return TYPE_UNTYPED_INT;
 }
 
+static int array_slice_compat (TypeId arg, TypeId param)
+{
+	TypeKind ak = type_kind(arg);
+	TypeKind pk = type_kind(param);
+	int arank;
+
+	if (ak == TK_ARRAY) arank = type_array_rank(arg);
+	else if (ak == TK_SLICE) arank = type_slice_rank(arg);
+	else return 0;
+	if (pk != TK_SLICE) return 0;
+	return arank == type_slice_rank(param)
+			&& type_flat_element(arg) == type_flat_element(param);
+}
+
 static uint32_t adapt_call_arg (Sema *s, uint32_t arg, TypeId arg_type, TypeId param_type)
 {
 	int ok;
@@ -400,6 +414,9 @@ static uint32_t adapt_call_arg (Sema *s, uint32_t arg, TypeId arg_type, TypeId p
 	if (arg_type == TYPE_VOID) hint = "a void value cannot be used here";
 	else if (type_kind(param_type) == TK_ARRAY)
 		hint = "an array parameter requires an array of exactly that length"
+				" and element type";
+	else if (type_kind(param_type) == TK_SLICE)
+		hint = "a slice parameter requires an array or slice of the same rank"
 				" and element type";
 	else hint = "use an explicit cast with 'as'";
 
@@ -426,8 +443,7 @@ static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 		if (param == NO_NODE) {
 			count_ok = 0;
 		} else if (arg_type != TYPE_ERROR && param_type != TYPE_ERROR && arg_type != param_type
-				&& !(type_kind(arg_type) == TK_ARRAY && type_kind(param_type) == TK_SLICE
-				&& types[arg_type].base == types[param_type].base)) {
+				&& !array_slice_compat(arg_type, param_type)) {
 			arg = adapt_call_arg(s, arg, arg_type, param_type);
 			if (prev == NO_NODE) call->child = arg;
 			else s->ast->nodes[prev].next_bro = arg;
@@ -1203,7 +1219,7 @@ static void decay_operand (Sema *s, uint32_t *idx, TypeId *type)
 	TypeId ptr;
 
 	if (kind != TK_ARRAY && kind != TK_SLICE) return;
-	ptr = type_ptr_to(types[*type].base);
+	ptr = type_ptr_to(type_flat_element(*type));
 	if (type_kind(ptr) != TK_PTR) return;
 
 	*idx = sema_wrap_cast(s, *idx, ptr);

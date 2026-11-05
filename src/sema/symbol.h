@@ -28,6 +28,7 @@ typedef struct Symbol {
 	uint32_t decl;
 	uint32_t ir_id;
 	uint32_t ir_id2;
+	uint32_t ir_id3;
 	uint32_t next;
 	uint32_t write_node;
 

@@ -1,0 +1,22 @@
+enum E [1:6] depth=0 type=E base=u8
+  variant A = 0
+  variant B = 1
+newtype N [2:9] depth=0 type=N base=u16
+var gm [4:5] depth=0 type=i32[2][3]
+fn total [6:4] depth=0 type=i64
+fn sum [10:4] depth=0 type=i64
+fn fixed [15:4] depth=0 type=i64
+fn main [21:4] depth=0 type=i64
+param v [6:10] depth=1 type=i32[]
+param m [10:8] depth=1 type=i32[][]
+param m [15:10] depth=1 type=i32[2][3]
+var p [16:6] depth=1 type=ptr i32
+var a [22:6] depth=1 type=i32[2][3]
+var s [23:6] depth=1 type=i8[2][4]
+var e [24:6] depth=1 type=E[2][2]
+var n [25:6] depth=1 type=N[3][2]
+var p [26:6] depth=1 type=ptr i32
+var q [27:6] depth=1 type=ptr i32
+var w [28:6] depth=1 type=i64
+var z [29:6] depth=1 type=i64
+var t [31:6] depth=1 type=i64

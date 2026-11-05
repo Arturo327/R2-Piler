@@ -67,15 +67,6 @@ static TypeSpec *new_spec (Parser *p, uint8_t kind, Token t)
 	return ts;
 }
 
-static TypeSpec *wrap_spec (Parser *p, TypeSpec *base, uint8_t kind, Token t, uint32_t dim)
-{
-	TypeSpec *ts = new_spec(p, kind, t);
-
-	ts->base = base;
-	ts->dim = dim;
-	return ts;
-}
-
 static TypeSpec *parse_type_spec (Parser *p, int allow_void)
 {
 	Token t = p->curr;
@@ -104,18 +95,35 @@ static TypeSpec *parse_type_spec (Parser *p, int allow_void)
 		return NULL;
 	}
 
+	TypeSpec *first = NULL;
+	TypeSpec *last = NULL;
+
 	while (p->curr.type == TOK_LBRACE) {
 		Token open = p->curr;
-		advance(p);
+		TypeSpec *item;
+		uint8_t kind;
+		uint32_t dim;
 
+		advance(p);
 		if (p->curr.type == TOK_RBRACE) {
 			advance(p);
-			ts = wrap_spec(p, ts, TS_SLICE, open, NO_NODE);
-			continue;
+			kind = TS_SLICE;
+			dim = NO_NODE;
+		} else {
+			dim = parse_expr(p, 0);
+			consume(p, TOK_RBRACE, "expected ']' after array size");
+			kind = TS_ARRAY;
 		}
-		uint32_t dim = parse_expr(p, 0);
-		consume(p, TOK_RBRACE, "expected ']' after array size");
-		ts = wrap_spec(p, ts, TS_ARRAY, open, dim);
+
+		item = new_spec(p, kind, open);
+		item->dim = dim;
+		if (!first) first = item;
+		else last->base = item;
+		last = item;
+	}
+	if (first) {
+		last->base = ts;
+		ts = first;
 	}
 
 	p->depth--;
@@ -188,7 +196,8 @@ uint32_t parse_sizeof (Parser *p)
 		p->ast.nodes[node].data_type = type;
 		p->ast.nodes[node].type_node = type_node;
 	} else {
-		p->ast.nodes[node].child = parse_expr(p, 0);
+		uint32_t child = parse_expr(p, 0);
+		p->ast.nodes[node].child = child;
 	}
 
 	consume(p, TOK_RPAREN, "expected ')' after sizeof");

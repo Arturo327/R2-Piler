@@ -1,0 +1,92 @@
+global g : i32[2][2]
+
+fn __r2_init(0 params, 11 regs) : void
+    r0 = addr_global.i32[2][2] @g
+    r1 = const.i32 1
+    str_ptr.i32 r0, r1
+    r2 = const.i32 2
+    r3 = const.i64 4
+    r4 = add.i64 r0, r3
+    str_ptr.i32 r4, r2
+    r5 = const.i64 8
+    r6 = add.i64 r0, r5
+    r7 = const.i32 3
+    str_ptr.i32 r6, r7
+    r8 = const.i32 4
+    r9 = const.i64 4
+    r10 = add.i64 r6, r9
+    str_ptr.i32 r10, r8
+    ret
+
+fn at(5 params, 18 regs) : i64
+    r0 = param.ptr i32 #0
+    r1 = param.i64 #1
+    r2 = param.i64 #2
+    r3 = param.i64 #3
+    r4 = param.i64 #4
+    r8 = const.i64 2
+    r9 = lshift.i64 r2, r8
+    r10 = mul.i64 r3, r9
+    r11 = add.i64 r0, r10
+    r13 = const.i64 2
+    r14 = lshift.i64 r4, r13
+    r15 = add.i64 r11, r14
+    r16 = ld_ptr.i32 r15
+    r17 = extend.i64 r16
+    ret.i64 r17
+    ret
+
+fn main(0 params, 81 regs) : i64
+    r1 = addr_local.i32[2][3] r0
+    r2 = const.i32 1
+    str_ptr.i32 r1, r2
+    r3 = const.i32 2
+    r4 = const.i64 4
+    r5 = add.i64 r1, r4
+    str_ptr.i32 r5, r3
+    r6 = const.i32 3
+    r7 = const.i64 8
+    r8 = add.i64 r1, r7
+    str_ptr.i32 r8, r6
+    r9 = const.i64 12
+    r10 = add.i64 r1, r9
+    r11 = const.i32 4
+    str_ptr.i32 r10, r11
+    r12 = const.i32 5
+    r13 = const.i64 4
+    r14 = add.i64 r10, r13
+    str_ptr.i32 r14, r12
+    r15 = const.i32 6
+    r16 = const.i64 8
+    r17 = add.i64 r10, r16
+    str_ptr.i32 r17, r15
+    r18 = const.i64 5
+    r19 = const.i64 0
+    r20 = const.i64 0
+    jmp -> L1
+  L0:
+    r22 = addr_local.i32[2][3] r0
+    r27 = const.i64 3
+    r28 = mod.i64 r20, r27
+    r55 = const.i64 12
+    r56 = add.i64 r22, r55
+    r58 = const.i64 2
+    r59 = lshift.i64 r28, r58
+    r60 = add.i64 r56, r59
+    r61 = ld_ptr.i32 r60
+    r29 = extend.i64 r61
+    r19 = add.i64 r19, r29
+    r32 = const.i64 1
+    r20 = add.i64 r20, r32
+  L1:
+    r36 = lt.i64 r20, r18
+    jnz r36 -> L0
+    r38 = addr_global.i32[2][2] @g
+    r77 = const.i64 4
+    r78 = add.i64 r38, r77
+    r79 = ld_ptr.i32 r78
+    r43 = extend.i64 r79
+    r44 = add.i64 r19, r43
+    ret.i64 r44
+    ret
+

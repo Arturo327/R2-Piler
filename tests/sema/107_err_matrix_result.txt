@@ -1,0 +1,21 @@
+fn total [1:4] depth=0 type=i64
+fn sum [5:4] depth=0 type=i64
+fn bad [9:4] depth=0 type=i64
+fn main [22:4] depth=0 type=i64
+param v [1:10] depth=1 type=i32[]
+param m [5:8] depth=1 type=i32[][]
+param p [9:8] depth=1 type=ptr i32
+param a [9:21] depth=1 type=i32[2]
+param m [9:33] depth=1 type=i32[2][3]
+param s [9:48] depth=1 type=i32[]
+var t [10:6] depth=1 type=i64
+var u [11:6] depth=1 type=i64
+var w [12:6] depth=1 type=i64
+var x [13:6] depth=1 type=i64
+var y [14:6] depth=1 type=i64
+var z [15:6] depth=1 type=i64
+var o [16:6] depth=1 type=i64
+var q [17:6] depth=1 type=i64
+var a [23:6] depth=1 type=error
+var b [24:6] depth=1 type=error
+var c [25:6] depth=1 type=error

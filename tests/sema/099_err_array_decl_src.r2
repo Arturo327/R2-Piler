@@ -12,7 +12,9 @@ fn main() : i64 {
 	var x : i32[3];
 	arr y : i64;
 	arr z : i32[];
-	arr m : i32[2][3];
+	arr m : i32[2][];
+	arr n : i32[][3];
+	arr o : i32[][][];
 	arr ok : i32[2] = {1, 2};
 	return ok[0];
 }

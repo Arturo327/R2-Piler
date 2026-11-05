@@ -16,9 +16,15 @@ tests/sema/099_err_array_decl_src.r2:13:6: ERROR: 'arr' declarations must have a
 tests/sema/099_err_array_decl_src.r2:14:6: ERROR: slice types are only allowed as function parameters
      14 |         arr z : i32[];
         |             ^
-tests/sema/099_err_array_decl_src.r2:15:16: ERROR: multidimensional arrays are not supported yet
-     15 |         arr m : i32[2][3];
-        |                       ^
+tests/sema/099_err_array_decl_src.r2:15:13: ERROR: a concrete array cannot have a slice element type
+     15 |         arr m : i32[2][];
+        |                    ^
+tests/sema/099_err_array_decl_src.r2:16:13: ERROR: a generic slice cannot have a concrete array element type
+     16 |         arr n : i32[][3];
+        |                    ^
+tests/sema/099_err_array_decl_src.r2:17:13: ERROR: generic slices with more than 2 dimensions are not supported yet
+     17 |         arr o : i32[][][];
+        |                    ^
 tests/sema/099_err_array_decl_src.r2:12:6: WARNING: unused variable 'x'
      12 |         var x : i32[3];
         |             ^
@@ -29,5 +35,11 @@ tests/sema/099_err_array_decl_src.r2:14:6: WARNING: unused variable 'z'
      14 |         arr z : i32[];
         |             ^
 tests/sema/099_err_array_decl_src.r2:15:6: WARNING: unused variable 'm'
-     15 |         arr m : i32[2][3];
+     15 |         arr m : i32[2][];
+        |             ^
+tests/sema/099_err_array_decl_src.r2:16:6: WARNING: unused variable 'n'
+     16 |         arr n : i32[][3];
+        |             ^
+tests/sema/099_err_array_decl_src.r2:17:6: WARNING: unused variable 'o'
+     17 |         arr o : i32[][][];
         |             ^

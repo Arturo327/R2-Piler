@@ -135,6 +135,35 @@ static void dump_dim (AST *ast, uint32_t idx)
 	}
 }
 
+static void dump_type_name (AST *ast, ASTNode *n);
+
+static void dump_array_name (AST *ast, ASTNode *n)
+{
+	ASTNode *p = n;
+
+	while (p->type_node != NO_TYPE_NODE) {
+		ASTNode *next = &ast->nodes[(uint32_t)(p - ast->nodes) + p->type_node];
+
+		if (next->type != NODE_TYPE_ARRAY && next->type != NODE_TYPE_SLICE) {
+			dump_type_name(ast, next);
+			break;
+		}
+		p = next;
+	}
+	if (p->type_node == NO_TYPE_NODE) printf("%s", types[p->data_type].name);
+
+	for (ASTNode *q = n; ; ) {
+		if (q->type == NODE_TYPE_SLICE) printf("[]");
+		else {
+			printf("[");
+			dump_dim(ast, q->child);
+			printf("]");
+		}
+		if (q == p) return;
+		q = &ast->nodes[(uint32_t)(q - ast->nodes) + q->type_node];
+	}
+}
+
 static void dump_type_name (AST *ast, ASTNode *n)
 {
 	if (n->type == NODE_TYPE_PTR) {
@@ -148,18 +177,7 @@ static void dump_type_name (AST *ast, ASTNode *n)
 		return;
 	}
 	if (n->type == NODE_TYPE_ARRAY || n->type == NODE_TYPE_SLICE) {
-		if (n->type_node != NO_TYPE_NODE) {
-			uint32_t idx = (uint32_t)(n - ast->nodes) + n->type_node;
-			dump_type_name(ast, &ast->nodes[idx]);
-		} else {
-			printf("%s", types[n->data_type].name);
-		}
-		if (n->type == NODE_TYPE_SLICE) printf("[]");
-		else {
-			printf("[");
-			dump_dim(ast, n->child);
-			printf("]");
-		}
+		dump_array_name(ast, n);
 		return;
 	}
 	if (n->type == NODE_TYPE_REF) {

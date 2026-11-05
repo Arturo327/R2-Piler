@@ -131,9 +131,14 @@ static void check_signature_types (Sema *s, uint32_t idx, int is_extern)
 	while (p != NO_NODE) {
 		TypeId type = s->ast->nodes[p].data_type;
 
-		if (type != TYPE_ERROR && is_extern && type_kind(type) == TK_SLICE)
+		TypeKind kind = type == TYPE_ERROR ? TK_ERROR : type_kind(type);
+
+		if (is_extern && kind == TK_SLICE)
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
 					"extern functions cannot take slice parameters");
+		else if (kind == TK_SLICE && type_slice_rank(type) > 2)
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
+					"generic slices with more than 2 dimensions are not supported yet");
 
 		p = s->ast->nodes[p].next_bro;
 	}

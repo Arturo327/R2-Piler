@@ -210,7 +210,7 @@ TypeId type_slice_of (TypeId base)
 
 	TypeId id = add_type(name, (uint16_t)total, TK_SLICE, base);
 	if (id == TYPE_ERROR) return TYPE_ERROR;
-	types[id].size = 16;
+	types[id].size = 8u * (uint32_t)(2 + type_slice_rank(base));
 	types[id].count = 0;
 	types[id].sign = 0;
 	return id;
@@ -225,6 +225,28 @@ TypeId type_flat_element (TypeId id)
 		id = types[id].base;
 	}
 	return TYPE_ERROR;
+}
+
+int type_array_rank (TypeId id)
+{
+	int rank = 0;
+
+	while (type_kind(id) == TK_ARRAY) {
+		rank++;
+		id = types[id].base;
+	}
+	return rank;
+}
+
+int type_slice_rank (TypeId id)
+{
+	int rank = 0;
+
+	while (type_kind(id) == TK_SLICE) {
+		rank++;
+		id = types[id].base;
+	}
+	return rank;
 }
 
 TypeId find_type (const char *name, uint16_t len)

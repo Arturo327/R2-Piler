@@ -116,9 +116,20 @@ static TypeId resolve_array_spec (Sema *s, ASTNode *ref, uint8_t *done, int *def
 	if (id == TYPE_ERROR) return TYPE_ERROR;
 
 	TypeKind kind = type_kind(id);
-	if (kind == TK_ARRAY || kind == TK_SLICE) {
+	if (slice) {
+		if (kind == TK_ARRAY) {
+			error_report(s->err, ERR_ERROR, node_loc(ref),
+					"a generic slice cannot have a concrete array element type");
+			return TYPE_ERROR;
+		}
+		if (kind == TK_SLICE && type_slice_rank(id) >= 2) {
+			error_report(s->err, ERR_ERROR, node_loc(ref),
+					"generic slices with more than 2 dimensions are not supported yet");
+			return TYPE_ERROR;
+		}
+	} else if (kind == TK_SLICE) {
 		error_report(s->err, ERR_ERROR, node_loc(ref),
-				"multidimensional arrays are not supported yet");
+				"a concrete array cannot have a slice element type");
 		return TYPE_ERROR;
 	}
 	if (!types[id].size) {
@@ -351,13 +362,10 @@ void check_storage_decl (Sema *s, ASTNode *n)
 	}
 }
 
-void check_array_init (Sema *s, uint32_t decl_idx)
+static void check_array_init_at (Sema *s, TypeId arr, uint32_t init_idx)
 {
-	ASTNode *d = s->ast->nodes + decl_idx;
-	TypeId arr = d->data_type;
 	TypeId elem = types[arr].base;
 	uint32_t count = types[arr].count;
-	uint32_t init_idx = d->child;
 	ASTNode *init = s->ast->nodes + init_idx;
 
 	if (init->type == NODE_LIT_STR) {
@@ -376,6 +384,7 @@ void check_array_init (Sema *s, uint32_t decl_idx)
 				"array initializer must be a '{...}' list or a string literal");
 		return;
 	}
+	ErrorLoc init_loc = node_loc(init);
 
 	uint32_t n = 0;
 	uint32_t item = s->ast->nodes[init_idx].child;
@@ -383,10 +392,20 @@ void check_array_init (Sema *s, uint32_t decl_idx)
 
 	while (item != NO_NODE) {
 		uint32_t next = s->ast->nodes[item].next_bro;
+		ASTNode *item_node = s->ast->nodes + item;
 
-		if (s->ast->nodes[item].type == NODE_ARRAY_INIT) {
-			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + item),
-					"nested array initializers are not supported yet");
+		if (type_kind(elem) == TK_ARRAY) {
+			if (item_node->type != NODE_ARRAY_INIT
+					&& item_node->type != NODE_LIT_STR)
+				error_report(s->err, ERR_ERROR, node_loc(item_node),
+						"array element of type %s requires a '{...}' initializer",
+						types[elem].name);
+			else
+				check_array_init_at(s, elem, item);
+		} else if (item_node->type == NODE_ARRAY_INIT) {
+			error_report(s->err, ERR_ERROR, node_loc(item_node),
+					"array element of type %s cannot be initialized"
+					" with a '{...}' list", types[elem].name);
 		} else {
 			TypeId type = check_expr(s, item);
 
@@ -413,8 +432,15 @@ void check_array_init (Sema *s, uint32_t decl_idx)
 	}
 
 	if (n != count)
-		error_report(s->err, ERR_ERROR, node_loc(init),
+		error_report(s->err, ERR_ERROR, init_loc,
 				"array initializer must have exactly %u elements (found %u)", count, n);
+}
+
+void check_array_init (Sema *s, uint32_t decl_idx)
+{
+	ASTNode *d = s->ast->nodes + decl_idx;
+
+	check_array_init_at(s, d->data_type, d->child);
 }
 
 void check_var_init_type (Sema *s, ASTNode *n, TypeId init_type)
