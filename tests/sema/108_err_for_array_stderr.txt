@@ -1,0 +1,18 @@
+tests/sema/108_err_for_array_src.r2:8:21: ERROR: 'x' is not an array or a slice
+      8 |         for (var i : i64 : x)
+        |                            ^
+tests/sema/108_err_for_array_src.r2:11:20: ERROR: literal 300 does not fit in type i8; use an explicit cast with 'as' to reinterpret the bits
+     11 |         for (var j : i8 : big)
+        |                           ^~~
+tests/sema/108_err_for_array_src.r2:14:7: ERROR: 'nada' is not declared
+     14 |         for (nada : lista)
+        |              ^~~~
+tests/sema/108_err_for_array_src.r2:14:7: ERROR: 'nada' is not declared
+     14 |         for (nada : lista)
+        |              ^~~~
+tests/sema/108_err_for_array_src.r2:15:8: ERROR: 'nada' is not declared
+     15 |                 t += nada;
+        |                      ^~~~
+tests/sema/108_err_for_array_src.r2:14:7: ERROR: 'nada' is not declared
+     14 |         for (nada : lista)
+        |              ^~~~

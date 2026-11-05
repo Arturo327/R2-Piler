@@ -572,7 +572,7 @@ static TypeId check_dot (Sema *s, uint32_t idx)
 
 		if (kind != TK_ARRAY && kind != TK_SLICE) {
 			error_report(s->err, ERR_ERROR, node_loc(left),
-					"'%.*s' is not an enum type", (int)left->len, left->str);
+					"'%.*s' is not an array or a slice", (int)left->len, left->str);
 			n->data_type = TYPE_ERROR;
 			return TYPE_ERROR;
 		}

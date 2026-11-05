@@ -41,7 +41,7 @@ tested:
   emitted symbol keeps its plain C name (`call puts`, `optind(%rip)`) with
   `gcc` resolving it at link time. `%al` is zeroed before every extern call
   (SysV variadic ABI).
-- Multidimensional arrays, `for (x : arr)`, array/slice returns, structs,
+- Multidimensional arrays, array/slice returns, structs,
   modules/imports, classes, `pub`, `static`, `export`, optional arguments,
   multiple returns and floating point are **not implemented yet**.
 
@@ -62,7 +62,9 @@ tested:
   element-scaled indexing, `.len`, `sizeof`, decay to `ptr T` (including in
   `a + i` / `a - i` / `a - b`), slice parameters `T[]` (pointer + hidden
   length) and fixed-length array parameters `T[N]` — passed as a bare pointer
-  and length-checked at the call site.
+  and length-checked at the call site, plus the index loop over them:
+  `for (var i : i64 : a)`, `for (var i : a)` and `for (i : a)`, desugared by
+  the parser into an ordinary `for` bounded by `a.len`.
 - String literals, typed as `string` and usable wherever `ptr i8` is expected.
 - Top-level globals with well-defined initialization order; cyclic initializers
   are diagnosed.

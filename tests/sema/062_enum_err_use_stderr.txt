@@ -1,7 +1,7 @@
 tests/sema/062_enum_err_use_src.r2:17:24: ERROR: enum 'Dias' has no variant 'Nope'
      17 |     var a : Dias = Dias.Nope;
         |                        ^~~~
-tests/sema/062_enum_err_use_src.r2:18:20: ERROR: 'v' is not an enum type
+tests/sema/062_enum_err_use_src.r2:18:20: ERROR: 'v' is not an array or a slice
      18 |     var b : Dias = v.Dias;
         |                    ^
 tests/sema/062_enum_err_use_src.r2:19:27: ERROR: left side of '.' must be an enum type
