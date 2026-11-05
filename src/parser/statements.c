@@ -235,6 +235,26 @@ static uint32_t copy_id (Parser *p, uint32_t src)
 	return id;
 }
 
+static uint32_t copy_index_expr (Parser *p, uint32_t node)
+{
+	if (p->ast.nodes[node].type == NODE_ID) return copy_id(p, node);
+	if (p->ast.nodes[node].type != NODE_INDEX) return NO_NODE;
+
+	uint16_t line = p->ast.nodes[node].line;
+	uint16_t col = p->ast.nodes[node].col;
+	uint32_t child = p->ast.nodes[node].child;
+	uint32_t sub = p->ast.nodes[child].next_bro;
+	uint32_t base = copy_index_expr(p, child);
+
+	if (base == NO_NODE) return NO_NODE;
+
+	uint32_t copy = new_node(p, NODE_INDEX, line, col);
+
+	p->ast.nodes[copy].child = base;
+	p->ast.nodes[base].next_bro = sub;
+	return copy;
+}
+
 static uint32_t type_into_expr (Parser *p, uint32_t node)
 {
 	if (p->ast.nodes[node].type == NODE_TYPE_REF) {
@@ -330,7 +350,12 @@ static uint32_t parse_for_level (Parser *p, uint32_t loop, uint32_t init, uint32
 
 static uint32_t for_index_expr (Parser *p, uint32_t *inits, uint32_t k, uint32_t arr)
 {
-	uint32_t node = k && p->ast.nodes[arr].type == NODE_ID ? copy_id(p, arr) : arr;
+	uint32_t node = arr;
+
+	if (k) {
+		uint32_t copy = copy_index_expr(p, arr);
+		if (copy != NO_NODE) node = copy;
+	}
 
 	for (uint32_t d = 0; d < k; d++) {
 		uint32_t init = inits[d];
