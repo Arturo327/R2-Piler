@@ -131,9 +131,7 @@ static void check_signature_types (Sema *s, uint32_t idx, int is_extern)
 	while (p != NO_NODE) {
 		TypeId type = s->ast->nodes[p].data_type;
 
-		TypeKind kind = type == TYPE_ERROR ? TK_ERROR : type_kind(type);
-
-		if (is_extern && kind == TK_SLICE)
+		if (is_extern && type_dyn_rank(type) > 0)
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
 					"extern functions cannot take slice parameters");
 

@@ -77,8 +77,12 @@ TypeId type_ptr_to (TypeId base);
 TypeId type_array_of (TypeId base, uint32_t count);
 TypeId type_slice_of (TypeId base);
 TypeId type_flat_element (TypeId id);
+
 int type_array_rank (TypeId id);
 int type_slice_rank (TypeId id);
+int type_dyn_rank (TypeId id);
+int type_is_mixed (TypeId id);
+
 TypeId find_type (const char *name, uint16_t len);
 int bind_enum_type (TypeId id, const EnumVariant *vars, uint16_t count);
 EnumVariant *find_variant (TypeId id, const char *name, uint16_t len);

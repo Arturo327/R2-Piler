@@ -1,5 +1,7 @@
 #include "parser/common.h"
 
+#define FOR_MAX_DIM 8
+
 static uint32_t parse_array_init (Parser *p)
 {
 	uint16_t line = p->curr.line;
@@ -22,7 +24,7 @@ static uint32_t parse_array_init (Parser *p)
 	return node;
 }
 
-static uint32_t parse_decl_type (Parser *p, int is_arr)
+static uint32_t parse_decl_name (Parser *p, int is_arr)
 {
 	uint16_t line = p->curr.line;
 	uint16_t col = p->curr.col;
@@ -32,12 +34,23 @@ static uint32_t parse_decl_type (Parser *p, int is_arr)
 		p->ast.nodes[node].str = p->prev.str;
 		p->ast.nodes[node].len = p->prev.len;
 	}
+	return node;
+}
 
+static void parse_decl_types (Parser *p, uint32_t node)
+{
 	consume(p, TOK_COL, "expected ':', followed by the type");
 	uint16_t type_node;
 	TypeId type = parse_type(p, 0, node, &type_node);
 	p->ast.nodes[node].data_type = type;
 	p->ast.nodes[node].type_node = type_node;
+}
+
+static uint32_t parse_decl_type (Parser *p, int is_arr)
+{
+	uint32_t node = parse_decl_name(p, is_arr);
+
+	parse_decl_types(p, node);
 	return node;
 }
 
@@ -243,14 +256,54 @@ static uint32_t type_into_expr (Parser *p, uint32_t node)
 	return node;
 }
 
-static uint32_t parse_for_range (Parser *p, uint32_t node, uint32_t init, uint32_t arr)
+static int for_index_room (Parser *p, uint32_t count)
+{
+	if (count < FOR_MAX_DIM) return 1;
+
+	error_report(p->err, ERR_ERROR, token_loc(p->curr),
+			"too many index variables in the 'for' (max %d)", FOR_MAX_DIM);
+	p->panic_mode = 1;
+	return 0;
+}
+
+static uint32_t for_index_init (Parser *p, uint32_t id)
+{
+	uint32_t init = new_node(p, NODE_ASSIGN, p->ast.nodes[id].line, p->ast.nodes[id].col);
+	uint32_t last = NO_NODE;
+
+	p->ast.nodes[init].len = 1;
+	append_child(p, init, &last, id);
+	append_child(p, init, &last, zero_literal(p, id));
+	return init;
+}
+
+static void for_zero_inits (Parser *p, uint32_t *inits, uint32_t count)
+{
+	for (uint32_t k = 0; k < count; k++) {
+		uint32_t lit = zero_literal(p, inits[k]);
+
+		p->ast.nodes[inits[k]].child = lit;
+	}
+}
+
+static uint32_t index_chain (Parser *p, uint32_t base, uint32_t idx)
+{
+	uint16_t line = p->ast.nodes[base].line;
+	uint16_t col = p->ast.nodes[base].col;
+	uint32_t node = new_node(p, NODE_INDEX, line, col);
+
+	p->ast.nodes[node].child = base;
+	p->ast.nodes[base].next_bro = idx;
+	return node;
+}
+
+static uint32_t parse_for_level (Parser *p, uint32_t loop, uint32_t init, uint32_t expr, uint32_t body)
 {
 	uint32_t idx = p->ast.nodes[init].type == NODE_VAR_DEC
 			? init : p->ast.nodes[init].child;
 	uint16_t line = p->ast.nodes[idx].line;
 	uint16_t col = p->ast.nodes[idx].col;
-
-	uint32_t len = new_node(p, NODE_DOT, p->ast.nodes[arr].line, p->ast.nodes[arr].col);
+	uint32_t len = new_node(p, NODE_DOT, p->ast.nodes[expr].line, p->ast.nodes[expr].col);
 	uint32_t cmp = new_node(p, NODE_LT, line, col);
 	uint32_t inc = new_node(p, NODE_INC, line, col);
 	uint32_t clast = NO_NODE;
@@ -258,22 +311,54 @@ static uint32_t parse_for_range (Parser *p, uint32_t node, uint32_t init, uint32
 
 	p->ast.nodes[len].str = "len";
 	p->ast.nodes[len].len = 3;
-	p->ast.nodes[len].child = arr;
+	p->ast.nodes[len].child = expr;
 
 	p->ast.nodes[cmp].len = 1;
 	append_child(p, cmp, &clast, copy_id(p, idx));
 	append_child(p, cmp, &clast, len);
 
+	uint32_t inc_id = copy_id(p, idx);
 	p->ast.nodes[inc].len = 2;
-	p->ast.nodes[inc].child = copy_id(p, idx);
+	p->ast.nodes[inc].child = inc_id;
+
+	append_child(p, loop, &last, init);
+	append_child(p, loop, &last, cmp);
+	append_child(p, loop, &last, inc);
+	append_child(p, loop, &last, body);
+	return loop;
+}
+
+static uint32_t for_index_expr (Parser *p, uint32_t *inits, uint32_t k, uint32_t arr)
+{
+	uint32_t node = k && p->ast.nodes[arr].type == NODE_ID ? copy_id(p, arr) : arr;
+
+	for (uint32_t d = 0; d < k; d++) {
+		uint32_t init = inits[d];
+		uint32_t idx = p->ast.nodes[init].type == NODE_VAR_DEC
+				? init : p->ast.nodes[init].child;
+
+		node = index_chain(p, node, copy_id(p, idx));
+	}
+	return node;
+}
+
+static uint32_t parse_for_range (Parser *p, uint32_t node, uint32_t *inits, uint32_t count, uint32_t arr)
+{
+	uint16_t line = p->ast.nodes[node].line;
+	uint16_t col = p->ast.nodes[node].col;
+	uint32_t exprs[FOR_MAX_DIM];
+	uint32_t body;
+
+	for (uint32_t k = 0; k < count; k++)
+		exprs[k] = for_index_expr(p, inits, k, arr);
 
 	consume(p, TOK_RPAREN, "expected ')' after the array");
-	uint32_t body = parse_body(p);
+	body = parse_body(p);
+	for (uint32_t k = count; k-- > 0; ) {
+		uint32_t loop = k == 0 ? node : new_node(p, NODE_FOR, line, col);
 
-	append_child(p, node, &last, init);
-	append_child(p, node, &last, cmp);
-	append_child(p, node, &last, inc);
-	append_child(p, node, &last, body);
+		body = parse_for_level(p, loop, inits[k], exprs[k], body);
+	}
 	return node;
 }
 
@@ -358,44 +443,97 @@ static uint32_t parse_for_tail (Parser *p, uint32_t node, uint32_t beg)
 	return wrap_for_decls(p, decls, node);
 }
 
+static uint32_t parse_for_names_range (Parser *p, uint32_t node, uint32_t first)
+{
+	uint32_t inits[FOR_MAX_DIM];
+	uint32_t count = 0;
+
+	inits[count++] = first;
+	while (p->curr.type == TOK_COMMA && !p->panic_mode) {
+		advance(p);
+		if (!for_index_room(p, count)) break;
+		inits[count++] = parse_decl_name(p, 0);
+	}
+
+	consume(p, TOK_COL, "expected ':' before the array");
+	for (uint32_t k = 0; k < count; k++)
+		p->ast.nodes[inits[k]].data_type = TYPE_i64;
+	for_zero_inits(p, inits, count);
+	return parse_for_range(p, node, inits, count, parse_expr(p, 0));
+}
+
+static uint32_t parse_for_more_types (Parser *p, uint32_t *inits, uint32_t count)
+{
+	while (p->curr.type == TOK_COMMA && !p->panic_mode) {
+		advance(p);
+		if (!for_index_room(p, count)) break;
+		inits[count++] = parse_decl_type(p, 0);
+	}
+	return count;
+}
+
+static uint32_t parse_for_decl_tail (Parser *p, uint32_t node, uint32_t *inits, uint32_t count)
+{
+	if (p->curr.type == TOK_ASSIGN) {
+		advance(p);
+		uint32_t value = parse_expr(p, 0);
+
+		p->ast.nodes[inits[count - 1]].child = value;
+	}
+	for (uint32_t k = 1; k < count; k++)
+		p->ast.nodes[inits[k - 1]].next_bro = inits[k];
+	return parse_for_tail(p, node, parse_decl_list(p, inits[0], 0));
+}
+
 static uint32_t parse_for_var (Parser *p, uint32_t node)
 {
+	uint32_t inits[FOR_MAX_DIM];
+	uint32_t count = 0;
+
 	consume(p, TOK_VAR, "expected 'var'");
-	uint32_t decl = parse_decl_type(p, 0);
-	uint16_t type_node = p->ast.nodes[decl].type_node;
+	uint32_t last = parse_decl_name(p, 0);
+	if (p->curr.type == TOK_COMMA && !p->panic_mode)
+		return parse_for_names_range(p, node, last);
+
+	parse_decl_types(p, last);
+	inits[count++] = last;
+	count = parse_for_more_types(p, inits, count);
+	last = inits[count - 1];
 
 	if (p->curr.type == TOK_COL && !p->panic_mode) {
 		advance(p);
-		p->ast.nodes[decl].child = zero_literal(p, decl);
-		return parse_for_range(p, node, decl, parse_expr(p, 0));
+		for_zero_inits(p, inits, count);
+		return parse_for_range(p, node, inits, count, parse_expr(p, 0));
 	}
+	uint16_t type_node = p->ast.nodes[last].type_node;
 
 	if (p->curr.type == TOK_RPAREN && !p->panic_mode && type_node != NO_TYPE_NODE) {
-		uint32_t arr = type_into_expr(p, decl + type_node);
+		uint32_t arr = type_into_expr(p, last + type_node);
+
 		if (arr != NO_NODE) {
-			p->ast.nodes[decl].type_node = NO_TYPE_NODE;
-			p->ast.nodes[decl].data_type = TYPE_i64;
-			p->ast.nodes[decl].child = zero_literal(p, decl);
-			return parse_for_range(p, node, decl, arr);
+			p->ast.nodes[last].type_node = NO_TYPE_NODE;
+			p->ast.nodes[last].data_type = TYPE_i64;
+			for_zero_inits(p, inits, count);
+			return parse_for_range(p, node, inits, count, arr);
 		}
 	}
-	if (p->curr.type == TOK_ASSIGN) {
-		advance(p);
-		p->ast.nodes[decl].child = parse_expr(p, 0);
-	}
-	return parse_for_tail(p, node, parse_decl_list(p, decl, 0));
+	return parse_for_decl_tail(p, node, inits, count);
 }
 
-static uint32_t parse_for_ident_range (Parser *p, uint32_t node, uint32_t id)
+static uint32_t parse_for_ident_range (Parser *p, uint32_t node, uint32_t first)
 {
-	uint32_t init = new_node(p, NODE_ASSIGN, p->ast.nodes[id].line, p->ast.nodes[id].col);
-	uint32_t last = NO_NODE;
+	uint32_t inits[FOR_MAX_DIM];
+	uint32_t count = 0;
+
+	inits[count++] = for_index_init(p, first);
+	while (p->curr.type == TOK_COMMA && !p->panic_mode) {
+		advance(p);
+		if (!for_index_room(p, count)) break;
+		inits[count++] = for_index_init(p, parse_expr(p, 0));
+	}
 
 	advance(p);
-	p->ast.nodes[init].len = 1;
-	append_child(p, init, &last, id);
-	append_child(p, init, &last, zero_literal(p, id));
-	return parse_for_range(p, node, init, parse_expr(p, 0));
+	return parse_for_range(p, node, inits, count, parse_expr(p, 0));
 }
 
 static uint32_t parse_for_expr (Parser *p, uint32_t node)
@@ -403,6 +541,11 @@ static uint32_t parse_for_expr (Parser *p, uint32_t node)
 	uint32_t beg = parse_expr(p, 0);
 
 	if (p->curr.type == TOK_COL && !p->panic_mode)
+		return parse_for_ident_range(p, node, beg);
+	if (p->curr.type == TOK_COMMA && !p->panic_mode
+			&& (p->ast.nodes[beg].type == NODE_ID
+			|| p->ast.nodes[beg].type == NODE_DEREF
+			|| p->ast.nodes[beg].type == NODE_INDEX))
 		return parse_for_ident_range(p, node, beg);
 
 	consume(p, TOK_SEMCOL, "expected ';' between for expressions");

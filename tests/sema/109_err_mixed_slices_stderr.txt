@@ -1,0 +1,9 @@
+tests/sema/109_err_mixed_slices_src.r2:12:11: ERROR: argument type i32[2][4] does not match parameter type i32[][3]; a parameter with some unsized dimensions requires an array or slice of the same rank and element type, with the same size in every sized dimension
+     12 |         t += dos(a);
+        |                  ^
+tests/sema/109_err_mixed_slices_src.r2:13:11: ERROR: argument type i32[2][3][2] does not match parameter type i32[][3]; a parameter with some unsized dimensions requires an array or slice of the same rank and element type, with the same size in every sized dimension
+     13 |         t += dos(b);
+        |                  ^
+tests/sema/109_err_mixed_slices_src.r2:15:15: ERROR: argument type i32[2][3][2] does not match parameter type i32[2][]; a parameter with some unsized dimensions requires an array or slice of the same rank and element type, with the same size in every sized dimension
+     15 |         t += dos_dyn(b);
+        |                      ^

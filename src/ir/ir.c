@@ -188,10 +188,7 @@ static uint32_t param_slots (IR *ir, ASTNode *n)
 	uint32_t p = ir->ast->nodes[n->child].child;
 
 	while (p != NO_NODE) {
-		TypeKind kind = type_kind(ir->ast->nodes[p].data_type);
-
-		count += kind == TK_SLICE
-				? 1u + (uint32_t)type_slice_rank(ir->ast->nodes[p].data_type) : 1u;
+		count += 1u + (uint32_t)type_dyn_rank(ir->ast->nodes[p].data_type);
 		p = ir->ast->nodes[p].next_bro;
 	}
 	return count;
@@ -470,25 +467,28 @@ static uint32_t elem_scale (IR *ir, uint32_t val, TypeId elem)
 	return make_op(ir, IR_MUL, val, make_const(ir, size, TYPE_i64), TYPE_i64);
 }
 
-static int slice_depth (IR *ir, ASTNode *n)
-{
-	int depth = 0;
-
-	while (n->type == NODE_INDEX) {
-		depth++;
-		n = ir->ast->nodes + n->child;
-	}
-	return depth;
-}
-
 static uint32_t slice_dim_reg (IR *ir, ASTNode *n, int dim, TypeId type)
 {
-	int depth = slice_depth(ir, n);
+	ASTNode *root = n;
+	TypeId t = n->data_type;
 
-	while (n->type == NODE_INDEX) n = ir->ast->nodes + n->child;
-	Symbol *s = ir->symtab->symbols + n->sym;
+	while (root->type == NODE_INDEX) root = ir->ast->nodes + root->child;
+	for (int d = 0; d < dim; d++) t = types[t].base;
+	if (type_kind(t) == TK_ARRAY) return make_const(ir, types[t].count, type);
 
-	return read_reg(ir, s->ir_dims[depth + dim], type);
+	Symbol *s = ir->symtab->symbols + root->sym;
+	return read_reg(ir, s->ir_dims[type_dyn_rank(s->type) - type_dyn_rank(t)], type);
+}
+
+static uint32_t push_dims (IR *ir, ASTNode *a, TypeId pt, uint32_t *regs, uint32_t k)
+{
+	TypeId t = pt;
+
+	for (int d = 0; type_kind(t) == TK_ARRAY || type_kind(t) == TK_SLICE; d++) {
+		if (type_kind(t) == TK_SLICE) regs[k++] = slice_dim_reg(ir, a, d, TYPE_i64);
+		t = types[t].base;
+	}
+	return k;
 }
 
 static uint32_t slice_stride (IR *ir, ASTNode *base, TypeId type)
@@ -505,6 +505,24 @@ static uint32_t slice_stride (IR *ir, ASTNode *base, TypeId type)
 	return stride;
 }
 
+static uint32_t mixed_stride (IR *ir, ASTNode *base, TypeId type)
+{
+	uint64_t fixed = types[type_flat_element(type)].size;
+	uint32_t dyn = NO_REG;
+	TypeId t = types[type].base;
+
+	for (int d = 1; type_kind(t) == TK_ARRAY || type_kind(t) == TK_SLICE; d++) {
+		if (type_kind(t) == TK_ARRAY) fixed *= types[t].count;
+		else if (dyn == NO_REG) dyn = slice_dim_reg(ir, base, d, TYPE_i64);
+		else dyn = make_op(ir, IR_MUL, dyn,
+				slice_dim_reg(ir, base, d, TYPE_i64), TYPE_i64);
+		t = types[t].base;
+	}
+	if (dyn == NO_REG) return make_const(ir, (int64_t)fixed, TYPE_i64);
+	if (fixed == 1) return dyn;
+	return make_op(ir, IR_MUL, dyn, make_const(ir, (int64_t)fixed, TYPE_i64), TYPE_i64);
+}
+
 static uint32_t gen_index_addr (IR *ir, ASTNode *n)
 {
 	ASTNode *base = ir->ast->nodes + n->child;
@@ -516,6 +534,12 @@ static uint32_t gen_index_addr (IR *ir, ASTNode *n)
 
 	if (kind == TK_PTR)
 		return make_op(ir, IR_ADD, a, ptr_scale(ir, b, type, 1), type);
+	if (type_is_mixed(type)) {
+		uint32_t stride = mixed_stride(ir, base, type);
+
+		return make_op(ir, IR_ADD, a,
+				make_op(ir, IR_MUL, b, stride, TYPE_i64), TYPE_i64);
+	}
 	if (kind == TK_SLICE && type_kind(elem) == TK_SLICE) {
 		uint32_t stride = slice_stride(ir, base, type);
 
@@ -657,27 +681,12 @@ static uint32_t gen_call (IR *ir, ASTNode *n)
 		ASTNode *a = ir->ast->nodes + arg;
 		TypeId pt = param == NO_NODE ? TYPE_VOID : ir->ast->nodes[param].data_type;
 
-		if (type_kind(pt) == TK_SLICE) {
-			int rank = type_slice_rank(pt);
-
-			regs[k++] = gen_expr(ir, a);
-			if (type_kind(a->data_type) == TK_ARRAY) {
-				TypeId t = a->data_type;
-
-				for (int d = 0; d < rank; d++) {
-					regs[k++] = make_const(ir, types[t].count, TYPE_i64);
-					t = types[t].base;
-				}
-			} else {
-				for (int d = 0; d < rank; d++)
-					regs[k++] = slice_dim_reg(ir, a, d, TYPE_i64);
-			}
-		} else {
-			regs[k++] = gen_expr(ir, a);
-		}
+		regs[k++] = gen_expr(ir, a);
+		k = push_dims(ir, a, pt, regs, k);
 		arg = a->next_bro;
 		if (param != NO_NODE) param = ir->ast->nodes[param].next_bro;
 	}
+
 	for (uint32_t i = 0; i < k; i++)
 		make_arg(ir, regs[i], i);
 
@@ -1153,6 +1162,21 @@ static void gen_block (IR *ir, ASTNode *parent)
 	}
 }
 
+static uint32_t dec_aggregate_param (IR *ir, Symbol *s, uint32_t idx)
+{
+	TypeId ptr = type_ptr_to(type_flat_element(s->type));
+	int dyn = type_dyn_rank(s->type);
+
+	s->ir_id = new_reg(ir, ptr);
+	s->ir_dims = arena_alloc(ir->arena, (size_t)dyn * sizeof(uint32_t));
+	make_arg_dec(ir, s->ir_id, idx++, ptr);
+	for (int d = 0; d < dyn; d++) {
+		s->ir_dims[d] = new_reg(ir, TYPE_i64);
+		make_arg_dec(ir, s->ir_dims[d], idx++, TYPE_i64);
+	}
+	return idx;
+}
+
 static void gen_args_dec (IR *ir, uint32_t node)
 {
 	uint32_t p = ir->ast->nodes[node].child;
@@ -1161,23 +1185,10 @@ static void gen_args_dec (IR *ir, uint32_t node)
 	while (p != NO_NODE) {
 		ASTNode *n = ir->ast->nodes + p;
 		Symbol *s = ir->symtab->symbols + n->sym;
+		TypeKind kind = type_kind(s->type);
 
-		if (type_kind(s->type) == TK_ARRAY) {
-			TypeId ptr = type_ptr_to(type_flat_element(s->type));
-
-			s->ir_id = new_reg(ir, ptr);
-			make_arg_dec(ir, s->ir_id, idx++, ptr);
-		} else if (type_kind(s->type) == TK_SLICE) {
-			TypeId ptr = type_ptr_to(type_flat_element(s->type));
-			int rank = type_slice_rank(s->type);
-
-			s->ir_id = new_reg(ir, ptr);
-			s->ir_dims = arena_alloc(ir->arena, (size_t)rank * sizeof(uint32_t));
-			make_arg_dec(ir, s->ir_id, idx++, ptr);
-			for (int d = 0; d < rank; d++) {
-				s->ir_dims[d] = new_reg(ir, TYPE_i64);
-				make_arg_dec(ir, s->ir_dims[d], idx++, TYPE_i64);
-			}
+		if (kind == TK_ARRAY || kind == TK_SLICE) {
+			idx = dec_aggregate_param(ir, s, idx);
 		} else {
 			s->ir_id = new_reg(ir, s->type);
 			if (s->addressed) ir->addressed[s->ir_id] = 1;

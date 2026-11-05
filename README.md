@@ -63,8 +63,9 @@ tested:
   `a + i` / `a - i` / `a - b`), slice parameters `T[]` (pointer + hidden
   length) and fixed-length array parameters `T[N]` — passed as a bare pointer
   and length-checked at the call site, plus the index loop over them:
-  `for (var i : i64 : a)`, `for (var i : a)` and `for (i : a)`, desugared by
-  the parser into an ordinary `for` bounded by `a.len`.
+  `for (var i : i64 : a)`, `for (var i : a)` and `for (i : a)` — and one index
+  per dimension (`for (var i : i64, j : i64 : mat)`), desugared by the parser
+  into ordinary `for`s bounded by `a.len`, `a[i].len`, ...
 - String literals, typed as `string` and usable wherever `ptr i8` is expected.
 - Top-level globals with well-defined initialization order; cyclic initializers
   are diagnosed.

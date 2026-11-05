@@ -1,0 +1,9 @@
+fn dos [1:4] depth=0 type=i64
+fn dos_dyn [3:4] depth=0 type=i64
+fn main [5:4] depth=0 type=i64
+param m [1:9] depth=1 type=i32[][3]
+param m [3:13] depth=1 type=i32[2][]
+var a [7:6] depth=1 type=i32[2][4]
+var b [8:6] depth=1 type=i32[2][3][2]
+var c [9:6] depth=1 type=i32[2][3]
+var t [10:6] depth=1 type=i64

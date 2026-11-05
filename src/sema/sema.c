@@ -115,18 +115,6 @@ static TypeId resolve_array_spec (Sema *s, ASTNode *ref, uint8_t *done, int *def
 	if (deferred && *deferred) return TYPE_ERROR;
 	if (id == TYPE_ERROR) return TYPE_ERROR;
 
-	TypeKind kind = type_kind(id);
-	if (slice) {
-		if (kind == TK_ARRAY) {
-			error_report(s->err, ERR_ERROR, node_loc(ref),
-					"a generic slice cannot have a concrete array element type");
-			return TYPE_ERROR;
-		}
-	} else if (kind == TK_SLICE) {
-		error_report(s->err, ERR_ERROR, node_loc(ref),
-				"a concrete array cannot have a slice element type");
-		return TYPE_ERROR;
-	}
 	if (!types[id].size) {
 		error_report(s->err, ERR_ERROR, node_loc(ref),
 				"%s element type cannot be void", slice ? "slice" : "array");
@@ -337,7 +325,7 @@ void check_storage_decl (Sema *s, ASTNode *n)
 	TypeKind kind = type_kind(n->data_type);
 	int is_arr = n->type == NODE_ARR_DEC;
 
-	if (kind == TK_SLICE) {
+	if (type_dyn_rank(n->data_type) > 0) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"slice types are only allowed as function parameters");
 		n->data_type = TYPE_ERROR;

@@ -390,16 +390,19 @@ static TypeId check_sizeof (Sema *s, uint32_t idx)
 
 static int array_slice_compat (TypeId arg, TypeId param)
 {
-	TypeKind ak = type_kind(arg);
-	TypeKind pk = type_kind(param);
-	int arank;
+	if (type_kind(param) != TK_ARRAY && type_kind(param) != TK_SLICE) return 0;
+	if (type_flat_element(arg) != type_flat_element(param)) return 0;
 
-	if (ak == TK_ARRAY) arank = type_array_rank(arg);
-	else if (ak == TK_SLICE) arank = type_slice_rank(arg);
-	else return 0;
-	if (pk != TK_SLICE) return 0;
-	return arank == type_slice_rank(param)
-			&& type_flat_element(arg) == type_flat_element(param);
+	while (type_kind(param) == TK_ARRAY || type_kind(param) == TK_SLICE) {
+		if (type_kind(arg) != TK_ARRAY && type_kind(arg) != TK_SLICE) return 0;
+		if (type_kind(param) == TK_ARRAY
+				&& (type_kind(arg) != TK_ARRAY
+				|| types[arg].count != types[param].count))
+			return 0;
+		arg = types[arg].base;
+		param = types[param].base;
+	}
+	return type_kind(arg) != TK_ARRAY && type_kind(arg) != TK_SLICE;
 }
 
 static uint32_t adapt_call_arg (Sema *s, uint32_t arg, TypeId arg_type, TypeId param_type)
@@ -412,12 +415,14 @@ static uint32_t adapt_call_arg (Sema *s, uint32_t arg, TypeId arg_type, TypeId p
 	const char *hint;
 
 	if (arg_type == TYPE_VOID) hint = "a void value cannot be used here";
+	else if (type_is_mixed(param_type))
+		hint = "a parameter with some unsized dimensions requires an array or"
+				" slice of the same rank and element type, with the same size"
+				" in every sized dimension";
 	else if (type_kind(param_type) == TK_ARRAY)
-		hint = "an array parameter requires an array of exactly that length"
-				" and element type";
+		hint = "an array parameter requires an array of exactly that length and element type";
 	else if (type_kind(param_type) == TK_SLICE)
-		hint = "a slice parameter requires an array or slice of the same rank"
-				" and element type";
+		hint = "a slice parameter requires an array or slice of the same rank and element type";
 	else hint = "use an explicit cast with 'as'";
 
 	error_report(s->err, ERR_ERROR, node_loc(&s->ast->nodes[new_arg]),

@@ -174,7 +174,9 @@ TypeId type_array_of (TypeId base, uint32_t count)
 		if (types[id].count == count) return id;
 	}
 
-	uint64_t total = (uint64_t)types[base].size * count;
+	int dyn = type_dyn_rank(base);
+	uint64_t total = dyn ? 8u * (1u + (uint64_t)dyn)
+		: (uint64_t)types[base].size * count;
 	if (total > UINT32_MAX) return TYPE_ERROR;
 
 	uint16_t len;
@@ -210,7 +212,7 @@ TypeId type_slice_of (TypeId base)
 
 	TypeId id = add_type(name, (uint16_t)total, TK_SLICE, base);
 	if (id == TYPE_ERROR) return TYPE_ERROR;
-	types[id].size = 8u * (uint32_t)(2 + type_slice_rank(base));
+	types[id].size = 8u * (uint32_t)(2 + type_dyn_rank(base));
 	types[id].count = 0;
 	types[id].sign = 0;
 	return id;
@@ -247,6 +249,30 @@ int type_slice_rank (TypeId id)
 		id = types[id].base;
 	}
 	return rank;
+}
+
+int type_dyn_rank (TypeId id)
+{
+	int rank = 0;
+
+	while (type_kind(id) == TK_ARRAY || type_kind(id) == TK_SLICE) {
+		if (type_kind(id) == TK_SLICE) rank++;
+		id = types[id].base;
+	}
+	return rank;
+}
+
+int type_is_mixed (TypeId id)
+{
+	int arrays = 0;
+	int slices = 0;
+
+	while (type_kind(id) == TK_ARRAY || type_kind(id) == TK_SLICE) {
+		if (type_kind(id) == TK_SLICE) slices = 1;
+		else arrays = 1;
+		id = types[id].base;
+	}
+	return arrays && slices;
 }
 
 TypeId find_type (const char *name, uint16_t len)
