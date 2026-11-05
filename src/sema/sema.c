@@ -122,11 +122,6 @@ static TypeId resolve_array_spec (Sema *s, ASTNode *ref, uint8_t *done, int *def
 					"a generic slice cannot have a concrete array element type");
 			return TYPE_ERROR;
 		}
-		if (kind == TK_SLICE && type_slice_rank(id) >= 2) {
-			error_report(s->err, ERR_ERROR, node_loc(ref),
-					"generic slices with more than 2 dimensions are not supported yet");
-			return TYPE_ERROR;
-		}
 	} else if (kind == TK_SLICE) {
 		error_report(s->err, ERR_ERROR, node_loc(ref),
 				"a concrete array cannot have a slice element type");

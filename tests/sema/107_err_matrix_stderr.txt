@@ -22,9 +22,9 @@ tests/sema/107_err_matrix_src.r2:23:13: ERROR: a concrete array cannot have a sl
 tests/sema/107_err_matrix_src.r2:24:13: ERROR: a generic slice cannot have a concrete array element type
      24 |         arr b : i32[][3];
         |                    ^
-tests/sema/107_err_matrix_src.r2:25:13: ERROR: generic slices with more than 2 dimensions are not supported yet
+tests/sema/107_err_matrix_src.r2:25:6: ERROR: slice types are only allowed as function parameters
      25 |         arr c : i32[][][];
-        |                    ^
+        |             ^
 tests/sema/107_err_matrix_src.r2:23:6: WARNING: unused variable 'a'
      23 |         arr a : i32[2][];
         |             ^

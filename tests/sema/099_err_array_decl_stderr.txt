@@ -22,9 +22,9 @@ tests/sema/099_err_array_decl_src.r2:15:13: ERROR: a concrete array cannot have 
 tests/sema/099_err_array_decl_src.r2:16:13: ERROR: a generic slice cannot have a concrete array element type
      16 |         arr n : i32[][3];
         |                    ^
-tests/sema/099_err_array_decl_src.r2:17:13: ERROR: generic slices with more than 2 dimensions are not supported yet
+tests/sema/099_err_array_decl_src.r2:17:6: ERROR: slice types are only allowed as function parameters
      17 |         arr o : i32[][][];
-        |                    ^
+        |             ^
 tests/sema/099_err_array_decl_src.r2:12:6: WARNING: unused variable 'x'
      12 |         var x : i32[3];
         |             ^

@@ -487,10 +487,22 @@ static uint32_t slice_dim_reg (IR *ir, ASTNode *n, int dim)
 
 	while (n->type == NODE_INDEX) n = ir->ast->nodes + n->child;
 	Symbol *s = ir->symtab->symbols + n->sym;
-	int root_dim = depth + dim;
 
-	if (root_dim == 0) return read_reg(ir, s->ir_id2, TYPE_i64);
-	return read_reg(ir, s->ir_id3, TYPE_i64);
+	return read_reg(ir, s->ir_dims[depth + dim], TYPE_i64);
+}
+
+static uint32_t slice_stride (IR *ir, ASTNode *base, TypeId type)
+{
+	TypeId leaf = type_flat_element(type);
+	int rank = type_slice_rank(type);
+	uint32_t stride = slice_dim_reg(ir, base, rank - 1);
+
+	if (types[leaf].size > 1)
+		stride = make_op(ir, IR_MUL, stride,
+				make_const(ir, types[leaf].size, TYPE_i64), TYPE_i64);
+	for (int d = rank - 2; d >= 1; d--)
+		stride = make_op(ir, IR_MUL, slice_dim_reg(ir, base, d), stride, TYPE_i64);
+	return stride;
 }
 
 static uint32_t gen_index_addr (IR *ir, ASTNode *n)
@@ -505,10 +517,7 @@ static uint32_t gen_index_addr (IR *ir, ASTNode *n)
 	if (kind == TK_PTR)
 		return make_op(ir, IR_ADD, a, ptr_scale(ir, b, type, 1), type);
 	if (kind == TK_SLICE && type_kind(elem) == TK_SLICE) {
-		TypeId leaf = type_flat_element(type);
-		uint32_t len = slice_dim_reg(ir, base, 1);
-		uint32_t stride = make_op(ir, IR_MUL, len,
-				make_const(ir, types[leaf].size, TYPE_i64), TYPE_i64);
+		uint32_t stride = slice_stride(ir, base, type);
 
 		return make_op(ir, IR_ADD, a,
 				make_op(ir, IR_MUL, b, stride, TYPE_i64), TYPE_i64);
@@ -1159,12 +1168,11 @@ static void gen_args_dec (IR *ir, uint32_t node)
 			int rank = type_slice_rank(s->type);
 
 			s->ir_id = new_reg(ir, ptr);
-			s->ir_id2 = new_reg(ir, TYPE_i64);
+			s->ir_dims = arena_alloc(ir->arena, (size_t)rank * sizeof(uint32_t));
 			make_arg_dec(ir, s->ir_id, idx++, ptr);
-			make_arg_dec(ir, s->ir_id2, idx++, TYPE_i64);
-			if (rank > 1) {
-				s->ir_id3 = new_reg(ir, TYPE_i64);
-				make_arg_dec(ir, s->ir_id3, idx++, TYPE_i64);
+			for (int d = 0; d < rank; d++) {
+				s->ir_dims[d] = new_reg(ir, TYPE_i64);
+				make_arg_dec(ir, s->ir_dims[d], idx++, TYPE_i64);
 			}
 		} else {
 			s->ir_id = new_reg(ir, s->type);
