@@ -516,8 +516,8 @@ static TypeId check_len_field (Sema *s, uint32_t idx, uint32_t left, TypeId type
 
 	mark_read(s, left);
 	if (kind == TK_SLICE) {
-		n->data_type = TYPE_i64;
-		return TYPE_i64;
+		n->data_type = TYPE_UNTYPED_INT;
+		return TYPE_UNTYPED_INT;
 	}
 
 	uint32_t count = types[type].count;

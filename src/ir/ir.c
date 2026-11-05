@@ -481,27 +481,27 @@ static int slice_depth (IR *ir, ASTNode *n)
 	return depth;
 }
 
-static uint32_t slice_dim_reg (IR *ir, ASTNode *n, int dim)
+static uint32_t slice_dim_reg (IR *ir, ASTNode *n, int dim, TypeId type)
 {
 	int depth = slice_depth(ir, n);
 
 	while (n->type == NODE_INDEX) n = ir->ast->nodes + n->child;
 	Symbol *s = ir->symtab->symbols + n->sym;
 
-	return read_reg(ir, s->ir_dims[depth + dim], TYPE_i64);
+	return read_reg(ir, s->ir_dims[depth + dim], type);
 }
 
 static uint32_t slice_stride (IR *ir, ASTNode *base, TypeId type)
 {
 	TypeId leaf = type_flat_element(type);
 	int rank = type_slice_rank(type);
-	uint32_t stride = slice_dim_reg(ir, base, rank - 1);
+	uint32_t stride = slice_dim_reg(ir, base, rank - 1, TYPE_i64);
 
 	if (types[leaf].size > 1)
 		stride = make_op(ir, IR_MUL, stride,
 				make_const(ir, types[leaf].size, TYPE_i64), TYPE_i64);
 	for (int d = rank - 2; d >= 1; d--)
-		stride = make_op(ir, IR_MUL, slice_dim_reg(ir, base, d), stride, TYPE_i64);
+		stride = make_op(ir, IR_MUL, slice_dim_reg(ir, base, d, TYPE_i64), stride, TYPE_i64);
 	return stride;
 }
 
@@ -670,7 +670,7 @@ static uint32_t gen_call (IR *ir, ASTNode *n)
 				}
 			} else {
 				for (int d = 0; d < rank; d++)
-					regs[k++] = slice_dim_reg(ir, a, d);
+					regs[k++] = slice_dim_reg(ir, a, d, TYPE_i64);
 			}
 		} else {
 			regs[k++] = gen_expr(ir, a);
@@ -990,8 +990,12 @@ static uint32_t gen_expr (IR *ir, ASTNode *n)
 					type_ptr_to(type_flat_element(s->type)));
 		return load_var(ir, s);
 	}
-	case NODE_DOT:
-		return slice_dim_reg(ir, ir->ast->nodes + n->child, 0);
+	case NODE_DOT: {
+		TypeId type = n->data_type;
+
+		if (type_kind(type) == TK_UNTYPED_INT) type = TYPE_i64;
+		return slice_dim_reg(ir, ir->ast->nodes + n->child, 0, type);
+	}
 	case NODE_DEREF: return gen_deref(ir, n);
 	case NODE_INDEX:
 		if (type_kind(n->data_type) == TK_ARRAY

@@ -1,0 +1,55 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn f(2 params, 12 regs) : i64
+    r0 = param.ptr i32 #0
+    r1 = param.i64 #1
+    r2 = move.u8 r1
+    r3 = move.i32 r1
+    r4 = move.i64 r1
+    r5 = move.u8 r2
+    r6 = extend.i64 r5
+    r7 = move.i32 r3
+    r8 = extend.i64 r7
+    r9 = add.i64 r6, r8
+    r10 = move.i64 r4
+    r11 = add.i64 r9, r10
+    ret.i64 r11
+    ret
+
+fn main(0 params, 24 regs) : i64
+    r1 = addr_local.i32[7] r0
+    r2 = const.i32 1
+    str_ptr.i32 r1, r2
+    r3 = const.i32 2
+    r4 = const.i64 4
+    r5 = add.i64 r1, r4
+    str_ptr.i32 r5, r3
+    r6 = const.i32 3
+    r7 = const.i64 8
+    r8 = add.i64 r1, r7
+    str_ptr.i32 r8, r6
+    r9 = const.i32 4
+    r10 = const.i64 12
+    r11 = add.i64 r1, r10
+    str_ptr.i32 r11, r9
+    r12 = const.i32 5
+    r13 = const.i64 16
+    r14 = add.i64 r1, r13
+    str_ptr.i32 r14, r12
+    r15 = const.i32 6
+    r16 = const.i64 20
+    r17 = add.i64 r1, r16
+    str_ptr.i32 r17, r15
+    r18 = const.i32 7
+    r19 = const.i64 24
+    r20 = add.i64 r1, r19
+    str_ptr.i32 r20, r18
+    r21 = addr_local.i32[7] r0
+    r22 = const.i64 7
+    arg r21 #0
+    arg r22 #1
+    r23 = call.i64 f
+    ret.i64 r23
+    ret
+

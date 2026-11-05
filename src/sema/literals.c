@@ -482,6 +482,11 @@ static void retag_expr (Sema *s, uint32_t idx, TypeId to)
 	child = n->child;
 	if (retag_literal(s, idx, to)) return;
 
+	if (n->type == NODE_DOT && type_kind(n->data_type) == TK_UNTYPED_INT) {
+		n->data_type = to;
+		return;
+	}
+
 	n->data_type = to;
 	retag_expr(s, child, to);
 	if (flex_op[n->type] == 2)
