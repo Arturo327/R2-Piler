@@ -348,9 +348,12 @@ static void check_for (Sema *s, uint32_t idx)
 
 	symtab_save_flags(&s->table, snap, body_mark);
 	check_body(s, body);
-	if (s->ast->nodes[updt].type == NODE_INC || s->ast->nodes[updt].type == NODE_DEC)
-		check_inc_dec(s, updt);
+	uint8_t kind = s->ast->nodes[updt].type;
+
+	if (kind == NODE_INC || kind == NODE_DEC) check_inc_dec(s, updt);
+	else if (kind == NODE_BLOCK) check_statement(s, updt);
 	else finalize_type(s, updt, check_expr(s, updt));
+
 	symtab_intersect_flags(&s->table, snap, body_mark);
 	symtab_load_flags(&s->table, snap, body_mark);
 

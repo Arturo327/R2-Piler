@@ -22,11 +22,8 @@ static uint32_t parse_array_init (Parser *p)
 	return node;
 }
 
-static uint32_t parse_decl (Parser *p, int is_arr)
+static uint32_t parse_decl_inner (Parser *p, int is_arr)
 {
-	consume(p, is_arr ? TOK_ARR : TOK_VAR,
-			is_arr ? "expected 'arr'" : "expected 'var'");
-
 	uint16_t line = p->curr.line;
 	uint16_t col = p->curr.col;
 	uint32_t node = new_node(p, is_arr ? NODE_ARR_DEC : NODE_VAR_DEC, line, col);
@@ -49,8 +46,26 @@ static uint32_t parse_decl (Parser *p, int is_arr)
 		p->ast.nodes[node].child = value;
 	}
 
-	consume(p, TOK_SEMCOL, "expected ';' at the end of the declaration");
 	return node;
+}
+
+static uint32_t parse_decl (Parser *p, int is_arr)
+{
+	consume(p, is_arr ? TOK_ARR : TOK_VAR,
+			is_arr ? "expected 'arr'" : "expected 'var'");
+
+	uint32_t first = parse_decl_inner(p, is_arr);
+	uint32_t last = first;
+
+	while (p->curr.type == TOK_COMMA && !p->panic_mode) {
+		advance(p);
+		uint32_t next = parse_decl_inner(p, is_arr);
+		p->ast.nodes[last].next_bro = next;
+		last = next;
+	}
+
+	consume(p, TOK_SEMCOL, "expected ';' at the end of the declaration");
+	return first;
 }
 
 uint32_t parse_block (Parser *p)
@@ -97,6 +112,20 @@ static inline uint32_t parse_cond (Parser *p, const char *msg)
 	return cond;
 }
 
+static uint32_t parse_body (Parser *p)
+{
+	uint32_t body = parse_statement(p);
+
+	if (p->ast.nodes[body].next_bro == NO_NODE) return body;
+
+	uint16_t line = p->ast.nodes[body].line;
+	uint16_t col = p->ast.nodes[body].col;
+	uint32_t block = new_node(p, NODE_BLOCK, line, col);
+
+	p->ast.nodes[block].child = body;
+	return block;
+}
+
 static void parse_elif_chain (Parser *p, uint32_t if_node, uint32_t *last)
 {
 	while (p->curr.type == TOK_ELIF) {
@@ -106,7 +135,7 @@ static void parse_elif_chain (Parser *p, uint32_t if_node, uint32_t *last)
 
 		uint32_t elif_node = new_node(p, NODE_ELIF, eline, ecol);
 		uint32_t elif_cond = parse_cond(p, "expected condition after elif statement");
-		uint32_t elif_body = parse_statement(p);
+		uint32_t elif_body = parse_body(p);
 
 		uint32_t elif_last = NO_NODE;
 		append_child(p, if_node, last, elif_node);
@@ -121,7 +150,7 @@ static void parse_elif_chain (Parser *p, uint32_t if_node, uint32_t *last)
 	consume(p, TOK_ELSE, "expected 'else'");
 
 	uint32_t else_node = new_node(p, NODE_ELSE, eline, ecol);
-	uint32_t else_body = parse_statement(p);
+	uint32_t else_body = parse_body(p);
 
 	uint32_t else_last = NO_NODE;
 	append_child(p, if_node, last, else_node);
@@ -136,7 +165,7 @@ static uint32_t parse_if (Parser *p)
 
 	uint32_t node = new_node(p, NODE_IF, line, col);
 	uint32_t cond = parse_cond(p, "expected condition after if statement");
-	uint32_t body = parse_statement(p);
+	uint32_t body = parse_body(p);
 
 	uint32_t last = NO_NODE;
 	append_child(p, node, &last, cond);
@@ -154,7 +183,7 @@ static uint32_t parse_while (Parser *p)
 
 	uint32_t node = new_node(p, NODE_WHILE, line, col);
 	uint32_t cond = parse_cond(p, "expected condition after while statement");
-	uint32_t body = parse_statement(p);
+	uint32_t body = parse_body(p);
 
 	uint32_t last = NO_NODE;
 	append_child(p, node, &last, cond);
@@ -198,9 +227,43 @@ static uint32_t parse_for_updt (Parser *p)
 		advance(p);
 		return e;
 	}
-	uint32_t c = maybe_inc_dec(p, parse_expr(p, 0));
+
+	uint32_t first = maybe_inc_dec(p, parse_expr(p, 0));
+	uint32_t last = first;
+
+	while (p->curr.type == TOK_COMMA && !p->panic_mode) {
+		advance(p);
+		uint32_t next = maybe_inc_dec(p, parse_expr(p, 0));
+
+		p->ast.nodes[last].next_bro = next;
+		last = next;
+	}
 	consume(p, TOK_RPAREN, "expected ')'");
-	return c;
+	if (first == last) return first;
+
+	uint16_t line = p->ast.nodes[first].line;
+	uint16_t col = p->ast.nodes[first].col;
+	uint32_t block = new_node(p, NODE_BLOCK, line, col);
+
+	p->ast.nodes[block].child = first;
+	return block;
+}
+
+static uint32_t wrap_for_decls (Parser *p, uint32_t decls, uint32_t loop)
+{
+	uint32_t tail = decls;
+	uint16_t line = p->ast.nodes[loop].line;
+	uint16_t col = p->ast.nodes[loop].col;
+
+	while (p->ast.nodes[tail].next_bro != NO_NODE)
+		tail = p->ast.nodes[tail].next_bro;
+
+	p->ast.nodes[tail].next_bro = loop;
+
+	uint32_t block = new_node(p, NODE_BLOCK, line, col);
+
+	p->ast.nodes[block].child = decls;
+	return block;
 }
 
 static uint32_t parse_for (Parser *p)
@@ -212,16 +275,24 @@ static uint32_t parse_for (Parser *p)
 
 	consume(p, TOK_LPAREN, "expected '('");
 	uint32_t beg = parse_for_init(p);
+	uint32_t decls = NO_NODE;
+
+	if (p->ast.nodes[beg].next_bro != NO_NODE) {
+		decls = beg;
+		beg = new_node(p, NODE_EMPTY, line, col);
+	}
 	uint32_t cond = parse_for_cond(p);
 	uint32_t updt = parse_for_updt(p);
-	uint32_t body = parse_statement(p);
+	uint32_t body = parse_body(p);
 
 	uint32_t last = NO_NODE;
 	append_child(p, node, &last, beg);
 	append_child(p, node, &last, cond);
 	append_child(p, node, &last, updt);
 	append_child(p, node, &last, body);
-	return node;
+
+	if (decls == NO_NODE) return node;
+	return wrap_for_decls(p, decls, node);
 }
 
 static uint32_t error_prefix_inc (Parser *p)

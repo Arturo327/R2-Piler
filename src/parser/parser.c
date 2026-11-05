@@ -150,6 +150,8 @@ void append_child (Parser *p, uint32_t parent, uint32_t *last, uint32_t child)
 {
 	if (*last == NO_NODE) p->ast.nodes[parent].child = child;
 	else p->ast.nodes[*last].next_bro = child;
+	while (p->ast.nodes[child].next_bro != NO_NODE)
+		child = p->ast.nodes[child].next_bro;
 	*last = child;
 }
 
