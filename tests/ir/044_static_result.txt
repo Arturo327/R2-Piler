@@ -1,0 +1,32 @@
+global g : i64
+global sv.0.x : i64
+global sv.1.z : i64
+
+fn __r2_init(0 params, 2 regs) : void
+    r0 = const.i64 7
+    str_global.i64 r0 @g
+    r1 = const.i64 0
+    str_global.i64 r1 @sv.0.x
+    ret
+
+fn counter(0 params, 4 regs) : i64
+    r0 = ld_global.i64 @sv.0.x
+    r1 = const.i64 1
+    r2 = add.i64 r0, r1
+    str_global.i64 r2 @sv.0.x
+    r3 = ld_global.i64 @sv.0.x
+    ret.i64 r3
+    ret
+
+fn zero(0 params, 1 regs) : i64
+    r0 = ld_global.i64 @sv.1.z
+    ret.i64 r0
+    ret
+
+fn main(0 params, 3 regs) : i64
+    r0 = call.i64 counter
+    r1 = call.i64 zero
+    r2 = add.i64 r0, r1
+    ret.i64 r2
+    ret
+

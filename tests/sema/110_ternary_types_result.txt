@@ -1,0 +1,17 @@
+enum Color [3:6] depth=0 type=Color base=i64
+  variant Red = 1
+  variant Blue = 2
+var g [1:5] depth=0 type=i64
+fn choose [8:4] depth=0 type=i64
+fn main [21:4] depth=0 type=i64
+param c [8:11] depth=1 type=i64
+param a [8:20] depth=1 type=i64
+param b [8:29] depth=1 type=i64
+var n [9:6] depth=1 type=i8
+var w [10:6] depth=1 type=i64
+var p [11:6] depth=1 type=ptr i64
+var s [12:6] depth=1 type=ptr i8
+var e [13:6] depth=1 type=Color
+var q [14:6] depth=1 type=i64
+var p [22:6] depth=1 type=ptr i64
+var q [23:6] depth=1 type=ptr i64

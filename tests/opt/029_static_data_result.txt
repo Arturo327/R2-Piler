@@ -1,0 +1,29 @@
+global g : i64
+global sv.0.x : i64
+global sv.1.y : i64
+global sv.2.p : ptr i64
+
+fn __r2_init(0 params, 4 regs) : void
+    ret
+
+fn counter(0 params, 6 regs) : i64
+    r0 = ld_global.i64 @sv.0.x
+    r1 = const.i64 1
+    r2 = add.i64 r0, r1
+    str_global.i64 r2 @sv.0.x
+    r4 = ld_global.i64 @sv.1.y
+    r5 = add.i64 r2, r4
+    ret.i64 r5
+    ret
+
+fn ptrstatic(0 params, 2 regs) : i64
+    r0 = ld_global.ptr i64 @sv.2.p
+    r1 = ld_ptr.i64 r0
+    ret.i64 r1
+    ret
+
+fn main(0 params, 1 regs) : i64
+    r0 = const.i64 0
+    ret.i64 r0
+    ret
+

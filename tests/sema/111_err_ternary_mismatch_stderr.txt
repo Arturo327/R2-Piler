@@ -1,0 +1,24 @@
+tests/sema/111_err_ternary_mismatch_src.r2:7:18: ERROR: pointer type mismatch: i64 vs ptr i8 (use 'as' to convert explicitly)
+      7 |         var a : i64 = c ? 1 : "x";
+        |                         ^
+tests/sema/111_err_ternary_mismatch_src.r2:8:18: ERROR: operator cannot be applied to a value of type void
+      8 |         var b : i64 = c ? v() : 1;
+        |                         ^
+tests/sema/111_err_ternary_mismatch_src.r2:9:18: ERROR: type mismatch: u64 vs i32 (use 'as' to convert explicitly)
+      9 |         var d : i64 = c ? (1 as u64) : (2 as i32);
+        |                         ^
+tests/sema/111_err_ternary_mismatch_src.r2:10:22: ERROR: pointer type mismatch: ptr i64 vs i64 (use 'as' to convert explicitly)
+     10 |         var p : ptr i64 = c ? $g : 1;
+        |                             ^
+tests/sema/111_err_ternary_mismatch_src.r2:7:6: WARNING: unused variable 'a'
+      7 |         var a : i64 = c ? 1 : "x";
+        |             ^
+tests/sema/111_err_ternary_mismatch_src.r2:8:6: WARNING: unused variable 'b'
+      8 |         var b : i64 = c ? v() : 1;
+        |             ^
+tests/sema/111_err_ternary_mismatch_src.r2:9:6: WARNING: unused variable 'd'
+      9 |         var d : i64 = c ? (1 as u64) : (2 as i32);
+        |             ^
+tests/sema/111_err_ternary_mismatch_src.r2:10:6: WARNING: unused variable 'p'
+     10 |         var p : ptr i64 = c ? $g : 1;
+        |             ^

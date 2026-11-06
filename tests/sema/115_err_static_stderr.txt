@@ -1,0 +1,51 @@
+tests/sema/115_err_static_src.r2:7:12: ERROR: static variables can only be declared inside a function
+      7 | static var top : i64 = 1;
+        |            ^~~
+tests/sema/115_err_static_src.r2:12:23: ERROR: a 'static' initializer must be a constant expression
+     12 |         static var a : i64 = f();
+        |                              ^
+tests/sema/115_err_static_src.r2:13:23: ERROR: a 'static' initializer must be a constant expression
+     13 |         static var b : i64 = g;
+        |                              ^
+tests/sema/115_err_static_src.r2:14:23: ERROR: a 'static' initializer must be a constant expression
+     14 |         static var c : i64 = l;
+        |                              ^
+tests/sema/115_err_static_src.r2:16:23: ERROR: a 'static' initializer must be a constant expression
+     16 |         static var d : i64 = ok;
+        |                              ^~
+tests/sema/115_err_static_src.r2:17:27: ERROR: a 'static' initializer must be a constant expression
+     17 |         static var q : ptr i64 = $l;
+        |                                  ^
+tests/sema/115_err_static_src.r2:18:13: ERROR: slice types are only allowed as function parameters
+     18 |         static arr sl : i64[] = {1};
+        |                    ^~
+tests/sema/115_err_static_src.r2:18:26: ERROR: '{...}' initializer requires an array type
+     18 |         static arr sl : i64[] = {1};
+        |                                 ^
+tests/sema/115_err_static_src.r2:20:13: ERROR: 'e' already declared in this scope
+     20 |         static var e : i64 = 6;
+        |                    ^
+tests/sema/115_err_static_src.r2:12:13: WARNING: unused variable 'a'
+     12 |         static var a : i64 = f();
+        |                    ^
+tests/sema/115_err_static_src.r2:13:13: WARNING: unused variable 'b'
+     13 |         static var b : i64 = g;
+        |                    ^
+tests/sema/115_err_static_src.r2:14:13: WARNING: unused variable 'c'
+     14 |         static var c : i64 = l;
+        |                    ^
+tests/sema/115_err_static_src.r2:16:13: WARNING: unused variable 'd'
+     16 |         static var d : i64 = ok;
+        |                    ^
+tests/sema/115_err_static_src.r2:17:13: WARNING: unused variable 'q'
+     17 |         static var q : ptr i64 = $l;
+        |                    ^
+tests/sema/115_err_static_src.r2:18:13: WARNING: unused variable 'sl'
+     18 |         static arr sl : i64[] = {1};
+        |                    ^~
+tests/sema/115_err_static_src.r2:19:13: WARNING: unused variable 'e'
+     19 |         static var e : i64 = 5;
+        |                    ^
+tests/sema/115_err_static_src.r2:20:13: WARNING: unused variable 'e'
+     20 |         static var e : i64 = 6;
+        |                    ^

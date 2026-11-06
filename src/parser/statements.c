@@ -616,6 +616,20 @@ static uint32_t parse_for (Parser *p)
 	return parse_for_expr(p, node);
 }
 
+static uint32_t parse_clause_body (Parser *p)
+{
+	uint32_t stmt = parse_statement(p);
+
+	if (p->ast.nodes[stmt].type == NODE_BLOCK) return stmt;
+
+	uint16_t line = p->ast.nodes[stmt].line;
+	uint16_t col = p->ast.nodes[stmt].col;
+	uint32_t block = new_node(p, NODE_BLOCK, line, col);
+
+	p->ast.nodes[block].child = stmt;
+	return block;
+}
+
 static uint32_t parse_case (Parser *p)
 {
 	uint16_t line = p->curr.line;
@@ -635,7 +649,7 @@ static uint32_t parse_case (Parser *p)
 	}
 	consume(p, TOK_RPAREN, "expected ')' after the case values");
 
-	uint32_t body = parse_block(p);
+	uint32_t body = parse_clause_body(p);
 
 	append_child(p, node, &last, body);
 	return node;
@@ -648,7 +662,7 @@ static uint32_t parse_default (Parser *p)
 	consume(p, TOK_DEFAULT, "expected 'default'");
 
 	uint32_t node = new_node(p, NODE_DEFAULT, line, col);
-	uint32_t body = parse_block(p);
+	uint32_t body = parse_clause_body(p);
 
 	p->ast.nodes[node].child = body;
 	return node;

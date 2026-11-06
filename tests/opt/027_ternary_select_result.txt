@@ -1,0 +1,38 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn imp(1 params, 4 regs) : i64
+    r0 = param.i64 #0
+    r2 = const.i64 1
+    r3 = add.i64 r0, r2
+    ret.i64 r3
+    ret
+
+fn pure(3 params, 7 regs) : i64
+    r0 = param.i64 #0
+    r1 = param.i64 #1
+    r2 = param.i64 #2
+    r6 = select.i64 r1, r2, r0
+    ret.i64 r6
+    ret
+
+fn impure(3 params, 17 regs) : i64
+    r0 = param.i64 #0
+    r1 = param.i64 #1
+    r2 = param.i64 #2
+    jz r0 -> L0
+    r11 = const.i64 1
+    r3 = add.i64 r1, r11
+    jmp -> L1
+  L0:
+    r15 = const.i64 1
+    r3 = add.i64 r2, r15
+  L1:
+    ret.i64 r3
+    ret
+
+fn main(0 params, 1 regs) : i64
+    r0 = const.i64 0
+    ret.i64 r0
+    ret
+

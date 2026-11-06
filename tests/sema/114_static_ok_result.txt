@@ -1,0 +1,15 @@
+var g [1:5] depth=0 type=i64
+fn counter [3:4] depth=0 type=i64
+fn zero [10:4] depth=0 type=i64
+fn other [16:4] depth=0 type=i64
+fn arrsum [23:4] depth=0 type=i64
+fn ptrstatic [30:4] depth=0 type=i64
+fn blockstat [36:4] depth=0 type=i64
+fn main [47:4] depth=0 type=i64
+static var x [4:13] depth=1 type=i64
+static var z [11:13] depth=1 type=i64
+static var x [17:13] depth=1 type=i64
+static var a [24:13] depth=1 type=i64[3]
+static var p [31:13] depth=1 type=ptr i64
+var r [37:6] depth=1 type=i64
+static var y [40:14] depth=2 type=i64

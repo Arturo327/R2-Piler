@@ -1,0 +1,30 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn pick(3 params, 7 regs) : i64
+    r0 = param.i64 #0
+    r1 = param.i64 #1
+    r2 = param.i64 #2
+    r4 = move.i64 r0
+    jz r4 -> L0
+    r5 = move.i64 r1
+    r3 = move.i64 r5
+    jmp -> L1
+  L0:
+    r6 = move.i64 r2
+    r3 = move.i64 r6
+  L1:
+    ret.i64 r3
+    ret
+
+fn main(0 params, 4 regs) : i64
+    r0 = const.i64 1
+    r1 = const.i64 2
+    r2 = const.i64 3
+    arg r0 #0
+    arg r1 #1
+    arg r2 #2
+    r3 = call.i64 pick
+    ret.i64 r3
+    ret
+

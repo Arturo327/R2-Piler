@@ -1,0 +1,7 @@
+TOK_SWITCH
+TOK_CASE
+TOK_DEFAULT
+TOK_ID switchx
+TOK_ID casey
+TOK_ID defaultz
+TOK_EOF

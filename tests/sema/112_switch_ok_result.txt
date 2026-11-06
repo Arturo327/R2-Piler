@@ -1,0 +1,15 @@
+enum Dias [1:6] depth=0 type=Dias base=i64
+  variant Lunes = 1
+  variant Viernes = 5
+  variant Sabado = 6
+  variant Domingo = 7
+var g [8:5] depth=0 type=i64
+fn bump [10:4] depth=0 type=i64
+fn day [15:4] depth=0 type=i64
+fn classify [29:4] depth=0 type=i64
+fn main [47:4] depth=0 type=i64
+param x [10:9] depth=1 type=i64
+param d [15:8] depth=1 type=Dias
+param n [29:13] depth=1 type=i64
+var r [30:6] depth=1 type=i64
+var local [37:7] depth=2 type=i64

@@ -1,0 +1,27 @@
+tests/sema/113_err_switch_src.r2:10:11: ERROR: duplicate case value
+     10 |         case (1, 1) {
+        |                  ^
+tests/sema/113_err_switch_src.r2:9:2: ERROR: switch requires a 'default' clause
+      9 |         switch (n) {
+        |         ^
+tests/sema/113_err_switch_src.r2:15:8: ERROR: case value must be a constant expression
+     15 |         case (f()) {
+        |               ^
+tests/sema/113_err_switch_src.r2:21:10: ERROR: expression of type ptr i64 cannot be switched on
+     21 |         switch (p) {
+        |                 ^
+tests/sema/113_err_switch_src.r2:29:2: ERROR: case requires at least one value
+     29 |         case () {
+        |         ^
+tests/sema/113_err_switch_src.r2:37:7: WARNING: unused variable 'x'
+     37 |                 var x : i64 = 2;
+        |                     ^
+tests/sema/113_err_switch_src.r2:40:17: ERROR: 'x' is not declared
+     40 |                 var y : i64 = x;
+        |                               ^
+tests/sema/113_err_switch_src.r2:40:7: WARNING: unused variable 'y'
+     40 |                 var y : i64 = x;
+        |                     ^
+tests/sema/113_err_switch_src.r2:46:10: ERROR: expression of type string cannot be switched on
+     46 |         switch ("abc") {
+        |                 ^~~

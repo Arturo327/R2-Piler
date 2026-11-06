@@ -1,0 +1,30 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn classify(1 params, 11 regs) : i64
+    r0 = param.i64 #0
+    r2 = move.i64 r0
+    r3 = const.i64 1
+    r4 = eq.i64 r0, r3
+    jnz r4 -> L1
+    r5 = const.i64 2
+    r6 = eq.i64 r2, r5
+    jnz r6 -> L2
+    jmp -> L3
+  L1:
+    r1 = const.i64 10
+    jmp -> L0
+  L2:
+    r1 = const.i64 20
+    jmp -> L0
+  L3:
+    r1 = const.i64 30
+  L0:
+    ret.i64 r1
+    ret
+
+fn main(0 params, 1 regs) : i64
+    r0 = const.i64 0
+    ret.i64 r0
+    ret
+
