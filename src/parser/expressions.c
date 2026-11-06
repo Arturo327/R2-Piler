@@ -8,12 +8,12 @@ static const int8_t binop_prec[TOK_COUNT] = {
 	[TOK_STAR_ASSIGN] = 1, [TOK_SLASH_ASSIGN] = 1,
 	[TOK_PERCENT_ASSIGN] = 1, [TOK_AND_A_ASSIGN] = 1,
 	[TOK_OR_A_ASSIGN] = 1, [TOK_XOR_ASSIGN] = 1,
-	[TOK_LS_ASSIGN] = 1, [TOK_RS_ASSIGN] = 1,
-	[TOK_OR_L] = 2, [TOK_AND_L] = 3, [TOK_OR_A] = 4,
-	[TOK_XOR] = 5, [TOK_AND_A] = 6, [TOK_EQ] = 7, [TOK_NE] = 7,
-	[TOK_GT] = 8, [TOK_LT] = 8,  [TOK_GE] = 8,  [TOK_LE] = 8,
-	[TOK_RS] = 9, [TOK_LS] = 9, [TOK_ADD] = 10, [TOK_SUB] = 10,
-	[TOK_STAR] = 11, [TOK_SLASH] = 11, [TOK_PERCENT] = 11
+	[TOK_LS_ASSIGN] = 1, [TOK_RS_ASSIGN] = 1, [TOK_QUESTION] = 2,
+	[TOK_OR_L] = 3, [TOK_AND_L] = 4, [TOK_OR_A] = 5,
+	[TOK_XOR] = 6, [TOK_AND_A] = 7, [TOK_EQ] = 8, [TOK_NE] = 8,
+	[TOK_GT] = 9, [TOK_LT] = 9,  [TOK_GE] = 9,  [TOK_LE] = 9,
+	[TOK_RS] = 10, [TOK_LS] = 10, [TOK_ADD] = 11, [TOK_SUB] = 11,
+	[TOK_STAR] = 12, [TOK_SLASH] = 12, [TOK_PERCENT] = 12
 };
 
 static const uint8_t binop_node[TOK_COUNT] = {
@@ -249,6 +249,22 @@ static uint32_t parse_primary (Parser *p)
 	return node;
 }
 
+static uint32_t parse_ternary (Parser *p, uint32_t cond, Token op)
+{
+	uint32_t node = new_node(p, NODE_TERNARY, op.line, op.col);
+	uint32_t last = NO_NODE;
+	uint32_t then_arm = parse_expr(p, 0);
+	uint32_t else_arm;
+
+	p->ast.nodes[node].len = op.len;
+	consume(p, TOK_COL, "expected ':' in ternary expression");
+	else_arm = parse_expr(p, binop_prec[TOK_QUESTION]);
+	append_child(p, node, &last, cond);
+	append_child(p, node, &last, then_arm);
+	append_child(p, node, &last, else_arm);
+	return node;
+}
+
 uint32_t parse_expr (Parser *p, int min_prec)
 {
 	uint16_t extra = 0;
@@ -266,6 +282,12 @@ uint32_t parse_expr (Parser *p, int min_prec)
 
 		extra++;
 		advance(p);
+
+		if (op.type == TOK_QUESTION) {
+			left = parse_ternary(p, left, op);
+			prec = binop_prec[p->curr.type];
+			continue;
+		}
 
 		uint32_t right = parse_expr(p, next_min);
 		left = compound ? make_compound_assign(p, left, right, op)

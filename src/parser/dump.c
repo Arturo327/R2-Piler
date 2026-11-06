@@ -44,6 +44,7 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_NOT_A] = "NODE_NOT_A",
 	[NODE_NEG] = "NODE_NEG",
 	[NODE_CAST] = "NODE_CAST",
+	[NODE_TERNARY] = "NODE_TERNARY",
 	[NODE_IF] = "NODE_IF",
 	[NODE_ELIF] = "NODE_ELIF",
 	[NODE_ELSE] = "NODE_ELSE",

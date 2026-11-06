@@ -488,6 +488,13 @@ static void retag_expr (Sema *s, uint32_t idx, TypeId to)
 	}
 
 	n->data_type = to;
+	if (n->type == NODE_TERNARY) {
+		uint32_t then_idx = s->ast->nodes[child].next_bro;
+
+		retag_expr(s, then_idx, to);
+		retag_expr(s, s->ast->nodes[then_idx].next_bro, to);
+		return;
+	}
 	retag_expr(s, child, to);
 	if (flex_op[n->type] == 2)
 		retag_expr(s, s->ast->nodes[child].next_bro, to);

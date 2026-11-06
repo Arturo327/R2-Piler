@@ -1,18 +1,18 @@
-tests/lexer/023_invalid_symbols_src.r2:1:3: ERROR: character '?' is not valid
-      1 | $ ? ` \
+tests/lexer/023_invalid_symbols_src.r2:1:3: ERROR: character '#' is not valid
+      1 | $ # ` \
         |   ^
 tests/lexer/023_invalid_symbols_src.r2:1:5: ERROR: character '`' is not valid
-      1 | $ ? ` \
+      1 | $ # ` \
         |     ^
 tests/lexer/023_invalid_symbols_src.r2:1:7: ERROR: character '\' is not valid
-      1 | $ ? ` \
+      1 | $ # ` \
         |       ^
 tests/lexer/023_invalid_symbols_src.r2:2:5: ERROR: character '#' is not valid
       2 | % @ #
         |     ^
-tests/lexer/023_invalid_symbols_src.r2:3:4: ERROR: character '?' is not valid
-      3 | $$ ??
+tests/lexer/023_invalid_symbols_src.r2:3:4: ERROR: character '#' is not valid
+      3 | $$ ##
         |    ^
-tests/lexer/023_invalid_symbols_src.r2:3:5: ERROR: character '?' is not valid
-      3 | $$ ??
+tests/lexer/023_invalid_symbols_src.r2:3:5: ERROR: character '#' is not valid
+      3 | $$ ##
         |     ^

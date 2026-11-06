@@ -950,6 +950,42 @@ static int gen_select (IR *ir, ASTNode *n)
 	return 1;
 }
 
+static uint32_t gen_ternary (IR *ir, ASTNode *n)
+{
+	ASTNode *nodes = ir->ast->nodes;
+	uint32_t then_idx = nodes[n->child].next_bro;
+	uint32_t else_idx = nodes[then_idx].next_bro;
+
+	if (ir->use_select) {
+		int cbudget = LOGIC_BUDGET;
+		int abudget = LOGIC_BUDGET;
+		int bbudget = LOGIC_BUDGET;
+
+		if (is_pure(ir, n->child, &cbudget) && is_pure(ir, then_idx, &abudget)
+				&& is_pure(ir, else_idx, &bbudget)) {
+			uint32_t va = gen_expr(ir, nodes + then_idx);
+			uint32_t vb = gen_expr(ir, nodes + else_idx);
+			uint32_t vc = gen_expr(ir, nodes + n->child);
+
+			uint32_t res = new_reg(ir, n->data_type);
+			make_select(ir, res, va, vb, vc, n->data_type);
+			return res;
+		}
+	}
+
+	uint32_t l_else = ir->label_count++;
+	uint32_t l_end = ir->label_count++;
+
+	uint32_t res = new_reg(ir, n->data_type);
+	gen_jump_if(ir, nodes + n->child, l_else, 0);
+	make_move(ir, res, gen_expr(ir, nodes + then_idx), n->data_type);
+	make_jump(ir, IR_JMP, NO_REG, l_end);
+	make_label(ir, l_else);
+	make_move(ir, res, gen_expr(ir, nodes + else_idx), n->data_type);
+	make_label(ir, l_end);
+	return res;
+}
+
 static uint32_t gen_bool (IR *ir, ASTNode *n)
 {
 	uint32_t val = gen_expr(ir, n);
@@ -1050,6 +1086,7 @@ static uint32_t gen_expr (IR *ir, ASTNode *n)
 	case NODE_NEG: case NODE_NOT_A: case NODE_NOT_L: return gen_unary(ir, n);
 	case NODE_AND_L: case NODE_OR_L: return gen_logic(ir, n);
 	case NODE_CAST: return gen_cast(ir, n);
+	case NODE_TERNARY: return gen_ternary(ir, n);
 
 	default:
 		assert(node_to_ir[n->type] != IR_NOP);

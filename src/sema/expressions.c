@@ -1289,6 +1289,74 @@ static TypeId check_binary (Sema *s, uint32_t idx)
 	return s->ast->nodes[idx].data_type;
 }
 
+static TypeId ternary_unify (Sema *s, uint32_t idx, uint32_t *then_idx,
+		uint32_t *else_idx, TypeId a, TypeId b)
+{
+	if (a == TYPE_ERROR || b == TYPE_ERROR) return TYPE_ERROR;
+
+	decay_operand(s, then_idx, &a);
+	decay_operand(s, else_idx, &b);
+	coerce_string(s, then_idx, &a);
+	coerce_string(s, else_idx, &b);
+	if (b == TYPE_NULL && type_kind(a) == TK_PTR)
+		coerce_null(s, else_idx, &b, a);
+	else if (a == TYPE_NULL && type_kind(b) == TK_PTR)
+		coerce_null(s, then_idx, &a, b);
+
+	if (a == TYPE_VOID || b == TYPE_VOID) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"operator cannot be applied to a value of type void");
+		return TYPE_ERROR;
+	}
+	int a_ptr = type_kind(a) == TK_PTR || a == TYPE_NULL;
+	int b_ptr = type_kind(b) == TK_PTR || b == TYPE_NULL;
+
+	if (a != b && a_ptr != b_ptr) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"pointer type mismatch: %s vs %s (use 'as' to convert explicitly)",
+				type_display_name(a), type_display_name(b));
+		return TYPE_ERROR;
+	}
+	if (a != b && !unify_operands(s, s->ast->nodes + idx,
+			then_idx, else_idx, &a, &b))
+		return TYPE_ERROR;
+	return a;
+}
+
+static TypeId check_ternary (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	uint32_t cond = n->child;
+	uint32_t mark = s->table.act_count;
+	uint8_t *snap = arena_alloc(s->arena, (size_t)mark * 2);
+	uint8_t *acc = snap + mark;
+
+	check_cond(s, cond, 0);
+	uint32_t then_idx = s->ast->nodes[cond].next_bro;
+	uint32_t else_idx = s->ast->nodes[then_idx].next_bro;
+
+	memset(acc, 1, mark);
+	symtab_save_flags(&s->table, snap, mark);
+	symtab_clear_pending(&s->table);
+
+	TypeId a = check_expr(s, then_idx);
+	symtab_save_flags(&s->table, acc, mark);
+	symtab_load_flags(&s->table, snap, mark);
+	symtab_clear_pending(&s->table);
+	TypeId b = check_expr(s, else_idx);
+
+	symtab_intersect_flags(&s->table, acc, mark);
+	symtab_load_flags(&s->table, acc, mark);
+
+	n = s->ast->nodes + idx;
+	n->data_type = ternary_unify(s, idx, &then_idx, &else_idx, a, b);
+	n = s->ast->nodes + idx;
+	n->child = cond;
+	s->ast->nodes[cond].next_bro = then_idx;
+	s->ast->nodes[then_idx].next_bro = else_idx;
+	return n->data_type;
+}
+
 static int cast_types_ok (Sema *s, ASTNode *n, TypeId from, TypeId to)
 {
 	if (from == TYPE_VOID) {
@@ -1374,6 +1442,7 @@ static TypeId check_expr_node (Sema *s, uint32_t idx)
 	case NODE_NEG: case NODE_NOT_L: case NODE_NOT_A:
 		return check_unary(s, idx);
 	case NODE_CAST: return check_cast(s, idx);
+	case NODE_TERNARY: return check_ternary(s, idx);
 	case NODE_EMPTY: n->data_type = TYPE_VOID; return TYPE_VOID;
 	case NODE_ERROR: n->data_type=TYPE_ERROR; return TYPE_ERROR;
 	default: return check_binary(s, idx);
@@ -1421,6 +1490,12 @@ int expr_has_effect (Sema *s, uint32_t idx)
 	case NODE_INDEX:
 		return expr_has_effect(s, child)
 				|| expr_has_effect(s, s->ast->nodes[child].next_bro);
+	case NODE_TERNARY: {
+		uint32_t then_idx = s->ast->nodes[child].next_bro;
+
+		return expr_has_effect(s, child) || expr_has_effect(s, then_idx)
+				|| expr_has_effect(s, s->ast->nodes[then_idx].next_bro);
+	}
 	default:
 		break;
 	}

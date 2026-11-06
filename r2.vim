@@ -16,7 +16,7 @@ syntax region  r2Comment   start="/\*" end="\*/"
 syntax match   r2Char      "\v'([^'\\]|\\.)'"
 syntax region  r2String    start=+"+ skip=+\\"+ end=+"+
 syntax match   r2Number    "\v\b(0[xX][0-9a-fA-F]+|0[oO][0-7]+|0[bB][01]+|\d+)[uU]?\b"
-syntax match   r2Operator  "\v[+\-*/%=<>!&\|\^\@\$]+"
+syntax match   r2Operator  "\v[+\-*/%=<>!&\|\^\@\$]+?"
 syntax match   r2Delimiter "\v[\(\)\{\}\[\],;\:]"
 
 highlight def link r2Statement Statement

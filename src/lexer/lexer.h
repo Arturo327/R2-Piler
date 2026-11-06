@@ -11,7 +11,7 @@ typedef enum {
 
 	TOK_VAR, TOK_ARR, TOK_ID, TOK_FN, TOK_ENUM,
 	TOK_TYPE, TOK_NEWTYPE, TOK_EXTERN, TOK_STATIC,				// Declarations
-	TOK_SEMCOL, TOK_COMMA, TOK_COL, TOK_DOT,				// Punctuation, Symbols
+	TOK_SEMCOL, TOK_COMMA, TOK_COL, TOK_DOT, TOK_QUESTION,			// Punctuation, Symbols
 	TOK_LPAREN, TOK_RPAREN, TOK_LKEY, TOK_RKEY, TOK_LBRACE, TOK_RBRACE,	// Parentheses, Braces
 	TOK_LIT_i64, TOK_LIT_u64, TOK_LIT_CHAR, TOK_LIT_STR,			// Literals
 
