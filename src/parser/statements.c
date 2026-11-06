@@ -616,6 +616,73 @@ static uint32_t parse_for (Parser *p)
 	return parse_for_expr(p, node);
 }
 
+static uint32_t parse_case (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	consume(p, TOK_CASE, "expected 'case'");
+
+	uint32_t node = new_node(p, NODE_CASE, line, col);
+	uint32_t last = NO_NODE;
+
+	consume(p, TOK_LPAREN, "expected '(' after 'case'");
+	while (p->curr.type != TOK_RPAREN && p->curr.type != TOK_EOF) {
+		uint32_t value = parse_expr(p, 0);
+
+		append_child(p, node, &last, value);
+		if (p->curr.type != TOK_COMMA) break;
+		advance(p);
+	}
+	consume(p, TOK_RPAREN, "expected ')' after the case values");
+
+	uint32_t body = parse_block(p);
+
+	append_child(p, node, &last, body);
+	return node;
+}
+
+static uint32_t parse_default (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	consume(p, TOK_DEFAULT, "expected 'default'");
+
+	uint32_t node = new_node(p, NODE_DEFAULT, line, col);
+	uint32_t body = parse_block(p);
+
+	p->ast.nodes[node].child = body;
+	return node;
+}
+
+static uint32_t parse_switch (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	consume(p, TOK_SWITCH, "expected 'switch'");
+
+	uint32_t node = new_node(p, NODE_SWITCH, line, col);
+	uint32_t cond = parse_cond(p, "expected condition after switch statement");
+	uint32_t last = NO_NODE;
+
+	append_child(p, node, &last, cond);
+	consume(p, TOK_LKEY, "expected '{' after the switch condition");
+	while (p->curr.type != TOK_RKEY && p->curr.type != TOK_EOF) {
+		if (p->curr.type == TOK_CASE) {
+			append_child(p, node, &last, parse_case(p));
+		} else if (p->curr.type == TOK_DEFAULT) {
+			append_child(p, node, &last, parse_default(p));
+		} else {
+			if (!p->panic_mode)
+				error_report(p->err, ERR_ERROR, token_loc(p->curr),
+						"expected 'case' or 'default'");
+			p->panic_mode = 1;
+			advance(p);
+		}
+	}
+	consume(p, TOK_RKEY, "expected '}' at the end of the switch");
+	return node;
+}
+
 static uint32_t error_prefix_inc (Parser *p)
 {
 	Token op = p->curr;
@@ -647,6 +714,7 @@ static uint32_t parse_statement_inner (Parser *p)
 	case TOK_IF: return parse_if(p);
 	case TOK_WHILE: return parse_while(p);
 	case TOK_FOR: return parse_for(p);
+	case TOK_SWITCH: return parse_switch(p);
 	case TOK_INC: case TOK_DEC: return error_prefix_inc(p);
 	default: {
 		uint32_t node = maybe_inc_dec(p, parse_expr(p, 0));

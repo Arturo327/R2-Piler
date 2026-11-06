@@ -1200,6 +1200,82 @@ static void gen_for (IR *ir, ASTNode *n)
 	else gen_jump_if(ir, cond, l_body, 1);
 }
 
+static uint32_t ir_case_body (IR *ir, uint32_t clause)
+{
+	uint32_t v = ir->ast->nodes[clause].child;
+	while (v != NO_NODE && ir->ast->nodes[v].type != NODE_BLOCK)
+		v = ir->ast->nodes[v].next_bro;
+	return v;
+}
+
+static void gen_switch_tests (IR *ir, uint32_t cond, uint32_t scrut,
+		TypeId type, uint32_t *labels, uint32_t dflt)
+{
+	ASTNode *nodes = ir->ast->nodes;
+	uint32_t clause = nodes[cond].next_bro;
+	uint32_t k = 0;
+
+	while (clause != NO_NODE) {
+		ASTNode *c = nodes + clause;
+
+		if (c->type != NODE_DEFAULT) {
+			uint32_t v = c->child;
+
+			while (v != NO_NODE && nodes[v].type != NODE_BLOCK) {
+				uint32_t eq = make_op(ir, IR_EQ, scrut,
+						gen_expr(ir, nodes + v), type);
+
+				make_jump(ir, IR_JNZ, eq, labels[k]);
+				v = nodes[v].next_bro;
+			}
+		}
+		k++;
+		clause = nodes[clause].next_bro;
+	}
+	make_jump(ir, IR_JMP, NO_REG, dflt);
+}
+
+static void gen_switch (IR *ir, ASTNode *n)
+{
+	ASTNode *nodes = ir->ast->nodes;
+	uint32_t cond = n->child;
+	TypeId type = nodes[cond].data_type;
+	uint32_t scrut = gen_expr(ir, nodes + cond);
+	uint32_t end = ir->label_count++;
+
+	uint32_t clause = nodes[cond].next_bro;
+	uint32_t count = 0;
+	while (clause != NO_NODE) {
+		count++;
+		clause = nodes[clause].next_bro;
+	}
+
+	uint32_t labels[count + 1];
+
+	clause = nodes[cond].next_bro;
+	count = 0;
+	uint32_t dflt = 0;
+
+	while (clause != NO_NODE) {
+		labels[count] = ir->label_count++;
+		if (nodes[clause].type == NODE_DEFAULT) dflt = labels[count];
+		count++;
+		clause = nodes[clause].next_bro;
+	}
+
+	gen_switch_tests(ir, cond, scrut, type, labels, dflt);
+
+	count = 0;
+	clause = nodes[cond].next_bro;
+	while (clause != NO_NODE) {
+		make_label(ir, labels[count++]);
+		gen_stmt(ir, nodes + ir_case_body(ir, clause));
+		make_jump(ir, IR_JMP, NO_REG, end);
+		clause = nodes[clause].next_bro;
+	}
+	make_label(ir, end);
+}
+
 static void gen_stmt (IR *ir, ASTNode *n)
 {
 	switch (n->type)
@@ -1211,6 +1287,7 @@ static void gen_stmt (IR *ir, ASTNode *n)
 	case NODE_WHILE: gen_while(ir, n); return;
 	case NODE_FOR: gen_for(ir, n); return;
 	case NODE_IF: gen_if(ir, n); return;
+	case NODE_SWITCH: gen_switch(ir, n); return;
 	case NODE_INC: case NODE_DEC: gen_inc_dec(ir, n); return;
 	case NODE_EMPTY: return;
 	default: gen_expr(ir, n); return;

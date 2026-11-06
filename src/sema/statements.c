@@ -412,6 +412,155 @@ static void check_for (Sema *s, uint32_t idx)
 	pop_scope(s, mark);
 }
 
+static uint32_t switch_value_count (Sema *s, uint32_t cond)
+{
+	uint32_t count = 0;
+	uint32_t clause = s->ast->nodes[cond].next_bro;
+
+	while (clause != NO_NODE) {
+		ASTNode *c = s->ast->nodes + clause;
+		uint32_t v = c->child;
+
+		while (v != NO_NODE && s->ast->nodes[v].type != NODE_BLOCK) {
+			count++;
+			v = s->ast->nodes[v].next_bro;
+		}
+		clause = c->next_bro;
+	}
+	return count;
+}
+
+static uint32_t case_body (Sema *s, uint32_t clause)
+{
+	uint32_t v = s->ast->nodes[clause].child;
+
+	while (v != NO_NODE && s->ast->nodes[v].type != NODE_BLOCK)
+		v = s->ast->nodes[v].next_bro;
+	return v;
+}
+
+static uint32_t check_case_value (Sema *s, uint32_t pos, TypeId type, uint64_t *seen, uint32_t *nseen)
+{
+	TypeId vt = check_expr(s, pos);
+	ASTNode *n = s->ast->nodes + pos;
+
+	if (vt == TYPE_ERROR) return pos;
+
+	uint64_t bits;
+	if (!lit_node_bits(s, n, &bits)) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"case value must be a constant expression");
+		return pos;
+	}
+
+	int ok;
+	uint32_t cast = force_cast(s, pos, vt, type, &ok);
+
+	if (!ok) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + pos),
+				"case value of type %s does not match the switch type %s;"
+				" use an explicit cast with 'as'",
+				type_display_name(vt), types[type].name);
+		return pos;
+	}
+	n = s->ast->nodes + cast;
+	if (!lit_node_bits(s, n, &bits)) return cast;
+
+	for (uint32_t i = 0; i < *nseen; i++) {
+		if (seen[i] == bits) {
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"duplicate case value");
+			return cast;
+		}
+	}
+	seen[(*nseen)++] = bits;
+	return cast;
+}
+
+static void check_case_clause (Sema *s, uint32_t clause, TypeId type, uint64_t *seen, uint32_t *nseen)
+{
+	uint32_t v = s->ast->nodes[clause].child;
+	uint32_t prev = NO_NODE;
+
+	if (v == NO_NODE || s->ast->nodes[v].type == NODE_BLOCK) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + clause),
+				"case requires at least one value");
+		return;
+	}
+	while (v != NO_NODE && s->ast->nodes[v].type != NODE_BLOCK) {
+		uint32_t next = s->ast->nodes[v].next_bro;
+		uint32_t nv = check_case_value(s, v, type, seen, nseen);
+
+		if (nv != v) {
+			if (prev == NO_NODE) s->ast->nodes[clause].child = nv;
+			else s->ast->nodes[prev].next_bro = nv;
+			s->ast->nodes[nv].next_bro = next;
+		}
+		prev = nv;
+		v = next;
+	}
+}
+
+static void check_switch_body (Sema *s, uint32_t body, uint8_t *snap, uint8_t *acc, uint32_t mark)
+{
+	symtab_clear_pending(&s->table);
+	check_body(s, body);
+	if (!stmt_returns(s, body))
+		symtab_intersect_flags(&s->table, acc, mark);
+	symtab_load_flags(&s->table, snap, mark);
+}
+
+static void check_switch_clauses (Sema *s, uint32_t idx, TypeId type)
+{
+	uint32_t cond = s->ast->nodes[idx].child;
+	uint32_t mark = s->table.act_count;
+	uint8_t *snap = arena_alloc(s->arena, (size_t)mark * 2);
+	uint8_t *acc = snap + mark;
+	uint64_t *seen = arena_alloc(s->arena, sizeof(uint64_t) * (switch_value_count(s, cond) + 1));
+	uint32_t nseen = 0;
+	uint32_t clause = s->ast->nodes[cond].next_bro;
+	int has_default = 0;
+
+	memset(acc, 1, mark);
+	symtab_save_flags(&s->table, snap, mark);
+
+	while (clause != NO_NODE) {
+		ASTNode *c = s->ast->nodes + clause;
+		uint32_t body;
+
+		if (c->type == NODE_DEFAULT) {
+			has_default = 1;
+			body = c->child;
+		} else {
+			check_case_clause(s, clause, type, seen, &nseen);
+			body = case_body(s, clause);
+		}
+		check_switch_body(s, body, snap, acc, mark);
+		clause = s->ast->nodes[clause].next_bro;
+	}
+
+	if (!has_default)
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"switch requires a 'default' clause");
+	symtab_load_flags(&s->table, acc, mark);
+}
+
+static void check_switch (Sema *s, uint32_t idx)
+{
+	uint32_t cond = s->ast->nodes[idx].child;
+	TypeId type = check_expr(s, cond);
+
+	TypeKind kind = type_kind(type_repr(type));
+	if (type != TYPE_ERROR && !(kind == TK_INT || kind == TK_ENUM)) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
+				"expression of type %s cannot be switched on",
+				type_display_name(type));
+		type = TYPE_ERROR;
+	}
+	type = finalize_type(s, cond, type);
+	check_switch_clauses(s, idx, type);
+}
+
 static void check_return (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -477,6 +626,23 @@ static int if_returns (Sema *s, uint32_t idx)
 	return has_else;
 }
 
+static int switch_returns (Sema *s, uint32_t idx)
+{
+	uint32_t cond = s->ast->nodes[idx].child;
+	uint32_t clause = s->ast->nodes[cond].next_bro;
+	int has_default = 0;
+
+	while (clause != NO_NODE) {
+		ASTNode *c = s->ast->nodes + clause;
+		uint32_t body = c->type == NODE_DEFAULT ? c->child : case_body(s, clause);
+
+		if (!stmt_returns(s, body)) return 0;
+		if (c->type == NODE_DEFAULT) has_default = 1;
+		clause = c->next_bro;
+	}
+	return has_default;
+}
+
 static int stmt_returns (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -487,6 +653,7 @@ static int stmt_returns (Sema *s, uint32_t idx)
 	case NODE_RET: return 1;
 	case NODE_BLOCK: return block_returns(s, idx);
 	case NODE_IF: return if_returns(s, idx);
+	case NODE_SWITCH: return switch_returns(s, idx);
 	case NODE_WHILE: return const_cond_value(s, n->child) == 1;
 	case NODE_FOR:
 		cond = s->ast->nodes[n->child].next_bro;
@@ -516,6 +683,7 @@ static void check_statement (Sema *s, uint32_t idx)
 	case NODE_WHILE: check_while(s, idx); return;
 	case NODE_FOR: check_for(s, idx); return;
 	case NODE_IF: check_if(s, idx); return;
+	case NODE_SWITCH: check_switch(s, idx); return;
 	case NODE_INC: case NODE_DEC: check_inc_dec(s, idx); return;
 	case NODE_EMPTY: n->data_type = TYPE_VOID; return;
 	case NODE_FN_DEC:
