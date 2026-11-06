@@ -143,6 +143,8 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select)
 	ir->symtab = &sema->table;
 	ir->init_order = sema->init_order;
 	ir->init_order_count = sema->init_order_count;
+	ir->statics = sema->statics;
+	ir->static_count = sema->static_count;
 
 	ir->init_fn = 0;
 	ir->reg_count = 0;
@@ -215,6 +217,21 @@ static uint32_t declare_global (IR *ir, ASTNode *n, Symbol *sym)
 	return push_global(ir, global);
 }
 
+static uint32_t declare_static (IR *ir, uint32_t node_idx, uint32_t k)
+{
+	ASTNode *n = ir->ast->nodes + node_idx;
+	Symbol *sym = ir->symtab->symbols + n->sym;
+	size_t cap = (size_t)n->len + 24;
+	char *name = arena_alloc(ir->arena, cap);
+	int len = snprintf(name, cap, "sv.%u.%.*s", k, (int)n->len, n->str);
+	IRGlobal global = {0};
+
+	global.name = name;
+	global.len = (uint16_t)len;
+	global.type = sym->type;
+	return push_global(ir, global);
+}
+
 static void declare_globals (IR *ir)
 {
 	uint32_t idx = ir->ast->nodes[0].child;
@@ -234,6 +251,12 @@ static void declare_globals (IR *ir)
 		else s->ir_id = declare_global(ir, n, s);
 
 		idx = n->next_bro;
+	}
+
+	for (uint32_t i = 0; i < ir->static_count; i++) {
+		uint32_t node = ir->statics[i];
+		Symbol *s = ir->symtab->symbols + ir->ast->nodes[node].sym;
+		s->ir_id = declare_static(ir, node, i);
 	}
 }
 
@@ -443,7 +466,7 @@ static uint32_t gen_addr (IR *ir, ASTNode *n)
 
 	Symbol *s = ir->symtab->symbols + child->sym;
 	dst = new_reg(ir, n->data_type);
-	if (!s->depth) {
+	if (!s->depth || s->is_static) {
 		make_addr_global(ir, dst, s->ir_id, n->data_type);
 		return dst;
 	}
@@ -565,7 +588,7 @@ static uint32_t gen_array_addr (IR *ir, ASTNode *n)
 	Symbol *s = ir->symtab->symbols + n->sym;
 	if (s->kind == SYMBOL_PARAM)
 		return read_reg(ir, s->ir_id, type_ptr_to(type_flat_element(s->type)));
-	if (!s->depth) {
+	if (!s->depth || s->is_static) {
 		uint32_t dst = new_reg(ir, TYPE_i64);
 
 		make_addr_global(ir, dst, s->ir_id, n->data_type);
@@ -658,7 +681,7 @@ static uint32_t gen_lvalue_addr (IR *ir, ASTNode *lhs)
 
 static uint32_t load_var (IR *ir, Symbol *s)
 {
-	if (!s->depth)
+	if (!s->depth || s->is_static)
 		return make_ld_global(ir, s->ir_id, s->type);
 
 	uint32_t tmp = new_reg(ir, s->type);
@@ -705,7 +728,7 @@ static uint32_t gen_assign (IR *ir, ASTNode *n)
 	}
 
 	Symbol *s = ir->symtab->symbols + lhs->sym;
-	if (!s->depth) make_str_global(ir, s->ir_id, val, s->type);
+	if (!s->depth || s->is_static) make_str_global(ir, s->ir_id, val, s->type);
 	else make_move(ir, s->ir_id, val, s->type);
 	return val;
 }
@@ -726,7 +749,7 @@ static uint32_t gen_compound_assign (IR *ir, ASTNode *n)
 	}
 
 	Symbol *s = ir->symtab->symbols + lhs->sym;
-	if (!s->depth) make_str_global(ir, s->ir_id, val, s->type);
+	if (!s->depth || s->is_static) make_str_global(ir, s->ir_id, val, s->type);
 	else make_move(ir, s->ir_id, val, s->type);
 	return val;
 }
@@ -751,7 +774,7 @@ static void gen_inc_dec (IR *ir, ASTNode *n)
 	}
 
 	Symbol *s = ir->symtab->symbols + target->sym;
-	if (!s->depth) make_str_global(ir, s->ir_id, val, s->type);
+	if (!s->depth || s->is_static) make_str_global(ir, s->ir_id, val, s->type);
 	else make_move(ir, s->ir_id, val, s->type);
 }
 
@@ -884,7 +907,10 @@ static ASTNode *lone_assign (IR *ir, uint32_t idx)
 		n = nodes + n->child;
 	}
 	if (n->type != NODE_ASSIGN) return NULL;
-	if (!ir->symtab->symbols[nodes[n->child].sym].depth) return NULL;
+
+	Symbol *s = ir->symtab->symbols + nodes[n->child].sym;
+
+	if (!s->depth || s->is_static) return NULL;
 	return is_simple_val(ir, nodes[n->child].next_bro) ? n : NULL;
 }
 
@@ -1033,6 +1059,8 @@ static uint32_t gen_expr (IR *ir, ASTNode *n)
 
 static void gen_var_dec (IR *ir, ASTNode *n)
 {
+	if (n->flags & NODE_FLAG_STATIC) return;
+
 	Symbol *s = ir->symtab->symbols + n->sym;
 	uint32_t reg;
 

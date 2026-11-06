@@ -24,6 +24,10 @@ typedef struct Sema {
 	uint32_t init_order_count;
 	uint32_t init_order_cap;
 
+	uint32_t *statics;
+	uint32_t static_count;
+	uint32_t static_cap;
+
 	DeadWrite *dead;
 	uint32_t dead_count;
 	uint32_t dead_cap;

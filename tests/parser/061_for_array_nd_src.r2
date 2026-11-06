@@ -6,4 +6,6 @@ for (c, d : mat) {
   t += mat[c][d];
 }
 for (var x : i32, y : i32, z : i32 : cube) t += cube[x][y][z];
+for (var u : i64, v : i64 : m[0]) t += m[0][u][v];
+for (var a : i64, b : i64 : m[i][0]) t += m[i][0][a][b];
 for (var i : i64 : m) t += m[i].len;

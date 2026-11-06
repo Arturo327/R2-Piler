@@ -6,7 +6,7 @@ if exists("b:current_syntax")
 endif
 
 syntax keyword r2Statement fn return if elif else while for switch case default
-syntax keyword r2Storage   var arr extern pub export type newtype struct union class
+syntax keyword r2Storage   var arr extern pub export type newtype struct union class static
 syntax keyword r2Flow      defer new delete reset
 syntax keyword r2Keyword   as sizeof import from
 syntax keyword r2Type      i8 u8 i16 u16 i32 u32 i64 u64 char void ptr

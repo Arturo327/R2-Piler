@@ -442,6 +442,7 @@ static const Keyword keywords[] = {
 	{"extern", TOK_EXTERN},
 	{"return", TOK_RET},
 	{"sizeof", TOK_SIZEOF},
+	{"static", TOK_STATIC},
 	{"newtype", TOK_NEWTYPE}
 };
 
@@ -580,7 +581,7 @@ static const char *const token_names[TOK_COUNT] = {
 	TN(TOK_FN), TN(TOK_ENUM), TN(TOK_TYPE), TN(TOK_NEWTYPE), TN(TOK_EXTERN),
 	TN(TOK_SEMCOL), TN(TOK_COMMA), TN(TOK_COL),
 	TN(TOK_DOT), TN(TOK_LPAREN), TN(TOK_RPAREN), TN(TOK_LKEY), TN(TOK_RKEY),
-	TN(TOK_LBRACE), TN(TOK_RBRACE),
+	TN(TOK_LBRACE), TN(TOK_RBRACE), TN(TOK_STATIC),
 	TN(TOK_LIT_i64), TN(TOK_LIT_u64), TN(TOK_LIT_CHAR), TN(TOK_LIT_STR),
 	TN(TOK_i8), TN(TOK_u8), TN(TOK_i16), TN(TOK_u16), TN(TOK_i32), TN(TOK_u32),
 	TN(TOK_i64), TN(TOK_u64), TN(TOK_CHAR), TN(TOK_VOID), TN(TOK_IF),

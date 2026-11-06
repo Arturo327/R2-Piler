@@ -90,6 +90,25 @@ static uint32_t parse_decl (Parser *p, int is_arr)
 	return parse_decl_list(p, parse_decl_inner(p, is_arr), is_arr);
 }
 
+static uint32_t parse_static_decl (Parser *p)
+{
+	consume(p, TOK_STATIC, "expected 'static'");
+
+	if (p->curr.type != TOK_VAR && p->curr.type != TOK_ARR) {
+		if (!p->panic_mode)
+			error_report(p->err, ERR_ERROR, token_loc(p->curr),
+					"expected 'var' or 'arr' after 'static'");
+		p->panic_mode = 1;
+		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
+	}
+
+	uint32_t first = parse_decl(p, p->curr.type == TOK_ARR);
+
+	for (uint32_t node = first; node != NO_NODE; node = p->ast.nodes[node].next_bro)
+		p->ast.nodes[node].flags |= NODE_FLAG_STATIC;
+	return first;
+}
+
 uint32_t parse_block (Parser *p)
 {
 	uint16_t line = p->curr.line;
@@ -616,6 +635,7 @@ static uint32_t parse_statement_inner (Parser *p)
 	switch (p->curr.type)
 	{
 	case TOK_VAR: return parse_decl(p, 0);
+	case TOK_STATIC: return parse_static_decl(p);
 	case TOK_ARR: return parse_decl(p, 1);
 	case TOK_LKEY: return parse_block(p);
 	case TOK_FN: return parse_fn_decl(p);

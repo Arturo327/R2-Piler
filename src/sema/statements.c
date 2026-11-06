@@ -68,6 +68,55 @@ static void check_block (Sema *s, uint32_t idx)
 	pop_scope(s, mark);
 }
 
+static int is_static_const (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	uint64_t bits;
+
+	switch (n->type)
+	{
+	case NODE_LIT_NULL: case NODE_LIT_STR:
+		return 1;
+	case NODE_CAST:
+		return n->child != NO_NODE && is_static_const(s, n->child);
+	case NODE_ARRAY_INIT: {
+		uint32_t item = n->child;
+
+		while (item != NO_NODE) {
+			if (!is_static_const(s, item)) return 0;
+			item = s->ast->nodes[item].next_bro;
+		}
+		return 1;
+	}
+	case NODE_ADDR: {
+		ASTNode *c = n->child != NO_NODE ? &s->ast->nodes[n->child] : NULL;
+
+		return c != NULL && c->type == NODE_ID && c->sym != NO_SYMBOL
+				&& s->table.symbols[c->sym].depth == 0;
+	}
+	default:
+		return lit_node_bits(s, n, &bits);
+	}
+}
+
+static void check_static_decl (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	int has_init = n->child != NO_NODE;
+
+	if (has_init && n->data_type != TYPE_ERROR
+			&& !is_static_const(s, n->child))
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + n->child),
+				"a 'static' initializer must be a constant expression");
+
+	uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_VAR, n->data_type, idx);
+
+	s->table.symbols[sym].is_static = 1;
+	s->table.symbols[sym].assigned = 1;
+	if (has_init) record_init_order(s, idx);
+	record_static(s, idx);
+}
+
 static void check_var_dec (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -94,6 +143,10 @@ static void check_var_dec (Sema *s, uint32_t idx)
 	}
 
 	n = s->ast->nodes + idx;
+	if (n->flags & NODE_FLAG_STATIC) {
+		check_static_decl(s, idx);
+		return;
+	}
 	uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_VAR, n->data_type, idx);
 
 	if (is_null) s->table.symbols[sym].null_known = 1;
@@ -232,7 +285,7 @@ static int const_cond_value (Sema *s, uint32_t idx)
 	}
 }
 
-static int check_cond (Sema *s, uint32_t cond, int alw_err)
+int check_cond (Sema *s, uint32_t cond, int alw_err)
 {
 	TypeId type = check_expr(s, cond);
 

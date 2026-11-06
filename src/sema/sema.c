@@ -216,6 +216,9 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->init_order_count = 0;
 	s->init_order_cap = 16;
 	s->init_order = arena_alloc(arena, sizeof(uint32_t) * s->init_order_cap);
+	s->static_count = 0;
+	s->static_cap = 16;
+	s->statics = arena_alloc(arena, sizeof(uint32_t) * s->static_cap);
 	s->dead_count = 0;
 	s->dead_cap = 16;
 	s->dead = arena_alloc(arena, sizeof(DeadWrite) * s->dead_cap);
@@ -448,7 +451,7 @@ void check_var_init_type (Sema *s, ASTNode *n, TypeId init_type)
 			type_display_name(init_type), hint);
 }
 
-static void record_init_order (Sema *s, uint32_t idx)
+void record_init_order (Sema *s, uint32_t idx)
 {
 	if (s->init_order_count >= s->init_order_cap) {
 		uint32_t old_cap = s->init_order_cap;
@@ -457,6 +460,17 @@ static void record_init_order (Sema *s, uint32_t idx)
 				old_cap * sizeof(uint32_t), s->init_order_cap * sizeof(uint32_t));
 	}
 	s->init_order[s->init_order_count++] = idx;
+}
+
+void record_static (Sema *s, uint32_t idx)
+{
+	if (s->static_count >= s->static_cap) {
+		uint32_t old_cap = s->static_cap;
+		s->static_cap <<= 1;
+		s->statics = arena_realloc(s->arena, s->statics,
+				old_cap * sizeof(uint32_t), s->static_cap * sizeof(uint32_t));
+	}
+	s->statics[s->static_count++] = idx;
 }
 
 static int is_const_ptr_init (Sema *s, uint32_t idx)
@@ -679,8 +693,12 @@ static void check_root (Sema *s)
 
 	while (idx != NO_NODE) {
 		ASTNode *n = s->ast->nodes + idx;
-		if (n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC)
+		if (n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC) {
+			if (n->flags & NODE_FLAG_STATIC)
+				error_report(s->err, ERR_ERROR, node_loc(n),
+						"static variables can only be declared inside a function");
 			check_global_var_init(s, idx);
+		}
 		else if (n->type == NODE_FN_DEC) check_fn_dec(s, idx);
 		else if (n->type == NODE_EXTERN_FN_DEC) check_extern_fn(s, idx);
 		else if (n->type != NODE_ENUM_DEC && n->type != NODE_TYPE_DEC
@@ -789,8 +807,9 @@ void dump_symbols (SymbolTable *t)
 					types[id].name, types[types[id].base].name);
 			continue;
 		}
-		printf("%s %.*s [%u:%u] depth=%u type=%s\n",
-				kind_name(sym->kind), (int)sym->len, sym->name,
+		printf("%s%s %.*s [%u:%u] depth=%u type=%s\n",
+				sym->is_static ? "static " : "", kind_name(sym->kind),
+				(int)sym->len, sym->name,
 				sym->line, sym->col, sym->depth, types[sym->type].name);
 	}
 }

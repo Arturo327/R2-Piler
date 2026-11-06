@@ -43,6 +43,7 @@ typedef struct Symbol {
 	uint8_t read : 1;
 	uint8_t null_known : 1;
 	uint8_t pending_write : 1;
+	uint8_t is_static : 1;
 	uint8_t state : 2;
 } Symbol;
 

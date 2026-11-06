@@ -143,7 +143,7 @@ void sym_write (Sema *s, uint32_t sym, uint32_t node)
 
 	Symbol *sp = &s->table.symbols[sym];
 	if (sp->kind != SYMBOL_VAR && sp->kind != SYMBOL_PARAM) return;
-	if (sp->depth == 0 || sp->addressed) return;
+	if (sp->depth == 0 || sp->addressed || sp->is_static) return;
 
 	if (sp->pending_write)
 		record_dead_write(s, sym, sp->write_node);

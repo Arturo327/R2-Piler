@@ -104,6 +104,9 @@ typedef struct IR {
 	uint32_t *init_order;
 	uint32_t init_order_count;
 
+	uint32_t *statics;
+	uint32_t static_count;
+
 	uint32_t reg_count;
 	uint32_t label_count;
 

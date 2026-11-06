@@ -114,6 +114,8 @@ static void release_frontend (Compiler *c)
 	c->ir.symtab = NULL;
 	c->ir.init_order = NULL;
 	c->ir.init_order_count = 0;
+	c->ir.statics = NULL;
+	c->ir.static_count = 0;
 }
 
 int compile (Compiler *c, CompilerOpts *opts)

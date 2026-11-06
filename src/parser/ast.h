@@ -7,6 +7,7 @@
 
 #define NO_NODE 0xFFFFFFFF
 #define NO_TYPE_NODE 0
+#define NODE_FLAG_STATIC 1
 
 typedef enum {
 	NODE_ERROR = 0, NODE_EMPTY,
@@ -49,6 +50,7 @@ typedef struct ASTNode {
 	uint16_t len;
 
 	uint8_t type;
+	uint8_t flags;
 	TypeId data_type;
 } ASTNode;
 
