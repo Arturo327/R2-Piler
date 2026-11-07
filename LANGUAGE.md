@@ -17,6 +17,8 @@ un cast explícito.
 - Aliases de tipo transparentes (`type Index = u32`) y tipos nominales nuevos (`newtype Seconds = u32`). Ver §3.2.
 - Punteros (`ptr T`, `ptr void`), `$x` dirección, `@p` desreferencia, `p[i]` indexación, el literal `NULL`, `sizeof`, aritmética y comparación de punteros y casts solo entre punteros. Ver §3.
 - Literales string, de tipo `string`, que se comportan como `ptr i8` donde se espera uno. Ver §2.5.
+- Arrays concretos de rango N (`arr m : i32[2][3]`) con inicializadores exhaustivos, `.len`/`sizeof`, indexación y decay a puntero; slices genéricos `T[]`/`T[][]`/... solo como tipos de parámetro. Ver §3.3.
+- Statements: `if`/`elif`/`else`, `while`, `for` (C-style y por índice sobre arrays/slices), `switch` con `case`/`default`, `static var`/`static arr` dentro de funciones y el ternario `?:` como expresión. Ver §5 y §6.
 - Funciones solo a nivel top-level, con parámetros por valor.
 - Interoperabilidad con C vía declaraciones `extern fn` / `extern var`, que no llevan cuerpo ni init y se emiten con su nombre C sin mangling. Ver §8.1.
 - Scopes de bloque con shadowing entre scopes.
@@ -46,10 +48,10 @@ Identificadores: `[a-zA-Z_][a-zA-Z0-9_]*`.
 Keywords (una palabra clave nunca puede usarse como identificador):
 
 ```
-fn  if    for    i8   u8   i16  u16  i32  u32
+fn  if    for    arr   i8   u8   i16  u16  i32  u32
 i64  u64   var   char  elif  else  void
 while  return  as  enum  type  newtype  extern
-ptr  NULL  sizeof
+switch  case  default  static  ptr  NULL  sizeof
 ```
 
 `ptr`, `NULL` y `sizeof` son keywords (no identificadores). `@` y `$` son operadores unarios, no palabras clave.
@@ -260,7 +262,7 @@ fn main() : i64 {
 ```
 
 - **Declaración**: `arr ID : T[N]… [= inicializador];` en locales y globales, con cualquier rango concreto. `arr` es obligatorio: `var x : i32[5];` es error (`array declarations must use 'arr'`) y `arr x : i64;` también (`'arr' declarations must have an array type`). Un slice local (`arr x : i32[];` o `arr x : i32[][];`) es error (`slice types are only allowed as function parameters`).
-- **Dimensiones**: cada `[N]` debe ser una expresión entera constante y mayor que cero; una variable (`i32[n]`) es `array size must be a constant integer expression`, `0` es `array size must be greater than zero` y un tamaño total que no cabe es `array is too large`. Las dimensiones se leen de fuera hacia dentro, como en C: `i32[2][3]` son 2 filas de 3 `i32` (row-major, contiguas) y se indexa `m[i][j]`; un array puede tener cualquier rango (`i32[2][3][4]`). Los slices genéricos solo existen como parámetros y pueden tener cualquier rango (`T[]`, `T[][]`, `T[][][]`, ...); cada `[]` vacío añade una dimensión al descriptor. No se mezclan dimensiones concretas y genéricas: `i32[2][]` es `a concrete array cannot have a slice element type` y `i32[][3]` es `a generic slice cannot have a concrete array element type`. Tampoco hay puntero-a-array: `ptr i32[2]` se interpreta como `ptr` a un array y se rechaza (`invalid pointer base type 'i32[2]'`).
+- **Dimensiones**: cada `[N]` debe ser una expresión entera constante y mayor que cero; una variable (`i32[n]`) es `array size must be a constant integer expression`, `0` es `array size must be greater than zero` y un tamaño total que no cabe es `array is too large`. Las dimensiones se leen de fuera hacia dentro, como en C: `i32[2][3]` son 2 filas de 3 `i32` (row-major, contiguas) y se indexa `m[i][j]`; un array puede tener cualquier rango (`i32[2][3][4]`). Los slices genéricos solo existen como parámetros y pueden tener cualquier rango (`T[]`, `T[][]`, `T[][][]`, ...); cada `[]` vacío añade una dimensión al descriptor. No se mezclan dimensiones concretas y genéricas: `i32[2][]` es `a concrete array cannot have a slice element type` y `i32[][3]` es `a generic slice cannot have a concrete array element type`. Tampoco hay puntero-a-array: `ptr i32[2]` se interpreta como `ptr` a un array y se rechaza (`invalid pointer base type 'i32[2]'`). El parser acepta como máximo 16 dimensiones en una especificación de tipo (`i32[1][1]...`); excederlo reporta `type has too many dimensions (max 16)` y sigue consumiendo sin construir más niveles.
 - **Memoria**: los arrays locales viven en el stack; los globales en `.bss`. Un global con inicializador **no** se liga a `.data`: `.bss` queda a cero y `__r2_init` escribe los elementos con stores. Un global sin inicializador ya vale cero. Un array local sin inicializador queda indefinido, como un `var` sin init.
 - **Inicializadores**: `{...}` debe ser **exhaustivo y exacto en cada nivel** (`array initializer must have exactly N elements (found M)`); no hay zero-fill implícito. Un elemento de tipo array exige a su vez una lista `{...}` (`array element of type T requires a '{...}' initializer`) o, si su array hoja es `i8`/`u8`, un literal string; una lista donde el elemento es escalar es error (`array element of type T cannot be initialized with a '{...}' list`). Así, `i32[2][3] = {{1, 2, 3}, {4, 5, 6}}` e `i8[2][4] = {"ab", "cd"}`. Para `i8[]`/`u8[]` se admite un literal string en cualquier nivel: se copian los bytes más el terminador NUL y, en locales, el resto de esa fila se rellena con ceros; si `len + 1 > N` es error (`string literal needs ... but the array has room for ...`) y en un array que no sea `i8`/`u8` también (`string initializer requires an i8, u8 or char array`). Los elementos escalares siguen las reglas de asignación (literal flexible o ensanche silencioso); un valor no convertible es error en el elemento. Un `{...}` sobre un tipo no array es error (`'{...}' initializer requires an array type`).
 - **`.len`**: en un array concreto se pliega al tamaño de **esa** dimensión y es una constante **flexible** (como `sizeof`), así que adopta el tipo del contexto si cabe (`var n : u64 = lista.len;`); sin contexto es `i64`. En `m : i32[2][3]`, `m.len` es 2 y `m[i].len` es 3 (constantes, independientes de `i`); en un array de rango 3 hay un `.len` por nivel. En un slice es un valor **runtime** y también **flexible**: `v.len` en `T[]` es la única longitud, y en un rango N cada nivel da su dimensión (`m[i].len`, `m[i][j].len`, ...; las matrices son rectangulares, así que no depende de los índices). Al ser runtime no se comprueba el rango en compilación: se lee al ancho del tipo que pide el contexto (`var b : u8 = v.len;` trunca a 8 bits, `var n : i32 = v.len;` a 32) y truncar queda a cargo del programador; sin contexto es `i64`. Es **solo lectura**: `lista.len = 3;` es error (`left side of '=' must be a variable`). En un array/slice, un campo distinto de `len` es `type T has no field 'X'`; sobre una variable que no sea array ni slice es `'x' is not an array or a slice`.
@@ -292,9 +294,12 @@ De mayor a menor precedencia. Todos los binarios son asociativos por la izquierd
 | 4 | `\|` | tipo de los operandos |
 | 3 | `&&` | `i64` |
 | 2 | `\|\|` | `i64` |
+| 1.5 | `cond ? a : b` | tipo unificado de las ramas (ver §5) |
 | 1 | `=` `+=` `-=` `*=` `/=` `%=` `&=` `\|=` `^=` `<<=` `>>=` | tipo del LHS |
 
 Los compuestos (`+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `<<=`, `>>=`) son tokens propios, no `+` seguido de `=`; `<<=`/`>>=` son tokens de tres caracteres. `x OP= e` es exactamente `x = x OP e` (misma precedencia de asignación y misma asociatividad por la derecha).
+
+El ternario `cond ? a : b` se sitúa entre `||` y la asignación: `x = c ? a : b` es `x = (c ? a : b)`, `c ? a : b = x` es `(c ? a : b) = x` y las condiciones/ramas admiten cualquier expresión de mayor precedencia sin paréntesis. La rama `else` se reanaliza a la precedencia del ternario, así que `a ? b : c ? d : e` es `a ? b : (c ? d : e)` (asociativo por la derecha) y una rama `then` puede contener otro ternario sin paréntesis: `a ? b ? c : d : e` es `a ? (b ? c : d) : e`.
 
 La indexación es postfija y se encadena por la izquierda (`p[i][j]` es `(p[i])[j]`).
 El unario tiene la precedencia más alta tras la indexación y su operando es otro unario: `-x + y` es `(-x) + y`, y `- -x` / `@$x` están permitidos.
@@ -318,6 +323,7 @@ Con punteros: `@p + 1` es `(@p) + 1` (suma al *valor* apuntado, no al puntero) y
 - **`@p` (desreferencia)**: `NODE_DEREF`, unario, sobre un `ptr T` no-`void`. Es un **lvalue**: vale como valor (`var y : i64 = @p;`) y como destino (`@p = 1;`, `@p++;`, `@p += 2;`). `@` y `$` son prefijos de la máxima precedencia, así que `@p + 1` es `(@p) + 1` (y `$x as ptr i64` es `($x) as ptr i64`).
 - **`p[i]` (indexación)**: `NODE_INDEX`, postfijo, sobre un `ptr T` no-`void` y un índice entero. Es azúcar exacta de `@(p + i)` y produce el mismo *lvalue* (`p[i] = 1;`, `p[i]++;`, `p[i] += 2;`, `var y : i64 = p[i];`, `$p[i]`). Se encadena: `pp[i][j]` es `(pp[i])[j]`. Mismos errores que `@`: `ptr void` (`cannot index 'ptr void'; cast it to a typed pointer first`), no puntero (`cannot index a value of type T`) e índice no entero (`pointer indexing requires an integer index`). El warning de `NULL` conocido también aplica. Un literal string no es indexable (`"abc"[i]` es error). No hay comprobación de límites. Los arrays y slices usan la misma sintaxis postfija (`a[i]`, `m[i][j]`), con el offset escalado y las reglas de §3.3.
 - **`sizeof`**: acepta un **tipo** (`sizeof(i64)`, `sizeof(ptr i32)`, `sizeof(MiEnum)`, `sizeof(Alias)`) o una **expresión** que sea una variable, una desreferencia, una indexación o un literal string (`sizeof(x)`, `sizeof(@p)`, `sizeof(p[0])`, `sizeof("abc")`). Cualquier otra cosa (`sizeof(f())`, `sizeof(1 + 2)`, `sizeof(sizeof(x))`) es error (`operand of sizeof must be a variable, dereference, index, string literal or type`), igual que `sizeof(void)`. El resultado es una constante plegada en compilación y **flexible como cualquier literal**: adopta el tipo que pida el contexto si cabe (`var t : i64 = sizeof(i32)`, `var u : u64 = sizeof(i32)`, `var a : i8 = 1 + sizeof(i8)`), así que no hay que castear. Un literal string mide sus bytes más el terminador (`sizeof("abc")` = 4).
+- **Ternario `cond ? a : b`**: `NODE_TERNARY`. La condición debe ser de tipo no-`void` (mismas reglas que una condición normal). Las dos ramas se unifican como en un binario: primero decaen arrays/slices y se convierten los literales string a `ptr i8`, un `NULL` adopta el tipo puntero de la otra rama, y después se aplican las reglas de unificación (literal flexible, ensanche implícito); dos tipos nominales distintos o dos punteros no relacionados son error (`type mismatch` / `pointer type mismatch`). El resultado tiene el tipo unificado y es un valor (no un lvalue). Solo se evalúa la rama elegida: a `-O3` se baja a `select`/`cmov` cuando la condición y ambas ramas son puras (sin llamadas, asignaciones, `++`/`--`), y en cualquier otro caso a un salto con dos `MOVE`, así que los efectos laterales ocurren exactamente una vez y en orden de fuente. Ejemplos: `var x : i64 = c ? 1 : 2;`, `var p : ptr i64 = c ? a : NULL;`, `f(c ? x : y);`.
 - **Aritmética y comparación de punteros**: ver §3 (bloque "Punteros"). `p + n`/`p - n` dan `ptr T`, `p - q` da la distancia en elementos (`i64`) y las comparaciones solo valen entre punteros del mismo tipo o contra `NULL`. Los literales string entran aquí como `ptr i8`; restar dos literales string advierte.
 
 ---
@@ -334,7 +340,9 @@ Con punteros: `@p + 1` es `(@p) + 1` (suma al *valor* apuntado, no al puntero) y
   - `init`: declaración `var` (con su `;`), expresión, o vacía.
   - `cond`: expresión o vacía (vacía = verdadero: `for(;;)` es un bucle infinito válido).
   - `updt`: expresión o vacía.
-- `for (var idx : T : arr) body`, `for (var idx : arr) body` y `for (idx : arr) body` — recorren un array o un slice (de rango 1 o N) con **un índice por dimensión**, y `idx` es el **índice**, no el elemento. Con varios índices (`for (var i : i64, j : i64 : mat)`, `for (var i, j : mat)`, `for (i, j : mat)`) el parser los desazucara a bucles **anidados**, uno por índice, con el AST idéntico al escrito a mano y conservando los spans originales: el nivel k recorre `arr[idx0]...[idxk-1]` con la cota `arr[idx0]...[idxk-1].len`, o sea `for (var i : i64 = 0; i < mat.len; i++) for (var j : i64 = 0; j < mat[i].len; j++) body` (`idx = 0` cuando reutiliza una variable y, sin tipo, el índice es `i64`; el **último** índice de la forma con tipos puede omitir el suyo). Se admiten hasta 8 índices (`too many index variables in the 'for' (max 8)`). `arr` es cualquier expresión con `.len` (un nombre, `m[i]`, ...). Con menos índices que dimensiones se recorren las primeras (una matriz con un solo índice itera filas); con más, el error sale del `.len` de más. Si una longitud constante no cabe en el tipo de su índice, salta el error del literal plegado (`literal 300 does not fit in type i8`); en un slice la longitud es runtime y no se comprueba.
+- `for (var idx : T : arr) body`, `for (var idx : arr) body` y `for (idx : arr) body` — recorren un array o un slice (de rango 1 o N) con **un índice por dimensión**, y `idx` es el **índice**, no el elemento. Con varios índices (`for (var i : i64, j : i64 : mat)`, `for (var i, j : mat)`, `for (i, j : mat)`) el parser los desazucara a bucles **anidados**, uno por índice, con el AST idéntico al escrito a mano y conservando los spans originales: el nivel k recorre `arr[idx0]...[idxk-1]` con la cota `arr[idx0]...[idxk-1].len`, o sea `for (var i : i64 = 0; i < mat.len; i++) for (var j : i64 = 0; j < mat[i].len; j++) body` (`idx = 0` cuando reutiliza una variable y, sin tipo, el índice es `i64`; el **último** índice de la forma con tipos puede omitir el suyo). Se admiten hasta 8 índices (`too many index variables in the 'for' (max 8)`). `arr` es cualquier expresión con `.len` (un nombre, `m[i]`, ...). Con menos índices que dimensiones se recorren las primeras (una matriz con un solo índice itera filas); con más, el error sale del `.len` de más. Si una longitud constante no cabe en el tipo de su índice, salta el error del literal plegado (`literal 300 does not fit in type i8`); en un slice la longitud es runtime y no se comprueba. El índice de cada dimensión debe ser un objetivo asignable: un identificador, una desreferencia `@p` o un índice `a[k]` (`for (1 : a)` y `for (a + 1 : a)` dan un único error, nunca un crash).
+- **`switch (expr)`**: `switch (expr) { case (v1, v2) { ... } ... default { ... } }`. `expr` debe ser numérico o un enum (también a través de un alias o newtype: se mira la representación) y se evalúa **una sola vez**. Cada `case` lleva entre paréntesis una lista, separada por comas y con al menos un valor, de **expresiones constantes** (`case value must be a constant expression`) que se convierten al tipo del switch con las reglas de asignación (literal flexible o cast explícito; si no, `case value of type X does not match the switch type Y; use an explicit cast with 'as'`). Los valores duplicados, también entre cláusulas distintas, son error (`duplicate case value`). No hay fallthrough: al terminar el cuerpo de una cláusula se sigue después del `switch`. Todo `switch` necesita un `default` (`switch requires a 'default' clause`), que puede ir en cualquier posición; un segundo `default` es error (`duplicate default clause`). El cuerpo de una cláusula puede ser un bloque o una sola sentencia (se envuelve en un bloque implícito), y las variables declaradas dentro no escapan. Ejemplo: `switch (d) { case (Dias.Lunes, Dias.Martes) { return 1; } default { return 0; } }`.
+- **`static var` / `static arr`**: declaración de duración estática **dentro de una función** (a nivel top-level es error: `static variables can only be declared inside a function`). `static var x : T [= expr];` y `static arr a : T[N] [= expr];` reservan **una sola** instancia para toda la ejecución, aunque la declaración esté en un bloque o en el cuerpo de un `case`; el nombre sigue las reglas de scope normales (shadowing incluido). El inicializador, si existe, debe ser una **expresión constante**: literal, `-literal`, `~literal`, literal string, `NULL`, `$global`, o un inicializador de array recursivamente hecho de esos (`a 'static' initializer must be a constant expression`). La inicialización ocurre una sola vez, **antes de los inicializadores dinámicos de globales** (así un global init que llame a una función que lea un `static` ve el valor ya inicializado), y el almacenamiento es un global interno (`sv.<k>.<nombre>`); sin inicializador empieza a cero. Ejemplo: `static var calls : i64 = 0; calls += 1;`.
 - `return expr? ;` — en una función `void`: `return;` (devolver un valor es error: `function returning void cannot return a value`). En una función `T`: `return expr;` con tipo `T` o que ensanche a `T` en silencio; si no, error (`cannot return X from a function returning Y; use an explicit cast with 'as'`); sin valor, error (`missing return value of type T`).
 
 ---
@@ -343,6 +351,7 @@ Con punteros: `@p + 1` es `(@p) + 1` (suma al *valor* apuntado, no al puntero) y
 
 - Cada bloque `{}` abre un scope. Los cuerpos de `if`/`while`/`for` sin bloque abren un scope propio.
 - Redeclarar un nombre **en el mismo scope** es error. Shadowing de scopes exteriores está permitido.
+- Una `static` sigue las reglas de scope del nombre (shadowing incluido) pero su **almacenamiento es único por declaración** y se inicializa una sola vez, antes de los inicializadores dinámicos de globales (ver §6).
 - Una local no puede referenciarse antes de su declaración (el init se chequea antes de declarar la variable).
 - **Local sin init**: permitida. Si se lee sin haberse asignado, sema emite un **warning** (no error). Su valor en runtime es **indefinido** (lo que haya en el stack).
 - El análisis de "asignada" es conservador y sensible al flujo: una variable cuenta como asignada si tiene init, si es parámetro, si se le asignó antes en el mismo flujo incondicional, o si **todas** las ramas de un `if`/`elif`/`else` la asignan (un `if` sin `else` no cuenta; lo asignado dentro de un `while`/`for` tampoco escapa del cuerpo). En otro caso la lectura emite el warning (`'x' is used without being assigned`). El cuerpo de un `if` con condición siempre-true se trata como incondicional.
@@ -456,7 +465,7 @@ Solo en `-O3`:
 - **CSE**: reutiliza `*`, `/` y `%` repetidos con el mismo divisor no constante.
 - **DCE global**: eliminación de código muerto con liveness global, no solo local.
 - **Inlining**: inlinea pequeñas funciones hoja.
-- **`select`**: if-conversion de `if (c) x = a; else x = b;` con ramas simples (no aparece en `--dump-ir`; sí en `--dump-opt`).
+- **`select`**: if-conversion de `if (c) x = a; else x = b;` con ramas simples y, también, del ternario `c ? a : b` cuando la condición y ambas ramas son puras (no aparece en `--dump-ir`; sí en `--dump-opt`). Un ternario con ramas impuras baja a saltos y evalúa solo la rama elegida.
 
 Las declaraciones `extern` quedan fuera de las optimizaciones: una función `extern` no tiene cuerpo (no se optimiza ni se inlinia) y una `extern var` nunca se considera constante, porque cualquier llamada a C puede modificarla.
 
@@ -467,31 +476,38 @@ El codegen aplica además optimizaciones locales (operaciones read-modify-write,
 ## 14. Gramática (EBNF)
 
 ```
-program        = { fn_decl | var_decl | enum_decl | type_decl | newtype_decl | extern_decl } ;
+program        = { fn_decl | var_decl | arr_decl | enum_decl | type_decl | newtype_decl | extern_decl } ;
 extern_decl    = "extern" ( "fn" IDENT "(" [ params ] ")" [ ":" ret_type ] ";"
                           | "var" IDENT ":" type ";" ) ;
 fn_decl        = "fn" IDENT "(" [ params ] ")" [ ":" ret_type ] block ;
 params         = param { "," param } ;
 param          = IDENT ":" type ;
 ret_type       = "void" | type ;
-type           = "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "char"
-               | "ptr" type | IDENT ;
+type           = "ptr" type
+               | ( "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "char" | IDENT )
+                 { "[" [ expr ] "]" } ;
 enum_decl      = "enum" IDENT [ ":" type ] "{" enum_val { "," enum_val } [ "," ] "}" [ ";" ] ;
 enum_val       = IDENT [ "=" expr ] ;
 type_decl      = "type" IDENT "=" type ";" ;
 newtype_decl   = "newtype" IDENT "=" type ";" ;
 block          = "{" { statement } "}" ;
-statement      = var_decl | block | if_stmt | while_stmt | for_stmt
+statement      = var_decl | arr_decl | static_decl | block | if_stmt | while_stmt | for_stmt
+               | switch_stmt
                | "return" [ expr ] ";"
                | inc_dec_stmt
                | expr ";" ;
 inc_dec_stmt   = inc_dec_target ( "++" | "--" ) ";" ;
 inc_dec_target = IDENT | "@" unary | postfix ;
 var_decl       = "var" IDENT ":" type [ "=" expr ] ";" ;
+arr_decl       = "arr" IDENT ":" type [ "=" expr ] ";" ;
+static_decl    = "static" ( var_decl | arr_decl ) ;
 if_stmt        = "if" "(" expr ")" statement
                  { "elif" "(" expr ")" statement }
                  [ "else" statement ] ;
 while_stmt     = "while" "(" expr ")" statement ;
+switch_stmt    = "switch" "(" expr ")" "{" { case_clause | default_clause } "}" ;
+case_clause    = "case" "(" expr { "," expr } ")" statement ;
+default_clause = "default" statement ;
 for_stmt       = "for" "(" for_init for_cond for_updt ")" statement
                | "for" "(" for_range ")" statement ;
 for_init       = var_decl | [ expr ] ";" ;
@@ -501,8 +517,9 @@ for_range      = "var" IDENT ":" type { "," IDENT ":" type } [ "," IDENT ] ":" e
                | "var" IDENT { "," IDENT } ":" expr
                | IDENT { "," IDENT } ":" expr ;
 expr           = assignment ;
-assignment     = logic_or [ ( "=" | "+=" | "-=" | "*=" | "/=" | "%="
+assignment     = ternary [ ( "=" | "+=" | "-=" | "*=" | "/=" | "%="
                             | "&=" | "|=" | "^=" | "<<=" | ">>=" ) assignment ] ;
+ternary        = logic_or [ "?" expr ":" ternary ] ;
 logic_or       = logic_and { "||" logic_and } ;
 logic_and      = bit_or { "&&" bit_or } ;
 bit_or         = bit_xor { "|" bit_xor } ;
@@ -526,7 +543,7 @@ primary        = INT_LIT | CHAR_LIT | STRING_LIT | "NULL"
 args           = expr { "," expr } ;
 ```
 
-Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se definen en la sección 2. `char` es alias de `i8` en cualquier posición de `type`. Por leniencia el parser acepta una coma final en parámetros (`fn f(a : i64,)`) y argumentos (`f(a,)`), aunque la EBNF no la muestra. El cast es postfijo y asociativo por la izquierda (`x as i64 as u64` = `(x as i64) as u64`); el tipo tras `as` nunca puede ser `void`. En `type`, un `IDENT` se resuelve contra los enums y las declaraciones `type`/`newtype` (también las declaradas más tarde); un nombre no declarado es `unknown type 'Foo'`. `enum_decl` exige al menos una variante (el parser acepta `{}` para que sema emita `enum 'E' must have at least one variant`); la coma final y el `;` tras `}` son opcionales. El valor de una variante debe ser un literal, `-literal`, `~literal` o un cast de esas formas; sema rechaza cualquier otra expresión. En `IDENT "." IDENT`, el identificador izquierdo debe ser un enum o un tipo cuyo tipo representado sea un enum (alias o newtype); el valor resultante tiene el tipo nominal escrito. La indexación es un sufijo postfijo que se encadena (`p[i][j]` = `(p[i])[j]`) y se aplica antes que el unario (`-p[0]` = `-(p[0])`). `@` y `$` son operadores prefijos del nivel `unary`, así que `@p + 1` es `(@p) + 1`; `sizeof` también es prefijo y su operando está restringido a `type`, `IDENT`, `@` sobre una expresión unaria, una indexación o un literal string (cualquier otra cosa es `operand of sizeof must be a variable, dereference, index, string literal or type`). La recursión de `ptr` en `type` también está limitada por la profundidad del parser (`type nested too deeply`). El objetivo de `++`/`--` puede ser una variable, una desreferencia (`@p++`) o una indexación (`p[i]++`), nunca una dirección (`$x++`). En `for_range` lo que sigue al `:` se lee primero como tipo y, si lo que viene después es `)`, se reinterpreta como la expresión iterada: así `var i : lista` no se confunde con `var i : T`, y `T[i]` en esa posición se reinterpreta como indexación. Tras `var IDENT`, un `:` abre la forma con tipos y una `,` la forma sin ninguno (los índices sin tipo son `i64`); el último índice de la forma con tipos puede omitir el suyo. Los bucles de array quedan desazucarados en el propio AST (uno por índice, anidados), de modo que el `for` resultante es idéntico al escrito a mano.
+Notas: `var_decl` dentro de `for_init` incluye su propio `;`. Los literales se definen en la sección 2. `char` es alias de `i8` en cualquier posición de `type`. Por leniencia el parser acepta una coma final en parámetros (`fn f(a : i64,)`) y argumentos (`f(a,)`), aunque la EBNF no la muestra. El cast es postfijo y asociativo por la izquierda (`x as i64 as u64` = `(x as i64) as u64`); el tipo tras `as` nunca puede ser `void`. En `type`, un `IDENT` se resuelve contra los enums y las declaraciones `type`/`newtype` (también las declaradas más tarde); un nombre no declarado es `unknown type 'Foo'`. `enum_decl` exige al menos una variante (el parser acepta `{}` para que sema emita `enum 'E' must have at least one variant`); la coma final y el `;` tras `}` son opcionales. El valor de una variante debe ser un literal, `-literal`, `~literal` o un cast de esas formas; sema rechaza cualquier otra expresión. En `IDENT "." IDENT`, el identificador izquierdo debe ser un enum o un tipo cuyo tipo representado sea un enum (alias o newtype); el valor resultante tiene el tipo nominal escrito. La indexación es un sufijo postfijo que se encadena (`p[i][j]` = `(p[i])[j]`) y se aplica antes que el unario (`-p[0]` = `-(p[0])`). `@` y `$` son operadores prefijos del nivel `unary`, así que `@p + 1` es `(@p) + 1`; `sizeof` también es prefijo y su operando está restringido a `type`, `IDENT`, `@` sobre una expresión unaria, una indexación o un literal string (cualquier otra cosa es `operand of sizeof must be a variable, dereference, index, string literal or type`). La recursión de `ptr` en `type` también está limitada por la profundidad del parser (`type nested too deeply`). El objetivo de `++`/`--` puede ser una variable, una desreferencia (`@p++`) o una indexación (`p[i]++`), nunca una dirección (`$x++`). En `for_range` lo que sigue al `:` se lee primero como tipo y, si lo que viene después es `)`, se reinterpreta como la expresión iterada: así `var i : lista` no se confunde con `var i : T`, y `T[i]` en esa posición se reinterpreta como indexación. Tras `var IDENT`, un `:` abre la forma con tipos y una `,` la forma sin ninguno (los índices sin tipo son `i64`); el último índice de la forma con tipos puede omitir el suyo. Los bucles de array quedan desazucarados en el propio AST (uno por índice, anidados), de modo que el `for` resultante es idéntico al escrito a mano. El ternario se analiza entre la asignación y `||` (ver §4): su rama `then` es una expresión completa (admite asignación) y la rama `else` se queda en el nivel del ternario, así que `a ? b : c = d` es `(a ? b : c) = d`. `switch` exige un `default`; cada valor de un `case` es una expresión constante, el cuerpo de cada cláusula es un statement cualquiera (normalmente un bloque) y no hay fallthrough; un segundo `default` es error (`duplicate default clause`). `static` solo aparece dentro de una función y su inicializador debe ser una expresión constante (ver §6). `arr_decl` usa `arr` en lugar de `var`; `var IDENT : T[N]` se analiza pero sema lo rechaza (`array declarations must use 'arr'`).
 
 ---
 

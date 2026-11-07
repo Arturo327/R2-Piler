@@ -1,0 +1,74 @@
+NODE_ROOT [0:0]
+  NODE_VAR_DEC [1:5] name="p0" type=i64
+    NODE_LIT_i64 [1:16] i64=0
+  NODE_VAR_DEC [2:5] name="p1" type=i64
+    NODE_LIT_i64 [2:16] i64=1
+  NODE_VAR_DEC [3:5] name="p2" type=i64
+    NODE_LIT_i64 [3:16] i64=2
+  NODE_VAR_DEC [4:5] name="p3" type=i64
+    NODE_LIT_i64 [4:16] i64=3
+  NODE_VAR_DEC [5:5] name="p4" type=i64
+    NODE_LIT_i64 [5:16] i64=4
+  NODE_VAR_DEC [6:5] name="p5" type=i64
+    NODE_LIT_i64 [6:16] i64=5
+  NODE_VAR_DEC [7:5] name="p6" type=i64
+    NODE_LIT_i64 [7:16] i64=6
+  NODE_VAR_DEC [8:5] name="p7" type=i64
+    NODE_LIT_i64 [8:16] i64=7
+  NODE_VAR_DEC [9:5] name="p8" type=i64
+    NODE_LIT_i64 [9:16] i64=8
+  NODE_VAR_DEC [10:5] name="p9" type=i64
+    NODE_LIT_i64 [10:16] i64=9
+  NODE_VAR_DEC [11:5] name="p10" type=i64
+    NODE_LIT_i64 [11:17] i64=10
+  NODE_VAR_DEC [12:5] name="p11" type=i64
+    NODE_LIT_i64 [12:17] i64=11
+  NODE_VAR_DEC [13:5] name="p12" type=i64
+    NODE_LIT_i64 [13:17] i64=12
+  NODE_VAR_DEC [14:5] name="p13" type=i64
+    NODE_LIT_i64 [14:17] i64=13
+  NODE_VAR_DEC [15:5] name="p14" type=i64
+    NODE_LIT_i64 [15:17] i64=14
+  NODE_VAR_DEC [16:5] name="p15" type=i64
+    NODE_LIT_i64 [16:17] i64=15
+  NODE_VAR_DEC [17:5] name="p16" type=i64
+    NODE_LIT_i64 [17:17] i64=16
+  NODE_VAR_DEC [18:5] name="p17" type=i64
+    NODE_LIT_i64 [18:17] i64=17
+  NODE_VAR_DEC [19:5] name="p18" type=i64
+    NODE_LIT_i64 [19:17] i64=18
+  NODE_VAR_DEC [20:5] name="p19" type=i64
+    NODE_LIT_i64 [20:17] i64=19
+  NODE_VAR_DEC [21:5] name="p20" type=i64
+    NODE_LIT_i64 [21:17] i64=20
+  NODE_VAR_DEC [22:5] name="p21" type=i64
+    NODE_LIT_i64 [22:17] i64=21
+  NODE_VAR_DEC [23:5] name="p22" type=i64
+    NODE_LIT_i64 [23:17] i64=22
+  NODE_VAR_DEC [24:5] name="p23" type=i64
+    NODE_LIT_i64 [24:17] i64=23
+  NODE_VAR_DEC [25:5] name="p24" type=i64
+    NODE_LIT_i64 [25:17] i64=24
+  NODE_VAR_DEC [26:5] name="p25" type=i64
+    NODE_LIT_i64 [26:17] i64=25
+  NODE_VAR_DEC [27:5] name="p26" type=i64
+    NODE_LIT_i64 [27:17] i64=26
+  NODE_VAR_DEC [28:5] name="p27" type=i64
+    NODE_LIT_i64 [28:17] i64=27
+  NODE_VAR_DEC [29:5] name="p28" type=i64
+    NODE_LIT_i64 [29:17] i64=28
+  NODE_ENUM_DEC [30:6] name="E" type=u32
+    NODE_ENUM_VAL [31:3] name="A"
+      NODE_CAST [31:22] type=u32
+        NODE_CAST [31:15] type=u16
+          NODE_CAST [31:9] type=u8
+            NODE_LIT_i64 [31:7] i64=1
+    NODE_ENUM_VAL [32:3] name="B"
+  NODE_FN_DEC [34:4] name="main"
+    NODE_ARGS_DEC [34:8]
+    NODE_RET_DEC [34:11] type=i64
+    NODE_BLOCK [34:17]
+      NODE_RET [34:19]
+        NODE_CAST [34:30] type=i64
+          NODE_DOT [34:27] field="A"
+            NODE_ID [34:26] str="E"

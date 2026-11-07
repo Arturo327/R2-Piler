@@ -1,0 +1,9 @@
+NODE_ROOT [0:0]
+  NODE_FN_DEC [1:4] name="main"
+    NODE_ARGS_DEC [1:8]
+    NODE_RET_DEC [1:11] type=i64
+    NODE_BLOCK [1:17]
+      NODE_VAR_DEC [2:6] name="ok" type=i64[1][1][1][1][1][1][1][1][1][1][1][1][1][1][1][1]
+      NODE_VAR_DEC [3:6] name="bad" type=i64[1][1][1][1][1][1][1][1][1][1][1][1][1][1][1][1]
+      NODE_RET [4:2]
+        NODE_LIT_i64 [4:9] i64=0

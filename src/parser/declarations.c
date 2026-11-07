@@ -178,7 +178,8 @@ uint32_t parse_enum (Parser *p)
 
 		if (p->curr.type == TOK_ASSIGN) {
 			advance(p);
-			p->ast.nodes[var].child = parse_expr(p, 0);
+			uint32_t value = parse_expr(p, 0);
+			p->ast.nodes[var].child = value;
 		}
 		append_child(p, node, &last, var);
 

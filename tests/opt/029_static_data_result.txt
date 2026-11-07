@@ -4,6 +4,8 @@ global sv.1.y : i64
 global sv.2.p : ptr i64
 
 fn __r2_init(0 params, 4 regs) : void
+    r3 = const.i64 3
+    str_global.i64 r3 @g
     ret
 
 fn counter(0 params, 6 regs) : i64

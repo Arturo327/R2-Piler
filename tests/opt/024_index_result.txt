@@ -1,6 +1,8 @@
 global g : i64
 
 fn __r2_init(0 params, 1 regs) : void
+    r0 = const.i64 10
+    str_global.i64 r0 @g
     ret
 
 fn main(0 params, 26 regs) : i64

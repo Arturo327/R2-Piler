@@ -1,5 +1,7 @@
 #include "parser/common.h"
 
+#define MAX_TYPE_RANK 16
+
 enum {
 	TS_BUILTIN = 0,
 	TS_REF,
@@ -97,10 +99,10 @@ static TypeSpec *parse_type_spec (Parser *p, int allow_void)
 
 	TypeSpec *first = NULL;
 	TypeSpec *last = NULL;
+	uint32_t rank = 0;
 
 	while (p->curr.type == TOK_LBRACE) {
 		Token open = p->curr;
-		TypeSpec *item;
 		uint8_t kind;
 		uint32_t dim;
 
@@ -115,7 +117,16 @@ static TypeSpec *parse_type_spec (Parser *p, int allow_void)
 			kind = TS_ARRAY;
 		}
 
-		item = new_spec(p, kind, open);
+		if (rank >= MAX_TYPE_RANK) {
+			if (!p->panic_mode)
+				error_report(p->err, ERR_ERROR, token_loc(open),
+						"type has too many dimensions (max %d)", MAX_TYPE_RANK);
+			p->panic_mode = 1;
+			continue;
+		}
+		rank++;
+
+		TypeSpec *item = new_spec(p, kind, open);
 		item->dim = dim;
 		if (!first) first = item;
 		else last->base = item;

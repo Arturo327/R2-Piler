@@ -1,0 +1,22 @@
+NODE_ROOT [0:0]
+  NODE_FN_DEC [1:4] name="main"
+    NODE_ARGS_DEC [1:8]
+    NODE_RET_DEC [1:11] type=i64
+    NODE_BLOCK [1:17]
+      NODE_VAR_DEC [2:6] name="i" type=i64
+      NODE_VAR_DEC [3:6] name="j" type=i64
+      NODE_FOR [5:2]
+        NODE_ID [5:7] str="i"
+        NODE_LT [5:15]
+          NODE_ID [5:13] str="i"
+          NODE_LIT_i64 [5:17] i64=3
+        NODE_INC [5:21]
+          NODE_ID [5:20] str="i"
+        NODE_BLOCK [5:25]
+          NODE_ASSIGN [5:29]
+            NODE_ID [5:27] str="j"
+            NODE_ADD [5:33]
+              NODE_ID [5:31] str="j"
+              NODE_ID [5:35] str="i"
+      NODE_RET [6:2]
+        NODE_ID [6:9] str="j"

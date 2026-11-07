@@ -1,0 +1,15 @@
+tests/sema/117_err_ternary_ptr_void_src.r2:8:27: ERROR: cannot index 'ptr void'; cast it to a typed pointer first
+      8 |         var x : i64 = (c ? p : v)[0];
+        |                                  ^
+tests/sema/117_err_ternary_ptr_void_src.r2:9:27: ERROR: cannot index 'ptr void'; cast it to a typed pointer first
+      9 |         var y : i64 = (c ? v : p)[0];
+        |                                  ^
+tests/sema/117_err_ternary_ptr_void_src.r2:7:6: WARNING: unused variable 'ok2'
+      7 |         var ok2 : ptr void = c ? v : p;
+        |             ^~~
+tests/sema/117_err_ternary_ptr_void_src.r2:8:6: WARNING: unused variable 'x'
+      8 |         var x : i64 = (c ? p : v)[0];
+        |             ^
+tests/sema/117_err_ternary_ptr_void_src.r2:9:6: WARNING: unused variable 'y'
+      9 |         var y : i64 = (c ? v : p)[0];
+        |             ^

@@ -27,7 +27,7 @@ static int bind_value (Optimizer *opt, IRInstr *cst, IRGlobal *g)
 	return 1;
 }
 
-static int bind_static (Optimizer *opt, OptFn *f, IRInstr *st)
+static int bind_static (Optimizer *opt, OptFn *f, IRInstr *st, const uint8_t *addr_taken)
 {
 	IRInstr *first = opt->ir->instrs + f->fn->start;
 	IRGlobal *g = opt->ir->globals + st->target;
@@ -35,6 +35,7 @@ static int bind_static (Optimizer *opt, OptFn *f, IRInstr *st)
 
 	if (type_kind(g->type) == TK_ARRAY || type_kind(g->type) == TK_SLICE)
 		return 0;
+	if (addr_taken[st->target]) return 0;
 	if (st == first) return 0;
 	cst = st - 1;
 	while (cst > first && cst->op == IR_NOP) cst--;
@@ -110,7 +111,22 @@ static void call_dirty (IR *ir, IRInstr *call, uint64_t *dirty, uint32_t words)
 		dirty[w] |= touched[w];
 }
 
-static int scan_static_init (Optimizer *opt, OptFn *f)
+static uint8_t *addr_taken_map (Optimizer *opt)
+{
+	IR *ir = opt->ir;
+	uint8_t *taken = arena_alloc(opt->arena, ir->global_count + 1);
+
+	memset(taken, 0, ir->global_count + 1);
+	for (uint32_t i = 0; i < ir->instr_count; i++) {
+		IRInstr *in = ir->instrs + i;
+
+		if (in->op == IR_ADDR_GLOBAL && in->target < ir->global_count)
+			taken[in->target] = 1;
+	}
+	return taken;
+}
+
+static int scan_static_init (Optimizer *opt, OptFn *f, const uint8_t *addr_taken)
 {
 	IR *ir = opt->ir;
 	uint32_t words = (ir->global_count + 63) >> 6;
@@ -129,18 +145,19 @@ static int scan_static_init (Optimizer *opt, OptFn *f)
 		if (seen[in->target]) continue;
 		seen[in->target] = 1;
 		if (in->op == IR_STR_GLOBAL && !(dirty[in->target >> 6] >> (in->target & 63) & 1))
-			changed |= bind_static(opt, f, in);
+			changed |= bind_static(opt, f, in, addr_taken);
 	}
 	return changed;
 }
 
 void run_static_init (Optimizer *opt)
 {
-	OptFn *f = &opt->cur;
-
 	if (!opt->ir->global_count) return;
+	uint8_t *addr_taken = addr_taken_map(opt);
 	compute_touch(opt);
+
+	OptFn *f = &opt->cur;
 	f->fn = opt->ir->fns + opt->ir->init_fn;
 	analyze_fn(opt, f);
-	if (scan_static_init(opt, f)) optimize_fn(opt, f);
+	if (scan_static_init(opt, f, addr_taken)) optimize_fn(opt, f);
 }

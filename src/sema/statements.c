@@ -529,6 +529,8 @@ static void check_switch_clauses (Sema *s, uint32_t idx, TypeId type)
 		uint32_t body;
 
 		if (c->type == NODE_DEFAULT) {
+			if (has_default)
+				error_report(s->err, ERR_ERROR, node_loc(c), "duplicate default clause");
 			has_default = 1;
 			body = c->child;
 		} else {

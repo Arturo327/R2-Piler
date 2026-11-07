@@ -13,18 +13,20 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **243 dump fixtures** pass (`make test`): 46 lexer, 56 parser, 83 sema,
-  35 IR and 23 optimizer tests.
-- **83 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+- **309 dump fixtures** pass (`make test`): 49 lexer, 70 parser, 117 sema,
+  44 IR and 29 optimizer tests.
+- **113 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
   “backend is not implemented”.
 - The language currently has integers, `enum`/`type`/`newtype` declarations,
   functions, locals, globals, blocks, `if`/`elif`/`else`, `while`, `for`,
-  `return`, casts, short-circuit logic,
+  `switch`, `return`, casts, the ternary `?:`, short-circuit logic,
   the full integer/bitwise operator set, compound assignment (`+=`, `-=`, …)
-  and postfix statement-only `++`/`--` (also in the `for` update).
+  and postfix statement-only `++`/`--` (also in the `for` update), plus
+  `static var`/`static arr` locals with static storage duration and
+  constant initializers.
 - **Pointer** support is complete end to end: `ptr T` types, `@` deref and
   `$` address-of, `NULL`, `sizeof`, C-like pointer arithmetic and comparison,
   explicit pointer casts and string literals (`TYPE_STR`, adopting `ptr i8`).
@@ -41,9 +43,11 @@ tested:
   emitted symbol keeps its plain C name (`call puts`, `optind(%rip)`) with
   `gcc` resolving it at link time. `%al` is zeroed before every extern call
   (SysV variadic ABI).
-- Multidimensional arrays, array/slice returns, structs,
-  modules/imports, classes, `pub`, `static`, `export`, optional arguments,
-  multiple returns and floating point are **not implemented yet**.
+- Multidimensional arrays and slices of any rank are supported
+  (`arr m : i32[R][C]`, `i32[][]` slice parameters). Structs,
+  modules/imports, classes, `pub`, `export`, optional arguments,
+  multiple returns, `break`/`continue` and floating point are **not
+  implemented yet**.
 
 ---
 
@@ -53,8 +57,9 @@ tested:
   types (`i8` to `u64`, with `char` as an alias of `i8`), explicit casts with
   `as`, and implicit widening only when no value can be lost.
 - Full statement set: `var` declarations, blocks, `if`/`elif`/`else`, `while`,
-  `for` and `return`, plus top-level functions with parameters by value,
-  recursion and forward references.
+  `for`, `switch` and `return`, plus top-level functions with parameters by
+  value, recursion and forward references. `static var`/`static arr` locals
+  keep one instance with static storage duration and a constant initializer.
 - Pointers: `ptr T` and `ptr void` types, `@` dereference, `$` address-of,
   the `NULL` literal, `sizeof`, C-like pointer arithmetic and comparison, and
   explicit pointer-to-pointer casts.
@@ -69,7 +74,8 @@ tested:
 - String literals, typed as `string` and usable wherever `ptr i8` is expected.
 - Top-level globals with well-defined initialization order; cyclic initializers
   are diagnosed.
-- Short-circuit `&&` and `||`.
+- Short-circuit `&&` and `||`, and the ternary `cond ? a : b` (lowered to
+  `select`/`cmov` when the condition and both arms are pure).
 - Strict diagnostics with `file:line:column` locations: uninitialized-variable
   warnings, missing-`return` checks and constant conditions.
 - Compiles to x86-64 AT&T assembly (System V AMD64 ABI) that links with `gcc`.

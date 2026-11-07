@@ -1,0 +1,6 @@
+tests/parser/067_err_for_target_src.r2:4:7: ERROR: index variable must be an identifier, a dereference or an index expression
+      4 |         for (1 : a) { }
+        |              ^
+tests/parser/067_err_for_target_src.r2:5:9: ERROR: index variable must be an identifier, a dereference or an index expression
+      5 |         for (a + 1 : a) { }
+        |                ^

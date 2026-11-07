@@ -1,0 +1,3 @@
+tests/parser/069_type_rank_src.r2:3:63: ERROR: type has too many dimensions (max 16)
+      3 |         var bad : i64[1][1][1][1][1][1][1][1][1][1][1][1][1][1][1][1][1];
+        |                                                                      ^

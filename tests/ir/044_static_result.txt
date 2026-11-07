@@ -3,10 +3,10 @@ global sv.0.x : i64
 global sv.1.z : i64
 
 fn __r2_init(0 params, 2 regs) : void
-    r0 = const.i64 7
-    str_global.i64 r0 @g
-    r1 = const.i64 0
-    str_global.i64 r1 @sv.0.x
+    r0 = const.i64 0
+    str_global.i64 r0 @sv.0.x
+    r1 = const.i64 7
+    str_global.i64 r1 @g
     ret
 
 fn counter(0 params, 4 regs) : i64

@@ -1,0 +1,61 @@
+NODE_ROOT [0:0]
+  NODE_FN_DEC [1:4] name="main"
+    NODE_ARGS_DEC [1:8]
+    NODE_RET_DEC [1:11] type=i64
+    NODE_BLOCK [1:17]
+      NODE_VAR_DEC [2:6] name="a" type=i64[4]
+      NODE_VAR_DEC [3:6] name="p" type=ptr i64
+        NODE_ID [3:20] str="a"
+      NODE_FOR [5:2]
+        NODE_ASSIGN [5:7]
+          NODE_DEREF [5:7]
+            NODE_ID [5:8] str="p"
+          NODE_LIT_i64 [5:7] i64=0
+        NODE_LT [5:7]
+          NODE_DEREF [5:7]
+            NODE_ID [5:8] str="p"
+          NODE_DOT [5:12] field="len"
+            NODE_ID [5:12] str="a"
+        NODE_INC [5:7]
+          NODE_DEREF [5:7]
+            NODE_ID [5:8] str="p"
+        NODE_BLOCK [5:15]
+      NODE_FOR [6:2]
+        NODE_ASSIGN [6:7]
+          NODE_DEREF [6:7]
+            NODE_ADD [6:11]
+              NODE_ID [6:9] str="p"
+              NODE_LIT_i64 [6:13] i64=1
+          NODE_LIT_i64 [6:7] i64=0
+        NODE_LT [6:7]
+          NODE_DEREF [6:7]
+            NODE_ADD [6:11]
+              NODE_ID [6:9] str="p"
+              NODE_LIT_i64 [6:13] i64=1
+          NODE_DOT [6:18] field="len"
+            NODE_ID [6:18] str="a"
+        NODE_INC [6:7]
+          NODE_DEREF [6:7]
+            NODE_ADD [6:11]
+              NODE_ID [6:9] str="p"
+              NODE_LIT_i64 [6:13] i64=1
+        NODE_BLOCK [6:21]
+      NODE_FOR [7:2]
+        NODE_ASSIGN [7:8]
+          NODE_INDEX [7:8]
+            NODE_ID [7:7] str="a"
+            NODE_LIT_i64 [7:9] i64=3
+          NODE_LIT_i64 [7:8] i64=0
+        NODE_LT [7:8]
+          NODE_INDEX [7:8]
+            NODE_ID [7:7] str="a"
+            NODE_LIT_i64 [7:9] i64=3
+          NODE_DOT [7:14] field="len"
+            NODE_ID [7:14] str="a"
+        NODE_INC [7:8]
+          NODE_INDEX [7:8]
+            NODE_ID [7:7] str="a"
+            NODE_LIT_i64 [7:9] i64=3
+        NODE_BLOCK [7:17]
+      NODE_RET [8:2]
+        NODE_LIT_i64 [8:9] i64=0

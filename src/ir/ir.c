@@ -1369,6 +1369,24 @@ static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
 	fn_end(ir, fn_idx);
 }
 
+static void gen_var_init (IR *ir, uint32_t idx)
+{
+	ASTNode *n = ir->ast->nodes + idx;
+	Symbol *s = ir->symtab->symbols + n->sym;
+
+	if (n->child == NO_NODE) return;
+	if (type_kind(s->type) == TK_ARRAY) {
+		uint32_t base = new_reg(ir, TYPE_i64);
+
+		make_addr_global(ir, base, s->ir_id, s->type);
+		gen_array_init(ir, base, n->child, s->type, 0);
+		return;
+	}
+	uint32_t val = gen_expr(ir, ir->ast->nodes + n->child);
+
+	make_str_global(ir, s->ir_id, val, s->type);
+}
+
 static void gen_init_fn (IR *ir)
 {
 	ir->reg_count = 0;
@@ -1378,20 +1396,13 @@ static void gen_init_fn (IR *ir)
 	ir->addressed_cap = 0;
 	ir->fns[ir->init_fn].start = ir->instr_count;
 
+	for (uint32_t i = 0; i < ir->static_count; i++)
+		gen_var_init(ir, ir->statics[i]);
 	for (uint32_t i = 0; i < ir->init_order_count; i++) {
 		ASTNode *n = ir->ast->nodes + ir->init_order[i];
-		Symbol *s = ir->symtab->symbols + n->sym;
 
-		if (type_kind(s->type) == TK_ARRAY) {
-			uint32_t base = new_reg(ir, TYPE_i64);
-
-			make_addr_global(ir, base, s->ir_id, s->type);
-			gen_array_init(ir, base, n->child, s->type, 0);
-			continue;
-		}
-		uint32_t val = gen_expr(ir, ir->ast->nodes + n->child);
-
-		make_str_global(ir, s->ir_id, val, s->type);
+		if (ir->symtab->symbols[n->sym].is_static) continue;
+		gen_var_init(ir, ir->init_order[i]);
 	}
 	fn_end(ir, ir->init_fn);
 }

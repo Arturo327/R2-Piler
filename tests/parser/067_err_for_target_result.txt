@@ -1,0 +1,32 @@
+NODE_ROOT [0:0]
+  NODE_FN_DEC [1:4] name="main"
+    NODE_ARGS_DEC [1:8]
+    NODE_RET_DEC [1:11] type=i64
+    NODE_BLOCK [1:17]
+      NODE_VAR_DEC [2:6] name="a" type=i64[4]
+      NODE_FOR [4:2]
+        NODE_ASSIGN [4:7]
+          NODE_LIT_i64 [4:7] i64=1
+          NODE_LIT_i64 [4:7] i64=0
+        NODE_LT [4:7]
+          NODE_LIT_i64 [4:7] i64=0
+          NODE_DOT [4:11] field="len"
+            NODE_ID [4:11] str="a"
+        NODE_INC [4:7]
+          NODE_LIT_i64 [4:7] i64=0
+        NODE_BLOCK [4:14]
+      NODE_FOR [5:2]
+        NODE_ASSIGN [5:9]
+          NODE_ADD [5:9]
+            NODE_ID [5:7] str="a"
+            NODE_LIT_i64 [5:11] i64=1
+          NODE_LIT_i64 [5:9] i64=0
+        NODE_LT [5:9]
+          NODE_LIT_i64 [5:9] i64=0
+          NODE_DOT [5:15] field="len"
+            NODE_ID [5:15] str="a"
+        NODE_INC [5:9]
+          NODE_LIT_i64 [5:9] i64=0
+        NODE_BLOCK [5:18]
+      NODE_RET [6:2]
+        NODE_LIT_i64 [6:9] i64=0

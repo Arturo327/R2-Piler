@@ -5,6 +5,8 @@ global v : ptr void
 global n : ptr i64
 
 fn __r2_init(0 params, 5 regs) : void
+    r0 = const.i64 5
+    str_global.i64 r0 @g
     ret
 
 fn main(0 params, 14 regs) : i64

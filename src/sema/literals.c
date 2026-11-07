@@ -45,6 +45,7 @@ static int lit_fits (LitVal v, TypeId type)
 	uint64_t max;
 
 	if (bits == 0) return 0;
+	if (bits > 64) return 0;
 	if (t->sign) max = ((uint64_t)1 << (bits - 1)) - 1;
 	else max = bits == 64 ? UINT64_MAX : ((uint64_t)1 << bits) - 1;
 
@@ -528,7 +529,8 @@ uint32_t force_cast (Sema *s, uint32_t child, TypeId child_type, TypeId target, 
 		return child;
 	if (types[target].size && type_kind(child_type) == TK_UNTYPED_INT
 			&& target_kind != TK_PTR && target_kind != TK_NULL
-			&& target_kind != TK_STR && target_kind != TK_VOID) {
+			&& target_kind != TK_STR && target_kind != TK_VOID
+			&& target_kind != TK_ARRAY && target_kind != TK_SLICE) {
 		retag_expr(s, child, target);
 		return child;
 	}
@@ -543,6 +545,11 @@ static TypeId common_type (TypeId l, TypeId r)
 {
 	int l_flex = type_kind(l) == TK_UNTYPED_INT;
 	int r_flex = type_kind(r) == TK_UNTYPED_INT;
+
+	if (type_kind(l) == TK_PTR && type_kind(r) == TK_PTR) {
+		if (types[l].base == TYPE_VOID) return l;
+		if (types[r].base == TYPE_VOID) return r;
+	}
 
 	if (l_flex != r_flex) return l_flex ? r : l;
 	if (implicit_cast_ok(l, r)) return r;
