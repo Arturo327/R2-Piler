@@ -77,9 +77,9 @@ static int is_static_const (Sema *s, uint32_t idx)
 	{
 	case NODE_LIT_NULL: case NODE_LIT_STR:
 		return 1;
-	case NODE_CAST:
+	case NODE_CAST: case NODE_FIELD_INIT:
 		return n->child != NO_NODE && is_static_const(s, n->child);
-	case NODE_ARRAY_INIT: {
+	case NODE_ARRAY_INIT: case NODE_STRUCT_INIT: {
 		uint32_t item = n->child;
 
 		while (item != NO_NODE) {
@@ -134,6 +134,13 @@ static void check_var_dec (Sema *s, uint32_t idx)
 
 		if (kind == TK_ARRAY) {
 			check_array_init(s, idx);
+		} else if (kind == TK_STRUCT
+				&& s->ast->nodes[n->child].type == NODE_STRUCT_INIT) {
+			check_struct_init(s, n->child, n->data_type);
+		} else if (s->ast->nodes[n->child].type == NODE_STRUCT_INIT) {
+			if (kind != TK_ERROR)
+				error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + n->child),
+						"'{.field = ...}' initializer requires a struct type");
 		} else if (s->ast->nodes[n->child].type == NODE_ARRAY_INIT) {
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + n->child),
 					"'{...}' initializer requires an array type");
@@ -180,6 +187,10 @@ static void check_signature_types (Sema *s, uint32_t idx, int is_extern)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"functions cannot return an array or a slice");
 
+	if (is_extern && ret_type != TYPE_ERROR && type_kind(ret_type) == TK_STRUCT)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"extern functions cannot return structs by value yet");
+
 	uint32_t p = s->ast->nodes[args].child;
 	while (p != NO_NODE) {
 		TypeId type = s->ast->nodes[p].data_type;
@@ -187,6 +198,9 @@ static void check_signature_types (Sema *s, uint32_t idx, int is_extern)
 		if (is_extern && type_dyn_rank(type) > 0)
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
 					"extern functions cannot take slice parameters");
+		if (is_extern && type_kind(type) == TK_STRUCT)
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
+					"extern functions cannot take structs by value yet");
 
 		p = s->ast->nodes[p].next_bro;
 	}
@@ -290,8 +304,7 @@ int check_cond (Sema *s, uint32_t cond, int alw_err)
 	TypeId type = check_expr(s, cond);
 
 	if (((type == TYPE_VOID && s->ast->nodes[cond].type != NODE_EMPTY) || type == TYPE_STR)
-			|| (type != TYPE_ERROR && (type_kind(type) == TK_ARRAY
-			|| type_kind(type) == TK_SLICE)))
+			|| (type != TYPE_ERROR && type_is_aggregate(type)))
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),
 				"expression with resulting type %s is not valid as a condition",
 				types[type].name);
@@ -699,6 +712,10 @@ static void check_statement (Sema *s, uint32_t idx)
 	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"types can only be declared at the top level");
+		return;
+	case NODE_STRUCT_DEC:
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"structs can only be declared at the top level");
 		return;
 	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
 		error_report(s->err, ERR_ERROR, node_loc(n),

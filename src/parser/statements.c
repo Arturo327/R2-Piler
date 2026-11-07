@@ -2,6 +2,23 @@
 
 #define FOR_MAX_DIM 8
 
+static uint32_t parse_array_init (Parser *p);
+
+static uint32_t parse_field_init (Parser *p)
+{
+	consume(p, TOK_DOT, "expected '.'");
+	uint32_t node = new_node(p, NODE_FIELD_INIT, p->curr.line, p->curr.col);
+	if (consume(p, TOK_ID, "expected a field name after '.'")) {
+		p->ast.nodes[node].str = p->prev.str;
+		p->ast.nodes[node].len = p->prev.len;
+	}
+	consume(p, TOK_ASSIGN, "expected '=' after the field name");
+
+	uint32_t value = p->curr.type == TOK_LKEY ? parse_array_init(p) : parse_expr(p, 0);
+	p->ast.nodes[node].child = value;
+	return node;
+}
+
 static uint32_t parse_array_init (Parser *p)
 {
 	uint16_t line = p->curr.line;
@@ -10,10 +27,19 @@ static uint32_t parse_array_init (Parser *p)
 	uint32_t last = NO_NODE;
 
 	consume(p, TOK_LKEY, "expected '{' for array initializer");
+	int desig = p->curr.type == TOK_DOT;
+	if (desig) p->ast.nodes[node].type = NODE_STRUCT_INIT;
 
 	while (p->curr.type != TOK_RKEY && p->curr.type != TOK_EOF) {
-		uint32_t item = p->curr.type == TOK_LKEY
-				? parse_array_init(p) : parse_expr(p, 0);
+		if ((p->curr.type == TOK_DOT) != desig) {
+			error_report(p->err, ERR_ERROR, token_loc(p->curr),
+					"cannot mix '.field = value' and positional initializers");
+			p->panic_mode = 1;
+			break;
+		}
+		uint32_t item;
+		if (desig) item = parse_field_init(p);
+		else item = p->curr.type == TOK_LKEY ? parse_array_init(p) : parse_expr(p, 0);
 
 		append_child(p, node, &last, item);
 		if (p->curr.type != TOK_COMMA) break;
@@ -60,7 +86,7 @@ static uint32_t parse_decl_inner (Parser *p, int is_arr)
 
 	if (p->curr.type == TOK_ASSIGN) {
 		advance(p);
-		uint32_t value = is_arr && p->curr.type == TOK_LKEY
+		uint32_t value = p->curr.type == TOK_LKEY
 				? parse_array_init(p) : parse_expr(p, 0);
 		p->ast.nodes[node].child = value;
 	}
@@ -783,6 +809,7 @@ static uint32_t parse_statement_inner (Parser *p)
 	case TOK_ENUM: return parse_enum(p);
 	case TOK_TYPE: return parse_type_dec(p, 0);
 	case TOK_NEWTYPE: return parse_type_dec(p, 1);
+	case TOK_STRUCT: return parse_struct(p);
 	case TOK_RET: return parse_return(p);
 	case TOK_IF: return parse_if(p);
 	case TOK_WHILE: return parse_while(p);

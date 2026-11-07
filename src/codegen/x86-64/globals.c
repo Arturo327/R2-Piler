@@ -8,20 +8,12 @@ static const char *asm_size_name[9] =
 	[8] = ".quad"
 };
 
-static uint32_t global_align (TypeId type)
-{
-	TypeId elem = type_flat_element(type);
-	uint32_t align = elem == TYPE_ERROR ? 8 : types[elem].size;
-
-	return align > 8 ? 8 : align;
-}
-
 static void make_global_data (CodeGen *c, uint32_t i)
 {
 	IRGlobal *g = c->ir->globals + i;
 	uint32_t size = types[g->type].size;
 
-	cg_printf(c, "\t.balign %u\n%s%.*s:\t", global_align(g->type),
+	cg_printf(c, "\t.balign %u\n%s%.*s:\t", type_align(g->type),
 			GLOBAL_PREFIX(g), (int)g->len, g->name);
 	if (g->init_kind == IR_INIT_STR) {
 		cg_printf(c, ".quad .LC%u\n", g->init_ref);
@@ -44,7 +36,7 @@ static void make_global_bss (CodeGen *c, uint32_t i)
 	IRGlobal *g = c->ir->globals + i;
 	uint32_t size = types[g->type].size;
 
-	cg_printf(c, "\t.balign %u\n%s%.*s:\t", global_align(g->type),
+	cg_printf(c, "\t.balign %u\n%s%.*s:\t", type_align(g->type),
 			GLOBAL_PREFIX(g), (int)g->len, g->name);
 	cg_printf(c, ".zero %u\n", size);
 }

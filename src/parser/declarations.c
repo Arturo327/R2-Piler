@@ -199,8 +199,7 @@ uint32_t parse_type_dec (Parser *p, int is_newtype)
 
 	uint16_t line = p->curr.line;
 	uint16_t col = p->curr.col;
-	uint32_t node = new_node(p, is_newtype ? NODE_NEWTYPE_DEC : NODE_TYPE_DEC,
-			line, col);
+	uint32_t node = new_node(p, is_newtype ? NODE_NEWTYPE_DEC : NODE_TYPE_DEC, line, col);
 
 	if (consume(p, TOK_ID, "expected type name")) {
 		p->ast.nodes[node].str = p->prev.str;
@@ -215,5 +214,52 @@ uint32_t parse_type_dec (Parser *p, int is_newtype)
 	p->ast.nodes[node].type_node = type_node;
 
 	consume(p, TOK_SEMCOL, "expected ';' after type declaration");
+	return node;
+}
+
+static uint32_t parse_field (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	uint32_t node = new_node(p, NODE_FIELD_DEC, line, col);
+
+	if (consume(p, TOK_ID, "expected field name")) {
+		p->ast.nodes[node].str = p->prev.str;
+		p->ast.nodes[node].len = p->prev.len;
+	}
+	consume(p, TOK_COL, "expected ':' followed by the field type");
+	uint16_t type_node;
+	TypeId type = parse_type(p, 0, node, &type_node);
+
+	p->ast.nodes[node].data_type = type;
+	p->ast.nodes[node].type_node = type_node;
+	consume(p, TOK_SEMCOL, "expected ';' after the field");
+	return node;
+}
+
+uint32_t parse_struct (Parser *p)
+{
+	uint32_t last = NO_NODE;
+	uint32_t node;
+
+	consume(p, TOK_STRUCT, "expected 'struct'");
+	node = new_node(p, NODE_STRUCT_DEC, p->curr.line, p->curr.col);
+	if (p->curr.type == TOK_ID) {
+		p->ast.nodes[node].str = p->curr.str;
+		p->ast.nodes[node].len = p->curr.len;
+		advance(p);
+	}
+	consume(p, TOK_LKEY, "expected '{' after the struct name");
+
+	while (p->curr.type != TOK_RKEY && p->curr.type != TOK_EOF) {
+		Token start = p->curr;
+		uint32_t member = p->curr.type == TOK_STRUCT
+				? parse_struct(p) : parse_field(p);
+
+		append_child(p, node, &last, member);
+		if (p->panic_mode) syncro(p, start);
+	}
+	consume(p, TOK_RKEY, "expected '}' at the end of the struct");
+	if (p->curr.type == TOK_SEMCOL) advance(p);
 	return node;
 }

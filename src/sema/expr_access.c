@@ -3,6 +3,8 @@
 #include <string.h>
 
 TypeId check_index (Sema *s, uint32_t idx);
+static TypeId check_len_field (Sema *s, uint32_t idx, uint32_t left, TypeId type);
+static TypeId check_dot_value (Sema *s, uint32_t idx);
 
 static int sizeof_named_type (Sema *s, ASTNode *n, TypeId *out)
 {
@@ -162,23 +164,31 @@ TypeId check_deref (Sema *s, uint32_t idx)
 
 TypeId check_addr (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
-	ASTNode *child = &s->ast->nodes[n->child];
+	ASTNode *n = s->ast->nodes + idx;
+	ASTNode *child = s->ast->nodes + n->child;
 	TypeId type;
 
 	if (child->type == NODE_ID) {
 		type = check_var_ref(s, n->child, 0);
-		n = &s->ast->nodes[idx];
+		n = s->ast->nodes + idx;
 		child = &s->ast->nodes[n->child];
 		if (type != TYPE_ERROR && child->sym != NO_SYMBOL)
 			s->table.symbols[child->sym].addressed = 1;
 		mark_read(s, n->child);
 	} else if (child->type == NODE_DEREF) {
 		type = check_deref(s, n->child);
-		n = &s->ast->nodes[idx];
+		n = s->ast->nodes + idx;
 	} else if (child->type == NODE_INDEX) {
 		type = check_index(s, n->child);
-		n = &s->ast->nodes[idx];
+		n = s->ast->nodes + idx;
+	} else if (child->type == NODE_DOT) {
+		type = check_dot(s, n->child);
+		n = s->ast->nodes + idx;
+		if (type != TYPE_ERROR && s->ast->nodes[n->child].type != NODE_DOT) {
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"operand of '$' must be a variable, a dereference or an index");
+			type = TYPE_ERROR;
+		}
 	} else {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"operand of '$' must be a variable, a dereference or an index");
@@ -437,6 +447,49 @@ static TypeId check_dot_enum(Sema *s, uint32_t idx, Symbol *sym)
 	return n->data_type;
 }
 
+static TypeId check_field (Sema *s, uint32_t idx, TypeId st)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	const StructField *f = find_field(st, n->str, n->len);
+
+	if (!f) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"struct '%s' has no field '%.*s'", types[st].name,
+				(int)n->len, n->str);
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	n->data_type = f->type;
+	return f->type;
+}
+
+static TypeId check_dot_value (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	TypeId type = check_expr(s, n->child);
+
+	n = s->ast->nodes + idx;
+	if (type == TYPE_ERROR) {
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	if (type_kind(type) == TK_STRUCT) return check_field(s, idx, type);
+	if (type_kind(type) == TK_ARRAY || type_kind(type) == TK_SLICE)
+		return check_len_field(s, idx, n->child, type);
+	if (type_kind(type) == TK_PTR && type_kind(types[type].base) == TK_STRUCT)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'.' cannot be applied to a pointer; use '->'");
+	else if (n->len == 3 && memcmp(n->str, "len", 3) == 0)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"a value of type %s is not an array or a slice",
+				type_display_name(type));
+	else error_report(s->err, ERR_ERROR, node_loc(n),
+			"a value of type %s is not an enum type",
+			type_display_name(type));
+	n->data_type = TYPE_ERROR;
+	return TYPE_ERROR;
+}
+
 TypeId check_dot(Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -445,25 +498,7 @@ TypeId check_dot(Sema *s, uint32_t idx)
 	if (left->type == NODE_INDEX)
 		return check_dot_index(s, idx);
 
-	if (left->type != NODE_ID) {
-		TypeId left_type = check_expr(s, n->child);
-
-		n = s->ast->nodes + idx;
-		if (left_type == TYPE_ERROR) {
-			n->data_type = TYPE_ERROR;
-			return TYPE_ERROR;
-		}
-		if (n->len == 3 && memcmp(n->str, "len", 3) == 0)
-			error_report(s->err, ERR_ERROR, node_loc(n),
-					"a value of type %s is not an array or a slice",
-					type_display_name(left_type));
-		else
-			error_report(s->err, ERR_ERROR, node_loc(n),
-					"a value of type %s is not an enum type",
-					type_display_name(left_type));
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
+	if (left->type != NODE_ID) return check_dot_value(s, idx);
 
 	uint32_t sym_idx = symtab_find(&s->table, left->str, left->len);
 	if (sym_idx == NO_SYMBOL) {
@@ -474,10 +509,20 @@ TypeId check_dot(Sema *s, uint32_t idx)
 	}
 
 	Symbol *sym = s->table.symbols + sym_idx;
+	TypeKind kind = type_kind(sym->type);
+
+	if (kind == TK_STRUCT || (kind == TK_PTR
+			&& type_kind(types[sym->type].base) == TK_STRUCT))
+		return check_dot_value(s, idx);
 	if (sym->kind == SYMBOL_VAR || sym->kind == SYMBOL_PARAM)
 		return check_dot_var(s, idx, sym);
-
-	return check_dot_enum(s, idx, sym);
+	if (sym->kind == SYMBOL_ENUM || (sym->kind == SYMBOL_TYPE
+			&& type_kind(type_repr(sym->type)) == TK_ENUM))
+		return check_dot_enum(s, idx, sym);
+	error_report(s->err, ERR_ERROR, node_loc(left),
+			"'%.*s' is not an enum type", (int)left->len, left->str);
+	n->data_type = TYPE_ERROR;
+	return TYPE_ERROR;
 }
 
 TypeId check_index (Sema *s, uint32_t idx)

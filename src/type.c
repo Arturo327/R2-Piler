@@ -94,6 +94,11 @@ TypeId add_type (const char *name, uint16_t len, TypeKind kind, TypeId base)
 	t->base = base;
 	t->variant_count = 0;
 	t->variants = NULL;
+	t->fields = NULL;
+	t->field_count = 0;
+	t->align = 1;
+	t->decl = 0;
+	t->layout = 0;
 	return id;
 }
 
@@ -275,6 +280,24 @@ int type_is_mixed (TypeId id)
 	return arrays && slices;
 }
 
+int type_is_aggregate (TypeId id)
+{
+	TypeKind kind = type_kind(id);
+
+	return kind == TK_ARRAY || kind == TK_SLICE || kind == TK_STRUCT;
+}
+
+uint32_t type_align (TypeId id)
+{
+	TypeId leaf = type_flat_element(id);
+
+	if (leaf == TYPE_ERROR) return 8;
+	if (types[leaf].kind == TK_STRUCT) return types[leaf].align;
+	uint32_t size = types[leaf].size;
+	if (size > 8) return 8;
+	return size ? size : 1;
+}
+
 TypeId find_type (const char *name, uint16_t len)
 {
 	for (TypeId id = TYPE_COUNT; id < type_count; id++) {
@@ -307,6 +330,34 @@ EnumVariant *find_variant (TypeId id, const char *name, uint16_t len)
 	for (uint16_t i = 0; i < types[id].variant_count; i++) {
 		EnumVariant *v = types[id].variants + i;
 		if (v->len == len && memcmp(v->name, name, len) == 0) return v;
+	}
+	return NULL;
+}
+
+int bind_struct_type (TypeId id, const StructField *fields, uint16_t count, uint32_t size, uint32_t align)
+{
+	if (id < TYPE_COUNT || id >= type_count) return 0;
+
+	StructField *copy = arena_alloc(&type_arena, sizeof(StructField) * (count + 1u));
+	for (uint16_t i = 0; i < count; i++) {
+		copy[i] = fields[i];
+		copy[i].name = copy_name(fields[i].name, fields[i].len);
+	}
+
+	types[id].fields = copy;
+	types[id].field_count = count;
+	types[id].size = size;
+	types[id].align = align;
+	return 1;
+}
+
+StructField *find_field (TypeId id, const char *name, uint16_t len)
+{
+	if (type_kind(id) != TK_STRUCT) return NULL;
+
+	for (uint16_t i = 0; i < types[id].field_count; i++) {
+		StructField *f = types[id].fields + i;
+		if (f->len == len && memcmp(f->name, name, len) == 0) return f;
 	}
 	return NULL;
 }

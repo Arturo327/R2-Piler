@@ -19,6 +19,7 @@ static int implicit_cast_ok (TypeId from, TypeId to)
 		return to_kind == TK_PTR && (types[to].base == type_flat_element(from) || types[to].base == TYPE_VOID);
 
 	if (to_kind == TK_ARRAY || to_kind == TK_SLICE) return 0;
+	if (from_kind == TK_STRUCT || to_kind == TK_STRUCT) return 0;
 	if (from_kind == TK_PTR && to_kind == TK_PTR)
 		return types[from].base == TYPE_VOID || types[to].base == TYPE_VOID;
 
@@ -530,6 +531,7 @@ uint32_t force_cast (Sema *s, uint32_t child, TypeId child_type, TypeId target, 
 	if (types[target].size && type_kind(child_type) == TK_UNTYPED_INT
 			&& target_kind != TK_PTR && target_kind != TK_NULL
 			&& target_kind != TK_STR && target_kind != TK_VOID
+			&& target_kind != TK_STRUCT
 			&& target_kind != TK_ARRAY && target_kind != TK_SLICE) {
 		retag_expr(s, child, target);
 		return child;

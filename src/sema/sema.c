@@ -21,7 +21,7 @@ static int ptr_base_ok (TypeId base)
 	TypeKind kind = type_kind(base);
 
 	return kind == TK_VOID || kind == TK_INT || kind == TK_ENUM
-			|| kind == TK_NEWTYPE || kind == TK_PTR;
+			|| kind == TK_NEWTYPE || kind == TK_PTR || kind == TK_STRUCT;
 }
 
 static TypeId resolve_type_ref (Sema *s, ASTNode *ref, uint8_t *done, int *deferred)
@@ -264,8 +264,7 @@ uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 
 	ASTNode *decl = s->ast->nodes + decl_node;
 	int aggregate = decl->data_type != TYPE_ERROR
-			&& (type_kind(decl->data_type) == TK_ARRAY
-			|| type_kind(decl->data_type) == TK_SLICE);
+			&& type_is_aggregate(decl->data_type);
 
 	if (kind == SYMBOL_PARAM || (kind == SYMBOL_VAR && (decl->child != NO_NODE 
 			|| decl->type == NODE_EXTERN_VAR_DEC || aggregate)))
@@ -348,7 +347,7 @@ void check_storage_decl (Sema *s, ASTNode *n)
 	}
 }
 
-static void check_array_init_at (Sema *s, TypeId arr, uint32_t init_idx)
+void check_array_init_at (Sema *s, TypeId arr, uint32_t init_idx)
 {
 	TypeId elem = types[arr].base;
 	uint32_t count = types[arr].count;
@@ -388,6 +387,9 @@ static void check_array_init_at (Sema *s, TypeId arr, uint32_t init_idx)
 						types[elem].name);
 			else
 				check_array_init_at(s, elem, item);
+		} else if (type_kind(elem) == TK_STRUCT
+				&& item_node->type == NODE_STRUCT_INIT) {
+			check_struct_init(s, item, elem);
 		} else if (item_node->type == NODE_ARRAY_INIT) {
 			error_report(s->err, ERR_ERROR, node_loc(item_node),
 					"array element of type %s cannot be initialized"
@@ -503,6 +505,9 @@ void check_global_var_init (Sema *s, uint32_t idx)
 
 	if (n->data_type != TYPE_ERROR && type_kind(n->data_type) == TK_ARRAY) {
 		check_array_init(s, idx);
+	} else if (n->data_type != TYPE_ERROR && type_kind(n->data_type) == TK_STRUCT
+			&& s->ast->nodes[n->child].type == NODE_STRUCT_INIT) {
+		check_struct_init(s, n->child, n->data_type);
 	} else {
 		TypeId init_type = check_expr(s, n->child);
 		n = s->ast->nodes + idx;
@@ -551,6 +556,7 @@ static void decl_types (Sema *s)
 		if (n->type == NODE_ENUM_DEC) decl_enum(s, idx);
 		else if (n->type == NODE_TYPE_DEC || n->type == NODE_NEWTYPE_DEC)
 			sema_decl_type(s, idx);
+		else if (n->type == NODE_STRUCT_DEC) sema_decl_struct(s, idx);
 		idx = n->next_bro;
 	}
 }
@@ -702,7 +708,8 @@ static void check_root (Sema *s)
 		else if (n->type == NODE_FN_DEC) check_fn_dec(s, idx);
 		else if (n->type == NODE_EXTERN_FN_DEC) check_extern_fn(s, idx);
 		else if (n->type != NODE_ENUM_DEC && n->type != NODE_TYPE_DEC
-				&& n->type != NODE_NEWTYPE_DEC && n->type != NODE_EXTERN_VAR_DEC)
+				&& n->type != NODE_NEWTYPE_DEC && n->type != NODE_EXTERN_VAR_DEC
+				&& n->type != NODE_STRUCT_DEC)
 			error_report(s->err, ERR_ERROR, node_loc(n),
 					"only variable, function, enum and type declarations are allowed at the top level");
 		idx = n->next_bro;
@@ -743,6 +750,7 @@ void sema_run (Sema *s)
 	sema_resolve_types(s);
 	resolve_enum_bases(s);
 	sema_finalize_types(s);
+	sema_layout_structs(s);
 	decl_globals(s);
 	bind_enums(s);
 
@@ -778,6 +786,18 @@ static void dump_variants (TypeId id)
 	}
 }
 
+static void dump_fields (TypeId id)
+{
+	const Type *t = types + id;
+
+	for (uint16_t i = 0; i < t->field_count; i++) {
+		const StructField *f = t->fields + i;
+
+		printf("  field %.*s type=%s offset=%u\n", (int)f->len, f->name,
+				types[f->type].name, f->offset);
+	}
+}
+
 void dump_symbols (SymbolTable *t)
 {
 	for (uint32_t i = 0; i < t->count; i++) {
@@ -790,6 +810,13 @@ void dump_symbols (SymbolTable *t)
 					(int)sym->len, sym->name, sym->line, sym->col,
 					sym->depth, types[sym->type].name, types[base].name);
 			dump_variants(sym->type);
+			continue;
+		}
+		if (sym->kind == SYMBOL_TYPE && type_kind(sym->type) == TK_STRUCT) {
+			printf("struct %.*s [%u:%u] depth=%u size=%u align=%u\n",
+					(int)sym->len, sym->name, sym->line, sym->col, sym->depth,
+					types[sym->type].size, types[sym->type].align);
+			dump_fields(sym->type);
 			continue;
 		}
 		if (sym->kind == SYMBOL_TYPE) {

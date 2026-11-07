@@ -26,8 +26,7 @@ TypeId check_unary (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (type_kind(operand_type) == TK_ARRAY
-			|| type_kind(operand_type) == TK_SLICE) {
+	if (type_is_aggregate(operand_type)) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"operator cannot be applied to a value of type %s",
 				types[operand_type].name);
@@ -309,9 +308,8 @@ TypeId check_binary (Sema *s, uint32_t idx)
 		decay_operand(s, &left, &l);
 		decay_operand(s, &right, &r);
 	}
-	if (type_kind(l) == TK_ARRAY || type_kind(l) == TK_SLICE
-			|| type_kind(r) == TK_ARRAY || type_kind(r) == TK_SLICE) {
-		TypeId bad = type_kind(l) == TK_ARRAY || type_kind(l) == TK_SLICE ? l : r;
+	if (type_is_aggregate(l) || type_is_aggregate(r)) {
+		TypeId bad = type_is_aggregate(l) ? l : r;
 
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"operator cannot be applied to a value of type %s",
@@ -368,6 +366,12 @@ static TypeId ternary_unify (Sema *s, uint32_t idx, uint32_t *then_idx,
 	if (a == TYPE_VOID || b == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"operator cannot be applied to a value of type void");
+		return TYPE_ERROR;
+	}
+	if (type_is_aggregate(a) || type_is_aggregate(b)) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"operator cannot be applied to a value of type %s",
+				types[type_is_aggregate(a) ? a : b].name);
 		return TYPE_ERROR;
 	}
 	int a_ptr = type_kind(a) == TK_PTR || a == TYPE_NULL;
@@ -446,6 +450,11 @@ static int cast_types_ok (Sema *s, ASTNode *n, TypeId from, TypeId to)
 				"cannot cast between newtype types '%s' and '%s';"
 				" cast through the underlying integer type",
 				types[from].name, types[to].name);
+		return 0;
+	}
+	if (type_kind(from) == TK_STRUCT || type_kind(to) == TK_STRUCT) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot cast to or from a struct type");
 		return 0;
 	}
 	return 1;

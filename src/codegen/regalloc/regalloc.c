@@ -200,9 +200,7 @@ static void color_all (RegAlloc *ra)
 static uint32_t lay_size (IRFn *fn, Reg *regs, uint32_t c, uint8_t s, uint32_t block_count)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
-		TypeKind kind = type_kind(fn->reg_types[r]);
-
-		if (kind == TK_ARRAY || kind == TK_SLICE) continue;
+		if (type_is_aggregate(fn->reg_types[r])) continue;
 		if (!is_spilled(regs + r, block_count)) continue;
 		if (types[fn->reg_types[r]].size != s) continue;
 		c += s;
@@ -307,9 +305,7 @@ static void span_link (RegAlloc *ra, SlotMap *sm, uint8_t size)
 	memset(sm->head_lo, 0xFF, fn->count * sizeof(uint32_t));
 	memset(sm->head_hi, 0xFF, fn->count * sizeof(uint32_t));
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
-		TypeKind kind = type_kind(fn->reg_types[r]);
-
-		if (kind == TK_ARRAY || kind == TK_SLICE) continue;
+		if (type_is_aggregate(fn->reg_types[r])) continue;
 		if (!is_spilled(ra->regs + r, ra->ctx->block_count)) continue;
 		if (types[fn->reg_types[r]].size != size) continue;
 		if (sm->lo[r] > sm->hi[r]) {
@@ -353,15 +349,10 @@ static uint32_t lay_arrays (RegAlloc *ra)
 	uint32_t c = 0;
 
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
-		TypeKind kind = type_kind(fn->reg_types[r]);
-		uint32_t align;
-
-		if (kind != TK_ARRAY && kind != TK_SLICE) continue;
+		if (!type_is_aggregate(fn->reg_types[r])) continue;
 		if (!is_spilled(ra->regs + r, ra->ctx->block_count)) continue;
 
-		TypeId elem = type_flat_element(fn->reg_types[r]);
-		align = elem == TYPE_ERROR ? 8 : types[elem].size;
-		if (align > 8) align = 8;
+		uint32_t align = type_align(fn->reg_types[r]);
 		if (align > 1) c = (c + align - 1) & ~(align - 1);
 		c += types[fn->reg_types[r]].size;
 		ra->regs[r].slot = c;

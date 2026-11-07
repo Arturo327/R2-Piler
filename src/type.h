@@ -51,6 +51,13 @@ typedef struct EnumVariant {
 	uint16_t len;
 } EnumVariant;
 
+typedef struct StructField {
+	const char *name;
+	uint32_t offset;
+	TypeId type;
+	uint16_t len;
+} StructField;
+
 typedef struct TypeDesc {
 	const char *name;
 	uint16_t len;
@@ -59,9 +66,16 @@ typedef struct TypeDesc {
 	uint8_t sign;
 	uint8_t kind;
 	uint8_t builtin;
+
 	TypeId base;
 	uint16_t variant_count;
 	EnumVariant *variants;
+
+	StructField *fields;
+	uint32_t align;
+	uint32_t decl;
+	uint16_t field_count;
+	uint8_t layout;
 } TypeDesc;
 
 typedef TypeDesc Type;
@@ -82,6 +96,10 @@ int type_array_rank (TypeId id);
 int type_slice_rank (TypeId id);
 int type_dyn_rank (TypeId id);
 int type_is_mixed (TypeId id);
+int type_is_aggregate (TypeId id);
+uint32_t type_align (TypeId id);
+int bind_struct_type (TypeId id, const StructField *fields, uint16_t count, uint32_t size, uint32_t align);
+StructField *find_field (TypeId id, const char *name, uint16_t len);
 
 TypeId find_type (const char *name, uint16_t len);
 int bind_enum_type (TypeId id, const EnumVariant *vars, uint16_t count);

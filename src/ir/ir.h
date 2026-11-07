@@ -57,6 +57,7 @@ typedef struct IRFn {
 	uint16_t len;
 	TypeId ret_type;
 	uint8_t is_extern;
+	uint8_t no_tail;
 } IRFn;
 
 enum {
@@ -117,6 +118,8 @@ typedef struct IR {
 	uint32_t addressed_cap;
 
 	uint8_t use_select;
+	uint8_t no_tail;
+	uint32_t sret;
 
 	Arena *arena;
 	AST *ast;

@@ -15,6 +15,16 @@ static void gen_var_dec (IR *ir, ASTNode *n)
 	Symbol *s = ir->symtab->symbols + n->sym;
 	uint32_t reg;
 
+	if (type_kind(s->type) == TK_STRUCT) {
+		reg = new_reg(ir, s->type);
+		s->ir_id = reg;
+		ir->addressed[reg] = 1;
+		ir->no_tail = 1;
+		if (n->child != NO_NODE)
+			gen_struct_into(ir, local_storage_addr(ir, s, s->type),
+					n->child, s->type, 1);
+		return;
+	}
 	if (type_kind(s->type) == TK_ARRAY) {
 		reg = new_reg(ir, s->type);
 		s->ir_id = reg;
@@ -39,6 +49,12 @@ static void gen_return (IR *ir, ASTNode *n)
 
 	if (n->child != NO_NODE) {
 		ASTNode *val = ir->ast->nodes + n->child;
+
+		if (ir->sret != NO_REG) {
+			gen_struct_into(ir, ir->sret, n->child, val->data_type, 1);
+			make_ret(ir, NO_REG, TYPE_VOID);
+			return;
+		}
 		reg = gen_expr(ir, val);
 		type = val->data_type;
 	}
@@ -236,14 +252,14 @@ static uint32_t dec_aggregate_param (IR *ir, Symbol *s, uint32_t idx)
 static void gen_args_dec (IR *ir, uint32_t node)
 {
 	uint32_t p = ir->ast->nodes[node].child;
-	uint32_t idx = 0;
+	uint32_t idx = ir->sret == NO_REG ? 0 : 1;
 
 	while (p != NO_NODE) {
 		ASTNode *n = ir->ast->nodes + p;
 		Symbol *s = ir->symtab->symbols + n->sym;
 		TypeKind kind = type_kind(s->type);
 
-		if (kind == TK_ARRAY || kind == TK_SLICE) {
+		if (kind == TK_ARRAY || kind == TK_SLICE || kind == TK_STRUCT) {
 			idx = dec_aggregate_param(ir, s, idx);
 		} else {
 			s->ir_id = new_reg(ir, s->type);
@@ -263,6 +279,7 @@ static void fn_end (IR *ir, uint32_t idx)
 	fn->reg_count = ir->reg_count;
 	fn->reg_types = ir->reg_types;
 	fn->addressed = ir->addressed;
+	fn->no_tail = ir->no_tail;
 }
 
 static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
@@ -270,14 +287,23 @@ static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
 	uint32_t args = n->child;
 	uint32_t ret = ir->ast->nodes[args].next_bro;
 	uint32_t body = ir->ast->nodes[ret].next_bro;
+	TypeId ret_type = ir->ast->nodes[ret].data_type;
 
 	ir->reg_count = 0;
 	ir->reg_types = NULL;
 	ir->reg_type_cap = 0;
 	ir->addressed = NULL;
 	ir->addressed_cap = 0;
+	ir->no_tail = 0;
+	ir->sret = NO_REG;
 
 	ir->fns[fn_idx].start = ir->instr_count;
+	if (type_kind(ret_type) == TK_STRUCT) {
+		TypeId ptr = type_ptr_to(ret_type);
+
+		ir->sret = new_reg(ir, ptr);
+		make_arg_dec(ir, ir->sret, 0, ptr);
+	}
 	gen_args_dec(ir, args);
 	gen_block(ir, ir->ast->nodes + body);
 	fn_end(ir, fn_idx);
@@ -289,11 +315,14 @@ static void gen_var_init (IR *ir, uint32_t idx)
 	Symbol *s = ir->symtab->symbols + n->sym;
 
 	if (n->child == NO_NODE) return;
-	if (type_kind(s->type) == TK_ARRAY) {
+	if (type_kind(s->type) == TK_ARRAY || type_kind(s->type) == TK_STRUCT) {
 		uint32_t base = new_reg(ir, TYPE_i64);
 
 		make_addr_global(ir, base, s->ir_id, s->type);
-		gen_array_init(ir, base, n->child, s->type, 0);
+		if (type_kind(s->type) == TK_STRUCT)
+			gen_struct_into(ir, base, n->child, s->type, 1);
+		else
+			gen_array_init(ir, base, n->child, s->type, 0);
 		return;
 	}
 	uint32_t val = gen_expr(ir, ir->ast->nodes + n->child);
@@ -308,6 +337,8 @@ static void gen_init_fn (IR *ir)
 	ir->reg_type_cap = 0;
 	ir->addressed = NULL;
 	ir->addressed_cap = 0;
+	ir->no_tail = 0;
+	ir->sret = NO_REG;
 	ir->fns[ir->init_fn].start = ir->instr_count;
 
 	for (uint32_t i = 0; i < ir->static_count; i++)

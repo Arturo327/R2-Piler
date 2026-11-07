@@ -128,6 +128,8 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select)
 	ir->reg_count = 0;
 	ir->label_count = 0;
 	ir->use_select = use_select;
+	ir->no_tail = 0;
+	ir->sret = NO_REG;
 
 	ir->reg_types = NULL;
 	ir->reg_type_cap = 0;
@@ -153,7 +155,8 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select)
 
 static uint32_t param_slots (IR *ir, ASTNode *n)
 {
-	uint32_t count = 0;
+	uint32_t ret = ir->ast->nodes[n->child].next_bro;
+	uint32_t count = type_kind(ir->ast->nodes[ret].data_type) == TK_STRUCT;
 	uint32_t p = ir->ast->nodes[n->child].child;
 
 	while (p != NO_NODE) {
@@ -168,7 +171,7 @@ static uint32_t declare_fn (IR *ir, ASTNode *n, Symbol *sym)
 	IRFn fn = {0};
 	fn.name = n->str;
 	fn.len = n->len;
-	fn.ret_type = sym->type;
+	fn.ret_type = type_kind(sym->type) == TK_STRUCT ? TYPE_VOID : sym->type;
 	fn.param_count = param_slots(ir, n);
 	fn.is_extern = n->type == NODE_EXTERN_FN_DEC;
 	return push_fn(ir, fn);

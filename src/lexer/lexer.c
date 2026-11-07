@@ -444,6 +444,7 @@ static const Keyword keywords[] = {
 	{"return", TOK_RET},
 	{"sizeof", TOK_SIZEOF},
 	{"static", TOK_STATIC},
+	{"struct", TOK_STRUCT},
 	{"switch", TOK_SWITCH},
 	{"default", TOK_DEFAULT},
 	{"newtype", TOK_NEWTYPE}
@@ -496,7 +497,7 @@ static const TwoCharOp two_char_ops[] = {
 	{'*', '=', TOK_STAR_ASSIGN}, {'/', '=', TOK_SLASH_ASSIGN},
 	{'%', '=', TOK_PERCENT_ASSIGN}, {'&', '=', TOK_AND_A_ASSIGN},
 	{'|', '=', TOK_OR_A_ASSIGN}, {'^', '=', TOK_XOR_ASSIGN},
-	{'+', '+', TOK_INC}, {'-', '-', TOK_DEC}
+	{'+', '+', TOK_INC}, {'-', '-', TOK_DEC}, {'-', '>', TOK_ARROW}
 };
 
 static const uint8_t one_char_ops[256] = {
@@ -585,7 +586,7 @@ static const char *const token_names[TOK_COUNT] = {
 	TN(TOK_SEMCOL), TN(TOK_COMMA), TN(TOK_COL),
 	TN(TOK_DOT), TN(TOK_QUESTION), TN(TOK_LPAREN), TN(TOK_RPAREN),
 	TN(TOK_LKEY), TN(TOK_RKEY), TN(TOK_STATIC),
-	TN(TOK_LBRACE), TN(TOK_RBRACE),
+	TN(TOK_LBRACE), TN(TOK_RBRACE), TN(TOK_STRUCT), TN(TOK_ARROW),
 	TN(TOK_LIT_i64), TN(TOK_LIT_u64), TN(TOK_LIT_CHAR), TN(TOK_LIT_STR),
 	TN(TOK_i8), TN(TOK_u8), TN(TOK_i16), TN(TOK_u16), TN(TOK_i32), TN(TOK_u32),
 	TN(TOK_i64), TN(TOK_u64), TN(TOK_CHAR), TN(TOK_VOID), TN(TOK_IF),

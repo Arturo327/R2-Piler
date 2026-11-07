@@ -119,6 +119,8 @@ void cg_printf (CodeGen *c, const char *fmt, ...)
 int cg_is_tail_call (IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx,
 		IRInstr *call, uint32_t max_args)
 {
+	if (fn->no_tail) return 0;
+
 	IRInstr *end = ir->instrs + fn->start + fn->count;
 	IRInstr *ret = call + 1;
 	uint32_t at = (uint32_t)(call - (ir->instrs + fn->start));

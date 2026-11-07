@@ -43,6 +43,11 @@ static TypeId check_expr_node (Sema *s, uint32_t idx)
 	case NODE_CAST: return check_cast(s, idx);
 	case NODE_TERNARY: return check_ternary(s, idx);
 	case NODE_EMPTY: n->data_type = TYPE_VOID; return TYPE_VOID;
+	case NODE_ARRAY_INIT: case NODE_STRUCT_INIT:
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"a '{...}' initializer is only valid in an array or struct declaration");
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
 	case NODE_ERROR: n->data_type=TYPE_ERROR; return TYPE_ERROR;
 	default: return check_binary(s, idx);
 	}
