@@ -373,7 +373,7 @@ static TypeId check_dot_index(Sema *s, uint32_t idx)
 		return check_len_field(s, idx, n->child, type);
 
 	error_report(s->err, ERR_ERROR, node_loc(n),
-			"left side of '.' must be an enum type");
+			"a value of type %s is not an array or a slice", type_display_name(type));
 	n->data_type = TYPE_ERROR;
 	return TYPE_ERROR;
 }
@@ -446,8 +446,21 @@ TypeId check_dot(Sema *s, uint32_t idx)
 		return check_dot_index(s, idx);
 
 	if (left->type != NODE_ID) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"left side of '.' must be an enum type");
+		TypeId left_type = check_expr(s, n->child);
+
+		n = s->ast->nodes + idx;
+		if (left_type == TYPE_ERROR) {
+			n->data_type = TYPE_ERROR;
+			return TYPE_ERROR;
+		}
+		if (n->len == 3 && memcmp(n->str, "len", 3) == 0)
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"a value of type %s is not an array or a slice",
+					type_display_name(left_type));
+		else
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"a value of type %s is not an enum type",
+					type_display_name(left_type));
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
