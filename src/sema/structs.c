@@ -86,12 +86,6 @@ static TypeId field_type (Sema *s, uint32_t idx)
 	TypeId t = resolve_type_node(s, s->ast->nodes + idx);
 	f = s->ast->nodes + idx;
 	if (t == TYPE_ERROR || !types[t].size) return TYPE_ERROR;
-	if (type_dyn_rank(t) > 0) {
-		error_report(s->err, ERR_ERROR, node_loc(f),
-				"slice types are only allowed as function parameters");
-		f->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
 	return t;
 }
 
@@ -265,11 +259,14 @@ static void check_field_value (Sema *s, uint32_t item, const StructField *f)
 	uint8_t vt = s->ast->nodes[val].type;
 	TypeKind kind = type_kind(f->type);
 
+	int has_slice = type_dyn_rank(f->type) > 0;
 	if (kind == TK_STRUCT && vt == NODE_STRUCT_INIT) {
 		check_struct_init(s, val, f->type);
-	} else if (kind == TK_ARRAY && (vt == NODE_ARRAY_INIT || vt == NODE_LIT_STR)) {
+	} else if (kind == TK_ARRAY && !has_slice
+			&& (vt == NODE_ARRAY_INIT || vt == NODE_LIT_STR)) {
 		check_array_init_at(s, f->type, val);
-	} else if (vt == NODE_ARRAY_INIT || vt == NODE_STRUCT_INIT || kind == TK_ARRAY) {
+	} else if (vt == NODE_ARRAY_INIT || vt == NODE_STRUCT_INIT
+			|| (kind == TK_ARRAY && !has_slice)) {
 		error_report(s->err, ERR_ERROR, node_loc(fi),
 				"field '%.*s' of type %s cannot be initialized this way",
 				(int)fi->len, fi->str, types[f->type].name);

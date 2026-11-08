@@ -15,10 +15,27 @@ static int implicit_cast_ok (TypeId from, TypeId to)
 		return to_kind == TK_PTR && types[to].base == TYPE_i8;
 
 	if (to == TYPE_STR) return 0;
+
+	if (from_kind == TK_ARRAY && to_kind == TK_SLICE) {
+		TypeId a = from;
+		TypeId p = to;
+		if (type_flat_element(a) != type_flat_element(p)) return 0;
+		while (type_kind(p) == TK_ARRAY || type_kind(p) == TK_SLICE) {
+			if (type_kind(a) != TK_ARRAY && type_kind(a) != TK_SLICE) return 0;
+			if (type_kind(p) == TK_ARRAY) {
+				if (type_kind(a) != TK_ARRAY || types[a].count != types[p].count) return 0;
+			}
+			a = types[a].base;
+			p = types[p].base;
+		}
+		return type_kind(a) != TK_ARRAY && type_kind(a) != TK_SLICE;
+	}
+
 	if (from_kind == TK_ARRAY || from_kind == TK_SLICE)
 		return to_kind == TK_PTR && (types[to].base == type_flat_element(from) || types[to].base == TYPE_VOID);
 
-	if (to_kind == TK_ARRAY || to_kind == TK_SLICE) return 0;
+	if (to_kind == TK_ARRAY) return 0;
+	if (to_kind == TK_SLICE) return from_kind == TK_SLICE && from == to;
 	if (from_kind == TK_STRUCT || to_kind == TK_STRUCT) return 0;
 	if (from_kind == TK_PTR && to_kind == TK_PTR)
 		return types[from].base == TYPE_VOID || types[to].base == TYPE_VOID;

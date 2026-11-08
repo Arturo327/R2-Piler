@@ -4,13 +4,13 @@
 #define LOGIC_BUDGET 8
 
 #include <assert.h>
-#include <stdio.h>
 #include <string.h>
 
 static uint32_t gen_index_addr (IR *ir, ASTNode *n);
 static uint32_t gen_array_addr (IR *ir, ASTNode *n);
 static uint32_t read_reg (IR *ir, uint32_t reg, TypeId type);
 static uint32_t gen_field_addr (IR *ir, ASTNode *n);
+static uint32_t add_offset (IR *ir, uint32_t base, uint64_t off);
 static uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest);
 static uint32_t ptr_scale (IR *ir, uint32_t val, TypeId ptr_type, int up);
 void gen_jump_if (IR *ir, ASTNode *n, uint32_t label, int when);
@@ -92,8 +92,11 @@ static uint32_t elem_scale (IR *ir, uint32_t val, TypeId elem)
 	if (size < 2) return val;
 	return make_op(ir, IR_MUL, val, make_const(ir, size, TYPE_i64), TYPE_i64);
 }
+
 static uint32_t slice_dim_reg (IR *ir, ASTNode *n, int dim, TypeId type)
 {
+	if (n->type == NODE_CAST && n->child != NO_NODE)
+		n = ir->ast->nodes + n->child;
 	ASTNode *root = n;
 	TypeId t = n->data_type;
 
@@ -101,8 +104,24 @@ static uint32_t slice_dim_reg (IR *ir, ASTNode *n, int dim, TypeId type)
 	for (int d = 0; d < dim; d++) t = types[t].base;
 	if (type_kind(t) == TK_ARRAY) return make_const(ir, types[t].count, type);
 
-	Symbol *s = ir->symtab->symbols + root->sym;
-	return read_reg(ir, s->ir_dims[type_dyn_rank(s->type) - type_dyn_rank(t)], type);
+	if (root->type == NODE_ID) {
+		Symbol *s = ir->symtab->symbols + root->sym;
+		if (s->ir_dims)
+			return read_reg(ir, s->ir_dims[type_dyn_rank(s->type) - type_dyn_rank(t)], type);
+	}
+
+	uint32_t addr;
+	switch (n->type)
+	{
+	case NODE_INDEX: addr = gen_index_addr(ir, n); break;
+	case NODE_DOT: addr = gen_field_addr(ir, n); break;
+	case NODE_DEREF: addr = gen_expr(ir, n); break;
+	default: addr = gen_expr(ir, n); break;
+	}
+
+	int dyn_idx = type_dyn_rank(n->data_type) - type_dyn_rank(t);
+	uint32_t off = (uint32_t)(8 * (dyn_idx + 1));
+	return make_ld_ptr(ir, add_offset(ir, addr, off), type);
 }
 
 static uint32_t push_dims (IR *ir, ASTNode *a, TypeId pt, uint32_t *regs, uint32_t k)
@@ -349,10 +368,37 @@ static uint32_t gen_field (IR *ir, ASTNode *n)
 {
 	uint32_t addr = gen_field_addr(ir, n);
 
-	if (type_kind(n->data_type) == TK_STRUCT
-			|| type_kind(n->data_type) == TK_ARRAY)
+	if (type_kind(n->data_type) == TK_STRUCT)
+		return addr;
+	if (type_dyn_rank(n->data_type) > 0)
+		return make_ld_ptr(ir, addr,
+				type_ptr_to(type_flat_element(n->data_type)));
+	if (type_kind(n->data_type) == TK_ARRAY)
 		return addr;
 	return make_ld_ptr(ir, addr, n->data_type);
+}
+
+static uint32_t gen_slice_desc (IR *ir, uint32_t dst, ASTNode *val, TypeId type)
+{
+	uint32_t src_ptr = gen_expr(ir, val);
+	TypeId ptr_type = type_ptr_to(type_flat_element(type));
+
+	make_str_ptr(ir, dst, src_ptr, ptr_type);
+
+	int slice_index = 0;
+	TypeId level_type = type;
+	int level = 0;
+
+	while (type_kind(level_type) == TK_ARRAY || type_kind(level_type) == TK_SLICE) {
+		if (type_kind(level_type) == TK_SLICE) {
+			uint32_t length = slice_dim_reg(ir, val, level, TYPE_i64);
+			make_str_ptr(ir, add_offset(ir, dst, (uint64_t)8 * (slice_index + 1)), length, TYPE_i64);
+			slice_index++;
+		}
+		level_type = types[level_type].base;
+		level++;
+	}
+	return src_ptr;
 }
 
 static void gen_struct_init (IR *ir, uint32_t base, ASTNode *init, TypeId type)
@@ -366,7 +412,10 @@ static void gen_struct_init (IR *ir, uint32_t base, ASTNode *init, TypeId type)
 
 		if (type_kind(f->type) == TK_STRUCT)
 			gen_struct_into(ir, at, fi->child, f->type, 1);
-		else if (type_kind(f->type) == TK_ARRAY)
+		else if (type_dyn_rank(f->type) > 0) {
+			ASTNode *val = ir->ast->nodes + fi->child;
+			gen_slice_desc(ir, at, val, f->type);
+		} else if (type_kind(f->type) == TK_ARRAY)
 			gen_array_init(ir, at, fi->child, f->type, 1);
 		else make_str_ptr(ir, at, gen_expr(ir, ir->ast->nodes + fi->child), f->type);
 		item = fi->next_bro;
@@ -434,6 +483,12 @@ static uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest)
 static uint32_t gen_assign (IR *ir, ASTNode *n)
 {
 	ASTNode *lhs = ir->ast->nodes + n->child;
+
+	if (lhs->type == NODE_DOT && type_dyn_rank(lhs->data_type) > 0) {
+		uint32_t dst = gen_lvalue_addr(ir, lhs);
+		ASTNode *rhs = ir->ast->nodes + lhs->next_bro;
+		return gen_slice_desc(ir, dst, rhs, lhs->data_type);
+	}
 
 	if (type_kind(lhs->data_type) == TK_STRUCT) {
 		uint32_t dst = gen_expr(ir, lhs);

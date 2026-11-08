@@ -290,13 +290,24 @@ int type_is_aggregate (TypeId id)
 
 uint32_t type_align (TypeId id)
 {
-	TypeId leaf = type_flat_element(id);
+	int has_slice = 0;
+	TypeId cur = id;
 
-	if (leaf == TYPE_ERROR) return 8;
-	if (types[leaf].kind == TK_STRUCT) return types[leaf].align;
-	uint32_t size = types[leaf].size;
-	if (size > 8) return 8;
-	return size ? size : 1;
+	while (type_kind(cur) == TK_ARRAY || type_kind(cur) == TK_SLICE) {
+		if (type_kind(cur) == TK_SLICE) has_slice = 1;
+		cur = types[cur].base;
+	}
+
+	if (cur == TYPE_ERROR) return 8;
+	if (types[cur].kind == TK_STRUCT) {
+		uint32_t a = types[cur].align;
+		if (has_slice && a < 8) a = 8;
+		return a;
+	}
+	uint32_t size = types[cur].size;
+	uint32_t a = size > 8 ? 8 : (size ? size : 1);
+	if (has_slice && a < 8) a = 8;
+	return a;
 }
 
 TypeId find_type (const char *name, uint16_t len)
