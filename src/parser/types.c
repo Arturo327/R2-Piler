@@ -76,7 +76,11 @@ static TypeSpec *parse_type_spec (Parser *p, int allow_void)
 
 	if (!enter_depth(p, "type")) return NULL;
 
-	if (t.type == TOK_PTR) {
+	if (t.type == TOK_LPAREN) {
+		advance(p);
+		ts = parse_type_spec(p, allow_void);
+		consume(p, TOK_RPAREN, "expected ')' after type");
+	} else if (t.type == TOK_PTR) {
 		advance(p);
 		ts = new_spec(p, TS_PTR, t);
 		ts->base = parse_type_spec(p, 1);
