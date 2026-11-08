@@ -832,7 +832,8 @@ void dump_symbols (SymbolTable *t)
 			continue;
 		}
 		if (sym->kind == SYMBOL_TYPE && type_kind(sym->type) == TK_STRUCT) {
-			printf("struct %.*s [%u:%u] depth=%u size=%u align=%u\n",
+			printf("%s %.*s [%u:%u] depth=%u size=%u align=%u\n",
+					types[sym->type].is_union ? "union" : "struct",
 					(int)sym->len, sym->name, sym->line, sym->col, sym->depth,
 					types[sym->type].size, types[sym->type].align);
 			dump_fields(sym->type);

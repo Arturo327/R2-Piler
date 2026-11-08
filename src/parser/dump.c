@@ -113,6 +113,7 @@ static void dump_node_value (ASTNode *n)
 	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
 		if (n->str) printf(" name=\"%.*s\"", (int)n->len, n->str);
 		if (n->flags & NODE_FLAG_STATIC) printf(" static");
+		if (n->flags & NODE_FLAG_UNION) printf(" union");
 		break;
 	case NODE_DOT:
 		printf(" field=\"%.*s\"", (int)n->len, n->str);

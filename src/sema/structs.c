@@ -2,9 +2,26 @@
 
 #include <string.h>
 
-#define ALIGN_UP(v, a) (((v) + (a) - 1) & ~((uint64_t)(a) - 1))
+#define ALIGN(v, a) (((v) + (a) - 1) & ~((uint64_t)(a) - 1))
+
+typedef struct {
+	Sema *s;
+	StructField *out;
+	uint32_t count;
+	uint16_t grp;
+	uint16_t alt;
+	uint16_t groups;
+	int record;
+	uint64_t base;
+	TypeId ft;
+	uint64_t fs;
+	uint32_t fa;
+	uint64_t size;
+	uint32_t align;
+} StructLayout;
 
 static int layout_struct (Sema *s, TypeId id);
+static void place (StructLayout *l, uint32_t node);
 
 void sema_decl_struct (Sema *s, uint32_t idx)
 {
@@ -30,6 +47,7 @@ void sema_decl_struct (Sema *s, uint32_t idx)
 	}
 	types[id].base = id;
 	types[id].decl = idx;
+	types[id].is_union = (n->flags & NODE_FLAG_UNION) != 0;
 	sema_declare(s, n->str, n->len, SYMBOL_TYPE, id, idx);
 }
 
@@ -77,13 +95,14 @@ static TypeId field_type (Sema *s, uint32_t idx)
 	return t;
 }
 
-static void add_field (Sema *s, StructField *out, uint32_t *count,
-		uint32_t idx, TypeId type, uint64_t off)
+static void add_field (StructLayout *l, uint32_t idx, TypeId type, uint64_t off)
 {
+	Sema *s = l->s;
+	StructField *out = l->out;
 	ASTNode *m = s->ast->nodes + idx;
-	StructField *f = out + *count;
+	StructField *f = out + l->count;
 
-	for (uint32_t i = 0; i < *count; i++) {
+	for (uint32_t i = 0; i < l->count; i++) {
 		if (out[i].len != m->len || memcmp(out[i].name, m->str, m->len))
 			continue;
 		error_report(s->err, ERR_ERROR, node_loc(m),
@@ -94,43 +113,84 @@ static void add_field (Sema *s, StructField *out, uint32_t *count,
 	f->len = m->len;
 	f->type = type;
 	f->offset = (uint32_t)off;
-	(*count)++;
+	f->grp = l->grp;
+	f->alt = l->alt;
+	l->count++;
 }
 
-static void place (Sema *s, StructField *out, uint32_t *count,
-		uint32_t node, uint64_t base, uint64_t *size, uint32_t *align, int record)
+static int measure_member (StructLayout *l, uint32_t c)
 {
+	Sema *s = l->s;
+	StructField *out = l->out;
+	ASTNode *m = s->ast->nodes + c;
+
+	if (m->type == NODE_FIELD_DEC) {
+		l->ft = field_type(s, c);
+		if (l->ft == TYPE_ERROR) return 0;
+		l->fa = type_align(l->ft);
+		l->fs = types[l->ft].size;
+		return 1;
+	}
+	if (m->str) {
+		if (l->record) error_report(s->err, ERR_ERROR, node_loc(m),
+				"a named struct cannot be declared inside another struct");
+		return 0;
+	}
+	uint16_t grp = l->grp;
+	uint16_t alt = l->alt;
+	StructLayout sub = { s, out, 0, grp, alt, 0, 0, 0, 0, 0, 0, 0, 0 };
+	place(&sub, c);
+	l->ft = TYPE_ERROR;
+	l->fs = sub.size;
+	l->fa = sub.align;
+	return 1;
+}
+
+static void place (StructLayout *l, uint32_t node)
+{
+	Sema *s = l->s;
+	int record = l->record;
+	uint64_t base = l->base;
+
 	uint32_t c = s->ast->nodes[node].child;
+	int uni = (s->ast->nodes[node].flags & NODE_FLAG_UNION) != 0;
+	uint16_t my_grp = l->grp;
+	uint16_t my_alt = l->alt;
+	uint16_t k = 0;
 	uint64_t off = 0;
 	uint32_t al = 1;
 
+	if (uni && record) l->grp = ++l->groups;
 	for (; c != NO_NODE; c = s->ast->nodes[c].next_bro) {
-		ASTNode *m = s->ast->nodes + c;
+		TypeId ft = TYPE_ERROR;
 		uint64_t fs = 0;
 		uint32_t fa = 1;
 
-		if (m->type == NODE_FIELD_DEC) {
-			TypeId ft = field_type(s, c);
-
-			if (ft == TYPE_ERROR) continue;
-			fa = type_align(ft);
-			fs = types[ft].size;
-			off = ALIGN_UP(off, fa);
-			if (record) add_field(s, out, count, c, ft, base + off);
-		} else if (m->str) {
-			if (record) error_report(s->err, ERR_ERROR, node_loc(m),
-					"a named struct cannot be declared inside another struct");
-			continue;
-		} else {
-			place(s, out, count, c, 0, &fs, &fa, 0);
-			off = ALIGN_UP(off, fa);
-			if (record) place(s, out, count, c, base + off, &fs, &fa, 1);
+		if (uni && record) l->alt = ++k;
+		if (!measure_member(l, c)) continue;
+		ft = l->ft;
+		fs = l->fs;
+		fa = l->fa;
+		uint64_t at = uni ? 0 : ALIGN(off, fa);
+		if (record && ft != TYPE_ERROR) add_field(l, c, ft, base + at);
+		else if (record) {
+			uint64_t saved_base = l->base;
+			int saved_record = l->record;
+			l->base = base + at;
+			l->record = 1;
+			place(l, c);
+			fs = l->size;
+			fa = l->align;
+			l->base = saved_base;
+			l->record = saved_record;
 		}
-		off += fs;
+		if (at + fs > off) off = at + fs;
 		if (fa > al) al = fa;
 	}
-	*size = ALIGN_UP(off, al);
-	*align = al;
+	l->grp = my_grp;
+	l->alt = my_alt;
+	l->size = ALIGN(off, al);
+	l->align = al;
 }
 
 static uint32_t count_fields (Sema *s, uint32_t node)
@@ -149,16 +209,25 @@ static int layout_struct (Sema *s, TypeId id)
 {
 	Type *t = types + id;
 	int errs = s->err->err_count;
-	uint64_t size;
-	uint32_t align;
-	uint32_t count = 0;
 	StructField *out = arena_alloc(s->arena, sizeof(StructField) * (count_fields(s, t->decl) + 1u));
+	uint16_t grp = 0;
+	uint16_t alt = 0;
+	uint16_t groups = 0;
 
 	if (t->layout == 2) return 1;
 	if (t->layout != 0) return 0;
 
 	t->layout = 1;
-	place(s, out, &count, t->decl, 0, &size, &align, 1);
+	StructLayout l = {
+		.s = s, .out = out,
+		.grp = grp, .alt = alt,
+		.groups = groups,
+		.record = 1
+	};
+	place(&l, t->decl);
+	uint32_t count = l.count;
+	uint64_t size = l.size;
+	uint32_t align = l.align;
 
 	if (!count && s->err->err_count == errs)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + t->decl),
@@ -195,8 +264,6 @@ static void check_field_value (Sema *s, uint32_t item, const StructField *f)
 	uint32_t val = fi->child;
 	uint8_t vt = s->ast->nodes[val].type;
 	TypeKind kind = type_kind(f->type);
-	TypeId type;
-	int ok;
 
 	if (kind == TK_STRUCT && vt == NODE_STRUCT_INIT) {
 		check_struct_init(s, val, f->type);
@@ -207,14 +274,59 @@ static void check_field_value (Sema *s, uint32_t item, const StructField *f)
 				"field '%.*s' of type %s cannot be initialized this way",
 				(int)fi->len, fi->str, types[f->type].name);
 	} else {
-		type = check_expr(s, val);
+		TypeId type = check_expr(s, val);
 		if (type == TYPE_ERROR || type == f->type) return;
+		int ok;
 		fi->child = force_cast(s, val, type, f->type, &ok);
 		if (ok) return;
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + item),
 				"cannot initialize field '%.*s' of type %s with a value of type %s;"
 				" use an explicit cast with 'as'",
-				(int)f->len, f->name, types[f->type].name, type_display_name(type));
+				(int)fi->len, f->name, types[f->type].name, type_display_name(type));
+	}
+}
+
+static int alt_seen (const Type *t, const uint8_t *seen, uint16_t grp, uint16_t alt)
+{
+	for (uint32_t j = 0; j < t->field_count; j++) {
+		if (seen[j] && t->fields[j].grp == grp && (!alt || t->fields[j].alt == alt))
+			return 1;
+	}
+	return 0;
+}
+
+static int union_conflict (const Type *t, const uint8_t *seen, const StructField *f)
+{
+	for (uint32_t j = 0; f->grp && j < t->field_count; j++) {
+		if (seen[j] && t->fields[j].grp == f->grp && t->fields[j].alt != f->alt)
+			return 1;
+	}
+	return 0;
+}
+
+static int first_in_group (const Type *t, uint32_t k)
+{
+	for (uint32_t j = 0; j < k; j++) {
+		if (t->fields[j].grp == t->fields[k].grp) return 0;
+	}
+	return 1;
+}
+
+static void report_missing (Sema *s, uint32_t init_idx, TypeId st, const uint8_t *seen)
+{
+	const Type *t = types + st;
+
+	for (uint32_t k = 0; k < t->field_count; k++) {
+		const StructField *f = t->fields + k;
+		const char *what = "missing field '%.*s' in the initializer of struct '%s'";
+
+		if (seen[k]) continue;
+		if (f->grp && !alt_seen(t, seen, f->grp, f->alt)) {
+			if (alt_seen(t, seen, f->grp, 0) || !first_in_group(t, k)) continue;
+			what = "missing a member of the union that contains '%.*s' in the initializer of '%s'";
+		}
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + init_idx),
+				what, (int)f->len, f->name, t->name);
 	}
 }
 
@@ -231,6 +343,10 @@ static void check_field_init (Sema *s, uint32_t item, TypeId st, uint8_t *seen)
 	if (seen[f - types[st].fields])
 		error_report(s->err, ERR_ERROR, node_loc(fi),
 				"duplicate field '%.*s' in the initializer", (int)fi->len, fi->str);
+	else if (union_conflict(types + st, seen, f))
+		error_report(s->err, ERR_ERROR, node_loc(fi),
+				"field '%.*s' overlaps another initialized member of the same union",
+				(int)fi->len, fi->str);
 	seen[f - types[st].fields] = 1;
 	check_field_value(s, item, f);
 }
@@ -247,10 +363,5 @@ void check_struct_init (Sema *s, uint32_t init_idx, TypeId st)
 		check_field_init(s, item, st, seen);
 		item = s->ast->nodes[item].next_bro;
 	}
-	for (uint32_t k = 0; k < count; k++) {
-		if (seen[k]) continue;
-		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + init_idx),
-				"missing field '%.*s' in the initializer of struct '%s'",
-				(int)types[st].fields[k].len, types[st].fields[k].name, types[st].name);
-	}
+	report_missing(s, init_idx, st, seen);
 }

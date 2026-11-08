@@ -8,6 +8,7 @@
 #define NO_NODE 0xFFFFFFFF
 #define NO_TYPE_NODE 0
 #define NODE_FLAG_STATIC 1
+#define NODE_FLAG_UNION 2
 
 typedef enum {
 	NODE_ERROR = 0, NODE_EMPTY,

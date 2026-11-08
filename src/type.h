@@ -56,6 +56,8 @@ typedef struct StructField {
 	uint32_t offset;
 	TypeId type;
 	uint16_t len;
+	uint16_t grp;
+	uint16_t alt;
 } StructField;
 
 typedef struct TypeDesc {
@@ -76,6 +78,7 @@ typedef struct TypeDesc {
 	uint32_t decl;
 	uint16_t field_count;
 	uint8_t layout;
+	uint8_t is_union;
 } TypeDesc;
 
 typedef TypeDesc Type;

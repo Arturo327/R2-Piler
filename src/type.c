@@ -99,6 +99,7 @@ TypeId add_type (const char *name, uint16_t len, TypeKind kind, TypeId base)
 	t->align = 1;
 	t->decl = 0;
 	t->layout = 0;
+	t->is_union = 0;
 	return id;
 }
 

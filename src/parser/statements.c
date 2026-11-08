@@ -826,7 +826,7 @@ static uint32_t parse_statement_inner (Parser *p)
 	case TOK_ENUM: return parse_enum(p);
 	case TOK_TYPE: return parse_type_dec(p, 0);
 	case TOK_NEWTYPE: return parse_type_dec(p, 1);
-	case TOK_STRUCT: return parse_struct(p);
+	case TOK_STRUCT: case TOK_UNION: return parse_struct(p);
 	case TOK_RET: return parse_return(p);
 	case TOK_IF: return parse_if(p);
 	case TOK_WHILE: return parse_while(p);

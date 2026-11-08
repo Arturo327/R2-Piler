@@ -516,8 +516,13 @@ static TypeId check_dot_value (Sema *s, uint32_t idx)
 	if (type_kind(type) == TK_STRUCT) return check_field(s, idx, type);
 	if (type_kind(type) == TK_ARRAY || type_kind(type) == TK_SLICE)
 		return check_len_field(s, idx, n->child, type);
-	error_report(s->err, ERR_ERROR, node_loc(n),
-			"left side of '.' must be an enum type");
+	if (n->len == 3 && memcmp(n->str, "len", 3) == 0)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"a value of type %s is not an array or a slice",
+				type_display_name(type));
+	else error_report(s->err, ERR_ERROR, node_loc(n),
+			"a value of type %s is not an enum type",
+			type_display_name(type));
 	n->data_type = TYPE_ERROR;
 	return TYPE_ERROR;
 }
