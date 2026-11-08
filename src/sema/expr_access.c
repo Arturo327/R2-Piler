@@ -30,6 +30,8 @@ static int sizeof_named_type (Sema *s, ASTNode *n, TypeId *out)
 	return 1;
 }
 
+static int sizeof_field_type (Sema *s, ASTNode *n, TypeId *out, uint64_t *size);
+
 static int sizeof_expr_type (Sema *s, ASTNode *n, TypeId *out, uint64_t *size)
 {
 	switch (n->type)
@@ -81,11 +83,40 @@ static int sizeof_expr_type (Sema *s, ASTNode *n, TypeId *out, uint64_t *size)
 		*size = types[*out].size;
 		return 1;
 	}
+	case NODE_DOT:
+		return sizeof_field_type(s, n, out, size);
 	default:
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"operand of sizeof must be a variable, dereference, index, string literal or type");
 		return 0;
 	}
+}
+
+static int sizeof_field_type (Sema *s, ASTNode *n, TypeId *out, uint64_t *size)
+{
+	uint64_t left_size;
+	TypeId st;
+
+	if (!sizeof_expr_type(s, s->ast->nodes + n->child, &st, &left_size)) return 0;
+	if (st == TYPE_ERROR) {
+		*out = TYPE_ERROR;
+		return 1;
+	}
+	if (type_kind(st) == TK_PTR) st = types[st].base;
+	if (type_kind(st) != TK_STRUCT) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"operand of sizeof must be a variable, dereference, index, string literal or type");
+		return 0;
+	}
+	const StructField *f = find_field(st, n->str, n->len);
+	if (!f) {
+		error_report(s->err, ERR_ERROR, node_loc(n), "struct '%s' has no field '%.*s'",
+				types[st].name, (int)n->len, n->str);
+		return 0;
+	}
+	*out = f->type;
+	*size = types[f->type].size;
+	return 1;
 }
 
 TypeId check_sizeof (Sema *s, uint32_t idx)

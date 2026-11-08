@@ -237,16 +237,21 @@ static uint32_t parse_index (Parser *p, uint32_t left)
 	return node;
 }
 
+uint32_t parse_postfix (Parser *p, uint32_t node)
+{
+	while (p->curr.type == TOK_DOT || p->curr.type == TOK_LBRACE) {
+		if (p->curr.type == TOK_DOT) node = parse_dot(p, node);
+		else node = parse_index(p, node);
+	}
+	return node;
+}
+
 static uint32_t parse_primary (Parser *p)
 {
 	if (!enter_depth(p, "expression or statement"))
 		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
 
-	uint32_t node = parse_primary_inner(p);
-	while (p->curr.type == TOK_DOT || p->curr.type == TOK_LBRACE) {
-		if (p->curr.type == TOK_DOT) node = parse_dot(p, node);
-		else node = parse_index(p, node);
-	}
+	uint32_t node = parse_postfix(p, parse_primary_inner(p));
 	p->depth--;
 	return node;
 }

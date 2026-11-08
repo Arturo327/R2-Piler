@@ -319,9 +319,24 @@ static int for_lvalue (Parser *p, uint32_t node)
 	return type == NODE_ID || type == NODE_DEREF || type == NODE_INDEX;
 }
 
+static uint32_t copy_index_expr (Parser *p, uint32_t node);
+
+static uint32_t copy_dot (Parser *p, uint32_t node)
+{
+	uint32_t base = copy_index_expr(p, p->ast.nodes[node].child);
+
+	if (base == NO_NODE) return NO_NODE;
+	uint32_t copy = new_node(p, NODE_DOT, p->ast.nodes[node].line, p->ast.nodes[node].col);
+	p->ast.nodes[copy].str = p->ast.nodes[node].str;
+	p->ast.nodes[copy].len = p->ast.nodes[node].len;
+	p->ast.nodes[copy].child = base;
+	return copy;
+}
+
 static uint32_t copy_index_expr (Parser *p, uint32_t node)
 {
 	if (p->ast.nodes[node].type == NODE_ID) return copy_id(p, node);
+	if (p->ast.nodes[node].type == NODE_DOT) return copy_dot(p, node);
 	if (p->ast.nodes[node].type != NODE_INDEX) return NO_NODE;
 
 	uint16_t line = p->ast.nodes[node].line;
@@ -625,10 +640,12 @@ static uint32_t parse_for_var (Parser *p, uint32_t node)
 	}
 	uint16_t type_node = p->ast.nodes[last].type_node;
 
-	if (p->curr.type == TOK_RPAREN && !p->panic_mode && type_node != NO_TYPE_NODE) {
+	if ((p->curr.type == TOK_RPAREN || p->curr.type == TOK_DOT)
+			&& !p->panic_mode && type_node != NO_TYPE_NODE) {
 		uint32_t arr = type_into_expr(p, last + type_node);
 
 		if (arr != NO_NODE) {
+			arr = parse_postfix(p, arr);
 			p->ast.nodes[last].type_node = NO_TYPE_NODE;
 			p->ast.nodes[last].data_type = TYPE_i64;
 			for_zero_inits(p, inits, count);

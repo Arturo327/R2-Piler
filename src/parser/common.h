@@ -14,6 +14,7 @@ void append_child (Parser *p, uint32_t parent, uint32_t *last, uint32_t child);
 uint32_t parse_expr (Parser *p, int min_prec);
 uint32_t parse_cast (Parser *p);
 uint32_t maybe_inc_dec (Parser *p, uint32_t node);
+uint32_t parse_postfix (Parser *p, uint32_t node);
 
 TypeId parse_type (Parser *p, int allow_void, uint32_t owner, uint16_t *type_node);
 uint32_t parse_sizeof (Parser *p);
