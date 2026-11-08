@@ -1,0 +1,3 @@
+tests/parser/072_struct_field_err_src.r2:2:4: ERROR: expected ':' followed by the field type
+      2 |         x i32;
+        |           ^~~

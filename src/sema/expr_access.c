@@ -5,6 +5,7 @@
 TypeId check_index (Sema *s, uint32_t idx);
 static TypeId check_len_field (Sema *s, uint32_t idx, uint32_t left, TypeId type);
 static TypeId check_dot_value (Sema *s, uint32_t idx);
+static TypeId check_field (Sema *s, uint32_t idx, TypeId st);
 
 static int sizeof_named_type (Sema *s, ASTNode *n, TypeId *out)
 {
@@ -400,7 +401,7 @@ static TypeId check_len_field (Sema *s, uint32_t idx, uint32_t left, TypeId type
 	return TYPE_UNTYPED_INT;
 }
 
-static TypeId check_dot_index(Sema *s, uint32_t idx)
+static TypeId check_dot_index (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
 	TypeId type = check_index(s, n->child);
@@ -410,6 +411,7 @@ static TypeId check_dot_index(Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+	if (type_kind(type) == TK_STRUCT) return check_field(s, idx, type);
 	if (type_kind(type) == TK_ARRAY || type_kind(type) == TK_SLICE)
 		return check_len_field(s, idx, n->child, type);
 
@@ -419,7 +421,7 @@ static TypeId check_dot_index(Sema *s, uint32_t idx)
 	return TYPE_ERROR;
 }
 
-static TypeId check_dot_var(Sema *s, uint32_t idx, Symbol *sym)
+static TypeId check_dot_var (Sema *s, uint32_t idx, Symbol *sym)
 {
 	ASTNode *n = s->ast->nodes + idx;
 	ASTNode *left = s->ast->nodes + n->child;
@@ -441,7 +443,7 @@ static TypeId check_dot_var(Sema *s, uint32_t idx, Symbol *sym)
 	return check_len_field(s, idx, n->child, type);
 }
 
-static TypeId check_dot_enum(Sema *s, uint32_t idx, Symbol *sym)
+static TypeId check_dot_enum (Sema *s, uint32_t idx, Symbol *sym)
 {
 	ASTNode *n = s->ast->nodes + idx;
 	ASTNode *left = s->ast->nodes + n->child;
@@ -527,7 +529,7 @@ static TypeId check_dot_value (Sema *s, uint32_t idx)
 	return TYPE_ERROR;
 }
 
-TypeId check_dot(Sema *s, uint32_t idx)
+TypeId check_dot (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
 	ASTNode *left = s->ast->nodes + n->child;
@@ -564,13 +566,13 @@ TypeId check_dot(Sema *s, uint32_t idx)
 
 TypeId check_index (Sema *s, uint32_t idx)
 {
-	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *n = s->ast->nodes + idx;
 	uint32_t base = n->child;
 	uint32_t index = s->ast->nodes[base].next_bro;
 	TypeId ptr = check_expr(s, base);
 	TypeId off = check_expr(s, index);
 
-	n = &s->ast->nodes[idx];
+	n = s->ast->nodes + idx;
 	if (ptr == TYPE_ERROR || off == TYPE_ERROR) {
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
@@ -599,7 +601,7 @@ TypeId check_index (Sema *s, uint32_t idx)
 	}
 
 	TypeId index_type = finalize_type(s, index, off);
-	n = &s->ast->nodes[idx];
+	n = s->ast->nodes + idx;
 
 	if (kind == TK_ARRAY) {
 		uint64_t bits;

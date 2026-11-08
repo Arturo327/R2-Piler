@@ -1,0 +1,10 @@
+NODE_ROOT [0:0]
+  NODE_STRUCT_DEC [1:8] name="P"
+    NODE_FIELD_DEC [2:2] name="x" type=i32
+    NODE_FIELD_DEC [3:2] name="y" type=i32
+  NODE_FN_DEC [6:4] name="main"
+    NODE_ARGS_DEC [6:8]
+    NODE_RET_DEC [6:11] type=i64
+    NODE_BLOCK [6:17]
+      NODE_RET [7:2]
+        NODE_LIT_i64 [7:9] i64=0

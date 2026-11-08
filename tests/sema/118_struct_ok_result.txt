@@ -1,0 +1,22 @@
+struct Inner [1:8] depth=0 size=8 align=4
+  field a type=u8 offset=0
+  field b type=u32 offset=4
+struct Outer [6:8] depth=0 size=20 align=4
+  field x type=i8 offset=0
+  field inner type=Inner offset=4
+  field tags type=u16[3] offset=12
+struct Cpu [12:8] depth=0 size=8 align=4
+  field tag type=i8 offset=0
+  field whole type=u32 offset=4
+  field lo type=u16 offset=4
+  field hi type=u16 offset=6
+union Value [23:7] depth=0 size=8 align=8
+  field i type=i64 offset=0
+  field b type=u8[8] offset=0
+var g [28:5] depth=0 type=Outer
+fn take [34:4] depth=0 type=Outer
+fn main [38:4] depth=0 type=i64
+param v [34:9] depth=1 type=Outer
+var o [39:6] depth=1 type=Outer
+var p [40:6] depth=1 type=ptr Outer
+var ps [41:6] depth=1 type=Outer[2]

@@ -80,6 +80,10 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_ARRAY_INIT] = "NODE_ARRAY_INIT",
 	[NODE_TYPE_ARRAY] = "NODE_TYPE_ARRAY",
 	[NODE_TYPE_SLICE] = "NODE_TYPE_SLICE",
+	[NODE_STRUCT_DEC] = "NODE_STRUCT_DEC",
+	[NODE_FIELD_DEC] = "NODE_FIELD_DEC",
+	[NODE_STRUCT_INIT] = "NODE_STRUCT_INIT",
+	[NODE_FIELD_INIT] = "NODE_FIELD_INIT",
 };
 
 static inline void indent (int depth)
@@ -111,11 +115,12 @@ static void dump_node_value (ASTNode *n)
 	case NODE_ENUM_DEC: case NODE_ENUM_VAL:
 	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
+	case NODE_STRUCT_DEC: case NODE_FIELD_DEC:
 		if (n->str) printf(" name=\"%.*s\"", (int)n->len, n->str);
 		if (n->flags & NODE_FLAG_STATIC) printf(" static");
 		if (n->flags & NODE_FLAG_UNION) printf(" union");
 		break;
-	case NODE_DOT:
+	case NODE_DOT: case NODE_FIELD_INIT:
 		printf(" field=\"%.*s\"", (int)n->len, n->str);
 		break;
 	default:
@@ -220,7 +225,8 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 		if (n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC
 				|| n->type == NODE_EXTERN_VAR_DEC || n->type == NODE_RET_DEC
 				|| n->type == NODE_CAST || n->type == NODE_ENUM_DEC || n->type == NODE_TYPE_DEC
-				|| n->type == NODE_NEWTYPE_DEC || (n->type == NODE_SIZEOF && n->child == NO_NODE))
+				|| n->type == NODE_NEWTYPE_DEC || n->type == NODE_FIELD_DEC
+				|| (n->type == NODE_SIZEOF && n->child == NO_NODE))
 			dump_type(ast, n);
 
 		printf("\n");

@@ -1,0 +1,9 @@
+tests/sema/121_err_union_src.r2:18:43: ERROR: field 'lo' overlaps another initialized member of the same union
+     18 |         var a : Tagged = {.tag = 1, .whole = 2, .lo = 3};
+        |                                                  ^~
+tests/sema/121_err_union_src.r2:18:19: ERROR: missing field 'hi' in the initializer of struct 'Tagged'
+     18 |         var a : Tagged = {.tag = 1, .whole = 2, .lo = 3};
+        |                          ^
+tests/sema/121_err_union_src.r2:19:19: ERROR: missing a member of the union that contains 'whole' in the initializer of 'Tagged'
+     19 |         var b : Tagged = {.tag = 1};
+        |                          ^

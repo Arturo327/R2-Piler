@@ -1,0 +1,9 @@
+tests/sema/120_err_struct_decl_src.r2:11:8: ERROR: a top-level struct needs a name
+     11 | struct {
+        |        ^
+tests/sema/120_err_struct_decl_src.r2:2:2: ERROR: field 'next' has incomplete type 'Node'; a struct cannot contain itself, use a pointer
+      2 |         next: Node;
+        |         ^~~~
+tests/sema/120_err_struct_decl_src.r2:6:9: ERROR: a named struct cannot be declared inside another struct
+      6 |         struct Named {
+        |                ^~~~~

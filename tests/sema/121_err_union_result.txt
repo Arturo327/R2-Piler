@@ -1,0 +1,12 @@
+struct Tagged [1:8] depth=0 size=8 align=4
+  field tag type=i8 offset=0
+  field whole type=u32 offset=4
+  field lo type=u16 offset=4
+  field hi type=u16 offset=6
+union Pair [12:7] depth=0 size=8 align=8
+  field a type=i32 offset=0
+  field b type=i64 offset=0
+fn main [17:4] depth=0 type=i64
+var a [18:6] depth=1 type=Tagged
+var b [19:6] depth=1 type=Tagged
+var c [20:6] depth=1 type=Pair

@@ -1,0 +1,62 @@
+NODE_ROOT [0:0]
+  NODE_STRUCT_DEC [1:8] name="Punto"
+    NODE_FIELD_DEC [2:2] name="x" type=i32
+    NODE_FIELD_DEC [3:2] name="y" type=i32
+    NODE_FIELD_DEC [4:2] name="tags" type=u16[3]
+  NODE_STRUCT_DEC [7:7] name="Dato" union
+    NODE_FIELD_DEC [8:2] name="entero" type=i64
+    NODE_FIELD_DEC [9:2] name="corto" type=i32
+  NODE_STRUCT_DEC [12:8] name="Cpu"
+    NODE_FIELD_DEC [13:2] name="tag" type=i8
+    NODE_STRUCT_DEC [14:8] union
+      NODE_FIELD_DEC [15:3] name="whole" type=u32
+      NODE_STRUCT_DEC [16:10]
+        NODE_FIELD_DEC [17:4] name="lo" type=u16
+        NODE_FIELD_DEC [18:4] name="hi" type=u16
+  NODE_FN_DEC [23:4] name="suma"
+    NODE_ARGS_DEC [23:8]
+      NODE_VAR_DEC [23:9] name="p" type=Punto
+    NODE_RET_DEC [23:20] type=i32
+    NODE_BLOCK [23:26]
+      NODE_RET [24:2]
+        NODE_ADD [24:13]
+          NODE_DOT [24:10] field="x"
+            NODE_ID [24:9] str="p"
+          NODE_DOT [24:16] field="y"
+            NODE_ID [24:15] str="p"
+  NODE_FN_DEC [27:4] name="main"
+    NODE_ARGS_DEC [27:8]
+    NODE_RET_DEC [27:11] type=i64
+    NODE_BLOCK [27:17]
+      NODE_VAR_DEC [28:6] name="p" type=Punto
+        NODE_STRUCT_INIT [28:18]
+          NODE_FIELD_INIT [28:20] field="x"
+            NODE_LIT_i64 [28:24] i64=1
+          NODE_FIELD_INIT [28:28] field="y"
+            NODE_LIT_i64 [28:32] i64=2
+          NODE_FIELD_INIT [28:36] field="tags"
+            NODE_ARRAY_INIT [28:43]
+              NODE_LIT_i64 [28:44] i64=3
+              NODE_LIT_i64 [28:47] i64=4
+              NODE_LIT_i64 [28:50] i64=5
+      NODE_VAR_DEC [29:6] name="c" type=Cpu
+        NODE_STRUCT_INIT [29:16]
+          NODE_FIELD_INIT [29:18] field="tag"
+            NODE_LIT_i64 [29:24] i64=0
+          NODE_FIELD_INIT [29:28] field="whole"
+            NODE_LIT_i64 [29:36] i64=7
+      NODE_VAR_DEC [30:6] name="llamada" type=i32
+        NODE_FN_CALL [30:22] name="suma"
+          NODE_ID [30:27] str="p"
+      NODE_ASSIGN [32:6]
+        NODE_DOT [32:3] field="x"
+          NODE_ID [32:2] str="p"
+        NODE_DOT [32:9] field="y"
+          NODE_ID [32:8] str="p"
+      NODE_ASSIGN [33:7]
+        NODE_DOT [33:3] field="lo"
+          NODE_ID [33:2] str="c"
+        NODE_LIT_i64 [33:9] i64=9
+      NODE_RET [34:2]
+        NODE_CAST [34:17] type=i64
+          NODE_ID [34:9] str="llamada"

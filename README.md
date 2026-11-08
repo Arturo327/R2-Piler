@@ -13,9 +13,9 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **309 dump fixtures** pass (`make test`): 49 lexer, 70 parser, 117 sema,
-  44 IR and 29 optimizer tests.
-- **113 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+- **318 dump fixtures** pass (`make test`): 49 lexer, 72 parser, 121 sema,
+  46 IR and 30 optimizer tests.
+- **117 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
@@ -44,10 +44,14 @@ tested:
   `gcc` resolving it at link time. `%al` is zeroed before every extern call
   (SysV variadic ABI).
 - Multidimensional arrays and slices of any rank are supported
-  (`arr m : i32[R][C]`, `i32[][]` slice parameters). Structs,
-  modules/imports, classes, `pub`, `export`, optional arguments,
-  multiple returns, `break`/`continue` and floating point are **not
-  implemented yet**.
+  (`arr m : i32[R][C]`, `i32[][]` slice parameters), and structs/unions
+  with C-like layout, designated `{.field = ...}` exhaustive initializers,
+  field access `.` (auto-deref on `ptr struct`), by-value copies, by-value
+  arguments and `sret` returns, arrays of structs, globals/`static` structs
+  (initialized at runtime in `__r2_init`) and `sizeof`.
+- Not implemented yet: modules/imports, classes, `pub`, `export`, optional
+  arguments, multiple returns, `break`/`continue`, floating point, slices
+  inside structs and general/positional struct literals.
 
 ---
 
@@ -170,6 +174,7 @@ src/
 │   ├── literals.c   # Literal folding, flexible literals, casts, unification
 │   ├── statements.c # Blocks, if/elif/else, loops, return, main signature
 │   ├── types.c      # Enum/type/newtype declaration resolution
+│   ├── structs.c    # Struct/union declaration, layout, initializers
 │   └── symbol.c/h   # Symbol and symbol-table definitions
 ├── ir/
 │   ├── ir.c/h       # IR definition, generation and dump

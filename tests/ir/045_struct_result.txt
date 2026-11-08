@@ -1,0 +1,125 @@
+global g : Point
+
+fn __r2_init(0 params, 5 regs) : void
+    r0 = addr_global.Point @g
+    r1 = const.i32 5
+    str_ptr.i32 r0, r1
+    r2 = const.i64 4
+    r3 = add.i64 r0, r2
+    r4 = const.i32 6
+    str_ptr.i32 r3, r4
+    ret
+
+fn make(2 params, 17 regs) : void
+    r0 = param.ptr Point #0
+    r1 = param.i32 #1
+    r3 = addr_local.Point r2
+    r4 = move.i32 r1
+    str_ptr.i32 r3, r4
+    r5 = const.i64 4
+    r6 = add.i64 r3, r5
+    r7 = move.i32 r1
+    r8 = const.i32 1
+    r9 = add.i32 r7, r8
+    str_ptr.i32 r6, r9
+    r10 = addr_local.Point r2
+    r11 = ld_ptr.u32 r10
+    str_ptr.u32 r0, r11
+    r12 = const.i64 4
+    r13 = add.i64 r10, r12
+    r14 = ld_ptr.u32 r13
+    r15 = const.i64 4
+    r16 = add.i64 r0, r15
+    str_ptr.u32 r16, r14
+    ret
+    ret
+
+fn take(1 params, 13 regs) : i32
+    r0 = param.ptr Point #0
+    r1 = move.ptr Point r0
+    r2 = move.ptr Point r0
+    r3 = ld_ptr.i32 r2
+    r4 = const.i32 1
+    r5 = add.i32 r3, r4
+    str_ptr.i32 r1, r5
+    r6 = move.ptr Point r0
+    r7 = ld_ptr.i32 r6
+    r8 = move.ptr Point r0
+    r9 = const.i64 4
+    r10 = add.i64 r8, r9
+    r11 = ld_ptr.i32 r10
+    r12 = add.i32 r7, r11
+    ret.i32 r12
+    ret
+
+fn main(0 params, 57 regs) : i64
+    r1 = addr_local.Point r0
+    r2 = const.i32 1
+    str_ptr.i32 r1, r2
+    r3 = const.i64 4
+    r4 = add.i64 r1, r3
+    r5 = const.i32 2
+    str_ptr.i32 r4, r5
+    r7 = addr_local.Line r6
+    r8 = const.i32 3
+    str_ptr.i32 r7, r8
+    r9 = const.i64 4
+    r10 = add.i64 r7, r9
+    r11 = const.i32 4
+    str_ptr.i32 r10, r11
+    r12 = const.i64 8
+    r13 = add.i64 r7, r12
+    r14 = addr_local.Point r0
+    r15 = ld_ptr.u32 r14
+    str_ptr.u32 r13, r15
+    r16 = const.i64 4
+    r17 = add.i64 r14, r16
+    r18 = ld_ptr.u32 r17
+    r19 = const.i64 4
+    r20 = add.i64 r13, r19
+    str_ptr.u32 r20, r18
+    r22 = addr_local.Point r21
+    r23 = addr_local.Line r6
+    r24 = ld_ptr.i32 r23
+    arg r22 #0
+    arg r24 #1
+    call make
+    r25 = addr_local.Point r21
+    r27 = addr_local.Point r26
+    r28 = ld_ptr.u32 r25
+    str_ptr.u32 r27, r28
+    r29 = const.i64 4
+    r30 = add.i64 r25, r29
+    r31 = ld_ptr.u32 r30
+    r32 = const.i64 4
+    r33 = add.i64 r27, r32
+    str_ptr.u32 r33, r31
+    arg r27 #0
+    r34 = call.i32 take
+    r35 = extend.i64 r34
+    r36 = addr_global.Point @g
+    r37 = ld_ptr.i32 r36
+    r38 = extend.i64 r37
+    r39 = add.i64 r35, r38
+    r40 = addr_local.Line r6
+    r41 = const.i64 8
+    r42 = add.i64 r40, r41
+    r43 = addr_local.Point r21
+    r44 = ld_ptr.u32 r43
+    str_ptr.u32 r42, r44
+    r45 = const.i64 4
+    r46 = add.i64 r43, r45
+    r47 = ld_ptr.u32 r46
+    r48 = const.i64 4
+    r49 = add.i64 r42, r48
+    str_ptr.u32 r49, r47
+    r50 = move.i64 r39
+    r51 = addr_local.Point r0
+    r52 = const.i64 4
+    r53 = add.i64 r51, r52
+    r54 = ld_ptr.i32 r53
+    r55 = extend.i64 r54
+    r56 = add.i64 r50, r55
+    ret.i64 r56
+    ret
+

@@ -1,0 +1,3 @@
+struct Node [1:8] depth=0 size=0 align=1
+struct Wrapper [5:8] depth=0 size=0 align=1
+fn main [15:4] depth=0 type=i64
