@@ -213,12 +213,6 @@ static uint32_t parse_dot (Parser *p, uint32_t left)
 	Token dot = p->curr;
 	advance(p);
 
-	if (dot.type == TOK_ARROW) {
-		uint32_t deref = new_node(p, NODE_DEREF, dot.line, dot.col);
-		p->ast.nodes[deref].len = dot.len;
-		p->ast.nodes[deref].child = left;
-		left = deref;
-	}
 	uint32_t node = new_node(p, NODE_DOT, dot.line, dot.col);
 	p->ast.nodes[node].child = left;
 
@@ -249,9 +243,9 @@ static uint32_t parse_primary (Parser *p)
 		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
 
 	uint32_t node = parse_primary_inner(p);
-	while (p->curr.type == TOK_DOT || p->curr.type == TOK_ARROW || p->curr.type == TOK_LBRACE) {
-		if (p->curr.type == TOK_LBRACE) node = parse_index(p, node);
-		else node = parse_dot(p, node);
+	while (p->curr.type == TOK_DOT || p->curr.type == TOK_LBRACE) {
+		if (p->curr.type == TOK_DOT) node = parse_dot(p, node);
+		else node = parse_index(p, node);
 	}
 	p->depth--;
 	return node;

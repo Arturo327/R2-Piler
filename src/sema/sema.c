@@ -291,7 +291,7 @@ static uint32_t sema_new_node (Sema *s, ASTNode node)
 
 uint32_t sema_wrap_cast (Sema *s, uint32_t child, TypeId to_type)
 {
-	ASTNode *c = &s->ast->nodes[child];
+	ASTNode *c = s->ast->nodes + child;
 	ASTNode cast = {0};
 
 	cast.type = NODE_CAST;
@@ -306,6 +306,25 @@ uint32_t sema_wrap_cast (Sema *s, uint32_t child, TypeId to_type)
 
 	c->next_bro = NO_NODE;
 	return sema_new_node(s, cast);
+}
+
+uint32_t sema_wrap_deref (Sema *s, uint32_t child, TypeId to_type)
+{
+	ASTNode *c = s->ast->nodes + child;
+	ASTNode deref = {0};
+
+	deref.type = NODE_DEREF;
+	deref.data_type = to_type;
+	deref.line = c->line;
+	deref.col = c->col;
+	deref.len = 1;
+	deref.child = child;
+	deref.next_bro = c->next_bro;
+	deref.sym = NO_NODE;
+	deref.type_node = NO_TYPE_NODE;
+
+	c->next_bro = NO_NODE;
+	return sema_new_node(s, deref);
 }
 
 static void reserve_cast_nodes (Sema *s)
