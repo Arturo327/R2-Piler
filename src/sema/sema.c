@@ -346,21 +346,9 @@ void check_storage_decl (Sema *s, ASTNode *n)
 	TypeKind kind = type_kind(n->data_type);
 	int is_arr = n->type == NODE_ARR_DEC;
 
-	if (type_dyn_rank(n->data_type) > 0) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"slice types are only allowed as function parameters");
-		n->data_type = TYPE_ERROR;
-		return;
-	}
 	if (is_arr && kind != TK_ARRAY) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"'arr' declarations must have an array type");
-		n->data_type = TYPE_ERROR;
-		return;
-	}
-	if (!is_arr && kind == TK_ARRAY) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"array declarations must use 'arr'");
 		n->data_type = TYPE_ERROR;
 		return;
 	}

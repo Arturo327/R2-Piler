@@ -10,22 +10,16 @@ tests/sema/099_err_array_decl_src.r2:6:2: ERROR: cannot return i64 from a functi
 tests/sema/099_err_array_decl_src.r2:9:27: ERROR: extern functions cannot take slice parameters
       9 | extern fn ext(v : i32[2], s : i32[]) : void;
         |                           ^
-tests/sema/099_err_array_decl_src.r2:12:6: ERROR: array declarations must use 'arr'
-     12 |         var x : i32[3];
-        |             ^
 tests/sema/099_err_array_decl_src.r2:13:6: ERROR: 'arr' declarations must have an array type
      13 |         arr y : i64;
         |             ^
-tests/sema/099_err_array_decl_src.r2:14:6: ERROR: slice types are only allowed as function parameters
+tests/sema/099_err_array_decl_src.r2:14:6: ERROR: 'arr' declarations must have an array type
      14 |         arr z : i32[];
         |             ^
-tests/sema/099_err_array_decl_src.r2:15:6: ERROR: slice types are only allowed as function parameters
-     15 |         arr m : i32[2][];
-        |             ^
-tests/sema/099_err_array_decl_src.r2:16:6: ERROR: slice types are only allowed as function parameters
+tests/sema/099_err_array_decl_src.r2:16:6: ERROR: 'arr' declarations must have an array type
      16 |         arr n : i32[][3];
         |             ^
-tests/sema/099_err_array_decl_src.r2:17:6: ERROR: slice types are only allowed as function parameters
+tests/sema/099_err_array_decl_src.r2:17:6: ERROR: 'arr' declarations must have an array type
      17 |         arr o : i32[][][];
         |             ^
 tests/sema/099_err_array_decl_src.r2:12:6: WARNING: unused variable 'x'

@@ -16,7 +16,7 @@ static int implicit_cast_ok (TypeId from, TypeId to)
 
 	if (to == TYPE_STR) return 0;
 
-	if (from_kind == TK_ARRAY && to_kind == TK_SLICE) {
+	if (from_kind == TK_ARRAY && type_dyn_rank(to) > 0) {
 		TypeId a = from;
 		TypeId p = to;
 		if (type_flat_element(a) != type_flat_element(p)) return 0;
@@ -34,6 +34,7 @@ static int implicit_cast_ok (TypeId from, TypeId to)
 	if (from_kind == TK_ARRAY || from_kind == TK_SLICE)
 		return to_kind == TK_PTR && (types[to].base == type_flat_element(from) || types[to].base == TYPE_VOID);
 
+	if (type_dyn_rank(from) > 0 && type_dyn_rank(to) > 0) return from == to;
 	if (to_kind == TK_ARRAY) return 0;
 	if (to_kind == TK_SLICE) return from_kind == TK_SLICE && from == to;
 	if (from_kind == TK_STRUCT || to_kind == TK_STRUCT) return 0;

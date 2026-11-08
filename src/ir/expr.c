@@ -113,6 +113,11 @@ static uint32_t slice_dim_reg (IR *ir, ASTNode *n, int dim, TypeId type)
 	uint32_t addr;
 	switch (n->type)
 	{
+	case NODE_ID: {
+		Symbol *s = ir->symtab->symbols + n->sym;
+		addr = local_storage_addr(ir, s, s->type);
+		break;
+	}
 	case NODE_INDEX: addr = gen_index_addr(ir, n); break;
 	case NODE_DOT: addr = gen_field_addr(ir, n); break;
 	case NODE_DEREF: addr = gen_expr(ir, n); break;
@@ -378,7 +383,7 @@ static uint32_t gen_field (IR *ir, ASTNode *n)
 	return make_ld_ptr(ir, addr, n->data_type);
 }
 
-static uint32_t gen_slice_desc (IR *ir, uint32_t dst, ASTNode *val, TypeId type)
+uint32_t gen_slice_desc (IR *ir, uint32_t dst, ASTNode *val, TypeId type)
 {
 	uint32_t src_ptr = gen_expr(ir, val);
 	TypeId ptr_type = type_ptr_to(type_flat_element(type));
@@ -484,8 +489,16 @@ static uint32_t gen_assign (IR *ir, ASTNode *n)
 {
 	ASTNode *lhs = ir->ast->nodes + n->child;
 
-	if (lhs->type == NODE_DOT && type_dyn_rank(lhs->data_type) > 0) {
-		uint32_t dst = gen_lvalue_addr(ir, lhs);
+	if ((lhs->type == NODE_DOT || lhs->type == NODE_ID) && type_dyn_rank(lhs->data_type) > 0) {
+		uint32_t dst;
+		if (lhs->type == NODE_DOT) dst = gen_lvalue_addr(ir, lhs);
+		else {
+			Symbol *s = ir->symtab->symbols + lhs->sym;
+			if (!s->depth || s->is_static) {
+				dst = new_reg(ir, TYPE_i64);
+				make_addr_global(ir, dst, s->ir_id, s->type);
+			} else dst = local_storage_addr(ir, s, s->type);
+		}
 		ASTNode *rhs = ir->ast->nodes + lhs->next_bro;
 		return gen_slice_desc(ir, dst, rhs, lhs->data_type);
 	}
@@ -818,6 +831,13 @@ uint32_t gen_expr (IR *ir, ASTNode *n)
 	case NODE_ID: {
 		Symbol *s = ir->symtab->symbols + n->sym;
 
+		if (type_dyn_rank(s->type) > 0) {
+			if (s->kind == SYMBOL_PARAM)
+				return read_reg(ir, s->ir_id,
+						type_ptr_to(type_flat_element(s->type)));
+			return make_ld_ptr(ir, local_storage_addr(ir, s, s->type),
+					type_ptr_to(type_flat_element(s->type)));
+		}
 		if (type_kind(s->type) == TK_ARRAY || type_kind(s->type) == TK_STRUCT)
 			return gen_array_addr(ir, n);
 		if (type_kind(s->type) == TK_SLICE)

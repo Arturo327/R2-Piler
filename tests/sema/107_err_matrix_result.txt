@@ -16,6 +16,6 @@ var y [14:6] depth=1 type=i64
 var z [15:6] depth=1 type=i64
 var o [16:6] depth=1 type=i64
 var q [17:6] depth=1 type=i64
-var a [23:6] depth=1 type=error
+var a [23:6] depth=1 type=i32[2][]
 var b [24:6] depth=1 type=error
 var c [25:6] depth=1 type=error

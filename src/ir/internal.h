@@ -30,6 +30,7 @@ uint32_t gen_expr (IR *ir, ASTNode *n);
 void gen_jump_if (IR *ir, ASTNode *n, uint32_t label, int when);
 void gen_array_init (IR *ir, uint32_t base, uint32_t init_idx, TypeId arr, int zero);
 void gen_struct_into (IR *ir, uint32_t dst, uint32_t expr, TypeId type, int fresh);
+uint32_t gen_slice_desc (IR *ir, uint32_t dst, ASTNode *val, TypeId type);
 uint32_t local_storage_addr (IR *ir, Symbol *s, TypeId type);
 int gen_select (IR *ir, ASTNode *n);
 void gen_inc_dec (IR *ir, ASTNode *n);

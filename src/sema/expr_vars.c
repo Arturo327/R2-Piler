@@ -271,7 +271,7 @@ TypeId check_assign (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
-	int slice_field = left_kind == NODE_DOT && type_dyn_rank(l) > 0;
+	int slice_field = (left_kind == NODE_DOT || left_kind == NODE_ID) && type_dyn_rank(l) > 0;
 	if ((type_kind(l) == TK_ARRAY || type_kind(l) == TK_SLICE) && !slice_field) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"cannot assign a value of type %s; arrays and slices"

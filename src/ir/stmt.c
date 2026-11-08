@@ -15,6 +15,16 @@ static void gen_var_dec (IR *ir, ASTNode *n)
 	Symbol *s = ir->symtab->symbols + n->sym;
 	uint32_t reg;
 
+	if (type_dyn_rank(s->type) > 0 || type_kind(s->type) == TK_SLICE) {
+		reg = new_reg(ir, s->type);
+		s->ir_id = reg;
+		ir->addressed[reg] = 1;
+		ir->no_tail = 1;
+		if (n->child != NO_NODE)
+			gen_slice_desc(ir, local_storage_addr(ir, s, s->type),
+					ir->ast->nodes + n->child, s->type);
+		return;
+	}
 	if (type_kind(s->type) == TK_STRUCT) {
 		reg = new_reg(ir, s->type);
 		s->ir_id = reg;
@@ -315,14 +325,16 @@ static void gen_var_init (IR *ir, uint32_t idx)
 	Symbol *s = ir->symtab->symbols + n->sym;
 
 	if (n->child == NO_NODE) return;
-	if (type_kind(s->type) == TK_ARRAY || type_kind(s->type) == TK_STRUCT) {
+	if (type_dyn_rank(s->type) > 0 || type_kind(s->type) == TK_SLICE
+			|| type_kind(s->type) == TK_ARRAY || type_kind(s->type) == TK_STRUCT) {
 		uint32_t base = new_reg(ir, TYPE_i64);
 
 		make_addr_global(ir, base, s->ir_id, s->type);
-		if (type_kind(s->type) == TK_STRUCT)
+		if (type_dyn_rank(s->type) > 0 || type_kind(s->type) == TK_SLICE)
+			gen_slice_desc(ir, base, ir->ast->nodes + n->child, s->type);
+		else if (type_kind(s->type) == TK_STRUCT)
 			gen_struct_into(ir, base, n->child, s->type, 1);
-		else
-			gen_array_init(ir, base, n->child, s->type, 0);
+		else gen_array_init(ir, base, n->child, s->type, 0);
 		return;
 	}
 	uint32_t val = gen_expr(ir, ir->ast->nodes + n->child);
