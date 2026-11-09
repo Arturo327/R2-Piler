@@ -324,19 +324,20 @@ static uint32_t new_struct_temp (IR *ir, TypeId type)
 	return dst;
 }
 
-static void gen_copy_loop (IR *ir, uint32_t dst, uint32_t src, uint32_t size, uint32_t unit, TypeId ut)
+static void gen_copy_loop (IR *ir, uint32_t dst, uint32_t src, uint32_t size)
 {
 	uint32_t loop = ir->label_count++;
 	uint32_t end = ir->label_count++;
 	uint32_t off = new_reg(ir, TYPE_i64);
 	uint32_t limit = make_const(ir, size, TYPE_i64);
-	uint32_t step = make_const(ir, unit, TYPE_i64);
+	uint32_t step = make_const(ir, 8, TYPE_i64);
 
 	make_const_into(ir, off, 0, TYPE_i64);
 	make_label(ir, loop);
 	make_jump(ir, IR_JNZ, make_op(ir, IR_GE, off, limit, TYPE_i64), end);
-	uint32_t val = make_ld_ptr(ir, make_op(ir, IR_ADD, src, off, TYPE_i64), ut);
-	make_str_ptr(ir, make_op(ir, IR_ADD, dst, off, TYPE_i64), val, ut);
+
+	uint32_t val = make_ld_ptr(ir, make_op(ir, IR_ADD, src, off, TYPE_i64), TYPE_u64);
+	make_str_ptr(ir, make_op(ir, IR_ADD, dst, off, TYPE_i64), val, TYPE_u64);
 	make_move(ir, off, make_op(ir, IR_ADD, off, step, TYPE_i64), TYPE_i64);
 	make_jump(ir, IR_JMP, NO_REG, loop);
 	make_label(ir, end);
@@ -345,18 +346,20 @@ static void gen_copy_loop (IR *ir, uint32_t dst, uint32_t src, uint32_t size, ui
 static void gen_copy (IR *ir, uint32_t dst, uint32_t src, TypeId type)
 {
 	uint32_t size = types[type].size;
-	uint32_t unit = type_align(type);
-	TypeId ut = unit == 8 ? TYPE_u64 : unit == 4 ? TYPE_u32
-			: unit == 2 ? TYPE_u16 : TYPE_u8;
+	uint32_t off = 0;
 
-	if (size / unit > COPY_UNROLL) {
-		gen_copy_loop(ir, dst, src, size, unit, ut);
-		return;
+	if ((size >> 3) > COPY_UNROLL) {
+		off = size & ~7u;
+		gen_copy_loop(ir, dst, src, off);
 	}
-	for (uint32_t off = 0; off < size; off += unit) {
+	while (off < size) {
+		uint32_t left = size - off;
+		TypeId ut = left >= 8 ? TYPE_u64 : left >= 4 ? TYPE_u32
+				: left >= 2 ? TYPE_u16 : TYPE_u8;
 		uint32_t val = make_ld_ptr(ir, add_offset(ir, src, off), ut);
 
 		make_str_ptr(ir, add_offset(ir, dst, off), val, ut);
+		off += types[ut].size;
 	}
 }
 
