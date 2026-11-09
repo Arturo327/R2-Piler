@@ -45,6 +45,8 @@ typedef struct Symbol {
 	uint8_t pending_write : 1;
 	uint8_t is_static : 1;
 	uint8_t state : 2;
+	uint8_t written : 1;
+	uint8_t escaped : 1;
 } Symbol;
 
 #define SYM_FLAG_ASSIGNED 1

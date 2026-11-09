@@ -384,6 +384,7 @@ void ir_gen (IR *ir)
 	};
 
 	ir->init_fn = push_fn(ir, init_fn);
+	ir_scan_structs(ir);
 	declare_globals(ir);
 	gen_init_fn(ir);
 	gen_fns(ir);

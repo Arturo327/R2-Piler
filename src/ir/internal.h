@@ -6,6 +6,8 @@
 uint32_t push_fn (IR *ir, IRFn fn);
 uint32_t new_reg (IR *ir, TypeId type);
 
+uint32_t agg_root_sym (AST *ast, uint32_t idx);
+void ir_scan_structs (IR *ir);
 void make_arg_dec (IR *ir, uint32_t dst, uint32_t idx, TypeId type);
 void declare_globals (IR *ir);
 void make_arg (IR *ir, uint32_t val, uint32_t idx);

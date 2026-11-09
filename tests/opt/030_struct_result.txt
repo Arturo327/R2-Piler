@@ -33,7 +33,7 @@ fn twice(1 params, 4 regs) : i32
     ret.i32 r3
     ret
 
-fn main(0 params, 64 regs) : i64
+fn main(0 params, 58 regs) : i64
     r1 = addr_local.Point r0
     r2 = const.i32 1
     str_ptr.i32 r1, r2
@@ -50,43 +50,37 @@ fn main(0 params, 64 regs) : i64
     str_ptr.i32 r10, r11
     r13 = addr_local.Point r12
     r14 = addr_local.Point r0
-    r16 = addr_local.Point r15
-    r17 = ld_ptr.u64 r14
-    str_ptr.u64 r16, r17
-    r18 = addr_local.Point r6
-    r20 = addr_local.Point r19
-    r21 = ld_ptr.u64 r18
-    str_ptr.u64 r20, r21
-    r37 = addr_local.Point r36
-    r39 = ld_ptr.i32 r16
-    r41 = ld_ptr.i32 r20
-    r42 = add.i32 r39, r41
-    str_ptr.i32 r37, r42
-    r43 = const.i64 4
-    r44 = add.i64 r37, r43
-    r46 = const.i64 4
-    r47 = add.i64 r16, r46
-    r48 = ld_ptr.i32 r47
-    r50 = const.i64 4
-    r51 = add.i64 r20, r50
-    r52 = ld_ptr.i32 r51
-    r53 = add.i32 r48, r52
-    str_ptr.i32 r44, r53
-    r54 = addr_local.Point r36
-    r55 = ld_ptr.u64 r54
-    str_ptr.u64 r13, r55
-    r22 = addr_local.Point r12
-    r23 = ld_ptr.i32 r22
-    r58 = const.i32 1
-    r24 = lshift.i32 r23, r58
-    r25 = addr_local.Point r12
-    r26 = const.i64 4
-    r27 = add.i64 r25, r26
-    r28 = ld_ptr.i32 r27
-    r62 = const.i32 1
-    r29 = lshift.i32 r28, r62
-    r30 = add.i32 r24, r29
-    r32 = extend.i64 r30
-    ret.i64 r32
+    r15 = addr_local.Point r6
+    r31 = addr_local.Point r30
+    r33 = ld_ptr.i32 r14
+    r35 = ld_ptr.i32 r15
+    r36 = add.i32 r33, r35
+    str_ptr.i32 r31, r36
+    r37 = const.i64 4
+    r38 = add.i64 r31, r37
+    r40 = const.i64 4
+    r41 = add.i64 r14, r40
+    r42 = ld_ptr.i32 r41
+    r44 = const.i64 4
+    r45 = add.i64 r15, r44
+    r46 = ld_ptr.i32 r45
+    r47 = add.i32 r42, r46
+    str_ptr.i32 r38, r47
+    r48 = addr_local.Point r30
+    r49 = ld_ptr.u64 r48
+    str_ptr.u64 r13, r49
+    r16 = addr_local.Point r12
+    r17 = ld_ptr.i32 r16
+    r52 = const.i32 1
+    r18 = lshift.i32 r17, r52
+    r19 = addr_local.Point r12
+    r20 = const.i64 4
+    r21 = add.i64 r19, r20
+    r22 = ld_ptr.i32 r21
+    r56 = const.i32 1
+    r23 = lshift.i32 r22, r56
+    r24 = add.i32 r18, r23
+    r26 = extend.i64 r24
+    ret.i64 r26
     ret
 

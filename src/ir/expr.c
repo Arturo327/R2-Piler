@@ -445,11 +445,40 @@ void gen_struct_into (IR *ir, uint32_t dst, uint32_t expr, TypeId type, int fres
 	gen_copy(ir, dst, gen_expr(ir, e), type);
 }
 
-static uint32_t gen_struct_arg (IR *ir, ASTNode *a)
+static int args_assign (IR *ir, uint32_t idx)
+{
+	ASTNode *n = ir->ast->nodes + idx;
+
+	if (n->type >= NODE_ASSIGN && n->type <= NODE_RS_ASSIGN) return 1;
+	for (uint32_t k = n->child; k != NO_NODE; k = ir->ast->nodes[k].next_bro) {
+		if (args_assign(ir, k)) return 1;
+	}
+	return 0;
+}
+
+static int can_alias_arg (IR *ir, ASTNode *call, uint32_t arg, uint32_t param)
+{
+	uint32_t sym = agg_root_sym(ir->ast, arg);
+
+	if (sym == NO_SYMBOL || param == NO_NODE) return 0;
+	Symbol *s = ir->symtab->symbols + sym;
+	Symbol *ps = ir->symtab->symbols + ir->ast->nodes[param].sym;
+
+	if (s->kind != SYMBOL_VAR || !s->depth || s->is_static || s->escaped) return 0;
+	if (ps->written || ps->escaped) return 0;
+
+	for (uint32_t k = call->child; k != NO_NODE; k = ir->ast->nodes[k].next_bro) {
+		if (args_assign(ir, k)) return 0;
+	}
+	return 1;
+}
+
+static uint32_t gen_struct_arg (IR *ir, ASTNode *a, int alias)
 {
 	uint32_t src = gen_expr(ir, a);
+	if (alias) ir->no_tail = 1;
+	if (a->type == NODE_FN_CALL || alias) return src;
 
-	if (a->type == NODE_FN_CALL) return src;
 	uint32_t tmp = new_struct_temp(ir, a->data_type);
 	gen_copy(ir, tmp, src, a->data_type);
 	return tmp;
@@ -471,8 +500,10 @@ static uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest)
 		ASTNode *a = ir->ast->nodes + arg;
 		TypeId pt = param == NO_NODE ? TYPE_VOID : ir->ast->nodes[param].data_type;
 
-		regs[k++] = type_kind(pt) == TK_STRUCT ? gen_struct_arg(ir, a)
+		regs[k++] = type_kind(pt) == TK_STRUCT
+				? gen_struct_arg(ir, a, can_alias_arg(ir, n, arg, param))
 				: gen_expr(ir, a);
+
 		k = push_dims(ir, a, pt, regs, k);
 		arg = a->next_bro;
 		if (param != NO_NODE) param = ir->ast->nodes[param].next_bro;
