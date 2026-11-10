@@ -8,6 +8,7 @@ void kill_branch (OptFn *f, IRInstr *in);
 IRInstr *next_real (IRInstr *code, uint32_t from, uint32_t count);
 int64_t norm_val (uint64_t v, TypeId type);
 int try_move (OptFn *f, IRInstr *in, uint32_t src);
+void track_const (OptFn *f, IRInstr *in);
 
 int reg_const (Optimizer *opt, OptFn *f, uint32_t reg, int64_t *val);
 void to_const (OptFn *f, IRInstr *in, int64_t v);
@@ -24,6 +25,7 @@ int opt_jumps (Optimizer *opt, OptFn *f);
 int opt_strength (Optimizer *opt, OptFn *f);
 int opt_globals (Optimizer *opt, OptFn *f);
 int opt_dse (Optimizer *opt, OptFn *f);
+int opt_disp (Optimizer *opt, OptFn *f);
 int inline_ir (IR *ir, Arena *arena);
 
 void analyze_fn (Optimizer *opt, OptFn *f);

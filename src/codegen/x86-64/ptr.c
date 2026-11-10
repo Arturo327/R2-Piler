@@ -56,12 +56,11 @@ void x86_make_ld_ptr (X86Fn *f, IRInstr *i)
 
 	if (d >= 0) {
 		x86_clobber(f, (uint8_t)d);
-		cg_printf(c, "\t%s (%s), %s\n", op, reg_name(base, 8),
-				reg_name((uint8_t)d, w));
+		cg_printf(c, "\t%s %d(%s), %s\n", op, (int)i->imm64, reg_name(base, 8), reg_name((uint8_t)d, w));
 		return;
 	}
 	uint8_t val = x86_grab(f);
-	cg_printf(c, "\t%s (%s), %s\n", op, reg_name(base, 8), reg_name(val, w));
+	cg_printf(c, "\t%s %d(%s), %s\n", op, (int)i->imm64, reg_name(base, 8), reg_name(val, w));
 	x86_store_reg(f, val, i->dst);
 }
 
@@ -74,8 +73,8 @@ void x86_make_str_ptr (X86Fn *f, IRInstr *i)
 	uint8_t val = v >= 0 ? (uint8_t)v : x86_grab(f);
 
 	if (v < 0) x86_load_reg(f, val, i->src2);
-	cg_printf(c, "\tmov%c %s, (%s)\n", x86_mem_suf[size],
-			reg_name(val, size), reg_name(base, 8));
+	cg_printf(c, "\tmov%c %s, %d(%s)\n", x86_mem_suf[size],
+			reg_name(val, size), (int)i->imm64, reg_name(base, 8));
 }
 
 uint32_t x86_ld_ptr_scratch (X86Fn *f, IRInstr *i, const int8_t *h)

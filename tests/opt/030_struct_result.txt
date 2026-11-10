@@ -10,16 +10,10 @@ fn add(3 params, 23 regs) : void
     r8 = ld_ptr.i32 r2
     r9 = add.i32 r6, r8
     str_ptr.i32 r4, r9
-    r10 = const.i64 4
-    r11 = add.i64 r4, r10
-    r13 = const.i64 4
-    r14 = add.i64 r1, r13
-    r15 = ld_ptr.i32 r14
-    r17 = const.i64 4
-    r18 = add.i64 r2, r17
-    r19 = ld_ptr.i32 r18
+    r15 = ld_ptr.i32 r1 +4
+    r19 = ld_ptr.i32 r2 +4
     r20 = add.i32 r15, r19
-    str_ptr.i32 r11, r20
+    str_ptr.i32 r4, r20 +4
     r21 = addr_local.Point r3
     r22 = ld_ptr.u64 r21
     str_ptr.u64 r0, r22
@@ -37,17 +31,13 @@ fn main(0 params, 58 regs) : i64
     r1 = addr_local.Point r0
     r2 = const.i32 1
     str_ptr.i32 r1, r2
-    r3 = const.i64 4
-    r4 = add.i64 r1, r3
     r5 = const.i32 2
-    str_ptr.i32 r4, r5
+    str_ptr.i32 r1, r5 +4
     r7 = addr_local.Point r6
     r8 = const.i32 3
     str_ptr.i32 r7, r8
-    r9 = const.i64 4
-    r10 = add.i64 r7, r9
     r11 = const.i32 4
-    str_ptr.i32 r10, r11
+    str_ptr.i32 r7, r11 +4
     r13 = addr_local.Point r12
     r14 = addr_local.Point r0
     r15 = addr_local.Point r6
@@ -56,16 +46,10 @@ fn main(0 params, 58 regs) : i64
     r35 = ld_ptr.i32 r15
     r36 = add.i32 r33, r35
     str_ptr.i32 r31, r36
-    r37 = const.i64 4
-    r38 = add.i64 r31, r37
-    r40 = const.i64 4
-    r41 = add.i64 r14, r40
-    r42 = ld_ptr.i32 r41
-    r44 = const.i64 4
-    r45 = add.i64 r15, r44
-    r46 = ld_ptr.i32 r45
+    r42 = ld_ptr.i32 r14 +4
+    r46 = ld_ptr.i32 r15 +4
     r47 = add.i32 r42, r46
-    str_ptr.i32 r38, r47
+    str_ptr.i32 r31, r47 +4
     r48 = addr_local.Point r30
     r49 = ld_ptr.u64 r48
     str_ptr.u64 r13, r49
@@ -74,9 +58,7 @@ fn main(0 params, 58 regs) : i64
     r52 = const.i32 1
     r18 = lshift.i32 r17, r52
     r19 = addr_local.Point r12
-    r20 = const.i64 4
-    r21 = add.i64 r19, r20
-    r22 = ld_ptr.i32 r21
+    r22 = ld_ptr.i32 r19 +4
     r56 = const.i32 1
     r23 = lshift.i32 r22, r56
     r24 = add.i32 r18, r23

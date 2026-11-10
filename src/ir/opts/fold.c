@@ -131,7 +131,7 @@ static int fold_jump (Optimizer *opt, OptFn *f, IRInstr *in)
 	return 1;
 }
 
-static void track_const (OptFn *f, IRInstr *in)
+void track_const (OptFn *f, IRInstr *in)
 {
 	if (in->dst == NO_REG) return;
 	if (in->op != IR_CONST) {

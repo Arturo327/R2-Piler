@@ -43,6 +43,9 @@ static void dump_extra (IR *ir, IRInstr *i)
 	case IR_STR_LIT:
 		printf(" .LC%u", i->target);
 		break;
+	case IR_LD_PTR: case IR_STR_PTR:
+		if (i->imm64) printf(" %+lld", (long long)i->imm64);
+		break;
 	default:
 		break;
 	}
