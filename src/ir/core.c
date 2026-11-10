@@ -76,7 +76,7 @@ static const IRInstr blank_instr = {
 const uint8_t is_deletable[IR_COUNT] =
 {
 	[IR_CONST] = 1, [IR_ADDR_LOCAL] = 1, [IR_ADDR_GLOBAL] = 1, [IR_STR_LIT] = 1,
-	[IR_LD_PTR] = 1,
+	[IR_LD_PTR] = 1, [IR_LD_LOCAL] = 1,
 	[IR_MOVE] = 1, [IR_EXTEND] = 1, [IR_SELECT] = 1,
 	[IR_ADD] = 1, [IR_SUB] = 1, [IR_MUL] = 1,
 	[IR_AND_A] = 1, [IR_OR_A] = 1, [IR_XOR] = 1,

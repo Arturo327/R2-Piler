@@ -59,3 +59,24 @@ int opt_disp (Optimizer *opt, OptFn *f)
 	f->epoch++;
 	return changed;
 }
+
+int opt_frame (Optimizer *opt, OptFn *f)
+{
+	IRInstr *code = opt->ir->instrs + f->fn->start;
+	int changed = 0;
+
+	for (uint32_t i = 0; i < f->fn->count; i++) {
+		IRInstr *in = code + i;
+		IRInstr *def;
+
+		if ((in->op != IR_LD_PTR && in->op != IR_STR_PTR) || f->defs[in->src1] != 1)
+			continue;
+		def = opt->ir->instrs + f->def_at[in->src1];
+		if (def->op != IR_ADDR_LOCAL) continue;
+
+		in->op = in->op == IR_LD_PTR ? IR_LD_LOCAL : IR_STR_LOCAL;
+		in->src1 = def->src1;
+		changed = 1;
+	}
+	return changed;
+}

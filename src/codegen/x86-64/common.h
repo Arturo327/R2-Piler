@@ -105,6 +105,8 @@ void x86_make_addr_global (X86Fn *f, IRInstr *i);
 void x86_make_ld_ptr (X86Fn *f, IRInstr *i);
 void x86_make_str_ptr (X86Fn *f, IRInstr *i);
 void x86_make_str_lit (X86Fn *f, IRInstr *i);
+void x86_make_ld_local (X86Fn *f, IRInstr *i);
+void x86_make_str_local (X86Fn *f, IRInstr *i);
 
 void x86_make_edge (X86Fn *f, uint32_t at, int taken);
 void x86_make_stubs (X86Fn *f);

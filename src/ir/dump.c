@@ -7,6 +7,7 @@ static const char *const op_names[IR_COUNT] = {
 	[IR_LD_GLOBAL] = "ld_global", [IR_STR_GLOBAL] = "str_global",
 	[IR_ADDR_LOCAL] = "addr_local", [IR_ADDR_GLOBAL] = "addr_global",
 	[IR_LD_PTR] = "ld_ptr", [IR_STR_PTR] = "str_ptr", [IR_STR_LIT] = "str_lit",
+	[IR_LD_LOCAL] = "ld_local", [IR_STR_LOCAL] = "str_local",
 	[IR_MOVE] = "move", [IR_EXTEND] = "extend", [IR_SELECT] = "select",
 	[IR_ADD] = "add", [IR_SUB] = "sub", [IR_MUL] = "mul",
 	[IR_DIV] = "div", [IR_MOD] = "mod",
@@ -43,7 +44,7 @@ static void dump_extra (IR *ir, IRInstr *i)
 	case IR_STR_LIT:
 		printf(" .LC%u", i->target);
 		break;
-	case IR_LD_PTR: case IR_STR_PTR:
+	case IR_LD_PTR: case IR_STR_PTR: case IR_LD_LOCAL: case IR_STR_LOCAL:
 		if (i->imm64) printf(" %+lld", (long long)i->imm64);
 		break;
 	default:

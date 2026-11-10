@@ -58,6 +58,8 @@ static uint32_t x86_scratch_need (void *user, IRInstr *in, const int8_t *h)
 		return h[SC_DST] == VR_SPILL;
 	case IR_LD_PTR: return x86_ld_ptr_scratch(f, in, h);
 	case IR_STR_PTR: return x86_str_ptr_scratch(f, in, h);
+	case IR_LD_LOCAL: return h[SC_DST] == VR_SPILL;
+	case IR_STR_LOCAL: return h[SC_SRC2] < 0;
 	case IR_MOVE: case IR_EXTEND: return x86_move_scratch(f, in, h);
 	case IR_SELECT: return x86_select_scratch(f, in, h);
 	case IR_ADD: case IR_SUB: case IR_MUL: case IR_AND_A: case IR_OR_A: case IR_XOR:

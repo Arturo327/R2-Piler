@@ -16,6 +16,7 @@ static const OptPassDesc passes[] = {
 	{ opt_propagate, OPT_BASIC },
 	{ opt_fold, OPT_BASIC },
 	{ opt_disp, OPT_BASIC },
+	{ opt_frame, OPT_BASIC },
 	{ opt_cse, OPT_FULL },
 	{ opt_coalesce, OPT_BASIC },
 	{ opt_dce, OPT_BASIC },

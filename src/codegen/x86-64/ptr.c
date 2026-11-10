@@ -77,6 +77,37 @@ void x86_make_str_ptr (X86Fn *f, IRInstr *i)
 			reg_name(val, size), (int)i->imm64, reg_name(base, 8));
 }
 
+void x86_make_ld_local (X86Fn *f, IRInstr *i)
+{
+	CodeGen *c = f->cg;
+	uint8_t w;
+	const char *op = x86_load_op(i->data_type, &w);
+	int off = x86_slot_off(f, f->regs[i->src1].slot) + (int)i->imm64;
+	int d = x86_phys_reg(f, i->dst);
+
+	if (d >= 0) {
+		x86_clobber(f, (uint8_t)d);
+		cg_printf(c, "\t%s %d(%s), %s\n", op, off, f->base, reg_name((uint8_t)d, w));
+		return;
+	}
+	uint8_t val = x86_grab(f);
+	cg_printf(c, "\t%s %d(%s), %s\n", op, off, f->base, reg_name(val, w));
+	x86_store_reg(f, val, i->dst);
+}
+
+void x86_make_str_local (X86Fn *f, IRInstr *i)
+{
+	CodeGen *c = f->cg;
+	uint8_t size = types[i->data_type].size;
+	int off = x86_slot_off(f, f->regs[i->src1].slot) + (int)i->imm64;
+	int v = x86_phys_reg(f, i->src2);
+	uint8_t val = v >= 0 ? (uint8_t)v : x86_grab(f);
+
+	if (v < 0) x86_load_reg(f, val, i->src2);
+	cg_printf(c, "\tmov%c %s, %d(%s)\n", x86_mem_suf[size],
+			reg_name(val, size), off, f->base);
+}
+
 uint32_t x86_ld_ptr_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
 {
 	(void)f;

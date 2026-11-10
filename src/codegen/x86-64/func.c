@@ -34,6 +34,8 @@ static int make_instr (X86Fn *f, IRInstr *i)
 	case IR_ADDR_GLOBAL: x86_make_addr_global(f, i); return 1;
 	case IR_LD_PTR: x86_make_ld_ptr(f, i); return 1;
 	case IR_STR_PTR: x86_make_str_ptr(f, i); return 1;
+	case IR_LD_LOCAL: x86_make_ld_local(f, i); return 1;
+	case IR_STR_LOCAL: x86_make_str_local(f, i); return 1;
 	case IR_STR_LIT: x86_make_str_lit(f, i); return 1;
 
 	case IR_MOVE:
