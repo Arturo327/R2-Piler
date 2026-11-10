@@ -1,10 +1,12 @@
 #include "ir/ir.h"
 #include "ir/internal.h"
 
-#define LOGIC_BUDGET 8
-
 #include <assert.h>
 #include <string.h>
+
+#define LOGIC_BUDGET 8
+#define COPY_UNROLL 8
+#define SROA_MAX_LEAVES 8
 
 static uint32_t gen_index_addr (IR *ir, ASTNode *n);
 static uint32_t gen_array_addr (IR *ir, ASTNode *n);
@@ -311,8 +313,6 @@ static uint32_t load_var (IR *ir, Symbol *s)
 	return tmp;
 }
 
-#define COPY_UNROLL 8
-
 static uint32_t new_struct_temp (IR *ir, TypeId type)
 {
 	uint32_t reg = new_reg(ir, type);
@@ -343,10 +343,34 @@ static void gen_copy_loop (IR *ir, uint32_t dst, uint32_t src, uint32_t size)
 	make_label(ir, end);
 }
 
+static void gen_copy_fields (IR *ir, uint32_t dst, uint32_t src, TypeId type, uint32_t base)
+{
+	const Type *t = types + type;
+
+	for (uint16_t i = 0; i < t->field_count; i++) {
+		const StructField *f = t->fields + i;
+		uint32_t off = base + f->offset;
+		uint32_t val;
+
+		if (type_kind(f->type) == TK_STRUCT) {
+			gen_copy_fields(ir, dst, src, f->type, off);
+			continue;
+		}
+		val = make_ld_ptr(ir, add_offset(ir, src, off), f->type);
+		make_str_ptr(ir, add_offset(ir, dst, off), val, f->type);
+	}
+}
+
 static void gen_copy (IR *ir, uint32_t dst, uint32_t src, TypeId type)
 {
 	uint32_t size = types[type].size;
 	uint32_t off = 0;
+	int budget = SROA_MAX_LEAVES;
+
+	if (type_scalar_leaves(type, &budget)) {
+		gen_copy_fields(ir, dst, src, type, 0);
+		return;
+	}
 
 	if ((size >> 3) > COPY_UNROLL) {
 		off = size & ~7u;
@@ -470,6 +494,10 @@ static int can_alias_arg (IR *ir, ASTNode *call, uint32_t arg, uint32_t param)
 	for (uint32_t k = call->child; k != NO_NODE; k = ir->ast->nodes[k].next_bro) {
 		if (args_assign(ir, k)) return 0;
 	}
+
+	int budget = SROA_MAX_LEAVES;
+	if (type_scalar_leaves(s->type, &budget)) return 0;
+
 	return 1;
 }
 

@@ -10,7 +10,7 @@ fn __r2_init(0 params, 5 regs) : void
     str_ptr.i32 r3, r4
     ret
 
-fn make(2 params, 12 regs) : void
+fn make(2 params, 17 regs) : void
     r0 = param.ptr Point #0
     r1 = param.i32 #1
     r3 = addr_local.Point r2
@@ -23,8 +23,14 @@ fn make(2 params, 12 regs) : void
     r9 = add.i32 r7, r8
     str_ptr.i32 r6, r9
     r10 = addr_local.Point r2
-    r11 = ld_ptr.u64 r10
-    str_ptr.u64 r0, r11
+    r11 = ld_ptr.i32 r10
+    str_ptr.i32 r0, r11
+    r12 = const.i64 4
+    r13 = add.i64 r10, r12
+    r14 = ld_ptr.i32 r13
+    r15 = const.i64 4
+    r16 = add.i64 r0, r15
+    str_ptr.i32 r16, r14
     ret
     ret
 
@@ -46,7 +52,7 @@ fn take(1 params, 13 regs) : i32
     ret.i32 r12
     ret
 
-fn main(0 params, 42 regs) : i64
+fn main(0 params, 57 regs) : i64
     r1 = addr_local.Point r0
     r2 = const.i32 1
     str_ptr.i32 r1, r2
@@ -64,38 +70,56 @@ fn main(0 params, 42 regs) : i64
     r12 = const.i64 8
     r13 = add.i64 r7, r12
     r14 = addr_local.Point r0
-    r15 = ld_ptr.u64 r14
-    str_ptr.u64 r13, r15
-    r17 = addr_local.Point r16
-    r18 = addr_local.Line r6
-    r19 = ld_ptr.i32 r18
-    arg r17 #0
-    arg r19 #1
-    call make
-    r20 = addr_local.Point r16
+    r15 = ld_ptr.i32 r14
+    str_ptr.i32 r13, r15
+    r16 = const.i64 4
+    r17 = add.i64 r14, r16
+    r18 = ld_ptr.i32 r17
+    r19 = const.i64 4
+    r20 = add.i64 r13, r19
+    str_ptr.i32 r20, r18
     r22 = addr_local.Point r21
-    r23 = ld_ptr.u64 r20
-    str_ptr.u64 r22, r23
+    r23 = addr_local.Line r6
+    r24 = ld_ptr.i32 r23
     arg r22 #0
-    r24 = call.i32 take
-    r25 = extend.i64 r24
-    r26 = addr_global.Point @g
-    r27 = ld_ptr.i32 r26
-    r28 = extend.i64 r27
-    r29 = add.i64 r25, r28
-    r30 = addr_local.Line r6
-    r31 = const.i64 8
-    r32 = add.i64 r30, r31
-    r33 = addr_local.Point r16
-    r34 = ld_ptr.u64 r33
-    str_ptr.u64 r32, r34
-    r35 = move.i64 r29
-    r36 = addr_local.Point r0
-    r37 = const.i64 4
-    r38 = add.i64 r36, r37
-    r39 = ld_ptr.i32 r38
-    r40 = extend.i64 r39
-    r41 = add.i64 r35, r40
-    ret.i64 r41
+    arg r24 #1
+    call make
+    r25 = addr_local.Point r21
+    r27 = addr_local.Point r26
+    r28 = ld_ptr.i32 r25
+    str_ptr.i32 r27, r28
+    r29 = const.i64 4
+    r30 = add.i64 r25, r29
+    r31 = ld_ptr.i32 r30
+    r32 = const.i64 4
+    r33 = add.i64 r27, r32
+    str_ptr.i32 r33, r31
+    arg r27 #0
+    r34 = call.i32 take
+    r35 = extend.i64 r34
+    r36 = addr_global.Point @g
+    r37 = ld_ptr.i32 r36
+    r38 = extend.i64 r37
+    r39 = add.i64 r35, r38
+    r40 = addr_local.Line r6
+    r41 = const.i64 8
+    r42 = add.i64 r40, r41
+    r43 = addr_local.Point r21
+    r44 = ld_ptr.i32 r43
+    str_ptr.i32 r42, r44
+    r45 = const.i64 4
+    r46 = add.i64 r43, r45
+    r47 = ld_ptr.i32 r46
+    r48 = const.i64 4
+    r49 = add.i64 r42, r48
+    str_ptr.i32 r49, r47
+    r50 = move.i64 r39
+    r51 = addr_local.Point r0
+    r52 = const.i64 4
+    r53 = add.i64 r51, r52
+    r54 = ld_ptr.i32 r53
+    r55 = extend.i64 r54
+    r56 = add.i64 r50, r55
+    ret.i64 r56
     ret
 

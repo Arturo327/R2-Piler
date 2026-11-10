@@ -1,20 +1,18 @@
 fn __r2_init(0 params, 0 regs) : void
     ret
 
-fn add(3 params, 23 regs) : void
+fn add(3 params, 30 regs) : void
     r0 = param.ptr Point #0
     r1 = param.ptr Point #1
     r2 = param.ptr Point #2
     r6 = ld_ptr.i32 r1
     r8 = ld_ptr.i32 r2
     r9 = add.i32 r6, r8
-    str_local.i32 r3, r9
     r15 = ld_ptr.i32 r1 +4
     r19 = ld_ptr.i32 r2 +4
     r20 = add.i32 r15, r19
-    str_local.i32 r3, r20 +4
-    r22 = ld_local.u64 r3
-    str_ptr.u64 r0, r22
+    str_ptr.i32 r0, r9
+    str_ptr.i32 r0, r20 +4
     ret
     ret
 
@@ -25,33 +23,31 @@ fn twice(1 params, 4 regs) : i32
     ret.i32 r3
     ret
 
-fn main(0 params, 58 regs) : i64
+fn main(0 params, 85 regs) : i64
     r2 = const.i32 1
-    str_local.i32 r0, r2
     r5 = const.i32 2
-    str_local.i32 r0, r5 +4
     r8 = const.i32 3
-    str_local.i32 r6, r8
     r11 = const.i32 4
-    str_local.i32 r6, r11 +4
-    r33 = ld_local.i32 r0
-    r35 = ld_local.i32 r6
-    r36 = add.i32 r33, r35
-    str_local.i32 r30, r36
-    r42 = ld_local.i32 r0 +4
-    r46 = ld_local.i32 r6 +4
-    r47 = add.i32 r42, r46
-    str_local.i32 r30, r47 +4
-    r49 = ld_local.u64 r30
-    str_local.u64 r12, r49
-    r17 = ld_local.i32 r12
-    r52 = const.i32 1
-    r18 = lshift.i32 r17, r52
-    r22 = ld_local.i32 r12 +4
-    r56 = const.i32 1
-    r23 = lshift.i32 r22, r56
-    r24 = add.i32 r18, r23
-    r26 = extend.i64 r24
-    ret.i64 r26
+    str_local.i32 r15, r2
+    str_local.i32 r15, r5 +4
+    str_local.i32 r24, r8
+    str_local.i32 r24, r11 +4
+    r53 = ld_local.i32 r15
+    r55 = ld_local.i32 r24
+    r56 = add.i32 r53, r55
+    r62 = ld_local.i32 r15 +4
+    r66 = ld_local.i32 r24 +4
+    r67 = add.i32 r62, r66
+    str_local.i32 r12, r56
+    str_local.i32 r12, r67 +4
+    r33 = ld_local.i32 r12
+    r79 = const.i32 1
+    r34 = lshift.i32 r33, r79
+    r38 = ld_local.i32 r12 +4
+    r83 = const.i32 1
+    r39 = lshift.i32 r38, r83
+    r40 = add.i32 r34, r39
+    r42 = extend.i64 r40
+    ret.i64 r42
     ret
 

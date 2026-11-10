@@ -288,6 +288,21 @@ int type_is_aggregate (TypeId id)
 	return kind == TK_ARRAY || kind == TK_SLICE || kind == TK_STRUCT;
 }
 
+int type_scalar_leaves (TypeId id, int *budget)
+{
+	const Type *t = types + id;
+
+	if (t->kind != TK_STRUCT) {
+		(*budget)--;
+		return !type_is_aggregate(id) && *budget >= 0;
+	}
+	if (t->is_union) return 0;
+	for (uint16_t i = 0; i < t->field_count; i++) {
+		if (!type_scalar_leaves(t->fields[i].type, budget)) return 0;
+	}
+	return 1;
+}
+
 uint32_t type_align (TypeId id)
 {
 	int has_slice = 0;

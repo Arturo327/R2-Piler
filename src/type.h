@@ -100,6 +100,8 @@ int type_slice_rank (TypeId id);
 int type_dyn_rank (TypeId id);
 int type_is_mixed (TypeId id);
 int type_is_aggregate (TypeId id);
+int type_scalar_leaves (TypeId id, int *budget);
+
 uint32_t type_align (TypeId id);
 int bind_struct_type (TypeId id, const StructField *fields, uint16_t count, uint32_t size, uint32_t align);
 StructField *find_field (TypeId id, const char *name, uint16_t len);

@@ -129,6 +129,7 @@ void optimize_ir (IR *ir, Arena *a, OptLevel level)
 	Optimizer opt;
 
 	if (level == NO_OPT) return;
+	sroa_ir(ir, a);
 	init_opt(&opt, ir, a, level);
 	optimize_all(&opt);
 
