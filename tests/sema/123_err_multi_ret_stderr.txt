@@ -1,0 +1,57 @@
+tests/sema/123_err_multi_ret_src.r2:2:5: ERROR: this function returns 2 values, but 1 were returned
+      2 |     return a;
+        |     ^
+tests/sema/123_err_multi_ret_src.r2:6:5: ERROR: this function returns 1 value, but 2 were returned
+      6 |     return a, a;
+        |     ^
+tests/sema/123_err_multi_ret_src.r2:9:15: ERROR: void cannot be used as one of several return types
+      9 | fn bad_void() : void, i64 {
+        |               ^
+tests/sema/123_err_multi_ret_src.r2:10:5: ERROR: cannot return i64 from a function returning void; use an explicit cast with 'as'
+     10 |     return 1, 2;
+        |     ^
+tests/sema/123_err_multi_ret_src.r2:13:17: ERROR: extern functions cannot return arrays or slices yet
+     13 | extern fn ext() : i64[];
+        |                 ^
+tests/sema/123_err_multi_ret_src.r2:15:4: ERROR: 'main' must be declared as 'fn main() : i64'
+     15 | fn main() : i64, i64 {
+        |    ^~~~
+tests/sema/123_err_multi_ret_src.r2:25:5: ERROR: this function returns 2 values, but 3 are assigned
+     25 |     a, b, c = two(1);
+        |     ^
+tests/sema/123_err_multi_ret_src.r2:26:12: ERROR: the right side of a multi-assignment must be a call to a function that returns several values
+     26 |     a, b = one(1);
+        |            ^~~
+tests/sema/123_err_multi_ret_src.r2:27:28: ERROR: the right side of a multi-assignment must be a call to a function that returns several values
+     27 |     var d : i64, e : i64 = 3;
+        |                            ^
+tests/sema/123_err_multi_ret_src.r2:28:5: ERROR: left side of '=' must be a variable
+     28 |     1, a = two(1);
+        |     ^
+tests/sema/123_err_multi_ret_src.r2:29:5: ERROR: cannot assign a value of type i64[2]; arrays and slices must be modified element by element
+     29 |     v, a = two(1);
+        |     ^
+tests/sema/123_err_multi_ret_src.r2:25:5: WARNING: value assigned to 'a' is not used
+     25 |     a, b, c = two(1);
+        |     ^
+tests/sema/123_err_multi_ret_src.r2:26:5: WARNING: value assigned to 'a' is not used
+     26 |     a, b = one(1);
+        |     ^
+tests/sema/123_err_multi_ret_src.r2:28:8: WARNING: value assigned to 'a' is not used
+     28 |     1, a = two(1);
+        |        ^
+tests/sema/123_err_multi_ret_src.r2:21:9: WARNING: unused variable 'b'
+     21 |     var b : u32;
+        |         ^
+tests/sema/123_err_multi_ret_src.r2:22:9: WARNING: unused variable 'c'
+     22 |     var c : i64;
+        |         ^
+tests/sema/123_err_multi_ret_src.r2:23:9: WARNING: unused variable 'v'
+     23 |     arr v : i64[2];
+        |         ^
+tests/sema/123_err_multi_ret_src.r2:27:9: WARNING: unused variable 'd'
+     27 |     var d : i64, e : i64 = 3;
+        |         ^
+tests/sema/123_err_multi_ret_src.r2:27:18: WARNING: unused variable 'e'
+     27 |     var d : i64, e : i64 = 3;
+        |                  ^

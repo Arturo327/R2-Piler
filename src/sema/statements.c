@@ -157,7 +157,10 @@ static void check_var_dec (Sema *s, uint32_t idx)
 	uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_VAR, n->data_type, idx);
 
 	if (is_null) s->table.symbols[sym].null_known = 1;
-	if (has_init) sym_write(s, sym, idx);
+	if (has_init) {
+		sym_set_stack_slice(s, sym, s->ast->nodes[idx].child);
+		sym_write(s, sym, idx);
+	}
 }
 
 static void check_main_signature (Sema *s, uint32_t idx)
@@ -166,7 +169,8 @@ static void check_main_signature (Sema *s, uint32_t idx)
 	uint32_t args = n->child;
 	uint32_t ret = s->ast->nodes[args].next_bro;
 	int bad_params = s->ast->nodes[args].child != NO_NODE;
-	int bad_ret = s->ast->nodes[ret].data_type != TYPE_i64;
+	int bad_ret = s->ast->nodes[ret].data_type != TYPE_i64
+			|| s->ast->nodes[ret].child != NO_NODE;
 
 	if (n->len != 4 || memcmp(n->str, "main", 4) != 0)
 		return;
@@ -175,21 +179,37 @@ static void check_main_signature (Sema *s, uint32_t idx)
 				"'main' must be declared as 'fn main() : i64'");
 }
 
+static void check_ret_type (Sema *s, uint32_t ret, int is_extern, int multi)
+{
+	ASTNode *n = s->ast->nodes + ret;
+	TypeId t = n->data_type;
+
+	if (t == TYPE_ERROR) return;
+	if (multi && t == TYPE_VOID)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"void cannot be used as one of several return types");
+	if (!is_extern || t == TYPE_VOID) return;
+
+	if (type_kind(t) == TK_STRUCT)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"extern functions cannot return structs by value yet");
+	else if (type_kind(t) == TK_ARRAY || type_kind(t) == TK_SLICE)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"extern functions cannot return arrays or slices yet");
+}
+
 static void check_signature_types (Sema *s, uint32_t idx, int is_extern)
 {
 	ASTNode *n = s->ast->nodes + idx;
 	uint32_t args = n->child;
 	uint32_t ret = s->ast->nodes[args].next_bro;
-	TypeId ret_type = s->ast->nodes[ret].data_type;
+	uint32_t item = s->ast->nodes[ret].child;
 
-	if (ret_type != TYPE_ERROR
-			&& (type_kind(ret_type) == TK_ARRAY || type_kind(ret_type) == TK_SLICE))
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"functions cannot return an array or a slice");
-
-	if (is_extern && ret_type != TYPE_ERROR && type_kind(ret_type) == TK_STRUCT)
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"extern functions cannot return structs by value yet");
+	check_ret_type(s, ret, is_extern, item != NO_NODE);
+	while (item != NO_NODE) {
+		check_ret_type(s, item, is_extern, 1);
+		item = s->ast->nodes[item].next_bro;
+	}
 
 	uint32_t p = s->ast->nodes[args].child;
 	while (p != NO_NODE) {
@@ -218,6 +238,7 @@ void check_fn_dec (Sema *s, uint32_t idx)
 	uint32_t mark = s->table.act_count;
 	s->depth++;
 	s->curr_ret = s->ast->nodes[ret].data_type;
+	s->curr_ret_list = ret;
 
 	uint32_t param = s->ast->nodes[args].child;
 	uint32_t count = 0;
@@ -576,40 +597,110 @@ static void check_switch (Sema *s, uint32_t idx)
 	check_switch_clauses(s, idx, type);
 }
 
-static void check_return (Sema *s, uint32_t idx)
+static uint32_t ret_value_type (Sema *s, uint32_t idx, uint32_t val, TypeId ret)
 {
-	ASTNode *n = s->ast->nodes + idx;
+	TypeId val_type = check_expr(s, val);
 
-	if (n->child == NO_NODE) {
-		if (s->curr_ret != TYPE_VOID && s->curr_ret != TYPE_ERROR)
-			error_report(s->err, ERR_ERROR, node_loc(n),
-					"missing return value of type %s",
-					types[s->curr_ret].name);
-		return;
-	}
-
-	if (s->curr_ret == TYPE_VOID) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"function returning void cannot return a value");
-		check_expr(s, n->child);
-		return;
-	}
-
-	TypeId val_type = check_expr(s, n->child);
-	if (val_type == TYPE_ERROR || s->curr_ret == TYPE_ERROR || val_type == s->curr_ret)
-		return;
+	if (val_type == TYPE_ERROR || ret == TYPE_ERROR || val_type == ret)
+		return val;
+	if (sema_array_slice_compat(val_type, ret)) return val;
 
 	int ok;
-	n->child = force_cast(s, n->child, val_type, s->curr_ret, &ok);
-	if (ok) return;
+	uint32_t cast = force_cast(s, val, val_type, ret, &ok);
+	if (ok) return cast;
 
 	const char *hint = val_type == TYPE_VOID
 			? "a void value cannot be used here"
 			: "use an explicit cast with 'as'";
 
-	error_report(s->err, ERR_ERROR, node_loc(n),
+	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 			"cannot return %s from a function returning %s; %s",
-			type_display_name(val_type), types[s->curr_ret].name, hint);
+			type_display_name(val_type), types[ret].name, hint);
+	return cast;
+}
+
+static void check_bare_return (Sema *s, uint32_t idx, uint32_t count)
+{
+	ASTNode *n = s->ast->nodes + idx;
+
+	if (count > 1)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"missing return values: this function returns %u values", count);
+	else if (s->curr_ret != TYPE_VOID && s->curr_ret != TYPE_ERROR)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"missing return value of type %s", types[s->curr_ret].name);
+}
+
+static void check_single_return (Sema *s, uint32_t idx, TypeId ret)
+{
+	uint32_t val = s->ast->nodes[idx].child;
+
+	if (ret == TYPE_VOID) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"function returning void cannot return a value");
+		check_expr(s, val);
+		return;
+	}
+
+	uint32_t cast = ret_value_type(s, idx, val, ret);
+
+	s->ast->nodes[idx].child = cast;
+	warn_stack_return(s, cast, ret);
+}
+
+static TypeId ret_type_at (Sema *s, uint32_t list, uint32_t i)
+{
+	if (list == NO_NODE) return i == 0 ? s->curr_ret : TYPE_ERROR;
+	return s->ast->nodes[sema_ret_at(s, list, i)].data_type;
+}
+
+static void check_multi_return (Sema *s, uint32_t idx, uint32_t list, uint32_t count)
+{
+	uint32_t val = s->ast->nodes[idx].child;
+	uint32_t prev = NO_NODE;
+	uint32_t i = 0;
+
+	while (val != NO_NODE) {
+		uint32_t next = s->ast->nodes[val].next_bro;
+
+		if (i < count) {
+			TypeId rt = ret_type_at(s, list, i);
+			uint32_t cast = ret_value_type(s, idx, val, rt);
+
+			if (prev == NO_NODE) s->ast->nodes[idx].child = cast;
+			else s->ast->nodes[prev].next_bro = cast;
+			val = cast;
+			warn_stack_return(s, val, rt);
+		} else {
+			check_expr(s, val);
+		}
+		prev = val;
+		val = next;
+		i++;
+	}
+
+	if (i == count) return;
+	if (count == 1) error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+			"this function returns 1 value, but %u were returned", i);
+	else error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+			"this function returns %u values, but %u were returned", count, i);
+}
+
+static void check_return (Sema *s, uint32_t idx)
+{
+	uint32_t list = s->curr_ret_list;
+	uint32_t count = list == NO_NODE ? 1 : sema_ret_count(s, list);
+	uint32_t first = s->ast->nodes[idx].child;
+
+	if (first == NO_NODE) {
+		check_bare_return(s, idx, count);
+		return;
+	}
+	if (count == 1 && s->ast->nodes[first].next_bro == NO_NODE) {
+		check_single_return(s, idx, s->curr_ret);
+		return;
+	}
+	check_multi_return(s, idx, list, count);
 }
 
 static int block_returns (Sema *s, uint32_t idx)
@@ -695,6 +786,7 @@ static void check_statement (Sema *s, uint32_t idx)
 	case NODE_VAR_DEC: case NODE_ARR_DEC: check_var_dec(s, idx); return;
 	case NODE_BLOCK: check_block(s, idx); return;
 	case NODE_RET: check_return(s, idx); return;
+	case NODE_MULTI_ASSIGN: check_multi_assign(s, idx); return;
 	case NODE_WHILE: check_while(s, idx); return;
 	case NODE_FOR: check_for(s, idx); return;
 	case NODE_IF: check_if(s, idx); return;

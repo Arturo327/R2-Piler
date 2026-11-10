@@ -1,0 +1,22 @@
+var g [1:5] depth=0 type=i64[3]
+var gl [2:5] depth=0 type=i32[2][3]
+fn split [4:4] depth=0 type=i64, u32
+fn pick [8:4] depth=0 type=i64[]
+fn row [12:4] depth=0 type=i32[2][3][]
+fn shape [16:4] depth=0 type=i64[3]
+fn take [20:4] depth=0 type=i64
+fn relay [24:4] depth=0 type=i64
+fn main [28:4] depth=0 type=i64
+param a [4:10] depth=1 type=i64
+param x [8:9] depth=1 type=i64[]
+param m [12:8] depth=1 type=i32[2][3][]
+param x [16:10] depth=1 type=i64[3]
+param m [20:9] depth=1 type=i32[2][3][]
+param m [24:10] depth=1 type=i32[2][3][]
+var a [29:9] depth=1 type=i64
+var b [30:9] depth=1 type=u32
+var c [32:9] depth=1 type=i64
+var d [32:18] depth=1 type=u32
+var e [33:9] depth=1 type=i64
+var s [34:9] depth=1 type=i64[]
+var n [35:9] depth=1 type=i64

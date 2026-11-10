@@ -1,9 +1,6 @@
 tests/sema/099_err_array_decl_src.r2:1:14: WARNING: unused parameter 'a'
       1 | fn arr_param(a : i32[2]) : i64 {
         |              ^
-tests/sema/099_err_array_decl_src.r2:5:4: ERROR: functions cannot return an array or a slice
-      5 | fn arr_ret() : i32[] {
-        |    ^~~~~~~
 tests/sema/099_err_array_decl_src.r2:6:2: ERROR: cannot return i64 from a function returning i32[]; use an explicit cast with 'as'
       6 |         return 0;
         |         ^

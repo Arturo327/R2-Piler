@@ -130,6 +130,8 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select)
 	ir->use_select = use_select;
 	ir->no_tail = 0;
 	ir->sret = NO_REG;
+	ir->ret_node = NO_NODE;
+	ir->desc = arena_alloc(arena, sizeof(uint32_t) * (sema->ast->count ? sema->ast->count : 1));
 
 	ir->reg_types = NULL;
 	ir->reg_type_cap = 0;
@@ -153,10 +155,74 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select)
 	ir->strings = NULL;
 }
 
+uint32_t ret_count (IR *ir, uint32_t ret)
+{
+	uint32_t count = 1;
+
+	for (uint32_t item = ir->ast->nodes[ret].child; item != NO_NODE;
+			item = ir->ast->nodes[item].next_bro)
+		count++;
+	return count;
+}
+
+uint32_t ret_node_at (IR *ir, uint32_t ret, uint32_t i)
+{
+	uint32_t item = ir->ast->nodes[ret].child;
+
+	if (i == 0) return ret;
+	while (i-- > 1 && item != NO_NODE)
+		item = ir->ast->nodes[item].next_bro;
+	return item;
+}
+
+int fn_uses_sret (IR *ir, uint32_t ret)
+{
+	TypeId t = ir->ast->nodes[ret].data_type;
+
+	if (ir->ast->nodes[ret].child != NO_NODE) return 1;
+	if (type_dyn_rank(t) > 0) return 1;
+	return type_kind(t) == TK_STRUCT;
+}
+
+TypeId ret_slot_type (TypeId t)
+{
+	if (type_kind(t) == TK_ARRAY && type_dyn_rank(t) == 0)
+		return type_ptr_to(type_flat_element(t));
+	return t;
+}
+
+uint32_t ret_off (IR *ir, uint32_t ret, uint32_t i)
+{
+	uint32_t off = 0;
+
+	for (uint32_t k = 0; k < i; k++) {
+		uint32_t size = types[ret_slot_type(ir->ast->nodes[ret_node_at(ir, ret, k)].data_type)].size;
+
+		off += (size + 7u) & ~7u;
+	}
+	return off;
+}
+
+TypeId ret_buf_type (IR *ir, uint32_t ret)
+{
+	if (ret_count(ir, ret) > 1)
+		return type_array_of(TYPE_u64, ret_off(ir, ret, ret_count(ir, ret)) / 8);
+	return ret_slot_type(ir->ast->nodes[ret].data_type);
+}
+
+uint32_t call_ret_node (IR *ir, ASTNode *call)
+{
+	if (call->sym == NO_SYMBOL) return NO_NODE;
+
+	uint32_t decl = ir->symtab->symbols[call->sym].decl;
+	if (decl == NO_NODE) return NO_NODE;
+	return ir->ast->nodes[ir->ast->nodes[decl].child].next_bro;
+}
+
 static uint32_t param_slots (IR *ir, ASTNode *n)
 {
 	uint32_t ret = ir->ast->nodes[n->child].next_bro;
-	uint32_t count = type_kind(ir->ast->nodes[ret].data_type) == TK_STRUCT;
+	uint32_t count = (uint32_t)fn_uses_sret(ir, ret);
 	uint32_t p = ir->ast->nodes[n->child].child;
 
 	while (p != NO_NODE) {
@@ -169,9 +235,14 @@ static uint32_t param_slots (IR *ir, ASTNode *n)
 static uint32_t declare_fn (IR *ir, ASTNode *n, Symbol *sym)
 {
 	IRFn fn = {0};
+	uint32_t ret = ir->ast->nodes[n->child].next_bro;
+
 	fn.name = n->str;
 	fn.len = n->len;
-	fn.ret_type = type_kind(sym->type) == TK_STRUCT ? TYPE_VOID : sym->type;
+	if (fn_uses_sret(ir, ret)) fn.ret_type = TYPE_VOID;
+	else if (type_kind(sym->type) == TK_ARRAY)
+		fn.ret_type = type_ptr_to(type_flat_element(sym->type));
+	else fn.ret_type = sym->type;
 	fn.param_count = param_slots(ir, n);
 	fn.is_extern = n->type == NODE_EXTERN_FN_DEC;
 	return push_fn(ir, fn);

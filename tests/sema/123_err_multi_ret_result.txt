@@ -1,0 +1,14 @@
+fn two [1:4] depth=0 type=i64, u32
+fn one [5:4] depth=0 type=i64
+fn bad_void [9:4] depth=0 type=void, i64
+fn ext [13:11] depth=0 type=i64[]
+fn main [15:4] depth=0 type=i64, i64
+fn entry [19:4] depth=0 type=i64
+param a [1:8] depth=1 type=i64
+param a [5:8] depth=1 type=i64
+var a [20:9] depth=1 type=i64
+var b [21:9] depth=1 type=u32
+var c [22:9] depth=1 type=i64
+var v [23:9] depth=1 type=i64[2]
+var d [27:9] depth=1 type=i64
+var e [27:18] depth=1 type=i64

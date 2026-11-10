@@ -288,6 +288,8 @@ TypeId check_assign (Sema *s, uint32_t idx)
 		if (!ok) return assign_type_error(s, idx, l, r);
 	}
 
+	if (left_kind == NODE_ID)
+		sym_set_stack_slice(s, s->ast->nodes[left].sym, right);
 	s->ast->nodes[idx].data_type = l;
 	return l;
 }
@@ -457,6 +459,191 @@ TypeId check_compound_assign (Sema *s, uint32_t idx)
 	TypeId result = check_compound_regular(s, idx, left, lr.l, lr.r, right);
 	s->ast->nodes[idx].data_type = result;
 	return result;
+}
+
+static uint32_t multi_rhs (Sema *s, uint32_t idx)
+{
+	uint32_t node = s->ast->nodes[idx].child;
+
+	while (s->ast->nodes[node].next_bro != NO_NODE)
+		node = s->ast->nodes[node].next_bro;
+	return node;
+}
+
+static uint32_t call_ret_list (Sema *s, uint32_t call)
+{
+	ASTNode *n = s->ast->nodes + call;
+	uint32_t decl;
+
+	if (n->type != NODE_FN_CALL || n->sym == NO_SYMBOL) return NO_NODE;
+
+	decl = s->table.symbols[n->sym].decl;
+	if (decl == NO_NODE) return NO_NODE;
+	return s->ast->nodes[s->ast->nodes[decl].child].next_bro;
+}
+
+static void check_multi_decl (Sema *s, uint32_t target, TypeId want)
+{
+	ASTNode *n = s->ast->nodes + target;
+
+	resolve_type_node(s, n);
+	n = s->ast->nodes + target;
+	check_storage_decl(s, n);
+
+	TypeId t = n->data_type;
+
+	if (t != TYPE_ERROR && type_kind(t) == TK_ARRAY)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot assign a value of type %s; arrays and slices"
+				" must be modified element by element", types[t].name);
+	else if (want != TYPE_ERROR && t != TYPE_ERROR && t != want
+			&& !sema_implicit_cast_ok(want, t))
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot assign %s to a variable of type %s;"
+				" use an explicit cast with 'as'",
+				type_display_name(want), types[t].name);
+
+	uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_VAR, t, target);
+
+	s->table.symbols[sym].assigned = 1;
+}
+
+static void check_multi_lvalue (Sema *s, uint32_t target, TypeId want, uint32_t rhs)
+{
+	uint8_t kind = s->ast->nodes[target].type;
+
+	if (kind != NODE_ID && kind != NODE_DEREF && kind != NODE_INDEX
+			&& kind != NODE_DOT) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + target),
+				"left side of '=' must be a variable");
+		s->ast->nodes[target].data_type = TYPE_ERROR;
+		return;
+	}
+
+	TypeId l = check_lvalue(s, target);
+
+	if (l == TYPE_ERROR) return;
+
+	ASTNode *n = s->ast->nodes + target;
+	int slice_field = (kind == NODE_DOT || kind == NODE_ID) && type_dyn_rank(l) > 0;
+
+	if ((type_kind(l) == TK_ARRAY || type_kind(l) == TK_SLICE) && !slice_field)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot assign a value of type %s; arrays and slices"
+				" must be modified element by element", types[l].name);
+	else if (want != TYPE_ERROR && l != want && !sema_implicit_cast_ok(want, l))
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot assign %s to a variable of type %s;"
+				" use an explicit cast with 'as'",
+				type_display_name(want), types[l].name);
+
+	mark_assigned(s, target);
+	set_null_state(s, target, kind, 0);
+	if (kind == NODE_ID) {
+		sym_write(s, n->sym, target);
+		sym_set_stack_slice(s, n->sym, rhs);
+	}
+}
+
+static void check_multi_target (Sema *s, uint32_t target, TypeId want, uint32_t rhs)
+{
+	uint8_t kind = s->ast->nodes[target].type;
+
+	if (kind == NODE_VAR_DEC || kind == NODE_ARR_DEC)
+		check_multi_decl(s, target, want);
+	else check_multi_lvalue(s, target, want, rhs);
+}
+
+void check_multi_assign (Sema *s, uint32_t idx)
+{
+	uint32_t rhs = multi_rhs(s, idx);
+	uint32_t count = 0;
+
+	check_expr(s, rhs);
+	uint32_t ret = call_ret_list(s, rhs);
+
+	if (ret != NO_NODE) count = sema_ret_count(s, ret);
+	if (count < 2) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + rhs),
+				"the right side of a multi-assignment must be a call to a"
+				" function that returns several values");
+		ret = NO_NODE;
+		count = 0;
+	}
+
+	uint32_t target = s->ast->nodes[idx].child;
+	uint32_t n = 0;
+	while (target != rhs) {
+		uint32_t next = s->ast->nodes[target].next_bro;
+		TypeId want = n < count
+				? s->ast->nodes[sema_ret_at(s, ret, n)].data_type : TYPE_ERROR;
+
+		check_multi_target(s, target, want, rhs);
+		target = next;
+		n++;
+	}
+
+	if (ret != NO_NODE && n > count)
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"this function returns %u values, but %u are assigned",
+				count, n);
+	s->ast->nodes[idx].data_type = TYPE_VOID;
+}
+
+static uint32_t local_base (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+
+	while (n->child != NO_NODE && (n->type == NODE_CAST || n->type == NODE_ADDR
+			|| n->type == NODE_INDEX
+			|| (n->type == NODE_DOT && type_kind(n->data_type) == TK_ARRAY)))
+		n = s->ast->nodes + n->child;
+	if (n->type != NODE_ID || n->sym == NO_SYMBOL) return NO_SYMBOL;
+
+	Symbol *sym = &s->table.symbols[n->sym];
+
+	if (sym->kind != SYMBOL_VAR || sym->depth == 0 || sym->is_static)
+		return NO_SYMBOL;
+	return n->sym;
+}
+
+static int stack_storage (Symbol *sym)
+{
+	TypeId t = sym->type;
+
+	if (type_kind(t) == TK_ARRAY || type_kind(t) == TK_STRUCT) return 1;
+	return type_dyn_rank(t) > 0 && sym->stack_slice;
+}
+
+void sym_set_stack_slice (Sema *s, uint32_t sym, uint32_t rhs)
+{
+	if (sym == NO_SYMBOL || rhs == NO_NODE) return;
+	Symbol *sp = &s->table.symbols[sym];
+	if (type_dyn_rank(sp->type) == 0) return;
+	uint32_t root = local_base(s, rhs);
+	sp->stack_slice = root != NO_SYMBOL && stack_storage(&s->table.symbols[root]);
+}
+
+void warn_stack_return (Sema *s, uint32_t val, TypeId ret)
+{
+	if (type_kind(ret) != TK_PTR && type_kind(ret) != TK_ARRAY
+			&& type_dyn_rank(ret) == 0)
+		return;
+
+	uint32_t root = local_base(s, val);
+
+	if (root == NO_SYMBOL) return;
+	ASTNode *v = s->ast->nodes + val;
+	while (v->type == NODE_CAST && v->child != NO_NODE)
+		v = s->ast->nodes + v->child;
+	if (v->type != NODE_ADDR && !stack_storage(&s->table.symbols[root])) return;
+
+	Symbol *sym = s->table.symbols + root;
+	error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + val),
+			type_dyn_rank(ret) > 0
+			? "returning a slice of the local '%.*s'; it dangles when the function returns"
+			: "returning a pointer to the local '%.*s'; it dangles when the function returns",
+			(int)sym->len, sym->name);
 }
 
 void check_inc_dec (Sema *s, uint32_t idx)

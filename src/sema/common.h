@@ -7,6 +7,8 @@ ErrorLoc node_loc (ASTNode *n);
 TypeId resolve_type_node (Sema *s, ASTNode *n);
 TypeId resolve_type_spec (Sema *s, ASTNode *owner, uint8_t *done, int *deferred);
 void resolve_fn_types (Sema *s, uint32_t idx);
+uint32_t sema_ret_count (Sema *s, uint32_t ret);
+uint32_t sema_ret_at (Sema *s, uint32_t ret, uint32_t i);
 int enum_const_value (Sema *s, uint32_t idx, TypeId enum_id, uint64_t *out);
 uint32_t sema_wrap_deref (Sema *s, uint32_t child, TypeId to_type);
 
@@ -43,6 +45,11 @@ int expr_has_effect (Sema *s, uint32_t idx);
 int is_null_value (Sema *s, uint32_t idx);
 void check_inc_dec (Sema *s, uint32_t idx);
 void sym_write (Sema *s, uint32_t sym, uint32_t node);
+void check_multi_assign (Sema *s, uint32_t idx);
+void sym_set_stack_slice (Sema *s, uint32_t sym, uint32_t rhs);
+void warn_stack_return (Sema *s, uint32_t val, TypeId ret);
+int sema_array_slice_compat (TypeId arg, TypeId param);
+int sema_implicit_cast_ok (TypeId from, TypeId to);
 void check_fn_dec (Sema *s, uint32_t idx);
 void check_extern_fn (Sema *s, uint32_t idx);
 

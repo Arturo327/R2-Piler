@@ -124,7 +124,8 @@ void symtab_pop_scope (SymbolTable *t, uint32_t mark)
 static uint8_t sym_flags (Symbol *s)
 {
 	return (uint8_t)((s->assigned ? SYM_FLAG_ASSIGNED : 0)
-			| (s->null_known ? SYM_FLAG_NULL_KNOWN : 0));
+			| (s->null_known ? SYM_FLAG_NULL_KNOWN : 0)
+			| (s->stack_slice ? SYM_FLAG_STACK : 0));
 }
 
 void symtab_save_flags (SymbolTable *t, uint8_t *dst, uint32_t mark)
@@ -140,6 +141,7 @@ void symtab_load_flags (SymbolTable *t, uint8_t *src, uint32_t mark)
 
 		s->assigned = (src[i] & SYM_FLAG_ASSIGNED) != 0;
 		s->null_known = (src[i] & SYM_FLAG_NULL_KNOWN) != 0;
+		s->stack_slice = (src[i] & SYM_FLAG_STACK) != 0;
 		s->pending_write = 0;
 	}
 }

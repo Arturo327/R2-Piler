@@ -47,10 +47,12 @@ typedef struct Symbol {
 	uint8_t state : 2;
 	uint8_t written : 1;
 	uint8_t escaped : 1;
+	uint8_t stack_slice : 1;
 } Symbol;
 
 #define SYM_FLAG_ASSIGNED 1
 #define SYM_FLAG_NULL_KNOWN 2
+#define SYM_FLAG_STACK 4
 
 typedef struct SymbolTable {
 	uint32_t *buckets;

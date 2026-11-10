@@ -122,6 +122,9 @@ typedef struct IR {
 	uint8_t no_tail;
 	uint32_t sret;
 
+	uint32_t *desc;
+	uint32_t ret_node;
+
 	Arena *arena;
 	AST *ast;
 	SymbolTable *symtab;

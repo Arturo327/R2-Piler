@@ -8,7 +8,7 @@
 static void gen_stmt (IR *ir, ASTNode *n);
 static void gen_block (IR *ir, ASTNode *parent);
 
-static void gen_var_dec (IR *ir, ASTNode *n)
+void gen_var_dec (IR *ir, ASTNode *n)
 {
 	if (n->flags & NODE_FLAG_STATIC) return;
 
@@ -52,23 +52,64 @@ static void gen_var_dec (IR *ir, ASTNode *n)
 	if (s->addressed) ir->addressed[reg] = 1;
 }
 
+static void gen_ret_slot (IR *ir, uint32_t dst, uint32_t val_idx, TypeId type)
+{
+	ASTNode *val = ir->ast->nodes + val_idx;
+
+	if (type_dyn_rank(type) > 0) {
+		gen_slice_desc(ir, dst, val, type);
+		return;
+	}
+	if (type_kind(type) == TK_STRUCT) {
+		gen_struct_into(ir, dst, val_idx, type, 1);
+		return;
+	}
+	make_str_ptr(ir, dst, gen_expr(ir, val), ret_slot_type(type));
+}
+
+static void gen_multi_return (IR *ir, ASTNode *n, uint32_t ret, uint32_t count)
+{
+	uint32_t val = n->child;
+	uint32_t i = 0;
+
+	while (val != NO_NODE && i < count) {
+		uint32_t at = add_offset(ir, ir->sret, ret_off(ir, ret, i));
+
+		gen_ret_slot(ir, at, val, ir->ast->nodes[ret_node_at(ir, ret, i)].data_type);
+		val = ir->ast->nodes[val].next_bro;
+		i++;
+	}
+	make_ret(ir, NO_REG, TYPE_VOID);
+}
+
+static void gen_single_return (IR *ir, ASTNode *n, uint32_t ret)
+{
+	TypeId type = ir->ast->nodes[ret].data_type;
+
+	if (ir->sret != NO_REG) {
+		if (type_dyn_rank(type) > 0)
+			gen_slice_desc(ir, ir->sret, ir->ast->nodes + n->child, type);
+		else gen_struct_into(ir, ir->sret, n->child, type, 1);
+		make_ret(ir, NO_REG, TYPE_VOID);
+		return;
+	}
+	make_ret(ir, gen_expr(ir, ir->ast->nodes + n->child), ret_slot_type(type));
+}
+
 static void gen_return (IR *ir, ASTNode *n)
 {
-	uint32_t reg = NO_REG;
-	TypeId type = TYPE_VOID;
+	uint32_t ret = ir->ret_node;
+	uint32_t count = ret == NO_NODE ? 1 : ret_count(ir, ret);
 
-	if (n->child != NO_NODE) {
-		ASTNode *val = ir->ast->nodes + n->child;
-
-		if (ir->sret != NO_REG) {
-			gen_struct_into(ir, ir->sret, n->child, val->data_type, 1);
-			make_ret(ir, NO_REG, TYPE_VOID);
-			return;
-		}
-		reg = gen_expr(ir, val);
-		type = val->data_type;
+	if (n->child == NO_NODE) {
+		make_ret(ir, NO_REG, TYPE_VOID);
+		return;
 	}
-	make_ret(ir, reg, type);
+	if (count > 1) {
+		gen_multi_return(ir, n, ret, count);
+		return;
+	}
+	gen_single_return(ir, n, ret);
 }
 
 static void gen_branch (IR *ir, uint32_t cond, uint32_t body, uint32_t end, int more)
@@ -229,6 +270,7 @@ static void gen_stmt (IR *ir, ASTNode *n)
 	case NODE_IF: gen_if(ir, n); return;
 	case NODE_SWITCH: gen_switch(ir, n); return;
 	case NODE_INC: case NODE_DEC: gen_inc_dec(ir, n); return;
+	case NODE_MULTI_ASSIGN: gen_multi_assign(ir, n); return;
 	case NODE_EMPTY: return;
 	default: gen_expr(ir, n); return;
 	}
@@ -297,7 +339,6 @@ static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
 	uint32_t args = n->child;
 	uint32_t ret = ir->ast->nodes[args].next_bro;
 	uint32_t body = ir->ast->nodes[ret].next_bro;
-	TypeId ret_type = ir->ast->nodes[ret].data_type;
 
 	ir->reg_count = 0;
 	ir->reg_types = NULL;
@@ -306,10 +347,12 @@ static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
 	ir->addressed_cap = 0;
 	ir->no_tail = 0;
 	ir->sret = NO_REG;
+	ir->ret_node = ret;
+	memset(ir->desc, 0xFF, sizeof(uint32_t) * ir->ast->count);
 
 	ir->fns[fn_idx].start = ir->instr_count;
-	if (type_kind(ret_type) == TK_STRUCT) {
-		TypeId ptr = type_ptr_to(ret_type);
+	if (fn_uses_sret(ir, ret)) {
+		TypeId ptr = type_ptr_to(ret_buf_type(ir, ret));
 
 		ir->sret = new_reg(ir, ptr);
 		make_arg_dec(ir, ir->sret, 0, ptr);
@@ -351,6 +394,8 @@ static void gen_init_fn (IR *ir)
 	ir->addressed_cap = 0;
 	ir->no_tail = 0;
 	ir->sret = NO_REG;
+	ir->ret_node = NO_NODE;
+	memset(ir->desc, 0xFF, sizeof(uint32_t) * ir->ast->count);
 	ir->fns[ir->init_fn].start = ir->instr_count;
 
 	for (uint32_t i = 0; i < ir->static_count; i++)

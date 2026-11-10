@@ -139,7 +139,7 @@ int compile (Compiler *c, CompilerOpts *opts)
 
 	sema_run(&c->sema);
 	if (opts->dump_symbols) {
-		dump_symbols(&c->sema.table);
+		dump_symbols(&c->sema);
 		return c->err.err_count ? 1 : 0;
 	}
 	if (c->err.err_count) return 1;

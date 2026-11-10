@@ -1,6 +1,6 @@
 #include "sema/common.h"
 
-static int implicit_cast_ok (TypeId from, TypeId to)
+int sema_implicit_cast_ok (TypeId from, TypeId to)
 {
 	if (from == to) return 1;
 	if (from == TYPE_ERROR || to == TYPE_ERROR) return 0;
@@ -554,7 +554,7 @@ uint32_t force_cast (Sema *s, uint32_t child, TypeId child_type, TypeId target, 
 		retag_expr(s, child, target);
 		return child;
 	}
-	if (!implicit_cast_ok(child_type, target)) {
+	if (!sema_implicit_cast_ok(child_type, target)) {
 		*ok = 0;
 		return child;
 	}
@@ -572,8 +572,8 @@ static TypeId common_type (TypeId l, TypeId r)
 	}
 
 	if (l_flex != r_flex) return l_flex ? r : l;
-	if (implicit_cast_ok(l, r)) return r;
-	if (implicit_cast_ok(r, l)) return l;
+	if (sema_implicit_cast_ok(l, r)) return r;
+	if (sema_implicit_cast_ok(r, l)) return l;
 	if (l_flex && r_flex) return types[l].sign ? r : l;
 	return TYPE_ERROR;
 }

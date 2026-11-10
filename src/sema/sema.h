@@ -36,11 +36,12 @@ typedef struct Sema {
 	uint32_t init_node;
 	uint32_t expr_depth;
 	TypeId curr_ret;
+	uint32_t curr_ret_list;
 	uint8_t too_deep;
 } Sema;
 
 void sema_init (Sema *sema, Arena *arena, AST *ast, ErrorReporter *err);
 void sema_run (Sema *sema);
-void dump_symbols (SymbolTable *t);
+void dump_symbols (Sema *s);
 
 #endif

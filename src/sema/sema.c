@@ -203,6 +203,29 @@ void resolve_fn_types (Sema *s, uint32_t idx)
 		param = s->ast->nodes[param].next_bro;
 	}
 	resolve_type_node(s, s->ast->nodes + ret);
+	for (uint32_t item = s->ast->nodes[ret].child; item != NO_NODE;
+			item = s->ast->nodes[item].next_bro)
+		resolve_type_node(s, s->ast->nodes + item);
+}
+
+uint32_t sema_ret_count (Sema *s, uint32_t ret)
+{
+	uint32_t count = 1;
+
+	for (uint32_t item = s->ast->nodes[ret].child; item != NO_NODE;
+			item = s->ast->nodes[item].next_bro)
+		count++;
+	return count;
+}
+
+uint32_t sema_ret_at (Sema *s, uint32_t ret, uint32_t i)
+{
+	uint32_t item = s->ast->nodes[ret].child;
+
+	if (i == 0) return ret;
+	for (uint32_t k = 1; k < i && item != NO_NODE; k++)
+		item = s->ast->nodes[item].next_bro;
+	return item;
 }
 
 void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
@@ -213,6 +236,7 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->depth = 0;
 	s->init_node = NO_NODE;
 	s->curr_ret = TYPE_VOID;
+	s->curr_ret_list = NO_NODE;
 	s->init_order_count = 0;
 	s->init_order_cap = 16;
 	s->init_order = arena_alloc(arena, sizeof(uint32_t) * s->init_order_cap);
@@ -805,8 +829,23 @@ static void dump_fields (TypeId id)
 	}
 }
 
-void dump_symbols (SymbolTable *t)
+static void dump_ret_items (Sema *s, Symbol *sym)
 {
+	if (sym->decl == NO_NODE) return;
+
+	uint32_t ret = s->ast->nodes[s->ast->nodes[sym->decl].child].next_bro;
+	uint32_t item = s->ast->nodes[ret].child;
+
+	while (item != NO_NODE) {
+		printf(", %s", types[s->ast->nodes[item].data_type].name);
+		item = s->ast->nodes[item].next_bro;
+	}
+}
+
+void dump_symbols (Sema *s)
+{
+	SymbolTable *t = &s->table;
+
 	for (uint32_t i = 0; i < t->count; i++) {
 		Symbol *sym = t->symbols + i;
 
@@ -842,9 +881,11 @@ void dump_symbols (SymbolTable *t)
 					types[id].name, types[types[id].base].name);
 			continue;
 		}
-		printf("%s%s %.*s [%u:%u] depth=%u type=%s\n",
+		printf("%s%s %.*s [%u:%u] depth=%u type=%s",
 				sym->is_static ? "static " : "", kind_name(sym->kind),
 				(int)sym->len, sym->name,
 				sym->line, sym->col, sym->depth, types[sym->type].name);
+		if (sym->kind == SYMBOL_FN) dump_ret_items(s, sym);
+		printf("\n");
 	}
 }

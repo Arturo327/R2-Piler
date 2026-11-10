@@ -1,0 +1,6 @@
+tests/parser/074_err_multi_ret_src.r2:6:12: ERROR: a 'static' declaration cannot initialize several variables
+      6 |     static var a : i64, b : i64 = f(1);
+        |            ^~~
+tests/parser/074_err_multi_ret_src.r2:10:5: ERROR: expected '=' after the assignment targets
+     10 |     return c;
+        |     ^~~~~~

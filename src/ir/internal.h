@@ -7,6 +7,16 @@ uint32_t push_fn (IR *ir, IRFn fn);
 uint32_t new_reg (IR *ir, TypeId type);
 
 uint32_t agg_root_sym (AST *ast, uint32_t idx);
+uint32_t ret_count (IR *ir, uint32_t ret);
+uint32_t ret_node_at (IR *ir, uint32_t ret, uint32_t i);
+uint32_t ret_off (IR *ir, uint32_t ret, uint32_t i);
+int fn_uses_sret (IR *ir, uint32_t ret);
+TypeId ret_buf_type (IR *ir, uint32_t ret);
+uint32_t call_ret_node (IR *ir, ASTNode *call);
+TypeId ret_slot_type (TypeId t);
+uint32_t add_offset (IR *ir, uint32_t base, uint64_t off);
+void gen_multi_assign (IR *ir, ASTNode *n);
+
 void ir_scan_structs (IR *ir);
 void make_arg_dec (IR *ir, uint32_t dst, uint32_t idx, TypeId type);
 void declare_globals (IR *ir);
@@ -29,6 +39,7 @@ void make_ret (IR *ir, uint32_t val, TypeId type);
 void make_select (IR *ir, uint32_t dst, uint32_t a, uint32_t b, uint32_t c, TypeId type);
 
 uint32_t gen_expr (IR *ir, ASTNode *n);
+void gen_var_dec (IR *ir, ASTNode *n);
 void gen_jump_if (IR *ir, ASTNode *n, uint32_t label, int when);
 void gen_array_init (IR *ir, uint32_t base, uint32_t init_idx, TypeId arr, int zero);
 void gen_struct_into (IR *ir, uint32_t dst, uint32_t expr, TypeId type, int fresh);

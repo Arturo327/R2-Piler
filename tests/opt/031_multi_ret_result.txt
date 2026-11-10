@@ -1,0 +1,59 @@
+global g : i64[4]
+
+fn __r2_init(0 params, 11 regs) : void
+    r0 = addr_global.i64[4] @g
+    r1 = const.i64 1
+    str_ptr.i64 r0, r1
+    r2 = const.i64 2
+    str_ptr.i64 r0, r2 +8
+    r5 = const.i64 3
+    str_ptr.i64 r0, r5 +16
+    r8 = const.i64 4
+    str_ptr.i64 r0, r8 +24
+    ret
+
+fn split(2 params, 11 regs) : void
+    r0 = param.ptr u64[2] #0
+    r1 = param.i64 #1
+    r3 = const.i64 2
+    r4 = div.i64 r1, r3
+    str_ptr.i64 r0, r4
+    r8 = const.i64 3
+    r9 = mul.i64 r1, r8
+    r10 = extend.u32 r9
+    str_ptr.u32 r0, r10 +8
+    ret
+    ret
+
+fn pick(3 params, 7 regs) : void
+    r0 = param.ptr i64[] #0
+    r1 = param.ptr i64 #1
+    r2 = param.i64 #2
+    str_ptr.ptr i64 r0, r1
+    str_ptr.i64 r0, r2 +8
+    ret
+    ret
+
+fn main(0 params, 52 regs) : i64
+    r38 = const.i64 4
+    str_local.i64 r2, r38
+    r44 = const.u32 27
+    str_local.u32 r2, r44 +8
+    r5 = ld_local.i64 r2
+    r8 = ld_local.u32 r2 +8
+    r13 = addr_global.i64[4] @g
+    r14 = const.i64 4
+    str_local.ptr i64 r11, r13
+    str_local.i64 r11, r14 +8
+    r15 = ld_local.u64 r11
+    str_local.u64 r9, r15
+    r18 = ld_local.u64 r11 +8
+    str_local.u64 r9, r18 +8
+    r24 = extend.i64 r8
+    r25 = add.i64 r5, r24
+    r27 = ld_local.ptr i64 r9
+    r32 = ld_ptr.i64 r27 +8
+    r33 = add.i64 r25, r32
+    ret.i64 r33
+    ret
+

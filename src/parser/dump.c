@@ -84,6 +84,8 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_FIELD_DEC] = "NODE_FIELD_DEC",
 	[NODE_STRUCT_INIT] = "NODE_STRUCT_INIT",
 	[NODE_FIELD_INIT] = "NODE_FIELD_INIT",
+	[NODE_RET_ITEM] = "NODE_RET_ITEM",
+	[NODE_MULTI_ASSIGN] = "NODE_MULTI_ASSIGN",
 };
 
 static inline void indent (int depth)
@@ -226,6 +228,7 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 				|| n->type == NODE_EXTERN_VAR_DEC || n->type == NODE_RET_DEC
 				|| n->type == NODE_CAST || n->type == NODE_ENUM_DEC || n->type == NODE_TYPE_DEC
 				|| n->type == NODE_NEWTYPE_DEC || n->type == NODE_FIELD_DEC
+				|| n->type == NODE_RET_ITEM
 				|| (n->type == NODE_SIZEOF && n->child == NO_NODE))
 			dump_type(ast, n);
 

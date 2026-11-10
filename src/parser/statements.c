@@ -109,11 +109,33 @@ static uint32_t parse_decl_list (Parser *p, uint32_t first, int is_arr)
 	return first;
 }
 
+static uint32_t maybe_multi_decl (Parser *p, uint32_t first)
+{
+	uint32_t node = first;
+
+	if (p->ast.nodes[first].next_bro == NO_NODE) return first;
+	while (p->ast.nodes[node].next_bro != NO_NODE) {
+		if (p->ast.nodes[node].child != NO_NODE) return first;
+		node = p->ast.nodes[node].next_bro;
+	}
+	if (p->ast.nodes[node].child == NO_NODE) return first;
+
+	uint32_t rhs = p->ast.nodes[node].child;
+	uint16_t line = p->ast.nodes[first].line;
+	uint16_t col = p->ast.nodes[first].col;
+	uint32_t multi = new_node(p, NODE_MULTI_ASSIGN, line, col);
+
+	p->ast.nodes[node].child = NO_NODE;
+	p->ast.nodes[node].next_bro = rhs;
+	p->ast.nodes[multi].child = first;
+	return multi;
+}
+
 static uint32_t parse_decl (Parser *p, int is_arr)
 {
 	consume(p, is_arr ? TOK_ARR : TOK_VAR,
 			is_arr ? "expected 'arr'" : "expected 'var'");
-	return parse_decl_list(p, parse_decl_inner(p, is_arr), is_arr);
+	return maybe_multi_decl(p, parse_decl_list(p, parse_decl_inner(p, is_arr), is_arr));
 }
 
 static uint32_t parse_static_decl (Parser *p)
@@ -128,7 +150,14 @@ static uint32_t parse_static_decl (Parser *p)
 		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
 	}
 
+	Token start = p->curr;
 	uint32_t first = parse_decl(p, p->curr.type == TOK_ARR);
+
+	if (p->ast.nodes[first].type == NODE_MULTI_ASSIGN) {
+		error_report(p->err, ERR_ERROR, token_loc(start),
+				"a 'static' declaration cannot initialize several variables");
+		return first;
+	}
 
 	for (uint32_t node = first; node != NO_NODE; node = p->ast.nodes[node].next_bro)
 		p->ast.nodes[node].flags |= NODE_FLAG_STATIC;
@@ -162,9 +191,17 @@ static uint32_t parse_return (Parser *p)
 	consume(p, TOK_RET, "expected 'return'");
 
 	uint32_t node = new_node(p, NODE_RET, line, col);
+	uint32_t last = NO_NODE;
+
 	if (p->curr.type != TOK_SEMCOL) {
 		uint32_t value = parse_expr(p, 0);
-		p->ast.nodes[node].child = value;
+
+		append_child(p, node, &last, value);
+		while (p->curr.type == TOK_COMMA && !p->panic_mode) {
+			advance(p);
+			value = parse_expr(p, 0);
+			append_child(p, node, &last, value);
+		}
 	}
 
 	consume(p, TOK_SEMCOL, "expected ';' after return statement");
@@ -813,6 +850,29 @@ static uint32_t error_prefix_inc (Parser *p)
 	return new_node(p, NODE_ERROR, op.line, op.col);
 }
 
+static uint32_t parse_multi_assign (Parser *p, uint32_t first)
+{
+	uint16_t line = p->ast.nodes[first].line;
+	uint16_t col = p->ast.nodes[first].col;
+	uint32_t node = new_node(p, NODE_MULTI_ASSIGN, line, col);
+	uint32_t last = NO_NODE;
+
+	append_child(p, node, &last, first);
+	while (p->curr.type == TOK_COMMA && !p->panic_mode) {
+		advance(p);
+		uint32_t target = parse_expr(p, 2);
+
+		append_child(p, node, &last, target);
+	}
+
+	consume(p, TOK_ASSIGN, "expected '=' after the assignment targets");
+	uint32_t rhs = parse_expr(p, 0);
+
+	append_child(p, node, &last, rhs);
+	consume(p, TOK_SEMCOL, "expected ';' at the end of the assignment");
+	return node;
+}
+
 static uint32_t parse_statement_inner (Parser *p)
 {
 	switch (p->curr.type)
@@ -834,7 +894,10 @@ static uint32_t parse_statement_inner (Parser *p)
 	case TOK_SWITCH: return parse_switch(p);
 	case TOK_INC: case TOK_DEC: return error_prefix_inc(p);
 	default: {
-		uint32_t node = maybe_inc_dec(p, parse_expr(p, 0));
+		uint32_t node = parse_expr(p, 0);
+		if (p->curr.type == TOK_COMMA && !p->panic_mode)
+			return parse_multi_assign(p, node);
+		node = maybe_inc_dec(p, node);
 		consume(p, TOK_SEMCOL, "expected ';' at end of expression");
 		return node;
 	}

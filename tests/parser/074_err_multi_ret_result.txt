@@ -1,0 +1,27 @@
+NODE_ROOT [0:0]
+  NODE_FN_DEC [1:4] name="f"
+    NODE_ARGS_DEC [1:5]
+      NODE_VAR_DEC [1:6] name="a" type=i64
+    NODE_RET_DEC [1:15] type=i64
+      NODE_RET_ITEM [1:22] type=i64
+    NODE_BLOCK [1:26]
+      NODE_RET [2:5]
+        NODE_ID [2:12] str="a"
+        NODE_ID [2:15] str="a"
+  NODE_FN_DEC [5:4] name="main"
+    NODE_ARGS_DEC [5:8]
+    NODE_RET_DEC [5:11] type=i64
+    NODE_BLOCK [5:17]
+      NODE_MULTI_ASSIGN [6:16]
+        NODE_VAR_DEC [6:16] name="a" type=i64
+        NODE_VAR_DEC [6:25] name="b" type=i64
+        NODE_FN_CALL [6:35] name="f"
+          NODE_LIT_i64 [6:37] i64=1
+      NODE_VAR_DEC [7:9] name="c" type=i64
+      NODE_VAR_DEC [8:9] name="d" type=i64
+      NODE_MULTI_ASSIGN [9:5]
+        NODE_ID [9:5] str="c"
+        NODE_ID [9:8] str="d"
+        NODE_ERROR [10:5]
+      NODE_RET [10:5]
+        NODE_ID [10:12] str="c"

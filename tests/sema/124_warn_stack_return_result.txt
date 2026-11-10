@@ -1,0 +1,25 @@
+struct V [1:8] depth=0 size=32 align=8
+  field a type=i64[3] offset=0
+  field s type=i64 offset=24
+var g [3:5] depth=0 type=i64[4]
+fn w_arr [5:4] depth=0 type=i64[]
+fn w_slice [10:4] depth=0 type=i64[]
+fn w_chain [16:4] depth=0 type=i64[]
+fn w_sub [23:4] depth=0 type=i64[]
+fn w_field [28:4] depth=0 type=i64[]
+fn w_addr [33:4] depth=0 type=ptr i64
+fn ok_global [38:4] depth=0 type=i64[]
+fn ok_param [42:4] depth=0 type=i64[]
+fn ok_arr_param [46:4] depth=0 type=i64[3]
+fn main [50:4] depth=0 type=i64
+var x [6:9] depth=1 type=i64[3]
+var x [11:9] depth=1 type=i64[3]
+var s [12:9] depth=1 type=i64[]
+var x [17:9] depth=1 type=i64[2]
+var s [18:9] depth=1 type=i64[]
+var t [19:9] depth=1 type=i64[]
+var m [24:9] depth=1 type=i64[2][3]
+var v [29:9] depth=1 type=V
+var x [34:9] depth=1 type=i64
+param x [42:13] depth=1 type=i64[]
+param x [46:17] depth=1 type=i64[3]

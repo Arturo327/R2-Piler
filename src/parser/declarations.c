@@ -56,6 +56,20 @@ static uint32_t parse_ret_dec (Parser *p)
 	TypeId type = parse_type(p, 1, node, &type_node);
 	p->ast.nodes[node].data_type = type;
 	p->ast.nodes[node].type_node = type_node;
+
+	uint32_t last = NO_NODE;
+	while (p->curr.type == TOK_COMMA && !p->panic_mode) {
+		advance(p);
+		uint16_t iline = p->curr.line;
+		uint16_t icol = p->curr.col;
+		uint32_t item = new_node(p, NODE_RET_ITEM, iline, icol);
+		uint16_t item_node;
+		TypeId item_type = parse_type(p, 1, item, &item_node);
+
+		p->ast.nodes[item].data_type = item_type;
+		p->ast.nodes[item].type_node = item_node;
+		append_child(p, node, &last, item);
+	}
 	return node;
 }
 

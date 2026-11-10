@@ -1,0 +1,18 @@
+tests/sema/124_warn_stack_return_src.r2:7:12: WARNING: returning a slice of the local 'x'; it dangles when the function returns
+      7 |     return x;
+        |            ^
+tests/sema/124_warn_stack_return_src.r2:13:12: WARNING: returning a slice of the local 's'; it dangles when the function returns
+     13 |     return s;
+        |            ^
+tests/sema/124_warn_stack_return_src.r2:20:12: WARNING: returning a slice of the local 't'; it dangles when the function returns
+     20 |     return t;
+        |            ^
+tests/sema/124_warn_stack_return_src.r2:25:13: WARNING: returning a slice of the local 'm'; it dangles when the function returns
+     25 |     return m[0];
+        |             ^
+tests/sema/124_warn_stack_return_src.r2:30:13: WARNING: returning a slice of the local 'v'; it dangles when the function returns
+     30 |     return v.a;
+        |             ^
+tests/sema/124_warn_stack_return_src.r2:35:12: WARNING: returning a pointer to the local 'x'; it dangles when the function returns
+     35 |     return $x;
+        |            ^

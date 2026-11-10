@@ -254,7 +254,7 @@ TypeId check_addr (Sema *s, uint32_t idx)
 	return n->data_type;
 }
 
-static int array_slice_compat (TypeId arg, TypeId param)
+int sema_array_slice_compat (TypeId arg, TypeId param)
 {
 	if (type_kind(param) != TK_ARRAY && type_kind(param) != TK_SLICE) return 0;
 	if (type_flat_element(arg) != type_flat_element(param)) return 0;
@@ -314,7 +314,7 @@ static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 		if (param == NO_NODE) {
 			count_ok = 0;
 		} else if (arg_type != TYPE_ERROR && param_type != TYPE_ERROR && arg_type != param_type
-				&& !array_slice_compat(arg_type, param_type)) {
+				&& !sema_array_slice_compat(arg_type, param_type)) {
 			arg = adapt_call_arg(s, arg, arg_type, param_type);
 			if (prev == NO_NODE) call->child = arg;
 			else s->ast->nodes[prev].next_bro = arg;
