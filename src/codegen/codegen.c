@@ -85,9 +85,67 @@ static void mark_written_globals (IR *ir)
 	}
 }
 
+static const uint8_t taint_flows[IR_COUNT] =
+{
+	[IR_MOVE] = 1, [IR_EXTEND] = 1, [IR_SELECT] = 1,
+	[IR_ADD] = 1, [IR_SUB] = 1, [IR_MUL] = 1, [IR_DIV] = 1, [IR_MOD] = 1,
+	[IR_AND_A] = 1, [IR_OR_A] = 1, [IR_XOR] = 1,
+	[IR_RS] = 1, [IR_LS] = 1, [IR_NEG] = 1, [IR_NOT_A] = 1
+};
+
+static int taint_step (IR *ir, IRFn *fn, uint8_t *taint)
+{
+	int changed = 0;
+
+	for (uint32_t i = 0; i < fn->count; i++) {
+		IRInstr *in = ir->instrs + fn->start + i;
+		int src = (in->src1 != NO_REG && taint[in->src1])
+				|| (in->src2 != NO_REG && taint[in->src2]);
+
+		if (in->dst == NO_REG || taint[in->dst]) continue;
+		if (in->op != IR_ADDR_LOCAL && !(taint_flows[in->op] && src)) continue;
+		taint[in->dst] = 1;
+		changed = 1;
+	}
+	return changed;
+}
+
+static int frame_escapes (IR *ir, IRFn *fn, const uint8_t *taint)
+{
+	for (uint32_t i = 0; i < fn->count; i++) {
+		IRInstr *in = ir->instrs + fn->start + i;
+
+		if (in->dst != NO_REG && taint[in->dst] && reg_addressed(fn, in->dst)) return 1;
+		if (in->op == IR_ARG && taint[in->src1]) return 1;
+		if ((in->op == IR_STR_PTR || in->op == IR_STR_LOCAL) && taint[in->src2]) return 1;
+		if (in->op == IR_STR_GLOBAL && taint[in->src1]) return 1;
+	}
+	return 0;
+}
+
+static void mark_tail_frames (CodeGen *c)
+{
+	IR *ir = c->ir;
+
+	for (uint32_t i = 0; i < ir->fn_count; i++) {
+		IRFn *fn = ir->fns + i;
+		size_t bytes = (size_t)fn->reg_count + 1;
+
+		if (fn->is_extern || !fn->count) continue;
+		ArenaMark mark = arena_mark(c->arena);
+		uint8_t *taint = arena_alloc(c->arena, bytes);
+		memset(taint, 0, bytes);
+		while (taint_step(ir, fn, taint))
+			;
+		fn->no_tail = (uint8_t)frame_escapes(ir, fn, taint);
+		arena_release(c->arena, mark);
+	}
+}
+
 int codegen_run (CodeGen *c)
 {
 	mark_written_globals(c->ir);
+	mark_tail_frames(c);
 	int failed = c->generate(c) || write_output(c);
 	free(c->code);
 	c->code = NULL;
@@ -97,7 +155,6 @@ int codegen_run (CodeGen *c)
 void cg_printf (CodeGen *c, const char *fmt, ...)
 {
 	va_list ap;
-	int n;
 
 	if (c->cap - c->len < CG_LINE_MAX) {
 		c->code = realloc(c->code, c->cap * 2);
@@ -108,7 +165,7 @@ void cg_printf (CodeGen *c, const char *fmt, ...)
 		c->cap *= 2;
 	}
 	va_start(ap, fmt);
-	n = vsnprintf(c->code + c->len, CG_LINE_MAX, fmt, ap);
+	int n = vsnprintf(c->code + c->len, CG_LINE_MAX, fmt, ap);
 	va_end(ap);
 
 	if (n < 0) n = 0;
