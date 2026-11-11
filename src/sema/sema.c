@@ -824,8 +824,10 @@ static void dump_fields (TypeId id)
 	for (uint16_t i = 0; i < t->field_count; i++) {
 		const StructField *f = t->fields + i;
 
-		printf("  field %.*s type=%s offset=%u\n", (int)f->len, f->name,
+		printf("  field %.*s type=%s offset=%u", (int)f->len, f->name,
 				types[f->type].name, f->offset);
+		if (f->bits) printf(" bits=%u bit_off=%u", f->bits, f->bit_off);
+		printf("\n");
 	}
 }
 

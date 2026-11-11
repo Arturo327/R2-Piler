@@ -442,13 +442,16 @@ static const Keyword keywords[] = {
 	{"union", TOK_UNION},
 	{"while", TOK_WHILE},
 	{"extern", TOK_EXTERN},
+	{"packed", TOK_PACKED},
 	{"return", TOK_RET},
 	{"sizeof", TOK_SIZEOF},
 	{"static", TOK_STATIC},
 	{"struct", TOK_STRUCT},
 	{"switch", TOK_SWITCH},
+	{"alignof", TOK_ALIGNOF},
 	{"default", TOK_DEFAULT},
-	{"newtype", TOK_NEWTYPE}
+	{"newtype", TOK_NEWTYPE},
+	{"offsetof", TOK_OFFSETOF}
 };
 
 static int cmp_keywords (const void *a, const void *b)

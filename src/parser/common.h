@@ -21,11 +21,12 @@ uint32_t parse_sizeof (Parser *p);
 
 uint32_t parse_statement (Parser *p);
 uint32_t parse_block (Parser *p);
+uint32_t parse_brace_init (Parser *p);
 
 uint32_t parse_fn_decl (Parser *p);
 uint32_t parse_extern_decl (Parser *p);
 uint32_t parse_enum (Parser *p);
 uint32_t parse_type_dec (Parser *p, int is_newtype);
-uint32_t parse_struct (Parser *p);
+uint32_t parse_struct (Parser *p, int packed);
 
 #endif

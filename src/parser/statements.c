@@ -2,7 +2,7 @@
 
 #define FOR_MAX_DIM 8
 
-static uint32_t parse_array_init (Parser *p);
+uint32_t parse_brace_init (Parser *p);
 
 static uint32_t parse_field_init (Parser *p)
 {
@@ -14,12 +14,12 @@ static uint32_t parse_field_init (Parser *p)
 	}
 	consume(p, TOK_ASSIGN, "expected '=' after the field name");
 
-	uint32_t value = p->curr.type == TOK_LKEY ? parse_array_init(p) : parse_expr(p, 0);
+	uint32_t value = p->curr.type == TOK_LKEY ? parse_brace_init(p) : parse_expr(p, 0);
 	p->ast.nodes[node].child = value;
 	return node;
 }
 
-static uint32_t parse_array_init (Parser *p)
+uint32_t parse_brace_init (Parser *p)
 {
 	uint16_t line = p->curr.line;
 	uint16_t col = p->curr.col;
@@ -39,7 +39,7 @@ static uint32_t parse_array_init (Parser *p)
 		}
 		uint32_t item;
 		if (desig) item = parse_field_init(p);
-		else item = p->curr.type == TOK_LKEY ? parse_array_init(p) : parse_expr(p, 0);
+		else item = p->curr.type == TOK_LKEY ? parse_brace_init(p) : parse_expr(p, 0);
 
 		append_child(p, node, &last, item);
 		if (p->curr.type != TOK_COMMA) break;
@@ -87,7 +87,7 @@ static uint32_t parse_decl_inner (Parser *p, int is_arr)
 	if (p->curr.type == TOK_ASSIGN) {
 		advance(p);
 		uint32_t value = p->curr.type == TOK_LKEY
-				? parse_array_init(p) : parse_expr(p, 0);
+				? parse_brace_init(p) : parse_expr(p, 0);
 		p->ast.nodes[node].child = value;
 	}
 
@@ -886,7 +886,7 @@ static uint32_t parse_statement_inner (Parser *p)
 	case TOK_ENUM: return parse_enum(p);
 	case TOK_TYPE: return parse_type_dec(p, 0);
 	case TOK_NEWTYPE: return parse_type_dec(p, 1);
-	case TOK_STRUCT: case TOK_UNION: return parse_struct(p);
+	case TOK_STRUCT: case TOK_UNION: return parse_struct(p, 0);
 	case TOK_RET: return parse_return(p);
 	case TOK_IF: return parse_if(p);
 	case TOK_WHILE: return parse_while(p);

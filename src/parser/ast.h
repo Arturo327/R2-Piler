@@ -9,6 +9,10 @@
 #define NO_TYPE_NODE 0
 #define NODE_FLAG_STATIC 1
 #define NODE_FLAG_UNION 2
+#define NODE_FLAG_PACKED 4
+#define NODE_FLAG_LITERAL 8
+#define NODE_FLAG_BITFIELD 16
+#define NODE_FLAG_BITFIELD_TYPED 32
 
 typedef enum {
 	NODE_ERROR = 0, NODE_EMPTY,
@@ -33,6 +37,7 @@ typedef enum {
 	NODE_ARR_DEC, NODE_ARRAY_INIT, NODE_TYPE_ARRAY, NODE_TYPE_SLICE,	// declarations
 	NODE_STRUCT_DEC, NODE_FIELD_DEC, NODE_STRUCT_INIT, NODE_FIELD_INIT,	// struct
 	NODE_RET_ITEM, NODE_MULTI_ASSIGN,					// several returns
+	NODE_ALIGNOF, NODE_OFFSETOF,						// layout queries
 	NODE_COUNT
 } NodeType;
 

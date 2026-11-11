@@ -109,6 +109,8 @@ static void add_field (StructLayout *l, uint32_t idx, TypeId type, uint64_t off)
 	f->offset = (uint32_t)off;
 	f->grp = l->grp;
 	f->alt = l->alt;
+	f->bits = 0;
+	f->bit_off = 0;
 	l->count++;
 }
 

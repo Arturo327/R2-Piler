@@ -58,6 +58,8 @@ typedef struct StructField {
 	uint16_t len;
 	uint16_t grp;
 	uint16_t alt;
+	uint8_t bits;
+	uint8_t bit_off;
 } StructField;
 
 typedef struct TypeDesc {
@@ -79,6 +81,7 @@ typedef struct TypeDesc {
 	uint16_t field_count;
 	uint8_t layout;
 	uint8_t is_union;
+	uint8_t is_packed;
 } TypeDesc;
 
 typedef TypeDesc Type;

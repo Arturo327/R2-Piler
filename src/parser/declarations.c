@@ -251,7 +251,7 @@ static uint32_t parse_field (Parser *p)
 	return node;
 }
 
-uint32_t parse_struct (Parser *p)
+uint32_t parse_struct (Parser *p, int packed)
 {
 	int is_union = p->curr.type == TOK_UNION;
 	uint32_t last = NO_NODE;
@@ -259,6 +259,7 @@ uint32_t parse_struct (Parser *p)
 	consume(p, is_union ? TOK_UNION : TOK_STRUCT, "expected 'struct' or 'union'");
 	uint32_t node = new_node(p, NODE_STRUCT_DEC, p->curr.line, p->curr.col);
 	if (is_union) p->ast.nodes[node].flags |= NODE_FLAG_UNION;
+	if (packed) p->ast.nodes[node].flags |= NODE_FLAG_PACKED;
 
 	if (p->curr.type == TOK_ID) {
 		p->ast.nodes[node].str = p->curr.str;
@@ -270,7 +271,7 @@ uint32_t parse_struct (Parser *p)
 	while (p->curr.type != TOK_RKEY && p->curr.type != TOK_EOF) {
 		Token start = p->curr;
 		uint32_t member = p->curr.type == TOK_STRUCT || p->curr.type == TOK_UNION
-				? parse_struct(p) : parse_field(p);
+				? parse_struct(p, packed) : parse_field(p);
 
 		append_child(p, node, &last, member);
 		if (p->panic_mode) syncro(p, start);

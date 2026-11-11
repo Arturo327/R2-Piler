@@ -86,6 +86,8 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_FIELD_INIT] = "NODE_FIELD_INIT",
 	[NODE_RET_ITEM] = "NODE_RET_ITEM",
 	[NODE_MULTI_ASSIGN] = "NODE_MULTI_ASSIGN",
+	[NODE_ALIGNOF] = "NODE_ALIGNOF",
+	[NODE_OFFSETOF] = "NODE_OFFSETOF",
 };
 
 static inline void indent (int depth)
@@ -121,6 +123,11 @@ static void dump_node_value (ASTNode *n)
 		if (n->str) printf(" name=\"%.*s\"", (int)n->len, n->str);
 		if (n->flags & NODE_FLAG_STATIC) printf(" static");
 		if (n->flags & NODE_FLAG_UNION) printf(" union");
+		if (n->flags & NODE_FLAG_PACKED) printf(" packed");
+		if (n->flags & NODE_FLAG_BITFIELD) {
+			printf(" bitfield=%u", n->sym);
+			if (n->flags & NODE_FLAG_BITFIELD_TYPED) printf(" typed");
+		}
 		break;
 	case NODE_DOT: case NODE_FIELD_INIT:
 		printf(" field=\"%.*s\"", (int)n->len, n->str);
