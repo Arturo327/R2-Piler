@@ -231,6 +231,73 @@ uint32_t parse_type_dec (Parser *p, int is_newtype)
 	return node;
 }
 
+static int bitfield_short_width (Token t, uint32_t *out)
+{
+	uint64_t v = 0;
+
+	if (t.type != TOK_ID || t.len < 2) return 0;
+	if (t.str[0] != 'u' && t.str[0] != 'i') return 0;
+
+	for (uint16_t i = 1; i < t.len; i++) {
+		if (t.str[i] < '0' || t.str[i] > '9') return 0;
+		if (v <= 64) v = v * 10 + (uint64_t)(t.str[i] - '0');
+	}
+
+	*out = v > 64 ? 65 : (uint32_t)v;
+	return 1;
+}
+
+static void parse_bitfield_width (Parser *p, uint32_t node)
+{
+	advance(p);
+	if (p->curr.type != TOK_LIT_i64 && p->curr.type != TOK_LIT_u64) {
+		error_report(p->err, ERR_ERROR, token_loc(p->curr),
+				"bitfield width must be an integer literal");
+		p->panic_mode = 1;
+		return;
+	}
+
+	uint32_t width = p->curr.u64 > 64 ? 65 : (uint32_t)p->curr.u64;
+	advance(p);
+	if (width < 1 || width > 64) {
+		error_report(p->err, ERR_ERROR, token_loc(p->prev),
+				"bitfield width must be between 1 and 64");
+		p->ast.nodes[node].data_type = TYPE_ERROR;
+		p->ast.nodes[node].type_node = NO_TYPE_NODE;
+		return;
+	}
+	p->ast.nodes[node].flags |= NODE_FLAG_BITFIELD | NODE_FLAG_BITFIELD_TYPED;
+	p->ast.nodes[node].sym = width;
+}
+
+static void parse_field_type (Parser *p, uint32_t node)
+{
+	uint32_t width;
+
+	if (bitfield_short_width(p->curr, &width)) {
+		uint8_t sign = p->curr.str[0] == 'u' ? TYPE_UNTYPED_UINT : TYPE_UNTYPED_INT;
+
+		if (width < 1 || width > 64) {
+			error_report(p->err, ERR_ERROR, token_loc(p->curr),
+					"bitfield width must be between 1 and 64");
+			p->ast.nodes[node].data_type = TYPE_ERROR;
+		} else {
+			p->ast.nodes[node].flags |= NODE_FLAG_BITFIELD;
+			p->ast.nodes[node].sym = width;
+			p->ast.nodes[node].data_type = sign;
+		}
+		advance(p);
+		return;
+	}
+
+	uint16_t type_node;
+	TypeId type = parse_type(p, 0, node, &type_node);
+
+	p->ast.nodes[node].data_type = type;
+	p->ast.nodes[node].type_node = type_node;
+	if (p->curr.type == TOK_COL) parse_bitfield_width(p, node);
+}
+
 static uint32_t parse_field (Parser *p)
 {
 	uint16_t line = p->curr.line;
@@ -242,11 +309,7 @@ static uint32_t parse_field (Parser *p)
 		p->ast.nodes[node].len = p->prev.len;
 	}
 	consume(p, TOK_COL, "expected ':' followed by the field type");
-	uint16_t type_node;
-	TypeId type = parse_type(p, 0, node, &type_node);
-
-	p->ast.nodes[node].data_type = type;
-	p->ast.nodes[node].type_node = type_node;
+	parse_field_type(p, node);
 	consume(p, TOK_SEMCOL, "expected ';' after the field");
 	return node;
 }

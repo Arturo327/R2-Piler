@@ -1,0 +1,3 @@
+tests/sema/128_bitfield_access_src.r2:27:21: ERROR: cannot take the address of bitfield 'a'
+     27 |         var bad : ptr u8 = $v.a;
+        |                            ^

@@ -1,0 +1,12 @@
+tests/parser/076_bitfield_syntax_src.r2:31:6: ERROR: bitfield width must be between 1 and 64
+     31 |         a : u0;
+        |             ^~
+tests/parser/076_bitfield_syntax_src.r2:32:6: ERROR: bitfield width must be between 1 and 64
+     32 |         b : i65;
+        |             ^~~
+tests/parser/076_bitfield_syntax_src.r2:33:11: ERROR: bitfield width must be between 1 and 64
+     33 |         c : u8 : 0;
+        |                  ^
+tests/parser/076_bitfield_syntax_src.r2:34:11: ERROR: bitfield width must be an integer literal
+     34 |         d : u8 : width;
+        |                  ^~~~~

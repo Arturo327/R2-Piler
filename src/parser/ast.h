@@ -51,7 +51,7 @@ typedef struct ASTNode {
 
 	uint32_t child;
 	uint32_t next_bro;
-	uint32_t sym;
+	uint32_t sym;		// NODE_FIELD_DEC: bitfield width when NODE_FLAG_BITFIELD
 
 	uint16_t type_node;
 	uint16_t line;

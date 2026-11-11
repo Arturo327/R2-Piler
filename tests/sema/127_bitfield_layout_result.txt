@@ -1,0 +1,41 @@
+struct Flags [1:8] depth=0 size=4 align=2
+  field a type=u8 offset=0 bits=3 bit_off=0
+  field b type=i8 offset=0 bits=5 bit_off=3
+  field c type=u8 offset=1
+  field d type=u16 offset=2 bits=16 bit_off=0
+struct Closed [8:8] depth=0 size=3 align=1
+  field a type=u8 offset=0 bits=3 bit_off=0
+  field b type=u8 offset=1
+  field c type=u8 offset=2 bits=5 bit_off=0
+struct Nested [14:8] depth=0 size=3 align=1
+  field head type=u8 offset=0
+  field lo type=u8 offset=1 bits=4 bit_off=0
+  field hi type=u8 offset=1 bits=4 bit_off=4
+  field tail type=u8 offset=2 bits=2 bit_off=0
+struct Wide [20:8] depth=0 size=8 align=4
+  field lo type=u32 offset=0 bits=5 bit_off=0
+  field hi type=u32 offset=0 bits=12 bit_off=5
+  field sign type=i32 offset=0 bits=5 bit_off=17
+  field tail type=u8 offset=4
+struct Narrow [27:8] depth=0 size=8 align=4
+  field a type=u8 offset=0 bits=1 bit_off=0
+  field b type=u8 offset=0 bits=7 bit_off=1
+  field c type=u16 offset=2 bits=3 bit_off=0
+  field d type=u32 offset=4 bits=17 bit_off=0
+union Over [34:7] depth=0 size=4 align=4
+  field whole type=u32 offset=0
+  field lo type=u8 offset=0
+  field hi type=u16 offset=0 bits=16 bit_off=0
+struct HasUnion [40:8] depth=0 size=6 align=2
+  field tag type=u8 offset=0
+  field small type=u8 offset=2
+  field pair type=u16 offset=2
+  field last type=u8 offset=4 bits=2 bit_off=0
+fn main [46:4] depth=0 type=i64
+var f [47:6] depth=1 type=Flags
+var c [48:6] depth=1 type=Closed
+var n [49:6] depth=1 type=Nested
+var wd [50:6] depth=1 type=Wide
+var nr [51:6] depth=1 type=Narrow
+var o [52:6] depth=1 type=Over
+var h [53:6] depth=1 type=HasUnion

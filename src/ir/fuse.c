@@ -111,6 +111,21 @@ static void put_value (Fuse *f, uint32_t idx, TypeId type, uint32_t off)
 	else put_scalar(f, off, types[type].size, fuse_bits(n));
 }
 
+static int type_has_bitfield (TypeId id)
+{
+	const Type *t = types + id;
+
+	if (type_kind(id) == TK_ARRAY || type_kind(id) == TK_SLICE)
+		return type_has_bitfield(t->base);
+	if (type_kind(id) != TK_STRUCT) return 0;
+
+	for (uint16_t i = 0; i < t->field_count; i++) {
+		if (t->fields[i].bits) return 1;
+		if (type_has_bitfield(t->fields[i].type)) return 1;
+	}
+	return 0;
+}
+
 static void make_range (Fuse *f, uint32_t base, uint32_t from, uint32_t to)
 {
 	IR *ir = f->ir;
@@ -156,6 +171,7 @@ int fuse_struct_init (IR *ir, uint32_t base, ASTNode *init, TypeId type)
 	Fuse f = { .ir = ir, .size = types[type].size };
 
 	if (ir->scalarize || f.size > FUSE_MAX_IMAGE) return 0;
+	if (type_has_bitfield(type)) return 0;
 	f.img = arena_alloc(ir->arena, f.size);
 	f.st = arena_alloc(ir->arena, f.size);
 	memset(f.img, 0, f.size);

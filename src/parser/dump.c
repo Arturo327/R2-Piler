@@ -218,6 +218,20 @@ static void dump_type (AST *ast, ASTNode *n)
 	printf(" type=%s", types[n->data_type].name);
 }
 
+static int dump_shows_type (ASTNode *n)
+{
+	if (n->type == NODE_FIELD_DEC && (n->flags & NODE_FLAG_BITFIELD)
+			&& !(n->flags & NODE_FLAG_BITFIELD_TYPED))
+		return 0;
+
+	return n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC
+			|| n->type == NODE_EXTERN_VAR_DEC || n->type == NODE_RET_DEC
+			|| n->type == NODE_CAST || n->type == NODE_ENUM_DEC || n->type == NODE_TYPE_DEC
+			|| n->type == NODE_NEWTYPE_DEC || n->type == NODE_FIELD_DEC
+			|| n->type == NODE_RET_ITEM
+			|| (n->type == NODE_SIZEOF && n->child == NO_NODE);
+}
+
 static void dump_node (AST *ast, uint32_t idx, int depth)
 {
 	while (idx != NO_NODE) {
@@ -231,12 +245,7 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 
 		dump_node_value(n);
 
-		if (n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC
-				|| n->type == NODE_EXTERN_VAR_DEC || n->type == NODE_RET_DEC
-				|| n->type == NODE_CAST || n->type == NODE_ENUM_DEC || n->type == NODE_TYPE_DEC
-				|| n->type == NODE_NEWTYPE_DEC || n->type == NODE_FIELD_DEC
-				|| n->type == NODE_RET_ITEM
-				|| (n->type == NODE_SIZEOF && n->child == NO_NODE))
+		if (dump_shows_type(n))
 			dump_type(ast, n);
 
 		printf("\n");

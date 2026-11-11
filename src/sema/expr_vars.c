@@ -198,6 +198,44 @@ static void mark_assigned (Sema *s, uint32_t left)
 		s->table.symbols[n->sym].assigned = 1;
 }
 
+static int bitfield_fits (const StructField *f, uint64_t bits)
+{
+	if (f->bits >= 64) return 1;
+	if (!types[f->type].sign) return bits <= (((uint64_t)1 << f->bits) - 1);
+
+	int64_t v = (int64_t)bits;
+	int64_t limit = (int64_t)((uint64_t)1 << (f->bits - 1));
+
+	return v >= -limit && v <= limit - 1;
+}
+
+static const StructField *bitfield_field (Sema *s, uint32_t lhs)
+{
+	ASTNode *n = s->ast->nodes + lhs;
+
+	if (n->type != NODE_DOT || !(n->flags & NODE_FLAG_BITFIELD)) return NULL;
+	return find_field(s->ast->nodes[n->child].data_type, n->str, n->len);
+}
+
+void warn_bitfield_truncation (Sema *s, const StructField *f, uint32_t value)
+{
+	if (!f || !f->bits) return;
+	if (f->bits == types[f->type].size * 8u) return;
+	if (s->ast->nodes[value].data_type == TYPE_ERROR) return;
+
+	uint64_t bits;
+	if (!lit_node_bits(s, s->ast->nodes + value, &bits)) return;
+	if (bitfield_fits(f, bits)) return;
+
+	if (types[f->type].sign)
+		error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + value),
+				"value %lld does not fit in a %u-bit bitfield; it will be truncated",
+				(long long)(int64_t)bits, f->bits);
+	else error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + value),
+			"value %llu does not fit in a %u-bit bitfield; it will be truncated",
+			(unsigned long long)bits, f->bits);
+}
+
 static void warn_self_assign (Sema *s, uint32_t left, uint32_t right)
 {
 	ASTNode *l = s->ast->nodes + left;
@@ -290,6 +328,8 @@ TypeId check_assign (Sema *s, uint32_t idx)
 
 	if (left_kind == NODE_ID)
 		sym_set_stack_slice(s, s->ast->nodes[left].sym, right);
+	if (left_kind == NODE_DOT)
+		warn_bitfield_truncation(s, bitfield_field(s, left), right);
 	s->ast->nodes[idx].data_type = l;
 	return l;
 }

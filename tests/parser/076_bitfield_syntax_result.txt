@@ -1,0 +1,30 @@
+NODE_ROOT [0:0]
+  NODE_TYPE_DEC [1:6] name="Byte" type=u8
+  NODE_STRUCT_DEC [3:8] name="Flags"
+    NODE_FIELD_DEC [4:2] name="a" bitfield=3
+    NODE_FIELD_DEC [5:2] name="b" bitfield=5
+    NODE_FIELD_DEC [6:2] name="c" bitfield=8 typed type=u8
+    NODE_FIELD_DEC [7:2] name="d" bitfield=16 typed type=u16
+    NODE_FIELD_DEC [8:2] name="e" bitfield=32 typed type=u32
+    NODE_FIELD_DEC [9:2] name="f" bitfield=64 typed type=u64
+    NODE_FIELD_DEC [10:2] name="g" bitfield=8 typed type=i8
+    NODE_FIELD_DEC [11:2] name="h" bitfield=8 typed type=Byte
+    NODE_FIELD_DEC [12:2] name="i" bitfield=1 typed type=u8
+    NODE_FIELD_DEC [13:2] name="j" bitfield=1 typed type=i16
+    NODE_FIELD_DEC [14:2] name="k" bitfield=7 typed type=u32
+    NODE_FIELD_DEC [15:2] name="l" bitfield=33 typed type=u64
+    NODE_FIELD_DEC [16:2] name="m" bitfield=11 typed type=i32
+  NODE_STRUCT_DEC [19:7] name="Narrow" union
+    NODE_FIELD_DEC [20:2] name="whole" type=u8
+    NODE_FIELD_DEC [21:2] name="part" bitfield=5
+  NODE_STRUCT_DEC [24:8] name="Nested"
+    NODE_FIELD_DEC [25:2] name="head" bitfield=2
+    NODE_STRUCT_DEC [26:9]
+      NODE_FIELD_DEC [26:11] name="lo" bitfield=4
+      NODE_FIELD_DEC [26:20] name="hi" bitfield=4
+    NODE_FIELD_DEC [27:2] name="tail" bitfield=3
+  NODE_STRUCT_DEC [30:8] name="Bad"
+    NODE_FIELD_DEC [31:2] name="a" type=error
+    NODE_FIELD_DEC [32:2] name="b" type=error
+    NODE_FIELD_DEC [33:2] name="c" type=error
+    NODE_FIELD_DEC [34:2] name="d" type=u8

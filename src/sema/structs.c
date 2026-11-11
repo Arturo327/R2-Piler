@@ -20,8 +20,89 @@ typedef struct {
 	uint32_t align;
 } StructLayout;
 
+typedef struct {
+	uint64_t off;
+	uint32_t size;
+	uint32_t used;
+} BitUnit;
+
 static int layout_struct (Sema *s, TypeId id);
 static void place (StructLayout *l, uint32_t node);
+
+static int member_is_bitfield (Sema *s, uint32_t idx)
+{
+	ASTNode *m = s->ast->nodes + idx;
+
+	return m->type == NODE_FIELD_DEC && (m->flags & NODE_FLAG_BITFIELD) != 0;
+}
+
+static uint64_t bitfield_slot (BitUnit *u, uint32_t width, uint32_t size, uint64_t off, uint32_t *bit_off)
+{
+	if (u->size == size && u->used + width <= size * 8u) {
+		*bit_off = u->used;
+		u->used += width;
+		return u->off;
+	}
+
+	u->off = ALIGN(off, size);
+	u->size = size;
+	u->used = width;
+	*bit_off = 0;
+	return u->off;
+}
+
+static TypeId int_repr (TypeId id)
+{
+	for (int i = 0; i < TYPE_MAX; i++) {
+		TypeKind kind = type_kind(id);
+
+		if (kind == TK_INT) return id;
+		if (kind != TK_ALIAS) return TYPE_ERROR;
+		id = types[id].base;
+	}
+	return TYPE_ERROR;
+}
+
+static TypeId holder_for (uint32_t width, int sign)
+{
+	switch (width <= 8 ? 0 : width <= 16 ? 1 : width <= 32 ? 2 : 3)
+	{
+	case 0: return sign ? TYPE_i8 : TYPE_u8;
+	case 1: return sign ? TYPE_i16 : TYPE_u16;
+	case 2: return sign ? TYPE_i32 : TYPE_u32;
+	default: return sign ? TYPE_i64 : TYPE_u64;
+	}
+}
+
+static TypeId bitfield_holder (Sema *s, uint32_t idx)
+{
+	ASTNode *f = s->ast->nodes + idx;
+
+	if (!(f->flags & NODE_FLAG_BITFIELD_TYPED)) {
+		if (f->data_type == TYPE_ERROR) return TYPE_ERROR;
+		return holder_for(f->sym, f->data_type == TYPE_UNTYPED_INT);
+	}
+
+	if (f->type_node == NO_TYPE_NODE && f->data_type == TYPE_ERROR)
+		return TYPE_ERROR;
+
+	TypeId t = int_repr(resolve_type_node(s, f));
+	f = s->ast->nodes + idx;
+	if (t == TYPE_ERROR)
+		error_report(s->err, ERR_ERROR, node_loc(f),
+				"bitfield type must be an integer type");
+	else if (f->sym > 8u * types[t].size)
+		error_report(s->err, ERR_ERROR, node_loc(f),
+				"bitfield width %u does not fit in type %s (%u bits)",
+				f->sym, types[t].name, 8u * types[t].size);
+	else {
+		f->data_type = t;
+		return t;
+	}
+
+	f->data_type = TYPE_ERROR;
+	return TYPE_ERROR;
+}
 
 void sema_decl_struct (Sema *s, uint32_t idx)
 {
@@ -57,6 +138,7 @@ static TypeId field_struct_dep (Sema *s, uint32_t idx)
 	ASTNode *ref;
 	TypeId id;
 
+	if (f->flags & NODE_FLAG_BITFIELD) return TYPE_ERROR;
 	if (f->type_node == NO_TYPE_NODE) return TYPE_ERROR;
 	ref = f + f->type_node;
 	while (ref->type == NODE_TYPE_ARRAY && ref->type_node != NO_TYPE_NODE)
@@ -69,8 +151,12 @@ static TypeId field_struct_dep (Sema *s, uint32_t idx)
 
 static TypeId field_type (Sema *s, uint32_t idx)
 {
-	TypeId dep = field_struct_dep(s, idx);
 	ASTNode *f = s->ast->nodes + idx;
+
+	if (f->flags & NODE_FLAG_BITFIELD) return bitfield_holder(s, idx);
+
+	TypeId dep = field_struct_dep(s, idx);
+	f = s->ast->nodes + idx;
 
 	if (dep != TYPE_ERROR && types[dep].layout == 1) {
 		error_report(s->err, ERR_ERROR, node_loc(f),
@@ -89,7 +175,7 @@ static TypeId field_type (Sema *s, uint32_t idx)
 	return t;
 }
 
-static void add_field (StructLayout *l, uint32_t idx, TypeId type, uint64_t off)
+static void add_field (StructLayout *l, uint32_t idx, TypeId type, uint64_t off, uint32_t bit_off)
 {
 	Sema *s = l->s;
 	StructField *out = l->out;
@@ -109,8 +195,8 @@ static void add_field (StructLayout *l, uint32_t idx, TypeId type, uint64_t off)
 	f->offset = (uint32_t)off;
 	f->grp = l->grp;
 	f->alt = l->alt;
-	f->bits = 0;
-	f->bit_off = 0;
+	f->bits = member_is_bitfield(s, idx) ? (uint8_t)m->sym : 0;
+	f->bit_off = (uint8_t)bit_off;
 	l->count++;
 }
 
@@ -155,20 +241,30 @@ static void place (StructLayout *l, uint32_t node)
 	uint16_t k = 0;
 	uint64_t off = 0;
 	uint32_t al = 1;
+	BitUnit unit = { 0, 0, 0 };
 
 	if (uni && record) l->grp = ++l->groups;
 	for (; c != NO_NODE; c = s->ast->nodes[c].next_bro) {
 		TypeId ft = TYPE_ERROR;
 		uint64_t fs = 0;
 		uint32_t fa = 1;
+		uint32_t bit_off = 0;
 
 		if (uni && record) l->alt = ++k;
 		if (!measure_member(l, c)) continue;
 		ft = l->ft;
 		fs = l->fs;
 		fa = l->fa;
-		uint64_t at = uni ? 0 : ALIGN(off, fa);
-		if (record && ft != TYPE_ERROR) add_field(l, c, ft, base + at);
+
+		uint64_t at;
+		if (member_is_bitfield(s, c) && !uni)
+			at = bitfield_slot(&unit, s->ast->nodes[c].sym, (uint32_t)fs,
+					off, &bit_off);
+		else {
+			unit.size = 0;
+			at = uni ? 0 : ALIGN(off, fa);
+		}
+		if (record && ft != TYPE_ERROR) add_field(l, c, ft, base + at, bit_off);
 		else if (record) {
 			uint64_t saved_base = l->base;
 			int saved_record = l->record;
@@ -274,14 +370,22 @@ static void check_field_value (Sema *s, uint32_t item, const StructField *f)
 				(int)fi->len, fi->str, types[f->type].name);
 	} else {
 		TypeId type = check_expr(s, val);
-		if (type == TYPE_ERROR || type == f->type) return;
-		int ok;
-		fi->child = force_cast(s, val, type, f->type, &ok);
-		if (ok) return;
-		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + item),
-				"cannot initialize field '%.*s' of type %s with a value of type %s;"
-				" use an explicit cast with 'as'",
-				(int)fi->len, f->name, types[f->type].name, type_display_name(type));
+
+		if (type == TYPE_ERROR) return;
+		if (type != f->type) {
+			int ok;
+			uint32_t cast = force_cast(s, val, type, f->type, &ok);
+
+			s->ast->nodes[item].child = cast;
+			if (!ok) {
+				error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + item),
+						"cannot initialize field '%.*s' of type %s with a value of type %s;"
+						" use an explicit cast with 'as'",
+						(int)fi->len, f->name, types[f->type].name, type_display_name(type));
+				return;
+			}
+		}
+		warn_bitfield_truncation(s, f, s->ast->nodes[item].child);
 	}
 }
 

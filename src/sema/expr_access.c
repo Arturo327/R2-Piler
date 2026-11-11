@@ -216,7 +216,12 @@ TypeId check_addr (Sema *s, uint32_t idx)
 	} else if (child->type == NODE_DOT) {
 		type = check_dot(s, n->child);
 		n = s->ast->nodes + idx;
-		if (type != TYPE_ERROR && s->ast->nodes[n->child].type != NODE_DOT) {
+		if (type != TYPE_ERROR && (s->ast->nodes[n->child].flags & NODE_FLAG_BITFIELD)) {
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"cannot take the address of bitfield '%.*s'",
+					(int)s->ast->nodes[n->child].len, s->ast->nodes[n->child].str);
+			type = TYPE_ERROR;
+		} else if (type != TYPE_ERROR && s->ast->nodes[n->child].type != NODE_DOT) {
 			error_report(s->err, ERR_ERROR, node_loc(n),
 					"operand of '$' must be a variable, a dereference or an index");
 			type = TYPE_ERROR;
@@ -492,6 +497,7 @@ static TypeId check_field (Sema *s, uint32_t idx, TypeId st)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+	if (f->bits) n->flags |= NODE_FLAG_BITFIELD;
 	n->data_type = f->type;
 	return f->type;
 }

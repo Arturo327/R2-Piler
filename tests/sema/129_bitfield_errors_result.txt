@@ -1,0 +1,7 @@
+struct TooWide [1:8] depth=0 size=0 align=1
+struct NotInt [8:8] depth=0 size=0 align=1
+struct Plain [13:8] depth=0 size=4 align=4
+  field s type=i32 offset=0
+struct StructType [17:8] depth=0 size=0 align=1
+struct Dup [21:8] depth=0 size=0 align=1
+fn main [26:4] depth=0 type=i64

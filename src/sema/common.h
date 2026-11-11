@@ -31,6 +31,7 @@ void sema_layout_structs (Sema *s);
 void check_struct_init (Sema *s, uint32_t init_idx, TypeId st);
 
 const char *type_display_name (TypeId type);
+void warn_bitfield_truncation (Sema *s, const StructField *f, uint32_t value);
 uint32_t force_cast (Sema *s, uint32_t child, TypeId child_type, TypeId target, int *ok);
 TypeId finalize_type (Sema *s, uint32_t idx, TypeId type);
 TypeId try_fold_unary (Sema *s, uint32_t idx);

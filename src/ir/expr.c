@@ -390,6 +390,45 @@ void gen_copy (IR *ir, uint32_t dst, uint32_t src, TypeId type)
 	}
 }
 
+static uint64_t bitfield_mask (const StructField *f)
+{
+	if (f->bits >= 64) return UINT64_MAX;
+	return ((uint64_t)1 << f->bits) - 1;
+}
+
+static uint32_t bitfield_extract (IR *ir, uint32_t raw, const StructField *f)
+{
+	TypeId holder = f->type;
+	uint32_t width = 8u * types[holder].size;
+	uint32_t v = raw;
+
+	if (f->bit_off)
+		v = make_op(ir, IR_RS, v, make_const(ir, f->bit_off, holder), holder);
+	v = make_op(ir, IR_AND_A, v, make_const(ir, (int64_t)bitfield_mask(f), holder), holder);
+	if (types[holder].sign && f->bits < width) {
+		uint32_t shift = width - f->bits;
+		v = make_op(ir, IR_LS, v, make_const(ir, shift, holder), holder);
+		v = make_op(ir, IR_RS, v, make_const(ir, shift, holder), holder);
+	}
+	return v;
+}
+
+static uint32_t gen_bitfield_store (IR *ir, uint32_t addr, const StructField *f, uint32_t value)
+{
+	TypeId holder = f->type;
+	uint64_t mask = bitfield_mask(f);
+	uint32_t old = make_ld_ptr(ir, addr, holder);
+	uint32_t v = make_op(ir, IR_AND_A, value, make_const(ir, (int64_t)mask, holder), holder);
+
+	if (f->bit_off)
+		v = make_op(ir, IR_LS, v, make_const(ir, f->bit_off, holder), holder);
+	old = make_op(ir, IR_AND_A, old,
+			make_const(ir, (int64_t)~(mask << f->bit_off), holder), holder);
+	v = make_op(ir, IR_OR_A, old, v, holder);
+	make_str_ptr(ir, addr, v, holder);
+	return bitfield_extract(ir, v, f);
+}
+
 static uint32_t gen_field_addr (IR *ir, ASTNode *n)
 {
 	ASTNode *left = ir->ast->nodes + n->child;
@@ -401,8 +440,14 @@ static uint32_t gen_field_addr (IR *ir, ASTNode *n)
 
 static uint32_t gen_field (IR *ir, ASTNode *n)
 {
+	TypeId st = ir->ast->nodes[n->child].data_type;
 	uint32_t addr = gen_field_addr(ir, n);
 
+	if (n->flags & NODE_FLAG_BITFIELD) {
+		const StructField *f = find_field(st, n->str, n->len);
+
+		return bitfield_extract(ir, make_ld_ptr(ir, addr, f->type), f);
+	}
 	if (type_kind(n->data_type) == TK_STRUCT)
 		return addr;
 	if (type_dyn_rank(n->data_type) > 0)
@@ -458,7 +503,9 @@ static void gen_struct_init (IR *ir, uint32_t base, ASTNode *init, TypeId type)
 		}
 		uint32_t at = add_offset(ir, base, f->offset);
 
-		if (type_kind(f->type) == TK_STRUCT)
+		if (f->bits)
+			gen_bitfield_store(ir, at, f, gen_expr(ir, ir->ast->nodes + fi->child));
+		else if (type_kind(f->type) == TK_STRUCT)
 			gen_struct_into(ir, at, fi->child, f->type, 1);
 		else if (type_dyn_rank(f->type) > 0) {
 			ASTNode *val = ir->ast->nodes + fi->child;
@@ -630,6 +677,14 @@ static uint32_t gen_assign (IR *ir, ASTNode *n)
 		return gen_slice_desc(ir, dst, rhs, lhs->data_type);
 	}
 
+	if (lhs->flags & NODE_FLAG_BITFIELD) {
+		const StructField *f = find_field(ir->ast->nodes[lhs->child].data_type, lhs->str, lhs->len);
+		uint32_t addr = gen_field_addr(ir, lhs);
+		uint32_t val = gen_expr(ir, ir->ast->nodes + lhs->next_bro);
+
+		return gen_bitfield_store(ir, addr, f, val);
+	}
+
 	if (type_kind(lhs->data_type) == TK_STRUCT) {
 		uint32_t dst = gen_expr(ir, lhs);
 		gen_struct_into(ir, dst, lhs->next_bro, lhs->data_type, dest_is_private(ir, lhs));
@@ -727,6 +782,16 @@ static uint32_t gen_compound_assign (IR *ir, ASTNode *n)
 {
 	ASTNode *lhs = ir->ast->nodes + n->child;
 	ASTNode *rhs = ir->ast->nodes + lhs->next_bro;
+
+	if (lhs->flags & NODE_FLAG_BITFIELD) {
+		const StructField *f = find_field(ir->ast->nodes[lhs->child].data_type, lhs->str, lhs->len);
+		uint32_t addr = gen_field_addr(ir, lhs);
+		uint32_t a = bitfield_extract(ir, make_ld_ptr(ir, addr, f->type), f);
+		uint32_t b = gen_expr(ir, rhs);
+
+		return gen_bitfield_store(ir, addr, f, make_op(ir, node_to_ir[n->type], a, b, f->type));
+	}
+
 	uint32_t addr = gen_lvalue_addr(ir, lhs);
 	uint32_t a = addr != NO_REG ? make_ld_ptr(ir, addr, lhs->data_type)
 			: load_var(ir, ir->symtab->symbols + lhs->sym);
@@ -749,6 +814,15 @@ void gen_inc_dec (IR *ir, ASTNode *n)
 	ASTNode *target = ir->ast->nodes + n->child;
 	TypeId type = target->data_type;
 	uint32_t addr = gen_lvalue_addr(ir, target);
+
+	if (target->flags & NODE_FLAG_BITFIELD) {
+		const StructField *f = find_field(ir->ast->nodes[target->child].data_type, target->str, target->len);
+		uint32_t a = bitfield_extract(ir, make_ld_ptr(ir, addr, f->type), f);
+		uint32_t one = make_const(ir, 1, f->type);
+
+		gen_bitfield_store(ir, addr, f, make_op(ir, n->type == NODE_INC ? IR_ADD : IR_SUB, a, one, f->type));
+		return;
+	}
 	uint32_t step = 1;
 	uint32_t a = addr != NO_REG ? make_ld_ptr(ir, addr, type)
 			: load_var(ir, ir->symtab->symbols + target->sym);

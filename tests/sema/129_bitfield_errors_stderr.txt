@@ -1,0 +1,24 @@
+tests/sema/129_bitfield_errors_src.r2:2:2: ERROR: bitfield width 9 does not fit in type i8 (8 bits)
+      2 |         a : i8 : 9;
+        |         ^
+tests/sema/129_bitfield_errors_src.r2:3:2: ERROR: bitfield width 17 does not fit in type u16 (16 bits)
+      3 |         b : u16 : 17;
+        |         ^
+tests/sema/129_bitfield_errors_src.r2:4:2: ERROR: bitfield width 33 does not fit in type u32 (32 bits)
+      4 |         c : u32 : 33;
+        |         ^
+tests/sema/129_bitfield_errors_src.r2:5:2: ERROR: bitfield width 64 does not fit in type u8 (8 bits)
+      5 |         d : u8 : 64;
+        |         ^
+tests/sema/129_bitfield_errors_src.r2:9:2: ERROR: bitfield type must be an integer type
+      9 |         a : ptr u8 : 8;
+        |         ^
+tests/sema/129_bitfield_errors_src.r2:10:2: ERROR: bitfield type must be an integer type
+     10 |         b : i64[2] : 8;
+        |         ^
+tests/sema/129_bitfield_errors_src.r2:18:2: ERROR: bitfield type must be an integer type
+     18 |         a : Plain : 8;
+        |         ^
+tests/sema/129_bitfield_errors_src.r2:23:2: ERROR: duplicate field 'a'
+     23 |         a : u5;
+        |         ^
