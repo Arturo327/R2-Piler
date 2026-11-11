@@ -16,6 +16,7 @@ uint32_t call_ret_node (IR *ir, ASTNode *call);
 TypeId ret_slot_type (TypeId t);
 uint32_t add_offset (IR *ir, uint32_t base, uint64_t off);
 void gen_multi_assign (IR *ir, ASTNode *n);
+int struct_is_small (TypeId type);
 
 void ir_scan_structs (IR *ir);
 void make_arg_dec (IR *ir, uint32_t dst, uint32_t idx, TypeId type);

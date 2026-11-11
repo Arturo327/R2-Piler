@@ -121,6 +121,7 @@ typedef struct IR {
 	uint8_t use_select;
 	uint8_t no_tail;
 	uint32_t sret;
+	uint32_t nrvo;
 
 	uint32_t *desc;
 	uint32_t ret_node;

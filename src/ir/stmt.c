@@ -26,6 +26,12 @@ void gen_var_dec (IR *ir, ASTNode *n)
 		return;
 	}
 	if (type_kind(s->type) == TK_STRUCT) {
+		if (n->sym == ir->nrvo) {
+			s->ir_id = ir->sret;
+			if (n->child != NO_NODE)
+				gen_struct_into(ir, ir->sret, n->child, s->type, 1);
+			return;
+		}
 		reg = new_reg(ir, s->type);
 		s->ir_id = reg;
 		ir->addressed[reg] = 1;
@@ -85,8 +91,13 @@ static void gen_multi_return (IR *ir, ASTNode *n, uint32_t ret, uint32_t count)
 static void gen_single_return (IR *ir, ASTNode *n, uint32_t ret)
 {
 	TypeId type = ir->ast->nodes[ret].data_type;
+	ASTNode *val = ir->ast->nodes + n->child;
 
 	if (ir->sret != NO_REG) {
+		if (val->type == NODE_ID && val->sym == ir->nrvo) {
+			make_ret(ir, NO_REG, TYPE_VOID);
+			return;
+		}
 		if (type_dyn_rank(type) > 0)
 			gen_slice_desc(ir, ir->sret, ir->ast->nodes + n->child, type);
 		else gen_struct_into(ir, ir->sret, n->child, type, 1);
@@ -334,6 +345,38 @@ static void fn_end (IR *ir, uint32_t idx)
 	fn->no_tail = ir->no_tail;
 }
 
+static int nrvo_scan (IR *ir, uint32_t idx, uint32_t *sym)
+{
+	ASTNode *n = ir->ast->nodes + idx;
+
+	if (n->type == NODE_RET) {
+		ASTNode *val = n->child == NO_NODE ? NULL : ir->ast->nodes + n->child;
+		if (!val || val->type != NODE_ID || val->next_bro != NO_NODE) return 0;
+		if (*sym != NO_SYMBOL && *sym != val->sym) return 0;
+		*sym = val->sym;
+		return 1;
+	}
+	for (uint32_t k = n->child; k != NO_NODE; k = ir->ast->nodes[k].next_bro) {
+		if (!nrvo_scan(ir, k, sym)) return 0;
+	}
+	return 1;
+}
+
+static uint32_t find_nrvo (IR *ir, uint32_t ret, uint32_t body)
+{
+	TypeId type = ir->ast->nodes[ret].data_type;
+
+	if (ir->sret == NO_REG || type_kind(type) != TK_STRUCT) return NO_SYMBOL;
+	if (ir->ast->nodes[ret].child != NO_NODE || struct_is_small(type)) return NO_SYMBOL;
+
+	uint32_t sym = NO_SYMBOL;
+	if (!nrvo_scan(ir, body, &sym) || sym == NO_SYMBOL) return NO_SYMBOL;
+
+	Symbol *s = ir->symtab->symbols + sym;
+	if (s->kind != SYMBOL_VAR || !s->depth || s->is_static) return NO_SYMBOL;
+	return s->type == type ? sym : NO_SYMBOL;
+}
+
 static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
 {
 	uint32_t args = n->child;
@@ -358,6 +401,7 @@ static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
 		make_arg_dec(ir, ir->sret, 0, ptr);
 	}
 	gen_args_dec(ir, args);
+	ir->nrvo = find_nrvo(ir, ret, body);
 	gen_block(ir, ir->ast->nodes + body);
 	fn_end(ir, fn_idx);
 }

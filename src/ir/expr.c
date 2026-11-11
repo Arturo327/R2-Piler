@@ -1053,9 +1053,16 @@ uint32_t gen_expr (IR *ir, ASTNode *n)
 
 uint32_t local_storage_addr (IR *ir, Symbol *s, TypeId type)
 {
+	if ((uint32_t)(s - ir->symtab->symbols) == ir->nrvo) return ir->sret;
 	uint32_t dst = new_reg(ir, TYPE_i64);
 
 	ir->addressed[s->ir_id] = 1;
 	make_addr_local(ir, dst, s->ir_id, type);
 	return dst;
+}
+
+int struct_is_small (TypeId type)
+{
+	int budget = SROA_MAX_LEAVES;
+	return type_scalar_leaves(type, &budget);
 }
