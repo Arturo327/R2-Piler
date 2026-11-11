@@ -583,6 +583,29 @@ static uint32_t gen_call_value (IR *ir, ASTNode *n)
 	return make_ld_ptr(ir, buf, type);
 }
 
+static int mentions_sym (IR *ir, uint32_t idx, uint32_t sym)
+{
+	ASTNode *n = ir->ast->nodes + idx;
+
+	if (n->type == NODE_ID && n->sym == sym) return 1;
+	for (uint32_t k = n->child; k != NO_NODE; k = ir->ast->nodes[k].next_bro) {
+		if (mentions_sym(ir, k, sym)) return 1;
+	}
+	return 0;
+}
+
+static int dest_is_private (IR *ir, ASTNode *lhs)
+{
+	uint32_t root = agg_root_sym(ir->ast, (uint32_t)(lhs - ir->ast->nodes));
+	uint32_t call = lhs->next_bro;
+
+	if (root == NO_SYMBOL || ir->ast->nodes[call].type != NODE_FN_CALL) return 0;
+	Symbol *s = ir->symtab->symbols + root;
+	if (s->kind != SYMBOL_VAR || !s->depth || s->is_static || s->escaped) return 0;
+	if (struct_is_small(lhs->data_type)) return 0;
+	return !mentions_sym(ir, call, root);
+}
+
 static uint32_t gen_assign (IR *ir, ASTNode *n)
 {
 	ASTNode *lhs = ir->ast->nodes + n->child;
@@ -603,8 +626,7 @@ static uint32_t gen_assign (IR *ir, ASTNode *n)
 
 	if (type_kind(lhs->data_type) == TK_STRUCT) {
 		uint32_t dst = gen_expr(ir, lhs);
-
-		gen_struct_into(ir, dst, lhs->next_bro, lhs->data_type, 0);
+		gen_struct_into(ir, dst, lhs->next_bro, lhs->data_type, dest_is_private(ir, lhs));
 		return dst;
 	}
 
