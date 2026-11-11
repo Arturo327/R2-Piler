@@ -333,8 +333,17 @@ uint32_t parse_struct (Parser *p, int packed)
 
 	while (p->curr.type != TOK_RKEY && p->curr.type != TOK_EOF) {
 		Token start = p->curr;
-		uint32_t member = p->curr.type == TOK_STRUCT || p->curr.type == TOK_UNION
-				? parse_struct(p, packed) : parse_field(p);
+
+		if (p->curr.type == TOK_PACKED) {
+			error_report(p->err, ERR_ERROR, token_loc(p->curr),
+					"a nested struct cannot be declared packed");
+			advance(p);
+		}
+
+		uint32_t member;
+		if (p->curr.type == TOK_STRUCT || p->curr.type == TOK_UNION)
+			member = parse_struct(p, packed);
+		else member = parse_field(p);
 
 		append_child(p, node, &last, member);
 		if (p->panic_mode) syncro(p, start);

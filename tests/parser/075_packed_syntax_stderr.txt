@@ -1,0 +1,6 @@
+tests/parser/075_packed_syntax_src.r2:24:2: ERROR: a nested struct cannot be declared packed
+     24 |         packed struct { b : u8; };
+        |         ^~~~~~
+tests/parser/075_packed_syntax_src.r2:27:8: ERROR: expected 'struct' or 'union' after 'packed'
+     27 | packed var g : i64 = 0;
+        |        ^~~

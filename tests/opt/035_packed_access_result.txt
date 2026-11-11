@@ -1,0 +1,98 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn peek(1 params, 10 regs) : i64
+    r0 = param.ptr Header #0
+    r2 = ld_ptr.u8 r0
+    r3 = extend.i64 r2
+    r7 = ld_ptr.u32 r0 +1
+    r8 = extend.i64 r7
+    r9 = add.i64 r3, r8
+    ret.i64 r9
+    ret
+
+fn make(3 params, 18 regs) : void
+    r0 = param.ptr Header #0
+    r1 = param.u8 #1
+    r2 = param.u32 #2
+    str_ptr.u8 r0, r1
+    str_ptr.u32 r0, r2 +1
+    ret
+    ret
+
+fn main(0 params, 232 regs) : i64
+    r2 = const.u32 573785095
+    str_local.u32 r0, r2
+    r5 = const.u8 17
+    str_local.u8 r0, r5 +4
+    r8 = const.u8 1
+    r9 = const.u32 2
+    str_local.u8 r6, r8
+    str_local.u32 r6, r9 +1
+    r19 = const.u32 5
+    r20 = const.u32 18446744073709551608
+    r21 = and.u32 r198, r20
+    r198 = or.u32 r21, r19
+    r32 = const.u32 8184
+    r33 = const.u32 18446744069414584327
+    r34 = and.u32 r198, r33
+    r198 = or.u32 r34, r32
+    r48 = const.u16 4095
+    r49 = const.u16 18446744073709547520
+    r50 = and.u16 r200, r49
+    r200 = or.u16 r50, r48
+    r61 = const.u16 36864
+    r62 = const.u16 18446744073709490175
+    r63 = and.u16 r200, r62
+    r200 = or.u16 r63, r61
+    str_local.u8 r78, r8
+    str_local.u32 r78, r9 +1
+    r97 = ld_local.u8 r0
+    str_local.u8 r78, r97 +5
+    r100 = ld_local.u32 r0 +1
+    str_local.u32 r78, r100 +6
+    r106 = const.u32 66051
+    str_local.u32 r0, r106 +1
+    r113 = const.u32 3
+    r114 = const.u32 18446744073709551608
+    r115 = and.u32 r198, r114
+    r198 = or.u32 r115, r113
+    r123 = const.u16 4095
+    r124 = and.u16 r200, r123
+    r125 = const.u16 1
+    r126 = add.u16 r124, r125
+    r128 = const.u16 4095
+    r129 = and.u16 r126, r128
+    r130 = const.u16 18446744073709547520
+    r131 = and.u16 r200, r130
+    r200 = or.u16 r131, r129
+    r225 = extend.i64 r97
+    r230 = const.i64 66051
+    r150 = add.i64 r225, r230
+    r155 = const.u32 7
+    r156 = and.u32 r198, r155
+    r157 = extend.i64 r156
+    r158 = add.i64 r150, r157
+    r163 = const.u32 3
+    r164 = rshift.u32 r198, r163
+    r165 = const.u32 536870911
+    r166 = and.u32 r164, r165
+    r167 = extend.i64 r166
+    r168 = add.i64 r158, r167
+    r173 = const.u16 4095
+    r174 = and.u16 r200, r173
+    r175 = extend.i64 r174
+    r176 = add.i64 r168, r175
+    r181 = const.u16 12
+    r182 = rshift.u16 r200, r181
+    r183 = const.u16 15
+    r184 = and.u16 r182, r183
+    r185 = extend.i64 r184
+    r186 = add.i64 r176, r185
+    r189 = const.i64 9
+    r190 = add.i64 r186, r189
+    r195 = const.i64 4
+    r196 = add.i64 r190, r195
+    ret.i64 r196
+    ret
+

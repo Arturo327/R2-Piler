@@ -861,10 +861,11 @@ void dump_symbols (Sema *s)
 			continue;
 		}
 		if (sym->kind == SYMBOL_TYPE && type_kind(sym->type) == TK_STRUCT) {
-			printf("%s %.*s [%u:%u] depth=%u size=%u align=%u\n",
+			printf("%s %.*s [%u:%u] depth=%u size=%u align=%u%s\n",
 					types[sym->type].is_union ? "union" : "struct",
 					(int)sym->len, sym->name, sym->line, sym->col, sym->depth,
-					types[sym->type].size, types[sym->type].align);
+					types[sym->type].size, types[sym->type].align,
+					types[sym->type].is_packed ? " packed" : "");
 			dump_fields(sym->type);
 			continue;
 		}

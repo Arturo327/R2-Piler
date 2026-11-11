@@ -24,6 +24,7 @@ typedef struct {
 	uint64_t off;
 	uint32_t size;
 	uint32_t used;
+	uint32_t packed;
 } BitUnit;
 
 static int layout_struct (Sema *s, TypeId id);
@@ -44,7 +45,7 @@ static uint64_t bitfield_slot (BitUnit *u, uint32_t width, uint32_t size, uint64
 		return u->off;
 	}
 
-	u->off = ALIGN(off, size);
+	u->off = u->packed ? off : ALIGN(off, size);
 	u->size = size;
 	u->used = width;
 	*bit_off = 0;
@@ -129,6 +130,7 @@ void sema_decl_struct (Sema *s, uint32_t idx)
 	types[id].base = id;
 	types[id].decl = idx;
 	types[id].is_union = (n->flags & NODE_FLAG_UNION) != 0;
+	types[id].is_packed = (n->flags & NODE_FLAG_PACKED) != 0;
 	sema_declare(s, n->str, n->len, SYMBOL_TYPE, id, idx);
 }
 
@@ -236,12 +238,13 @@ static void place (StructLayout *l, uint32_t node)
 
 	uint32_t c = s->ast->nodes[node].child;
 	int uni = (s->ast->nodes[node].flags & NODE_FLAG_UNION) != 0;
+	int packed = (s->ast->nodes[node].flags & NODE_FLAG_PACKED) != 0;
 	uint16_t my_grp = l->grp;
 	uint16_t my_alt = l->alt;
 	uint16_t k = 0;
 	uint64_t off = 0;
 	uint32_t al = 1;
-	BitUnit unit = { 0, 0, 0 };
+	BitUnit unit = { 0, 0, 0, packed };
 
 	if (uni && record) l->grp = ++l->groups;
 	for (; c != NO_NODE; c = s->ast->nodes[c].next_bro) {
@@ -262,7 +265,7 @@ static void place (StructLayout *l, uint32_t node)
 					off, &bit_off);
 		else {
 			unit.size = 0;
-			at = uni ? 0 : ALIGN(off, fa);
+			at = uni ? 0 : (packed ? off : ALIGN(off, fa));
 		}
 		if (record && ft != TYPE_ERROR) add_field(l, c, ft, base + at, bit_off);
 		else if (record) {
@@ -281,8 +284,8 @@ static void place (StructLayout *l, uint32_t node)
 	}
 	l->grp = my_grp;
 	l->alt = my_alt;
-	l->size = ALIGN(off, al);
-	l->align = al;
+	l->size = packed ? off : ALIGN(off, al);
+	l->align = packed ? 1 : al;
 }
 
 static uint32_t count_fields (Sema *s, uint32_t node)

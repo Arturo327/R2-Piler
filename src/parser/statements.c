@@ -887,6 +887,16 @@ static uint32_t parse_statement_inner (Parser *p)
 	case TOK_TYPE: return parse_type_dec(p, 0);
 	case TOK_NEWTYPE: return parse_type_dec(p, 1);
 	case TOK_STRUCT: case TOK_UNION: return parse_struct(p, 0);
+	case TOK_PACKED: {
+		advance(p);
+		if (p->curr.type != TOK_STRUCT && p->curr.type != TOK_UNION) {
+			error_report(p->err, ERR_ERROR, token_loc(p->curr),
+					"expected 'struct' or 'union' after 'packed'");
+			p->panic_mode = 1;
+			return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
+		}
+		return parse_struct(p, 1);
+	}
 	case TOK_RET: return parse_return(p);
 	case TOK_IF: return parse_if(p);
 	case TOK_WHILE: return parse_while(p);

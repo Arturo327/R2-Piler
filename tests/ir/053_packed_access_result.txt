@@ -1,0 +1,263 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn peek(1 params, 10 regs) : i64
+    r0 = param.ptr Header #0
+    r1 = move.ptr Header r0
+    r2 = ld_ptr.u8 r1
+    r3 = extend.i64 r2
+    r4 = move.ptr Header r0
+    r5 = const.i64 1
+    r6 = add.i64 r4, r5
+    r7 = ld_ptr.u32 r6
+    r8 = extend.i64 r7
+    r9 = add.i64 r3, r8
+    ret.i64 r9
+    ret
+
+fn make(3 params, 16 regs) : void
+    r0 = param.ptr Header #0
+    r1 = param.u8 #1
+    r2 = param.u32 #2
+    r4 = addr_local.Header r3
+    r5 = move.u8 r1
+    str_ptr.u8 r4, r5
+    r6 = const.i64 1
+    r7 = add.i64 r4, r6
+    r8 = move.u32 r2
+    str_ptr.u32 r7, r8
+    r9 = addr_local.Header r3
+    r10 = ld_ptr.u8 r9
+    str_ptr.u8 r0, r10
+    r11 = const.i64 1
+    r12 = add.i64 r9, r11
+    r13 = ld_ptr.u32 r12
+    r14 = const.i64 1
+    r15 = add.i64 r0, r14
+    str_ptr.u32 r15, r13
+    ret
+    ret
+
+fn main(0 params, 197 regs) : i64
+    r1 = addr_local.Header r0
+    r2 = const.u32 573785095
+    str_ptr.u32 r1, r2
+    r3 = const.i64 4
+    r4 = add.i64 r1, r3
+    r5 = const.u8 17
+    str_ptr.u8 r4, r5
+    r7 = addr_local.Header r6
+    r8 = const.u8 1
+    r9 = const.u32 2
+    arg r7 #0
+    arg r8 #1
+    arg r9 #2
+    call make
+    r10 = addr_local.Header r0
+    r12 = addr_local.Bitmix r11
+    r13 = const.u8 1
+    str_ptr.u8 r12, r13
+    r14 = const.i64 1
+    r15 = add.i64 r12, r14
+    r16 = const.u32 5
+    r17 = ld_ptr.u32 r15
+    r18 = const.u32 7
+    r19 = and.u32 r16, r18
+    r20 = const.u32 18446744073709551608
+    r21 = and.u32 r17, r20
+    r22 = or.u32 r21, r19
+    str_ptr.u32 r15, r22
+    r23 = const.u32 7
+    r24 = and.u32 r22, r23
+    r25 = const.i64 1
+    r26 = add.i64 r12, r25
+    r27 = const.u32 1023
+    r28 = ld_ptr.u32 r26
+    r29 = const.u32 536870911
+    r30 = and.u32 r27, r29
+    r31 = const.u32 3
+    r32 = lshift.u32 r30, r31
+    r33 = const.u32 18446744069414584327
+    r34 = and.u32 r28, r33
+    r35 = or.u32 r34, r32
+    str_ptr.u32 r26, r35
+    r36 = const.u32 3
+    r37 = rshift.u32 r35, r36
+    r38 = const.u32 536870911
+    r39 = and.u32 r37, r38
+    r40 = const.i64 5
+    r41 = add.i64 r12, r40
+    r42 = const.u8 2
+    str_ptr.u8 r41, r42
+    r43 = const.i64 6
+    r44 = add.i64 r12, r43
+    r45 = const.u16 4095
+    r46 = ld_ptr.u16 r44
+    r47 = const.u16 4095
+    r48 = and.u16 r45, r47
+    r49 = const.u16 18446744073709547520
+    r50 = and.u16 r46, r49
+    r51 = or.u16 r50, r48
+    str_ptr.u16 r44, r51
+    r52 = const.u16 4095
+    r53 = and.u16 r51, r52
+    r54 = const.i64 6
+    r55 = add.i64 r12, r54
+    r56 = const.u16 9
+    r57 = ld_ptr.u16 r55
+    r58 = const.u16 15
+    r59 = and.u16 r56, r58
+    r60 = const.u16 12
+    r61 = lshift.u16 r59, r60
+    r62 = const.u16 18446744073709490175
+    r63 = and.u16 r57, r62
+    r64 = or.u16 r63, r61
+    str_ptr.u16 r55, r64
+    r65 = const.u16 12
+    r66 = rshift.u16 r64, r65
+    r67 = const.u16 15
+    r68 = and.u16 r66, r67
+    r70 = addr_local.Holder r69
+    r71 = const.u8 9
+    str_ptr.u8 r70, r71
+    r72 = const.i64 1
+    r73 = add.i64 r70, r72
+    r74 = const.u32 66051
+    str_ptr.u32 r73, r74
+    r75 = const.i64 5
+    r76 = add.i64 r70, r75
+    r77 = const.u8 4
+    str_ptr.u8 r76, r77
+    r79 = addr_local.Header[2] r78
+    r80 = const.i64 0
+    r81 = const.i64 5
+    r82 = mul.i64 r80, r81
+    r83 = add.i64 r79, r82
+    r84 = addr_local.Header r6
+    r85 = ld_ptr.u8 r84
+    str_ptr.u8 r83, r85
+    r86 = const.i64 1
+    r87 = add.i64 r84, r86
+    r88 = ld_ptr.u32 r87
+    r89 = const.i64 1
+    r90 = add.i64 r83, r89
+    str_ptr.u32 r90, r88
+    r91 = addr_local.Header[2] r78
+    r92 = const.i64 1
+    r93 = const.i64 5
+    r94 = mul.i64 r92, r93
+    r95 = add.i64 r91, r94
+    r96 = addr_local.Header r0
+    r97 = ld_ptr.u8 r96
+    str_ptr.u8 r95, r97
+    r98 = const.i64 1
+    r99 = add.i64 r96, r98
+    r100 = ld_ptr.u32 r99
+    r101 = const.i64 1
+    r102 = add.i64 r95, r101
+    str_ptr.u32 r102, r100
+    r103 = move.ptr Header r10
+    r104 = const.i64 1
+    r105 = add.i64 r103, r104
+    r106 = const.u32 66051
+    str_ptr.u32 r105, r106
+    r107 = addr_local.Bitmix r11
+    r108 = const.i64 1
+    r109 = add.i64 r107, r108
+    r110 = const.u32 3
+    r111 = ld_ptr.u32 r109
+    r112 = const.u32 7
+    r113 = and.u32 r110, r112
+    r114 = const.u32 18446744073709551608
+    r115 = and.u32 r111, r114
+    r116 = or.u32 r115, r113
+    str_ptr.u32 r109, r116
+    r117 = const.u32 7
+    r118 = and.u32 r116, r117
+    r119 = addr_local.Bitmix r11
+    r120 = const.i64 6
+    r121 = add.i64 r119, r120
+    r122 = ld_ptr.u16 r121
+    r123 = const.u16 4095
+    r124 = and.u16 r122, r123
+    r125 = const.u16 1
+    r126 = add.u16 r124, r125
+    r127 = ld_ptr.u16 r121
+    r128 = const.u16 4095
+    r129 = and.u16 r126, r128
+    r130 = const.u16 18446744073709547520
+    r131 = and.u16 r127, r130
+    r132 = or.u16 r131, r129
+    str_ptr.u16 r121, r132
+    r133 = const.u16 4095
+    r134 = and.u16 r132, r133
+    r135 = addr_local.Bitmix r11
+    r136 = ld_ptr.u8 r135
+    r137 = const.u8 1
+    r138 = add.u8 r136, r137
+    str_ptr.u8 r135, r138
+    r139 = addr_local.Header[2] r78
+    r140 = const.i64 0
+    r141 = const.i64 5
+    r142 = mul.i64 r140, r141
+    r143 = add.i64 r139, r142
+    r144 = ld_ptr.u8 r143
+    r145 = extend.i64 r144
+    r146 = const.i64 1
+    r147 = ne.i64 r145, r146
+    jz r147 -> L0
+    r148 = const.i64 1
+    ret.i64 r148
+  L0:
+    r149 = move.ptr Header r10
+    arg r149 #0
+    r150 = call.i64 peek
+    r151 = addr_local.Bitmix r11
+    r152 = const.i64 1
+    r153 = add.i64 r151, r152
+    r154 = ld_ptr.u32 r153
+    r155 = const.u32 7
+    r156 = and.u32 r154, r155
+    r157 = extend.i64 r156
+    r158 = add.i64 r150, r157
+    r159 = addr_local.Bitmix r11
+    r160 = const.i64 1
+    r161 = add.i64 r159, r160
+    r162 = ld_ptr.u32 r161
+    r163 = const.u32 3
+    r164 = rshift.u32 r162, r163
+    r165 = const.u32 536870911
+    r166 = and.u32 r164, r165
+    r167 = extend.i64 r166
+    r168 = add.i64 r158, r167
+    r169 = addr_local.Bitmix r11
+    r170 = const.i64 6
+    r171 = add.i64 r169, r170
+    r172 = ld_ptr.u16 r171
+    r173 = const.u16 4095
+    r174 = and.u16 r172, r173
+    r175 = extend.i64 r174
+    r176 = add.i64 r168, r175
+    r177 = addr_local.Bitmix r11
+    r178 = const.i64 6
+    r179 = add.i64 r177, r178
+    r180 = ld_ptr.u16 r179
+    r181 = const.u16 12
+    r182 = rshift.u16 r180, r181
+    r183 = const.u16 15
+    r184 = and.u16 r182, r183
+    r185 = extend.i64 r184
+    r186 = add.i64 r176, r185
+    r187 = addr_local.Holder r69
+    r188 = ld_ptr.u8 r187
+    r189 = extend.i64 r188
+    r190 = add.i64 r186, r189
+    r191 = addr_local.Holder r69
+    r192 = const.i64 5
+    r193 = add.i64 r191, r192
+    r194 = ld_ptr.u8 r193
+    r195 = extend.i64 r194
+    r196 = add.i64 r190, r195
+    ret.i64 r196
+    ret
+
