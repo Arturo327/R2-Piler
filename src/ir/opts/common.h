@@ -27,6 +27,7 @@ int opt_globals (Optimizer *opt, OptFn *f);
 int opt_dse (Optimizer *opt, OptFn *f);
 int opt_disp (Optimizer *opt, OptFn *f);
 int opt_frame (Optimizer *opt, OptFn *f);
+int opt_fields (Optimizer *opt, OptFn *f);
 void sroa_ir (IR *ir, Arena *a);
 int inline_ir (IR *ir, Arena *arena);
 

@@ -39,21 +39,15 @@ fn main(0 params, 52 regs) : i64
     str_local.i64 r2, r38
     r44 = const.u32 27
     str_local.u32 r2, r44 +8
-    r5 = ld_local.i64 r2
-    r8 = ld_local.u32 r2 +8
     r13 = addr_global.i64[4] @g
     r14 = const.i64 4
     str_local.ptr i64 r11, r13
     str_local.i64 r11, r14 +8
-    r15 = ld_local.u64 r11
-    str_local.u64 r9, r15
-    r18 = ld_local.u64 r11 +8
-    str_local.u64 r9, r18 +8
-    r24 = extend.i64 r8
-    r25 = add.i64 r5, r24
-    r27 = ld_local.ptr i64 r9
-    r32 = ld_ptr.i64 r27 +8
-    r33 = add.i64 r25, r32
+    str_local.u64 r9, r13
+    str_local.u64 r9, r14 +8
+    r25 = const.i64 31
+    r32 = ld_ptr.i64 r13 +8
+    r33 = add.i64 r32, r25
     ret.i64 r33
     ret
 

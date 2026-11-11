@@ -23,6 +23,22 @@ typedef struct CseEntry {
 	TypeId type;
 } CseEntry;
 
+#define OPT_FWD_MAX 32
+
+enum {
+	FWD_PTR = 0,
+	FWD_SLOT,
+	FWD_GLOB
+};
+
+typedef struct FwdEntry {
+	int64_t off;
+	uint32_t base;
+	uint32_t val;
+	TypeId type;
+	uint8_t kind;
+} FwdEntry;
+
 typedef struct OptFn {
 	IRFn *fn;
 	CfgBlock *blocks;
@@ -51,6 +67,9 @@ typedef struct OptFn {
 
 	CseEntry *cse;
 	uint32_t cse_count;
+
+	FwdEntry *fwd;
+	uint32_t fwd_count;
 
 	uint32_t block_count;
 	uint32_t entry_end;

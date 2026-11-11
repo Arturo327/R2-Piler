@@ -17,6 +17,7 @@ static const OptPassDesc passes[] = {
 	{ opt_fold, OPT_BASIC },
 	{ opt_disp, OPT_BASIC },
 	{ opt_frame, OPT_BASIC },
+	{ opt_fields, OPT_BASIC },
 	{ opt_cse, OPT_FULL },
 	{ opt_coalesce, OPT_BASIC },
 	{ opt_dce, OPT_BASIC },
@@ -80,6 +81,8 @@ static void init_caches (OptFn *f, IR *ir, Arena *a, size_t max_regs)
 	f->live_tmp = arena_alloc(a, (((max_regs + 63) >> 6) + 1) * sizeof(uint64_t));
 	f->cse = arena_alloc(a, OPT_CSE_MAX * sizeof(CseEntry));
 	f->cse_count = 0;
+	f->fwd = arena_alloc(a, OPT_FWD_MAX * sizeof(FwdEntry));
+	f->fwd_count = 0;
 }
 
 static void init_opt (Optimizer *opt, IR *ir, Arena *a, OptLevel level)

@@ -9,11 +9,8 @@ fn main(0 params, 26 regs) : i64
     r0 = addr_global.ptr i64 @g
     r6 = const.i64 3
     str_ptr.i64 r0, r6
-    r17 = ld_ptr.i64 r0
-    r18 = const.i64 4
-    r19 = add.i64 r17, r18
+    r19 = const.i64 7
     str_ptr.i64 r0, r19 +8
-    r25 = ld_ptr.i64 r0 +8
-    ret.i64 r25
+    ret.i64 r19
     ret
 
