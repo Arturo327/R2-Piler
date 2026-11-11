@@ -129,6 +129,7 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select)
 	ir->label_count = 0;
 	ir->use_select = use_select;
 	ir->no_tail = 0;
+	ir->scalarize = 0;
 	ir->sret = NO_REG;
 	ir->nrvo = NO_SYMBOL;
 	ir->ret_node = NO_NODE;
@@ -423,6 +424,24 @@ uint32_t make_str_lit (IR *ir, ASTNode *n)
 	i.dst = new_reg(ir, n->data_type);
 	i.target = intern_string(ir, n);
 	i.data_type = n->data_type;
+	push_instr(ir, i);
+	return i.dst;
+}
+
+uint32_t make_blob (IR *ir, const uint8_t *data, uint32_t len)
+{
+	IRInstr i = blank_instr;
+	IRString string;
+
+	string.data = arena_alloc(ir->arena, (size_t)len + 1);
+	memcpy(string.data, data, len);
+	string.data[len] = '\0';
+	string.len = len;
+
+	i.op = IR_STR_LIT;
+	i.dst = new_reg(ir, type_ptr_to(TYPE_u8));
+	i.target = push_string(ir, string);
+	i.data_type = ir->reg_types[i.dst];
 	push_instr(ir, i);
 	return i.dst;
 }

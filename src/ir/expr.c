@@ -364,7 +364,7 @@ static void gen_copy_fields (IR *ir, uint32_t dst, uint32_t src, TypeId type, ui
 	}
 }
 
-static void gen_copy (IR *ir, uint32_t dst, uint32_t src, TypeId type)
+void gen_copy (IR *ir, uint32_t dst, uint32_t src, TypeId type)
 {
 	uint32_t size = types[type].size;
 	uint32_t off = 0;
@@ -445,11 +445,17 @@ uint32_t gen_slice_desc (IR *ir, uint32_t dst, ASTNode *val, TypeId type)
 
 static void gen_struct_init (IR *ir, uint32_t base, ASTNode *init, TypeId type)
 {
+	int fused = fuse_struct_init(ir, base, init, type);
 	uint32_t item = init->child;
 
 	while (item != NO_NODE) {
 		ASTNode *fi = ir->ast->nodes + item;
 		const StructField *f = find_field(type, fi->str, fi->len);
+
+		if (fused && const_tree(ir, fi->child)) {
+			item = fi->next_bro;
+			continue;
+		}
 		uint32_t at = add_offset(ir, base, f->offset);
 
 		if (type_kind(f->type) == TK_STRUCT)

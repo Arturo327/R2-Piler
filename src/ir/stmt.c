@@ -36,9 +36,11 @@ void gen_var_dec (IR *ir, ASTNode *n)
 		s->ir_id = reg;
 		ir->addressed[reg] = 1;
 		ir->no_tail = 1;
-		if (n->child != NO_NODE)
-			gen_struct_into(ir, local_storage_addr(ir, s, s->type),
-					n->child, s->type, 1);
+		if (n->child != NO_NODE) {
+			ir->scalarize = !s->escaped;
+			gen_struct_into(ir, local_storage_addr(ir, s, s->type), n->child, s->type, 1);
+			ir->scalarize = 0;
+		}
 		return;
 	}
 	if (type_kind(s->type) == TK_ARRAY) {

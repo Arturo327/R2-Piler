@@ -1,13 +1,9 @@
 global g : Point
 
-fn __r2_init(0 params, 5 regs) : void
+fn __r2_init(0 params, 2 regs) : void
     r0 = addr_global.Point @g
-    r1 = const.i32 5
-    str_ptr.i32 r0, r1
-    r2 = const.i64 4
-    r3 = add.i64 r0, r2
-    r4 = const.i32 6
-    str_ptr.i32 r3, r4
+    r1 = const.u64 25769803781
+    str_ptr.u64 r0, r1
     ret
 
 fn make(2 params, 17 regs) : void
