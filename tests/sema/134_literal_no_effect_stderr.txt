@@ -1,0 +1,6 @@
+tests/sema/134_literal_no_effect_src.r2:15:12: WARNING: expression has no effect; its result is discarded
+     15 |         ({.x = 3} as P);
+        |                   ^~
+tests/sema/134_literal_no_effect_src.r2:16:6: WARNING: expression has no effect; its result is discarded
+     16 |         ({} as P);
+        |             ^~

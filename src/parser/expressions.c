@@ -163,6 +163,10 @@ static uint32_t parse_primary_inner (Parser *p)
 		return parse_unary(p);
 	case TOK_SIZEOF:
 		return parse_sizeof(p);
+	case TOK_ALIGNOF:
+		return parse_alignof(p);
+	case TOK_OFFSETOF:
+		return parse_offsetof(p);
 	case TOK_LKEY:
 		return parse_brace_init(p);
 	case TOK_LPAREN:

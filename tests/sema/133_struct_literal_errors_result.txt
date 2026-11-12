@@ -1,0 +1,12 @@
+struct P [1:8] depth=0 size=8 align=4
+  field x type=i32 offset=0
+  field y type=i32 offset=4
+fn naked [6:4] depth=0 type=P
+fn main [10:4] depth=0 type=i64
+var a [11:6] depth=1 type=P
+var b [12:6] depth=1 type=P
+var g [13:6] depth=1 type=P
+var c [14:6] depth=1 type=i64
+var d [15:6] depth=1 type=i64
+var e [16:6] depth=1 type=P
+var f [17:6] depth=1 type=P

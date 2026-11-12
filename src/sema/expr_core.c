@@ -26,6 +26,8 @@ static TypeId check_expr_node (Sema *s, uint32_t idx)
 	case NODE_INDEX: return check_index(s, idx);
 	case NODE_ADDR: return check_addr(s, idx);
 	case NODE_SIZEOF: return check_sizeof(s, idx);
+	case NODE_ALIGNOF: return check_alignof(s, idx);
+	case NODE_OFFSETOF: return check_offsetof(s, idx);
 	case NODE_DOT: return check_dot(s, idx);
 	case NODE_FN_CALL: return check_fn_call(s, idx);
 	case NODE_ASSIGN: return check_assign(s, idx);
@@ -73,12 +75,9 @@ TypeId check_expr (Sema *s, uint32_t idx)
 
 int expr_has_effect (Sema *s, uint32_t idx)
 {
-	ASTNode *n;
-	uint32_t child;
-
 	if (idx == NO_NODE) return 0;
-	n = s->ast->nodes + idx;
-	child = n->child;
+	ASTNode *n = s->ast->nodes + idx;
+	uint32_t child = n->child;
 
 	switch (n->type)
 	{
@@ -91,6 +90,8 @@ int expr_has_effect (Sema *s, uint32_t idx)
 	case NODE_NEG: case NODE_NOT_L: case NODE_NOT_A:
 	case NODE_SIZEOF: case NODE_CAST:
 		return expr_has_effect(s, child);
+	case NODE_ALIGNOF: case NODE_OFFSETOF:
+		return 0;
 	case NODE_INDEX:
 		return expr_has_effect(s, child)
 				|| expr_has_effect(s, s->ast->nodes[child].next_bro);

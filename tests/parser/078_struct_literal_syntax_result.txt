@@ -1,0 +1,108 @@
+NODE_ROOT [0:0]
+  NODE_STRUCT_DEC [1:8] name="P"
+    NODE_FIELD_DEC [2:2] name="x" type=i32
+    NODE_FIELD_DEC [3:2] name="y" type=i32
+  NODE_STRUCT_DEC [6:8] name="Q"
+    NODE_FIELD_DEC [7:2] name="p" type=P
+    NODE_FIELD_DEC [8:2] name="n" type=i32
+  NODE_FN_DEC [11:4] name="sum"
+    NODE_ARGS_DEC [11:8]
+      NODE_VAR_DEC [11:9] name="v" type=P
+    NODE_RET_DEC [11:16] type=i64
+    NODE_BLOCK [11:22]
+      NODE_RET [12:2]
+        NODE_CAST [12:13] type=i64
+          NODE_DOT [12:10] field="x"
+            NODE_ID [12:9] str="v"
+  NODE_FN_DEC [15:4] name="make"
+    NODE_ARGS_DEC [15:9]
+    NODE_RET_DEC [15:12] type=P
+    NODE_BLOCK [15:16]
+      NODE_RET [16:2]
+        NODE_CAST [16:26] literal type=P
+          NODE_STRUCT_INIT [16:9]
+            NODE_FIELD_INIT [16:11] field="x"
+              NODE_LIT_i64 [16:15] i64=1
+            NODE_FIELD_INIT [16:19] field="y"
+              NODE_LIT_i64 [16:23] i64=2
+  NODE_FN_DEC [19:4] name="main"
+    NODE_ARGS_DEC [19:9]
+    NODE_RET_DEC [19:12] type=i64
+    NODE_BLOCK [19:18]
+      NODE_VAR_DEC [20:6] name="a" type=P
+        NODE_STRUCT_INIT [20:14]
+          NODE_FIELD_INIT [20:16] field="x"
+            NODE_LIT_i64 [20:20] i64=1
+      NODE_VAR_DEC [21:6] name="b" type=P
+        NODE_CAST [21:23] literal type=P
+          NODE_STRUCT_INIT [21:14]
+            NODE_FIELD_INIT [21:16] field="y"
+              NODE_LIT_i64 [21:20] i64=2
+      NODE_VAR_DEC [22:6] name="c" type=P
+        NODE_CAST [22:17] literal type=P
+          NODE_ARRAY_INIT [22:14]
+      NODE_VAR_DEC [23:6] name="d" type=Q
+        NODE_STRUCT_INIT [23:14]
+          NODE_FIELD_INIT [23:16] field="p"
+            NODE_CAST [23:29] literal type=P
+              NODE_STRUCT_INIT [23:20]
+                NODE_FIELD_INIT [23:22] field="x"
+                  NODE_LIT_i64 [23:26] i64=3
+          NODE_FIELD_INIT [23:36] field="n"
+            NODE_LIT_i64 [23:40] i64=4
+      NODE_VAR_DEC [24:6] name="e" type=i64
+        NODE_FN_CALL [24:16] name="sum"
+          NODE_CAST [24:29] literal type=P
+            NODE_STRUCT_INIT [24:20]
+              NODE_FIELD_INIT [24:22] field="x"
+                NODE_LIT_i64 [24:26] i64=5
+      NODE_VAR_DEC [25:6] name="f" type=i64
+        NODE_CAST [25:34] type=i64
+          NODE_DOT [25:31] field="x"
+            NODE_CAST [25:26] literal type=P
+              NODE_STRUCT_INIT [25:17]
+                NODE_FIELD_INIT [25:19] field="x"
+                  NODE_LIT_i64 [25:23] i64=6
+      NODE_ARR_DEC [26:6] name="g" type=P[2]
+        NODE_ARRAY_INIT [26:17]
+          NODE_CAST [26:27] literal type=P
+            NODE_STRUCT_INIT [26:18]
+              NODE_FIELD_INIT [26:20] field="x"
+                NODE_LIT_i64 [26:24] i64=7
+          NODE_STRUCT_INIT [26:33]
+            NODE_FIELD_INIT [26:35] field="y"
+              NODE_LIT_i64 [26:39] i64=8
+      NODE_ASSIGN [28:4]
+        NODE_ID [28:2] str="a"
+        NODE_CAST [28:24] literal type=P
+          NODE_STRUCT_INIT [28:6]
+            NODE_FIELD_INIT [28:8] field="x"
+              NODE_LIT_i64 [28:12] i64=9
+            NODE_FIELD_INIT [28:16] field="y"
+              NODE_LIT_i64 [28:20] i64=10
+      NODE_RET [29:2]
+        NODE_ADD [30:4]
+          NODE_ADD [29:63]
+            NODE_ADD [29:59]
+              NODE_ADD [29:46]
+                NODE_ADD [29:33]
+                  NODE_ADD [29:20]
+                    NODE_CAST [29:13] type=i64
+                      NODE_DOT [29:10] field="x"
+                        NODE_ID [29:9] str="a"
+                    NODE_CAST [29:26] type=i64
+                      NODE_DOT [29:23] field="x"
+                        NODE_ID [29:22] str="b"
+                  NODE_CAST [29:39] type=i64
+                    NODE_DOT [29:36] field="y"
+                      NODE_ID [29:35] str="c"
+                NODE_CAST [29:52] type=i64
+                  NODE_DOT [29:49] field="n"
+                    NODE_ID [29:48] str="d"
+              NODE_ID [29:61] str="e"
+            NODE_ID [29:65] str="f"
+          NODE_CAST [30:13] type=i64
+            NODE_DOT [30:10] field="x"
+              NODE_INDEX [30:7]
+                NODE_ID [30:6] str="g"
+                NODE_LIT_i64 [30:8] i64=0

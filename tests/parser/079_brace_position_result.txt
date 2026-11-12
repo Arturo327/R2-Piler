@@ -1,0 +1,56 @@
+NODE_ROOT [0:0]
+  NODE_STRUCT_DEC [1:8] name="P"
+    NODE_FIELD_DEC [2:2] name="x" type=i32
+  NODE_FN_DEC [5:4] name="use"
+    NODE_ARGS_DEC [5:8]
+      NODE_VAR_DEC [5:9] name="p" type=P
+    NODE_RET_DEC [5:16] type=i64
+    NODE_BLOCK [5:22]
+      NODE_RET [6:2]
+        NODE_CAST [6:13] type=i64
+          NODE_DOT [6:10] field="x"
+            NODE_ID [6:9] str="p"
+  NODE_FN_DEC [9:4] name="main"
+    NODE_ARGS_DEC [9:9]
+    NODE_RET_DEC [9:12] type=i64
+    NODE_BLOCK [9:18]
+      NODE_VAR_DEC [10:6] name="n" type=i64
+        NODE_LIT_i64 [10:16] i64=0
+      NODE_IF [12:2]
+        NODE_EQ [12:8]
+          NODE_ID [12:6] str="n"
+          NODE_LIT_i64 [12:11] i64=0
+        NODE_BLOCK [12:14]
+          NODE_ASSIGN [13:5]
+            NODE_ID [13:3] str="n"
+            NODE_LIT_i64 [13:7] i64=1
+      NODE_WHILE [15:2]
+        NODE_LT [15:11]
+          NODE_ID [15:9] str="n"
+          NODE_LIT_i64 [15:13] i64=2
+        NODE_BLOCK [15:16]
+          NODE_ADD_ASSIGN [16:5]
+            NODE_ID [16:3] str="n"
+            NODE_LIT_i64 [16:8] i64=1
+      NODE_BLOCK [18:2]
+        NODE_ADD_ASSIGN [19:5]
+          NODE_ID [19:3] str="n"
+          NODE_FN_CALL [19:8] name="use"
+            NODE_CAST [19:21] literal type=P
+              NODE_STRUCT_INIT [19:12]
+                NODE_FIELD_INIT [19:14] field="x"
+                  NODE_LIT_i64 [19:18] i64=3
+      NODE_IF [21:2]
+        NODE_EQ [21:25]
+          NODE_FN_CALL [21:6] name="use"
+            NODE_CAST [21:19] literal type=P
+              NODE_STRUCT_INIT [21:10]
+                NODE_FIELD_INIT [21:12] field="x"
+                  NODE_LIT_i64 [21:16] i64=4
+          NODE_LIT_i64 [21:28] i64=4
+        NODE_BLOCK [21:31]
+          NODE_ADD_ASSIGN [22:5]
+            NODE_ID [22:3] str="n"
+            NODE_LIT_i64 [22:8] i64=1
+      NODE_RET [24:2]
+        NODE_ID [24:9] str="n"

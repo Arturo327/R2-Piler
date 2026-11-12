@@ -1,0 +1,26 @@
+struct Inner [1:8] depth=0 size=8 align=4
+  field a type=u8 offset=0
+  field b type=u32 offset=4
+struct Outer [6:8] depth=0 size=20 align=4
+  field c type=i8 offset=0
+  field inner type=Inner offset=4
+  field v type=u16[3] offset=12
+union U [12:7] depth=0 size=8 align=8
+  field x type=i32 offset=0
+  field y type=i64 offset=0
+struct Pk [17:15] depth=0 size=5 align=1 packed
+  field a type=u8 offset=0
+  field b type=u32 offset=1
+type Alias [22:6] depth=0 type=Alias base=Outer
+struct Bits [24:8] depth=0 size=4 align=2
+  field lo type=u8 offset=0 bits=3 bit_off=0
+  field hi type=u8 offset=0 bits=5 bit_off=3
+  field k type=i16 offset=2
+var g_off [30:5] depth=0 type=i64
+var g_align [31:5] depth=0 type=i64
+fn main [33:4] depth=0 type=i64
+var o [34:6] depth=1 type=Outer
+var u [35:6] depth=1 type=U
+var pk [36:6] depth=1 type=Pk
+var bl [37:6] depth=1 type=Bits
+static var s [38:13] depth=1 type=i64

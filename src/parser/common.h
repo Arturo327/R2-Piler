@@ -18,6 +18,8 @@ uint32_t parse_postfix (Parser *p, uint32_t node);
 
 TypeId parse_type (Parser *p, int allow_void, uint32_t owner, uint16_t *type_node);
 uint32_t parse_sizeof (Parser *p);
+uint32_t parse_alignof (Parser *p);
+uint32_t parse_offsetof (Parser *p);
 
 uint32_t parse_statement (Parser *p);
 uint32_t parse_block (Parser *p);

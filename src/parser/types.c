@@ -218,3 +218,64 @@ uint32_t parse_sizeof (Parser *p)
 	consume(p, TOK_RPAREN, "expected ')' after sizeof");
 	return node;
 }
+
+uint32_t parse_alignof (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+
+	advance(p);
+	uint32_t node = new_node(p, NODE_ALIGNOF, line, col);
+	consume(p, TOK_LPAREN, "expected '(' after alignof");
+
+	if (is_type_token(p->curr.type)) {
+		uint16_t type_node;
+		TypeId type = parse_type(p, 1, node, &type_node);
+		p->ast.nodes[node].data_type = type;
+		p->ast.nodes[node].type_node = type_node;
+	} else {
+		uint32_t child = parse_expr(p, 0);
+		p->ast.nodes[node].child = child;
+	}
+
+	consume(p, TOK_RPAREN, "expected ')' after alignof");
+	return node;
+}
+
+uint32_t parse_offsetof (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+
+	advance(p);
+	uint32_t node = new_node(p, NODE_OFFSETOF, line, col);
+	consume(p, TOK_LPAREN, "expected '(' after offsetof");
+
+	uint16_t type_node;
+	TypeId type = parse_type(p, 1, node, &type_node);
+	p->ast.nodes[node].data_type = type;
+	p->ast.nodes[node].type_node = type_node;
+
+	consume(p, TOK_COMMA, "expected ',' after the type in offsetof");
+
+	uint32_t seg = new_node(p, NODE_FIELD_INIT, p->curr.line, p->curr.col);
+	if (consume(p, TOK_ID, "expected a field name")) {
+		p->ast.nodes[seg].str = p->prev.str;
+		p->ast.nodes[seg].len = p->prev.len;
+	}
+	p->ast.nodes[node].child = seg;
+
+	while (p->curr.type == TOK_DOT) {
+		advance(p);
+		uint32_t next = new_node(p, NODE_FIELD_INIT, p->curr.line, p->curr.col);
+		if (consume(p, TOK_ID, "expected a field name after '.'")) {
+			p->ast.nodes[next].str = p->prev.str;
+			p->ast.nodes[next].len = p->prev.len;
+		}
+		p->ast.nodes[seg].next_bro = next;
+		seg = next;
+	}
+
+	consume(p, TOK_RPAREN, "expected ')' after offsetof");
+	return node;
+}

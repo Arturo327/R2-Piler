@@ -1,0 +1,27 @@
+struct P [1:8] depth=0 size=24 align=8
+  field x type=u8 offset=0 bits=3 bit_off=0
+  field y type=i32 offset=4
+  field z type=ptr i32 offset=8
+  field w type=i32[2] offset=16
+struct Bad [8:8] depth=0 size=0 align=1
+fn side [13:4] depth=0 type=i32
+fn nothing [17:4] depth=0 type=void
+fn main [20:4] depth=0 type=i64
+var p [21:6] depth=1 type=P
+var v [22:6] depth=1 type=i32
+var a [23:6] depth=1 type=i64
+var b [24:6] depth=1 type=i64
+var c [25:6] depth=1 type=i64
+var d [26:6] depth=1 type=i64
+var e [27:6] depth=1 type=i64
+var f [28:6] depth=1 type=i64
+var g [29:6] depth=1 type=i64
+var h [30:6] depth=1 type=i64
+var i [31:6] depth=1 type=i64
+var j [32:6] depth=1 type=i64
+var k [33:6] depth=1 type=i64
+var l [34:6] depth=1 type=i64
+var m [35:6] depth=1 type=i64
+var n [36:6] depth=1 type=i64
+var o [37:6] depth=1 type=i64
+var q [38:6] depth=1 type=i64

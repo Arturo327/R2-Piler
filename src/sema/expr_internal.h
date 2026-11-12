@@ -29,6 +29,8 @@ TypeId check_deref (Sema *s, uint32_t idx);
 TypeId check_index (Sema *s, uint32_t idx);
 TypeId check_addr (Sema *s, uint32_t idx);
 TypeId check_sizeof (Sema *s, uint32_t idx);
+TypeId check_alignof (Sema *s, uint32_t idx);
+TypeId check_offsetof (Sema *s, uint32_t idx);
 TypeId check_dot (Sema *s, uint32_t idx);
 TypeId check_fn_call (Sema *s, uint32_t idx);
 

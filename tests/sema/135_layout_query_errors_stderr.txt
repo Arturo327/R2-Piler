@@ -1,0 +1,51 @@
+tests/sema/135_layout_query_errors_src.r2:10:2: ERROR: duplicate field 'a'
+     10 |         a : i32;
+        |         ^
+tests/sema/135_layout_query_errors_src.r2:23:16: ERROR: alignof cannot be applied to type void
+     23 |         var a : i64 = alignof(void);
+        |                       ^
+tests/sema/135_layout_query_errors_src.r2:24:24: ERROR: operand of alignof must be a variable, dereference, index, string literal or type
+     24 |         var b : i64 = alignof(nothing());
+        |                               ^~~~~~~
+tests/sema/135_layout_query_errors_src.r2:25:24: ERROR: operand of alignof cannot be a function
+     25 |         var c : i64 = alignof(side);
+        |                               ^~~~
+tests/sema/135_layout_query_errors_src.r2:26:26: ERROR: operand of alignof must be a variable, dereference, index, string literal or type
+     26 |         var d : i64 = alignof(1 + 2);
+        |                                 ^
+tests/sema/135_layout_query_errors_src.r2:27:24: ERROR: 'nope' is not declared
+     27 |         var e : i64 = alignof(nope);
+        |                               ^~~~
+tests/sema/135_layout_query_errors_src.r2:28:25: ERROR: operand of alignof must be a variable, dereference, index, string literal or type
+     28 |         var f : i64 = alignof(v.x);
+        |                                ^
+tests/sema/135_layout_query_errors_src.r2:29:24: ERROR: 'NoSuchType' is not declared
+     29 |         var g : i64 = alignof(NoSuchType);
+        |                               ^~~~~~~~~~
+tests/sema/135_layout_query_errors_src.r2:30:16: ERROR: type 'Bad' is incomplete
+     30 |         var h : i64 = alignof(Bad);
+        |                       ^
+tests/sema/135_layout_query_errors_src.r2:31:16: ERROR: type 'Bad' is incomplete
+     31 |         var i : i64 = offsetof(Bad, a);
+        |                       ^
+tests/sema/135_layout_query_errors_src.r2:32:16: ERROR: offsetof requires a struct or union type, not 'i32'
+     32 |         var j : i64 = offsetof(i32, x);
+        |                       ^
+tests/sema/135_layout_query_errors_src.r2:33:16: ERROR: offsetof requires a struct or union type, not 'ptr P'
+     33 |         var k : i64 = offsetof(ptr P, x);
+        |                       ^
+tests/sema/135_layout_query_errors_src.r2:34:16: ERROR: offsetof requires a struct or union type, not 'void'
+     34 |         var l : i64 = offsetof(void, x);
+        |                       ^
+tests/sema/135_layout_query_errors_src.r2:35:28: ERROR: struct 'P' has no field 'nope'
+     35 |         var m : i64 = offsetof(P, nope);
+        |                                   ^~~~
+tests/sema/135_layout_query_errors_src.r2:36:28: ERROR: offsetof cannot be applied to bitfield 'x'
+     36 |         var n : i64 = offsetof(P, x);
+        |                                   ^
+tests/sema/135_layout_query_errors_src.r2:37:28: ERROR: offsetof cannot traverse field 'w' of type i32[2]
+     37 |         var o : i64 = offsetof(P, w.x);
+        |                                   ^
+tests/sema/135_layout_query_errors_src.r2:38:28: ERROR: offsetof cannot traverse field 'z' of type ptr i32
+     38 |         var q : i64 = offsetof(P, z.x);
+        |                                   ^

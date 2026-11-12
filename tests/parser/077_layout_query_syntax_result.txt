@@ -1,0 +1,57 @@
+NODE_ROOT [0:0]
+  NODE_STRUCT_DEC [1:8] name="Inner"
+    NODE_FIELD_DEC [2:2] name="a" type=u8
+    NODE_FIELD_DEC [3:2] name="b" type=u32
+  NODE_STRUCT_DEC [6:8] name="Outer"
+    NODE_FIELD_DEC [7:2] name="c" type=i8
+    NODE_FIELD_DEC [8:2] name="inner" type=Inner
+    NODE_FIELD_DEC [9:2] name="v" type=u16[3]
+  NODE_STRUCT_DEC [12:7] name="U" union
+    NODE_FIELD_DEC [13:2] name="x" type=i32
+    NODE_FIELD_DEC [14:2] name="y" type=i64
+  NODE_TYPE_DEC [17:6] name="Alias" type=Outer
+  NODE_FN_DEC [19:4] name="main"
+    NODE_ARGS_DEC [19:9]
+    NODE_RET_DEC [19:12] type=i64
+    NODE_BLOCK [19:18]
+      NODE_VAR_DEC [20:6] name="n" type=i64
+        NODE_ALIGNOF [20:16]
+          NODE_ID [20:24] str="Outer"
+      NODE_VAR_DEC [21:6] name="m" type=i64
+        NODE_ALIGNOF [21:16]
+          NODE_ID [21:24] str="n"
+      NODE_VAR_DEC [22:6] name="k" type=i64
+        NODE_ALIGNOF [22:16]
+          NODE_LIT_STR [22:24] str="abc"
+      NODE_VAR_DEC [23:6] name="p" type=i64
+        NODE_OFFSETOF [23:16] type=Outer
+          NODE_FIELD_INIT [23:32] field="c"
+      NODE_VAR_DEC [24:6] name="q" type=i64
+        NODE_OFFSETOF [24:16] type=Outer
+          NODE_FIELD_INIT [24:32] field="inner"
+          NODE_FIELD_INIT [24:38] field="b"
+      NODE_VAR_DEC [25:6] name="r" type=i64
+        NODE_OFFSETOF [25:16] type=Alias
+          NODE_FIELD_INIT [25:32] field="v"
+      NODE_VAR_DEC [26:6] name="s" type=i64
+        NODE_ADD [26:49]
+          NODE_ADD [26:28]
+            NODE_ALIGNOF [26:16] type=u8
+            NODE_OFFSETOF [26:30] type=Inner
+              NODE_FIELD_INIT [26:46] field="b"
+          NODE_SIZEOF [26:51]
+            NODE_ID [26:58] str="U"
+      NODE_RET [28:2]
+        NODE_ADD [28:31]
+          NODE_ADD [28:27]
+            NODE_ADD [28:23]
+              NODE_ADD [28:19]
+                NODE_ADD [28:15]
+                  NODE_ADD [28:11]
+                    NODE_ID [28:9] str="n"
+                    NODE_ID [28:13] str="m"
+                  NODE_ID [28:17] str="k"
+                NODE_ID [28:21] str="p"
+              NODE_ID [28:25] str="q"
+            NODE_ID [28:29] str="r"
+          NODE_ID [28:33] str="s"

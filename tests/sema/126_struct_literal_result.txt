@@ -1,0 +1,22 @@
+struct P [1:8] depth=0 size=8 align=4
+  field x type=i32 offset=0
+  field y type=i32 offset=4
+struct Q [6:8] depth=0 size=12 align=4
+  field p type=P offset=0
+  field n type=i32 offset=8
+fn sum [11:4] depth=0 type=i64
+fn make [15:4] depth=0 type=P
+fn pair [19:4] depth=0 type=P, i64
+fn main [23:4] depth=0 type=i64
+param v [11:9] depth=1 type=P
+var a [24:6] depth=1 type=P
+var b [25:6] depth=1 type=P
+var c [26:6] depth=1 type=P
+var d [27:6] depth=1 type=P
+var e [28:6] depth=1 type=P
+var f [28:13] depth=1 type=i64
+var g [29:6] depth=1 type=Q
+var h [30:6] depth=1 type=i64
+var i [31:6] depth=1 type=i64
+var j [32:6] depth=1 type=P[2]
+var k [33:6] depth=1 type=ptr P

@@ -1,0 +1,78 @@
+global g_off : i64
+global g_align : i64
+
+fn __r2_init(0 params, 2 regs) : void
+    r0 = const.i64 8
+    str_global.i64 r0 @g_off
+    r1 = const.i64 4
+    str_global.i64 r1 @g_align
+    ret
+
+fn main(0 params, 59 regs) : i64
+    r1 = addr_local.Outer r0
+    r2 = const.u64 0
+    str_ptr.u64 r1, r2
+    r3 = const.u64 0
+    r4 = const.i64 8
+    r5 = add.i64 r1, r4
+    str_ptr.u64 r5, r3
+    r6 = const.u32 0
+    r7 = const.i64 16
+    r8 = add.i64 r1, r7
+    str_ptr.u32 r8, r6
+    r10 = addr_local.U r9
+    r11 = const.u64 0
+    str_ptr.u64 r10, r11
+    r13 = addr_local.Bits r12
+    r14 = const.u32 0
+    str_ptr.u32 r13, r14
+    r15 = addr_local.Outer r0
+    r16 = const.i64 4
+    r17 = add.i64 r15, r16
+    r18 = const.i64 4
+    r19 = add.i64 r17, r18
+    r20 = const.u32 1
+    str_ptr.u32 r19, r20
+    r21 = addr_local.U r9
+    r22 = const.i64 2
+    str_ptr.i64 r21, r22
+    r23 = addr_local.Bits r12
+    r24 = const.i64 2
+    r25 = add.i64 r23, r24
+    r26 = const.i16 3
+    str_ptr.i16 r25, r26
+    r27 = addr_local.Outer r0
+    r28 = const.i64 4
+    r29 = add.i64 r27, r28
+    r30 = const.i64 4
+    r31 = add.i64 r29, r30
+    r32 = ld_ptr.u32 r31
+    r33 = extend.i64 r32
+    r34 = addr_local.U r9
+    r35 = ld_ptr.i64 r34
+    r36 = add.i64 r33, r35
+    r37 = addr_local.Bits r12
+    r38 = const.i64 2
+    r39 = add.i64 r37, r38
+    r40 = ld_ptr.i16 r39
+    r41 = extend.i64 r40
+    r42 = add.i64 r36, r41
+    r43 = ld_global.i64 @g_off
+    r44 = add.i64 r42, r43
+    r45 = ld_global.i64 @g_align
+    r46 = add.i64 r44, r45
+    r47 = const.i64 4
+    r48 = add.i64 r46, r47
+    r49 = const.i64 1
+    r50 = add.i64 r48, r49
+    r51 = const.i64 1
+    r52 = add.i64 r50, r51
+    r53 = const.i64 0
+    r54 = add.i64 r52, r53
+    r55 = const.i64 2
+    r56 = add.i64 r54, r55
+    r57 = const.i64 20
+    r58 = add.i64 r56, r57
+    ret.i64 r58
+    ret
+

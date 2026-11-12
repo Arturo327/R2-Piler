@@ -1,0 +1,15 @@
+tests/sema/133_struct_literal_errors_src.r2:7:9: ERROR: a '{...}' literal needs an explicit type; write '{...} as T'
+      7 |         return {.x = 1};
+        |                ^
+tests/sema/133_struct_literal_errors_src.r2:13:14: ERROR: positional '{...}' initializers are not valid for struct 'P'; use '.field = value'
+     13 |         var g : P = {3, 4} as P;
+        |                     ^
+tests/sema/133_struct_literal_errors_src.r2:14:25: ERROR: a '{...}' literal can only be cast to a struct or union type
+     14 |         var c : i64 = {.x = 5} as i64;
+        |                                ^~
+tests/sema/133_struct_literal_errors_src.r2:15:23: ERROR: a '{...}' literal can only be cast to a struct or union type
+     15 |         var d : i64 = {6, 7} as i64;
+        |                              ^~
+tests/sema/133_struct_literal_errors_src.r2:16:23: ERROR: a '{...}' literal can only be cast to a struct or union type
+     16 |         var e : P = {.x = 8} as ptr P;
+        |                              ^~
