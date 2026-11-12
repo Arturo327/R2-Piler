@@ -71,12 +71,36 @@ void gen_array_init (IR *ir, uint32_t base, uint32_t init_idx, TypeId arr, int z
 	}
 }
 
+static uint32_t pooled_temp (IR *ir, TypeId type)
+{
+	TempSlot *t;
+
+	for (uint32_t i = 0; i < ir->temp_count; i++) {
+		t = ir->temps + i;
+		if (t->busy || t->type != type) continue;
+		t->busy = 1;
+		return t->reg;
+	}
+	if (ir->temp_count >= ir->temp_cap) {
+		uint32_t old = ir->temp_cap;
+
+		ir->temp_cap = old ? old << 1 : 8;
+		ir->temps = arena_realloc(ir->arena, ir->temps,
+				old * sizeof(TempSlot), ir->temp_cap * sizeof(TempSlot));
+	}
+	t = ir->temps + ir->temp_count++;
+	t->reg = new_reg(ir, type);
+	t->type = type;
+	t->busy = 1;
+	ir->addressed[t->reg] = 1;
+	return t->reg;
+}
+
 uint32_t new_struct_temp (IR *ir, TypeId type)
 {
-	uint32_t reg = new_reg(ir, type);
+	uint32_t reg = pooled_temp(ir, type);
 	uint32_t dst = new_reg(ir, TYPE_i64);
 
-	ir->addressed[reg] = 1;
 	ir->no_tail = 1;
 	make_addr_local(ir, dst, reg, type);
 	return dst;

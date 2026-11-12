@@ -133,6 +133,9 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select)
 	ir->sret = NO_REG;
 	ir->nrvo = NO_SYMBOL;
 	ir->ret_node = NO_NODE;
+	ir->temps = NULL;
+	ir->temp_count = 0;
+	ir->temp_cap = 0;
 	ir->desc = arena_alloc(arena, sizeof(uint32_t) * (sema->ast->count ? sema->ast->count : 1));
 
 	ir->reg_types = NULL;

@@ -33,7 +33,7 @@ fn pair(1 params, 5 regs) : void
     ret
     ret
 
-fn main(0 params, 90 regs) : i64
+fn main(0 params, 88 regs) : i64
     r1 = addr_local.P r0
     r2 = const.u64 0
     str_ptr.u64 r1, r2
@@ -81,62 +81,62 @@ fn main(0 params, 90 regs) : i64
     r36 = call.i64 sum
     r37 = addr_local.P r0
     r38 = addr_local.P r0
-    r40 = addr_local.P r39
-    r41 = const.u64 34359738375
-    str_ptr.u64 r40, r41
-    r42 = ld_ptr.i32 r40
-    str_ptr.i32 r38, r42
-    r43 = const.i64 4
-    r44 = add.i64 r40, r43
-    r45 = ld_ptr.i32 r44
-    r46 = const.i64 4
-    r47 = add.i64 r38, r46
-    str_ptr.i32 r47, r45
-    r48 = move.ptr P r37
-    r50 = addr_local.P r49
-    r51 = const.u64 0
-    str_ptr.u64 r50, r51
-    r52 = const.i64 4
-    r53 = add.i64 r50, r52
-    r54 = const.u32 9
-    str_ptr.u32 r53, r54
-    r55 = ld_ptr.i32 r50
-    str_ptr.i32 r48, r55
-    r56 = const.i64 4
-    r57 = add.i64 r50, r56
-    r58 = ld_ptr.i32 r57
-    r59 = const.i64 4
-    r60 = add.i64 r48, r59
-    str_ptr.i32 r60, r58
-    r61 = addr_local.P r0
-    r62 = ld_ptr.i32 r61
-    r63 = extend.i64 r62
-    r64 = addr_local.P r4
-    r65 = const.i64 4
-    r66 = add.i64 r64, r65
-    r67 = ld_ptr.i32 r66
-    r68 = extend.i64 r67
-    r69 = add.i64 r63, r68
-    r70 = addr_local.P r10
-    r71 = ld_ptr.i32 r70
-    r72 = extend.i64 r71
-    r73 = add.i64 r69, r72
-    r74 = addr_local.P r14
-    r75 = const.i64 4
-    r76 = add.i64 r74, r75
-    r77 = ld_ptr.i32 r76
-    r78 = extend.i64 r77
-    r79 = add.i64 r73, r78
-    r80 = move.i64 r24
-    r81 = add.i64 r79, r80
-    r82 = addr_local.Q r26
-    r83 = const.i64 8
-    r84 = add.i64 r82, r83
-    r85 = ld_ptr.i32 r84
-    r86 = extend.i64 r85
-    r87 = add.i64 r81, r86
-    r88 = move.i64 r36
-    r89 = add.i64 r87, r88
-    ret.i64 r89
+    r39 = addr_local.P r33
+    r40 = const.u64 34359738375
+    str_ptr.u64 r39, r40
+    r41 = ld_ptr.i32 r39
+    str_ptr.i32 r38, r41
+    r42 = const.i64 4
+    r43 = add.i64 r39, r42
+    r44 = ld_ptr.i32 r43
+    r45 = const.i64 4
+    r46 = add.i64 r38, r45
+    str_ptr.i32 r46, r44
+    r47 = move.ptr P r37
+    r48 = addr_local.P r33
+    r49 = const.u64 0
+    str_ptr.u64 r48, r49
+    r50 = const.i64 4
+    r51 = add.i64 r48, r50
+    r52 = const.u32 9
+    str_ptr.u32 r51, r52
+    r53 = ld_ptr.i32 r48
+    str_ptr.i32 r47, r53
+    r54 = const.i64 4
+    r55 = add.i64 r48, r54
+    r56 = ld_ptr.i32 r55
+    r57 = const.i64 4
+    r58 = add.i64 r47, r57
+    str_ptr.i32 r58, r56
+    r59 = addr_local.P r0
+    r60 = ld_ptr.i32 r59
+    r61 = extend.i64 r60
+    r62 = addr_local.P r4
+    r63 = const.i64 4
+    r64 = add.i64 r62, r63
+    r65 = ld_ptr.i32 r64
+    r66 = extend.i64 r65
+    r67 = add.i64 r61, r66
+    r68 = addr_local.P r10
+    r69 = ld_ptr.i32 r68
+    r70 = extend.i64 r69
+    r71 = add.i64 r67, r70
+    r72 = addr_local.P r14
+    r73 = const.i64 4
+    r74 = add.i64 r72, r73
+    r75 = ld_ptr.i32 r74
+    r76 = extend.i64 r75
+    r77 = add.i64 r71, r76
+    r78 = move.i64 r24
+    r79 = add.i64 r77, r78
+    r80 = addr_local.Q r26
+    r81 = const.i64 8
+    r82 = add.i64 r80, r81
+    r83 = ld_ptr.i32 r82
+    r84 = extend.i64 r83
+    r85 = add.i64 r79, r84
+    r86 = move.i64 r36
+    r87 = add.i64 r85, r86
+    ret.i64 r87
     ret
 

@@ -197,10 +197,11 @@ static void color_all (RegAlloc *ra)
 	color_regs(ra->arena, ra->ir, fn, ra->regs, ra->ctx, &ra->cfg);
 }
 
-static uint32_t lay_size (IRFn *fn, Reg *regs, uint32_t c, uint8_t s, uint32_t block_count)
+static uint32_t lay_size (IRFn *fn, Reg *regs, uint32_t c, uint8_t s, uint32_t block_count, int only_addr)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
 		if (type_is_aggregate(fn->reg_types[r])) continue;
+		if (only_addr && !reg_addressed(fn, r)) continue;
 		if (!is_spilled(regs + r, block_count)) continue;
 		if (types[fn->reg_types[r]].size != s) continue;
 		c += s;
@@ -306,6 +307,7 @@ static void span_link (RegAlloc *ra, SlotMap *sm, uint8_t size)
 	memset(sm->head_hi, 0xFF, fn->count * sizeof(uint32_t));
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
 		if (type_is_aggregate(fn->reg_types[r])) continue;
+		if (reg_addressed(fn, r)) continue;
 		if (!is_spilled(ra->regs + r, ra->ctx->block_count)) continue;
 		if (types[fn->reg_types[r]].size != size) continue;
 		if (sm->lo[r] > sm->hi[r]) {
@@ -336,13 +338,6 @@ static uint32_t span_sweep (RegAlloc *ra, SlotMap *sm, uint32_t c, uint8_t size)
 	return c;
 }
 
-static int share_slots (IRFn *fn)
-{
-	for (uint32_t r = 0; r < fn->reg_count; r++)
-		if (reg_addressed(fn, r)) return 0;
-	return 1;
-}
-
 static uint32_t lay_arrays (RegAlloc *ra)
 {
 	IRFn *fn = ra->fn;
@@ -368,8 +363,12 @@ static void lay_sizes (RegAlloc *ra, int share)
 
 	if (share) slot_spans(ra, &sm);
 	for (int k = 0; k < 4; k++) {
-		if (share) c = span_sweep(ra, &sm, c, sizes[k]);
-		else c = lay_size(ra->fn, ra->regs, c, sizes[k], ra->ctx->block_count);
+		if (!share) {
+			c = lay_size(ra->fn, ra->regs, c, sizes[k], ra->ctx->block_count, 0);
+			continue;
+		}
+		c = lay_size(ra->fn, ra->regs, c, sizes[k], ra->ctx->block_count, 1);
+		c = span_sweep(ra, &sm, c, sizes[k]);
 	}
 }
 
@@ -699,7 +698,7 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, int spill
 	if (!spill_all) mark_remat(&ra);
 	default_homes(fn, regs, ctx->block_count);
 	if (!spill_all) color_all(&ra);
-	lay_sizes(&ra, !spill_all && ra.words && share_slots(fn));
+	lay_sizes(&ra, !spill_all && ra.words);
 
 	resolve(fn, regs, ctx->block_count);
 	if (!spill_all) {

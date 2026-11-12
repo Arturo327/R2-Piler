@@ -33,7 +33,7 @@ fn level(0 params, 1 regs) : ptr i64
     ret.ptr i64 r0
     ret
 
-fn main(0 params, 101 regs) : i64
+fn main(0 params, 97 regs) : i64
     r1 = addr_local.i64[] r0
     r3 = addr_local.i64[] r2
     r4 = addr_global.i64[4] @g
@@ -52,106 +52,106 @@ fn main(0 params, 101 regs) : i64
     str_ptr.u64 r11, r9
     r12 = ld_ptr.ptr i64 r3
     r14 = addr_local.i64[] r13
-    r16 = addr_local.i64[] r15
-    r17 = addr_global.i64[3][2] @m
-    r18 = const.i64 1
-    r19 = const.i64 16
-    r20 = mul.i64 r18, r19
-    r21 = add.i64 r17, r20
-    r22 = const.i64 2
-    arg r16 #0
-    arg r21 #1
-    arg r22 #2
+    r15 = addr_local.i64[] r2
+    r16 = addr_global.i64[3][2] @m
+    r17 = const.i64 1
+    r18 = const.i64 16
+    r19 = mul.i64 r17, r18
+    r20 = add.i64 r16, r19
+    r21 = const.i64 2
+    arg r15 #0
+    arg r20 #1
+    arg r21 #2
     call pick
-    r23 = ld_ptr.u64 r16
-    str_ptr.u64 r14, r23
-    r24 = const.i64 8
-    r25 = add.i64 r16, r24
-    r26 = ld_ptr.u64 r25
-    r27 = const.i64 8
-    r28 = add.i64 r14, r27
-    str_ptr.u64 r28, r26
-    r29 = ld_ptr.ptr i64 r16
-    r31 = addr_local.i64[] r30
-    r32 = addr_global.i64[4] @g
-    r33 = const.i64 4
-    arg r31 #0
-    arg r32 #1
-    arg r33 #2
+    r22 = ld_ptr.u64 r15
+    str_ptr.u64 r14, r22
+    r23 = const.i64 8
+    r24 = add.i64 r15, r23
+    r25 = ld_ptr.u64 r24
+    r26 = const.i64 8
+    r27 = add.i64 r14, r26
+    str_ptr.u64 r27, r25
+    r28 = ld_ptr.ptr i64 r15
+    r29 = addr_local.i64[] r2
+    r30 = addr_global.i64[4] @g
+    r31 = const.i64 4
+    arg r29 #0
+    arg r30 #1
+    arg r31 #2
     call pick
-    r34 = const.i64 8
-    r35 = add.i64 r31, r34
-    r36 = ld_ptr.i64 r35
-    r38 = addr_local.i64[] r37
-    r39 = addr_global.i64[4] @g
-    r40 = const.i64 4
-    arg r38 #0
-    arg r39 #1
-    arg r40 #2
+    r32 = const.i64 8
+    r33 = add.i64 r29, r32
+    r34 = ld_ptr.i64 r33
+    r35 = addr_local.i64[] r2
+    r36 = addr_global.i64[4] @g
+    r37 = const.i64 4
+    arg r35 #0
+    arg r36 #1
+    arg r37 #2
     call pick
-    r41 = ld_ptr.ptr i64 r38
-    r42 = const.i64 1
-    r43 = const.i64 8
-    r44 = mul.i64 r42, r43
-    r45 = add.i64 r41, r44
-    r46 = ld_ptr.i64 r45
-    r48 = addr_local.i64[] r47
-    r50 = addr_local.i64[] r49
-    arg r50 #0
+    r38 = ld_ptr.ptr i64 r35
+    r39 = const.i64 1
+    r40 = const.i64 8
+    r41 = mul.i64 r39, r40
+    r42 = add.i64 r38, r41
+    r43 = ld_ptr.i64 r42
+    r45 = addr_local.i64[] r44
+    r46 = addr_local.i64[] r2
+    arg r46 #0
     call whole
-    r51 = ld_ptr.u64 r50
-    str_ptr.u64 r48, r51
-    r52 = const.i64 8
-    r53 = add.i64 r50, r52
-    r54 = ld_ptr.u64 r53
-    r55 = const.i64 8
-    r56 = add.i64 r48, r55
-    str_ptr.u64 r56, r54
-    r57 = ld_ptr.ptr i64 r50
-    r59 = addr_local.i64[] r58
+    r47 = ld_ptr.u64 r46
+    str_ptr.u64 r45, r47
+    r48 = const.i64 8
+    r49 = add.i64 r46, r48
+    r50 = ld_ptr.u64 r49
+    r51 = const.i64 8
+    r52 = add.i64 r45, r51
+    str_ptr.u64 r52, r50
+    r53 = ld_ptr.ptr i64 r46
+    r55 = addr_local.i64[] r54
+    r56 = call.ptr i64 level
+    str_ptr.ptr i64 r55, r56
+    r57 = const.i64 4
+    r58 = const.i64 8
+    r59 = add.i64 r55, r58
+    str_ptr.i64 r59, r57
     r60 = call.ptr i64 level
-    str_ptr.ptr i64 r59, r60
-    r61 = const.i64 4
+    r61 = const.i64 2
     r62 = const.i64 8
-    r63 = add.i64 r59, r62
-    str_ptr.i64 r63, r61
-    r64 = call.ptr i64 level
-    r65 = const.i64 2
-    r66 = const.i64 8
-    r67 = mul.i64 r65, r66
-    r68 = add.i64 r64, r67
-    r69 = ld_ptr.i64 r68
-    r70 = addr_local.i64[] r0
-    r71 = ld_ptr.ptr i64 r70
-    r72 = const.i64 0
-    r73 = const.i64 8
-    r74 = mul.i64 r72, r73
-    r75 = add.i64 r71, r74
+    r63 = mul.i64 r61, r62
+    r64 = add.i64 r60, r63
+    r65 = ld_ptr.i64 r64
+    r66 = addr_local.i64[] r0
+    r67 = ld_ptr.ptr i64 r66
+    r68 = const.i64 0
+    r69 = const.i64 8
+    r70 = mul.i64 r68, r69
+    r71 = add.i64 r67, r70
+    r72 = ld_ptr.i64 r71
+    r73 = addr_local.i64[] r13
+    r74 = const.i64 8
+    r75 = add.i64 r73, r74
     r76 = ld_ptr.i64 r75
-    r77 = addr_local.i64[] r13
-    r78 = const.i64 8
+    r77 = add.i64 r72, r76
+    r78 = move.i64 r34
     r79 = add.i64 r77, r78
-    r80 = ld_ptr.i64 r79
-    r81 = add.i64 r76, r80
-    r82 = move.i64 r36
-    r83 = add.i64 r81, r82
-    r84 = move.i64 r46
-    r85 = add.i64 r83, r84
-    r86 = addr_local.i64[] r47
-    r87 = const.i64 8
-    r88 = add.i64 r86, r87
-    r89 = ld_ptr.i64 r88
-    r90 = add.i64 r85, r89
-    r91 = addr_local.i64[] r58
-    r92 = ld_ptr.ptr i64 r91
-    r93 = const.i64 1
-    r94 = const.i64 8
-    r95 = mul.i64 r93, r94
-    r96 = add.i64 r92, r95
-    r97 = ld_ptr.i64 r96
-    r98 = add.i64 r90, r97
-    r99 = move.i64 r69
-    r100 = add.i64 r98, r99
-    ret.i64 r100
+    r80 = move.i64 r43
+    r81 = add.i64 r79, r80
+    r82 = addr_local.i64[] r44
+    r83 = const.i64 8
+    r84 = add.i64 r82, r83
+    r85 = ld_ptr.i64 r84
+    r86 = add.i64 r81, r85
+    r87 = addr_local.i64[] r54
+    r88 = ld_ptr.ptr i64 r87
+    r89 = const.i64 1
+    r90 = const.i64 8
+    r91 = mul.i64 r89, r90
+    r92 = add.i64 r88, r91
+    r93 = ld_ptr.i64 r92
+    r94 = add.i64 r86, r93
+    r95 = move.i64 r65
+    r96 = add.i64 r94, r95
+    ret.i64 r96
     ret
 

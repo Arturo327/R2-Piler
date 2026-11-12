@@ -18,7 +18,7 @@ fn split(2 params, 11 regs) : void
     ret
     ret
 
-fn main(0 params, 33 regs) : i64
+fn main(0 params, 31 regs) : i64
     r3 = addr_local.u64[2] r2
     r4 = const.i64 9
     arg r3 #0
@@ -30,34 +30,34 @@ fn main(0 params, 33 regs) : i64
     r7 = add.i64 r3, r6
     r8 = ld_ptr.u32 r7
     r1 = move.u32 r8
-    r10 = addr_local.u64[2] r9
-    r11 = const.i64 7
-    arg r10 #0
-    arg r11 #1
+    r9 = addr_local.u64[2] r2
+    r10 = const.i64 7
+    arg r9 #0
+    arg r10 #1
     call split
-    r13 = ld_ptr.i64 r10
-    r12 = move.i64 r13
-    r14 = const.i64 8
-    r15 = add.i64 r10, r14
-    r17 = ld_ptr.u32 r15
-    r16 = move.u32 r17
-    r19 = addr_local.u64[2] r18
-    r20 = const.i64 5
-    arg r19 #0
-    arg r20 #1
+    r12 = ld_ptr.i64 r9
+    r11 = move.i64 r12
+    r13 = const.i64 8
+    r14 = add.i64 r9, r13
+    r16 = ld_ptr.u32 r14
+    r15 = move.u32 r16
+    r17 = addr_local.u64[2] r2
+    r18 = const.i64 5
+    arg r17 #0
+    arg r18 #1
     call split
-    r21 = ld_ptr.i64 r19
-    r22 = move.i64 r0
-    r23 = move.u32 r1
-    r24 = extend.i64 r23
-    r25 = add.i64 r22, r24
-    r26 = move.i64 r12
-    r27 = add.i64 r25, r26
-    r28 = move.u32 r16
-    r29 = extend.i64 r28
-    r30 = add.i64 r27, r29
-    r31 = move.i64 r21
-    r32 = add.i64 r30, r31
-    ret.i64 r32
+    r19 = ld_ptr.i64 r17
+    r20 = move.i64 r0
+    r21 = move.u32 r1
+    r22 = extend.i64 r21
+    r23 = add.i64 r20, r22
+    r24 = move.i64 r11
+    r25 = add.i64 r23, r24
+    r26 = move.u32 r15
+    r27 = extend.i64 r26
+    r28 = add.i64 r25, r27
+    r29 = move.i64 r19
+    r30 = add.i64 r28, r29
+    ret.i64 r30
     ret
 

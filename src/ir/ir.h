@@ -86,6 +86,12 @@ typedef struct IRString {
 	uint32_t len;
 } IRString;
 
+typedef struct TempSlot {
+	uint32_t reg;
+	TypeId type;
+	uint8_t busy;
+} TempSlot;
+
 typedef struct IR {
 	IRInstr *instrs;
 	uint32_t instr_count;
@@ -128,6 +134,10 @@ typedef struct IR {
 
 	uint32_t *desc;
 	uint32_t ret_node;
+
+	TempSlot *temps;
+	uint32_t temp_count;
+	uint32_t temp_cap;
 
 	Arena *arena;
 	AST *ast;

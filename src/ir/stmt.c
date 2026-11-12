@@ -270,7 +270,7 @@ static void gen_switch (IR *ir, ASTNode *n)
 	make_label(ir, end);
 }
 
-static void gen_stmt (IR *ir, ASTNode *n)
+static void gen_stmt_inner (IR *ir, ASTNode *n)
 {
 	switch (n->type)
 	{
@@ -287,6 +287,13 @@ static void gen_stmt (IR *ir, ASTNode *n)
 	case NODE_EMPTY: return;
 	default: gen_expr(ir, n); return;
 	}
+}
+
+static void gen_stmt (IR *ir, ASTNode *n)
+{
+	gen_stmt_inner(ir, n);
+	for (uint32_t i = 0; i < ir->temp_count; i++)
+		ir->temps[i].busy = 0;
 }
 
 static void gen_block (IR *ir, ASTNode *parent)
@@ -391,6 +398,7 @@ static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
 	ir->addressed = NULL;
 	ir->addressed_cap = 0;
 	ir->no_tail = 0;
+	ir->temp_count = 0;
 	ir->sret = NO_REG;
 	ir->ret_node = ret;
 	memset(ir->desc, 0xFF, sizeof(uint32_t) * ir->ast->count);
@@ -456,6 +464,7 @@ static void gen_init_fn (IR *ir)
 	ir->addressed = NULL;
 	ir->addressed_cap = 0;
 	ir->no_tail = 0;
+	ir->temp_count = 0;
 	ir->sret = NO_REG;
 	ir->ret_node = NO_NODE;
 	memset(ir->desc, 0xFF, sizeof(uint32_t) * ir->ast->count);
