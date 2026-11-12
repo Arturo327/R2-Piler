@@ -35,12 +35,26 @@ struct Bits {
 	k : i16;
 }
 
+struct WithSlice {
+	pre : u8;
+	sl : i32[];
+	post : u16;
+}
+
+fn round_up (v : i64, a : i64) : i64
+{
+	return (v + a - 1) / a * a;
+}
+
 fn main () : i64 {
 	var o : Outer = {};
 	var p : ptr Outer = $o;
 	var st : ptr i8 = "abc";
 	var bl : Bits = {};
 	var c : Cpu = {};
+	var arr32 : i32[4] = {1, 2, 3, 4};
+	var sl32 : i32[] = arr32;
+	var ws : WithSlice = {};
 
 	var t1 : i64 = alignof(i32);
 	var t2 : i64 = alignof(u8);
@@ -104,7 +118,7 @@ fn main () : i64 {
 	if (t10 != 1) return 10;
 	if (t11 != 8) return 11;
 	if (t12 != 8) return 12;
-	if (t13 != 4) return 13;
+	if (t13 != 8) return 13;
 	if (t14 != 4) return 14;
 	if (t15 != 8) return 15;
 	if (t16 != 8) return 16;
@@ -116,8 +130,8 @@ fn main () : i64 {
 	if (t22 != 4) return 22;
 	if (t23 != 5) return 23;
 	if (t24 != 20) return 24;
-	if (t25 != 1) return 25;
-	if (t26 != 4) return 26;
+	if (t25 != 8) return 25;
+	if (t26 != 8) return 26;
 	if (t27 != 16) return 27;
 
 	if (e1 != 0) return 30;
@@ -141,6 +155,55 @@ fn main () : i64 {
 	if (bl.lo != 3) return 52;
 	if (c.tag != 1) return 53;
 	if (@st != 97) return 54;
+
+	// el valor y la forma de tipo dan lo mismo (en variables para no plegar
+	// la condición a una constante y disparar 'condition is always false')
+	sl32[0] = 5;
+	ws.pre = 7;
+	var k1 : i64 = sizeof(sl32);
+	var k2 : i64 = sizeof(i32[]);
+	var k3 : i64 = alignof(sl32);
+	var k4 : i64 = alignof(i32[]);
+	var k5 : i64 = sizeof(o.v);
+	var k6 : i64 = sizeof(u16[3]);
+	var k7 : i64 = alignof(o.v);
+	var k8 : i64 = alignof(u16[3]);
+	var k9 : i64 = sizeof(ws);
+	var k10 : i64 = alignof(ws);
+	var k11 : i64 = offsetof(WithSlice, sl);
+	var k12 : i64 = offsetof(WithSlice, post);
+	var k13 : i64 = round_up(offsetof(WithSlice, pre) + sizeof(ws.pre),
+			alignof(ws.sl));
+	var k14 : i64 = round_up(offsetof(WithSlice, sl) + sizeof(ws.sl),
+			alignof(ws.post));
+	var k15 : i64 = round_up(offsetof(WithSlice, post) + sizeof(ws.post),
+			alignof(ws));
+	var k16 : i64 = round_up(offsetof(Outer, c) + sizeof(o.c),
+			alignof(o.inner));
+	var k17 : i64 = round_up(offsetof(Outer, inner) + sizeof(o.inner),
+			alignof(o.v));
+	var k18 : i64 = round_up(offsetof(Outer, v) + sizeof(o.v), alignof(o));
+
+	if (k1 != k2) return 60;
+	if (k3 != k4) return 61;
+	if (k5 != k6) return 62;
+	if (k7 != k8) return 63;
+	if (sl32[0] != 5) return 74;
+	if (ws.pre != 7) return 75;
+
+	// un campo slice ocupa el descriptor (16 bytes) y alinea a 8
+	if (k9 != 32) return 64;
+	if (k10 != 8) return 65;
+	if (k11 != 8) return 66;
+	if (k12 != 24) return 67;
+
+	// alignof predice el offset real de cada campo, padding incluido
+	if (k13 != k11) return 68;
+	if (k14 != k12) return 69;
+	if (k15 != k9) return 70;
+	if (k16 != offsetof(Outer, inner)) return 71;
+	if (k17 != offsetof(Outer, v)) return 72;
+	if (k18 != sizeof(o)) return 73;
 
 	return 0;
 }

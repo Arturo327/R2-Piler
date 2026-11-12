@@ -5,19 +5,6 @@
 #include <string.h>
 
 #define LOGIC_BUDGET 8
-#define COPY_UNROLL 8
-#define SROA_MAX_LEAVES 8
-
-static uint32_t gen_index_addr (IR *ir, ASTNode *n);
-static uint32_t gen_array_addr (IR *ir, ASTNode *n);
-static uint32_t read_reg (IR *ir, uint32_t reg, TypeId type);
-static uint32_t gen_field_addr (IR *ir, ASTNode *n);
-uint32_t add_offset (IR *ir, uint32_t base, uint64_t off);
-static uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest);
-static uint32_t gen_call_desc (IR *ir, ASTNode *n);
-static uint32_t gen_call_value (IR *ir, ASTNode *n);
-static uint32_t ptr_scale (IR *ir, uint32_t val, TypeId ptr_type, int up);
-void gen_jump_if (IR *ir, ASTNode *n, uint32_t label, int when);
 
 static const uint8_t pure_node[NODE_COUNT] = {
 	[NODE_LIT_CHAR] = 1, [NODE_LIT_i64] = 1, [NODE_LIT_u64] = 1,
@@ -46,266 +33,6 @@ static const uint8_t node_to_ir[NODE_COUNT] = {
 	[NODE_GE] = IR_GE, [NODE_LT] = IR_LT, [NODE_LE] = IR_LE
 };
 
-static uint32_t count_bros (IR *ir, uint32_t first)
-{
-	uint32_t count = 0;
-
-	while (first != NO_NODE) {
-		count++;
-		first = ir->ast->nodes[first].next_bro;
-	}
-	return count;
-}
-
-static uint32_t gen_addr (IR *ir, ASTNode *n)
-{
-	ASTNode *child = ir->ast->nodes + n->child;
-
-	if (child->type == NODE_DEREF)
-		return gen_expr(ir, ir->ast->nodes + child->child);
-	if (child->type == NODE_INDEX)
-		return gen_index_addr(ir, child);
-	if (child->type == NODE_DOT)
-		return gen_field_addr(ir, child);
-
-	Symbol *s = ir->symtab->symbols + child->sym;
-	if (type_kind(s->type) == TK_STRUCT)
-		return gen_array_addr(ir, child);
-	uint32_t dst = new_reg(ir, n->data_type);
-	if (!s->depth || s->is_static) {
-		make_addr_global(ir, dst, s->ir_id, n->data_type);
-		return dst;
-	}
-	ir->addressed[s->ir_id] = 1;
-	make_addr_local(ir, dst, s->ir_id, n->data_type);
-	return dst;
-}
-
-static uint32_t gen_deref (IR *ir, ASTNode *n)
-{
-	uint32_t ptr = gen_expr(ir, ir->ast->nodes + n->child);
-
-	if (type_kind(n->data_type) == TK_STRUCT) return ptr;
-	return make_ld_ptr(ir, ptr, n->data_type);
-}
-
-static uint32_t elem_scale (IR *ir, uint32_t val, TypeId elem)
-{
-	uint32_t size = types[elem].size;
-
-	if (size < 2) return val;
-	return make_op(ir, IR_MUL, val, make_const(ir, size, TYPE_i64), TYPE_i64);
-}
-
-static uint32_t slice_dim_reg (IR *ir, ASTNode *n, int dim, TypeId type)
-{
-	if (n->type == NODE_CAST && n->child != NO_NODE)
-		n = ir->ast->nodes + n->child;
-	ASTNode *root = n;
-	TypeId t = n->data_type;
-
-	while (root->type == NODE_INDEX) root = ir->ast->nodes + root->child;
-	for (int d = 0; d < dim; d++) t = types[t].base;
-	if (type_kind(t) == TK_ARRAY) return make_const(ir, types[t].count, type);
-
-	if (root->type == NODE_ID) {
-		Symbol *s = ir->symtab->symbols + root->sym;
-		if (s->ir_dims)
-			return read_reg(ir, s->ir_dims[type_dyn_rank(s->type) - type_dyn_rank(t)], type);
-	}
-
-	uint32_t addr;
-	switch (n->type)
-	{
-	case NODE_ID: {
-		Symbol *s = ir->symtab->symbols + n->sym;
-		addr = local_storage_addr(ir, s, s->type);
-		break;
-	}
-	case NODE_INDEX: addr = gen_index_addr(ir, n); break;
-	case NODE_DOT: addr = gen_field_addr(ir, n); break;
-	case NODE_DEREF: addr = gen_expr(ir, n); break;
-	case NODE_FN_CALL: addr = gen_call_desc(ir, n); break;
-	default: addr = gen_expr(ir, n); break;
-	}
-
-	int dyn_idx = type_dyn_rank(n->data_type) - type_dyn_rank(t);
-	uint32_t off = (uint32_t)(8 * (dyn_idx + 1));
-	return make_ld_ptr(ir, add_offset(ir, addr, off), type);
-}
-
-static uint32_t push_dims (IR *ir, ASTNode *a, TypeId pt, uint32_t *regs, uint32_t k)
-{
-	TypeId t = pt;
-
-	for (int d = 0; type_kind(t) == TK_ARRAY || type_kind(t) == TK_SLICE; d++) {
-		if (type_kind(t) == TK_SLICE) regs[k++] = slice_dim_reg(ir, a, d, TYPE_i64);
-		t = types[t].base;
-	}
-	return k;
-}
-
-static uint32_t slice_stride (IR *ir, ASTNode *base, TypeId type)
-{
-	TypeId leaf = type_flat_element(type);
-	int rank = type_slice_rank(type);
-	uint32_t stride = slice_dim_reg(ir, base, rank - 1, TYPE_i64);
-
-	if (types[leaf].size > 1)
-		stride = make_op(ir, IR_MUL, stride,
-				make_const(ir, types[leaf].size, TYPE_i64), TYPE_i64);
-	for (int d = rank - 2; d >= 1; d--)
-		stride = make_op(ir, IR_MUL, slice_dim_reg(ir, base, d, TYPE_i64), stride, TYPE_i64);
-	return stride;
-}
-
-static uint32_t mixed_stride (IR *ir, ASTNode *base, TypeId type)
-{
-	uint64_t fixed = types[type_flat_element(type)].size;
-	uint32_t dyn = NO_REG;
-	TypeId t = types[type].base;
-
-	for (int d = 1; type_kind(t) == TK_ARRAY || type_kind(t) == TK_SLICE; d++) {
-		if (type_kind(t) == TK_ARRAY) fixed *= types[t].count;
-		else if (dyn == NO_REG) dyn = slice_dim_reg(ir, base, d, TYPE_i64);
-		else dyn = make_op(ir, IR_MUL, dyn,
-				slice_dim_reg(ir, base, d, TYPE_i64), TYPE_i64);
-		t = types[t].base;
-	}
-	if (dyn == NO_REG) return make_const(ir, (int64_t)fixed, TYPE_i64);
-	if (fixed == 1) return dyn;
-	return make_op(ir, IR_MUL, dyn, make_const(ir, (int64_t)fixed, TYPE_i64), TYPE_i64);
-}
-
-static uint32_t gen_index_addr (IR *ir, ASTNode *n)
-{
-	ASTNode *base = ir->ast->nodes + n->child;
-	TypeId type = base->data_type;
-	TypeKind kind = type_kind(type);
-	TypeId elem = types[type].base;
-	uint32_t a = kind == TK_ARRAY ? gen_array_addr(ir, base) : gen_expr(ir, base);
-	uint32_t b = gen_expr(ir, ir->ast->nodes + base->next_bro);
-
-	if (kind == TK_PTR)
-		return make_op(ir, IR_ADD, a, ptr_scale(ir, b, type, 1), type);
-	if (type_is_mixed(type)) {
-		uint32_t stride = mixed_stride(ir, base, type);
-
-		return make_op(ir, IR_ADD, a,
-				make_op(ir, IR_MUL, b, stride, TYPE_i64), TYPE_i64);
-	}
-	if (kind == TK_SLICE && type_kind(elem) == TK_SLICE) {
-		uint32_t stride = slice_stride(ir, base, type);
-
-		return make_op(ir, IR_ADD, a,
-				make_op(ir, IR_MUL, b, stride, TYPE_i64), TYPE_i64);
-	}
-	return make_op(ir, IR_ADD, a, elem_scale(ir, b, elem), TYPE_i64);
-}
-
-static uint32_t gen_array_addr (IR *ir, ASTNode *n)
-{
-	if (n->type != NODE_ID) return gen_expr(ir, n);
-
-	Symbol *s = ir->symtab->symbols + n->sym;
-	if (s->kind == SYMBOL_PARAM)
-		return read_reg(ir, s->ir_id, type_ptr_to(type_flat_element(s->type)));
-	if (!s->depth || s->is_static) {
-		uint32_t dst = new_reg(ir, TYPE_i64);
-
-		make_addr_global(ir, dst, s->ir_id, n->data_type);
-		return dst;
-	}
-	return local_storage_addr(ir, s, n->data_type);
-}
-
-static uint32_t read_reg (IR *ir, uint32_t reg, TypeId type)
-{
-	uint32_t tmp = new_reg(ir, type);
-
-	make_move(ir, tmp, reg, type);
-	return tmp;
-}
-
-uint32_t add_offset (IR *ir, uint32_t base, uint64_t off)
-{
-	if (!off) return base;
-	return make_op(ir, IR_ADD, base, make_const(ir, (int64_t)off, TYPE_i64), TYPE_i64);
-}
-
-static void store_string (IR *ir, uint32_t base, ASTNode *lit, TypeId elem)
-{
-	uint32_t zero = make_const(ir, 0, elem);
-
-	for (uint16_t i = 0; i < lit->len; i++) {
-		uint32_t c = make_const(ir, (uint8_t)lit->str[i], elem);
-
-		make_str_ptr(ir, add_offset(ir, base, i), c, elem);
-	}
-	make_str_ptr(ir, add_offset(ir, base, lit->len), zero, elem);
-}
-
-static void zero_fill (IR *ir, uint32_t base, uint32_t from, uint32_t count, TypeId elem)
-{
-	uint32_t loop = ir->label_count++;
-	uint32_t end = ir->label_count++;
-	uint32_t i = new_reg(ir, TYPE_i64);
-	uint32_t zero = make_const(ir, 0, elem);
-	uint32_t one = make_const(ir, 1, TYPE_i64);
-	uint32_t limit = make_const(ir, count, TYPE_i64);
-
-	make_const_into(ir, i, from, TYPE_i64);
-	make_label(ir, loop);
-	make_jump(ir, IR_JNZ, make_op(ir, IR_GE, i, limit, TYPE_i64), end);
-	make_str_ptr(ir, make_op(ir, IR_ADD, base, i, TYPE_i64), zero, elem);
-	make_move(ir, i, make_op(ir, IR_ADD, i, one, TYPE_i64), TYPE_i64);
-	make_jump(ir, IR_JMP, NO_REG, loop);
-	make_label(ir, end);
-}
-
-void gen_array_init (IR *ir, uint32_t base, uint32_t init_idx, TypeId arr, int zero)
-{
-	ASTNode *init = ir->ast->nodes + init_idx;
-	TypeId elem = types[arr].base;
-	uint32_t elem_size = types[elem].size;
-
-	if (init->type == NODE_LIT_STR) {
-		store_string(ir, base, init, elem);
-		if (zero && (uint32_t)init->len + 1 < types[arr].count)
-			zero_fill(ir, base, (uint32_t)init->len + 1, types[arr].count, elem);
-		return;
-	}
-
-	uint32_t i = 0;
-	uint32_t item = init->child;
-
-	while (item != NO_NODE) {
-		if (type_kind(elem) == TK_ARRAY) {
-			uint32_t at = add_offset(ir, base, (uint64_t)i * elem_size);
-
-			gen_array_init(ir, at, item, elem, zero);
-		} else if (type_kind(elem) == TK_STRUCT) {
-			uint32_t at = add_offset(ir, base, (uint64_t)i * elem_size);
-
-			gen_struct_into(ir, at, item, elem, 1);
-		} else {
-			uint32_t val = gen_expr(ir, ir->ast->nodes + item);
-
-			make_str_ptr(ir, add_offset(ir, base, (uint64_t)i * elem_size), val, elem);
-		}
-		item = ir->ast->nodes[item].next_bro;
-		i++;
-	}
-}
-
-static uint32_t gen_lvalue_addr (IR *ir, ASTNode *lhs)
-{
-	if (lhs->type == NODE_INDEX) return gen_index_addr(ir, lhs);
-	if (lhs->type == NODE_DOT) return gen_field_addr(ir, lhs);
-	if (lhs->type != NODE_DEREF) return NO_REG;
-	return gen_expr(ir, ir->ast->nodes + lhs->child);
-}
-
 static uint32_t load_var (IR *ir, Symbol *s)
 {
 	if (!s->depth || s->is_static)
@@ -316,666 +43,6 @@ static uint32_t load_var (IR *ir, Symbol *s)
 	return tmp;
 }
 
-static uint32_t new_struct_temp (IR *ir, TypeId type)
-{
-	uint32_t reg = new_reg(ir, type);
-	uint32_t dst = new_reg(ir, TYPE_i64);
-
-	ir->addressed[reg] = 1;
-	ir->no_tail = 1;
-	make_addr_local(ir, dst, reg, type);
-	return dst;
-}
-
-static void gen_copy_loop (IR *ir, uint32_t dst, uint32_t src, uint32_t size)
-{
-	uint32_t loop = ir->label_count++;
-	uint32_t end = ir->label_count++;
-	uint32_t off = new_reg(ir, TYPE_i64);
-	uint32_t limit = make_const(ir, size, TYPE_i64);
-	uint32_t step = make_const(ir, 8, TYPE_i64);
-
-	make_const_into(ir, off, 0, TYPE_i64);
-	make_label(ir, loop);
-	make_jump(ir, IR_JNZ, make_op(ir, IR_GE, off, limit, TYPE_i64), end);
-
-	uint32_t val = make_ld_ptr(ir, make_op(ir, IR_ADD, src, off, TYPE_i64), TYPE_u64);
-	make_str_ptr(ir, make_op(ir, IR_ADD, dst, off, TYPE_i64), val, TYPE_u64);
-	make_move(ir, off, make_op(ir, IR_ADD, off, step, TYPE_i64), TYPE_i64);
-	make_jump(ir, IR_JMP, NO_REG, loop);
-	make_label(ir, end);
-}
-
-static void gen_zero_loop (IR *ir, uint32_t base, uint64_t size)
-{
-	uint32_t loop = ir->label_count++;
-	uint32_t end = ir->label_count++;
-	uint32_t off = new_reg(ir, TYPE_i64);
-	uint32_t limit = make_const(ir, size, TYPE_i64);
-	uint32_t step = make_const(ir, 8, TYPE_i64);
-	uint32_t zero = make_const(ir, 0, TYPE_u64);
-
-	make_const_into(ir, off, 0, TYPE_i64);
-	make_label(ir, loop);
-	make_jump(ir, IR_JNZ, make_op(ir, IR_GE, off, limit, TYPE_i64), end);
-	make_str_ptr(ir, make_op(ir, IR_ADD, base, off, TYPE_i64), zero, TYPE_u64);
-	make_move(ir, off, make_op(ir, IR_ADD, off, step, TYPE_i64), TYPE_i64);
-	make_jump(ir, IR_JMP, NO_REG, loop);
-	make_label(ir, end);
-}
-
-static void gen_zero_range (IR *ir, uint32_t base, uint64_t size)
-{
-	uint64_t off = 0;
-
-	if ((size >> 3) > COPY_UNROLL) {
-		off = size & ~7u;
-		gen_zero_loop(ir, base, off);
-	}
-	while (off < size) {
-		uint64_t left = size - off;
-		TypeId ut = left >= 8 ? TYPE_u64 : left >= 4 ? TYPE_u32
-				: left >= 2 ? TYPE_u16 : TYPE_u8;
-
-		make_str_ptr(ir, off ? add_offset(ir, base, off) : base, make_const(ir, 0, ut), ut);
-		off += types[ut].size;
-	}
-}
-
-static void gen_copy_fields (IR *ir, uint32_t dst, uint32_t src, TypeId type, uint32_t base)
-{
-	const Type *t = types + type;
-
-	for (uint16_t i = 0; i < t->field_count; i++) {
-		const StructField *f = t->fields + i;
-		uint32_t off = base + f->offset;
-		uint32_t val;
-
-		if (type_kind(f->type) == TK_STRUCT) {
-			gen_copy_fields(ir, dst, src, f->type, off);
-			continue;
-		}
-		val = make_ld_ptr(ir, add_offset(ir, src, off), f->type);
-		make_str_ptr(ir, add_offset(ir, dst, off), val, f->type);
-	}
-}
-
-void gen_copy (IR *ir, uint32_t dst, uint32_t src, TypeId type)
-{
-	uint32_t size = types[type].size;
-	uint32_t off = 0;
-	int budget = SROA_MAX_LEAVES;
-
-	if (type_scalar_leaves(type, &budget)) {
-		gen_copy_fields(ir, dst, src, type, 0);
-		return;
-	}
-
-	if ((size >> 3) > COPY_UNROLL) {
-		off = size & ~7u;
-		gen_copy_loop(ir, dst, src, off);
-	}
-	while (off < size) {
-		uint32_t left = size - off;
-		TypeId ut = left >= 8 ? TYPE_u64 : left >= 4 ? TYPE_u32
-				: left >= 2 ? TYPE_u16 : TYPE_u8;
-		uint32_t val = make_ld_ptr(ir, add_offset(ir, src, off), ut);
-
-		make_str_ptr(ir, add_offset(ir, dst, off), val, ut);
-		off += types[ut].size;
-	}
-}
-
-static uint64_t bitfield_mask (const StructField *f)
-{
-	if (f->bits >= 64) return UINT64_MAX;
-	return ((uint64_t)1 << f->bits) - 1;
-}
-
-static uint32_t bitfield_extract (IR *ir, uint32_t raw, const StructField *f)
-{
-	TypeId holder = f->type;
-	uint32_t width = 8u * types[holder].size;
-	uint32_t v = raw;
-
-	if (f->bit_off)
-		v = make_op(ir, IR_RS, v, make_const(ir, f->bit_off, holder), holder);
-	v = make_op(ir, IR_AND_A, v, make_const(ir, (int64_t)bitfield_mask(f), holder), holder);
-	if (types[holder].sign && f->bits < width) {
-		uint32_t shift = width - f->bits;
-		v = make_op(ir, IR_LS, v, make_const(ir, shift, holder), holder);
-		v = make_op(ir, IR_RS, v, make_const(ir, shift, holder), holder);
-	}
-	return v;
-}
-
-static uint32_t gen_bitfield_store (IR *ir, uint32_t addr, const StructField *f, uint32_t value)
-{
-	TypeId holder = f->type;
-	uint64_t mask = bitfield_mask(f);
-	uint32_t old = make_ld_ptr(ir, addr, holder);
-	uint32_t v = make_op(ir, IR_AND_A, value, make_const(ir, (int64_t)mask, holder), holder);
-
-	if (f->bit_off)
-		v = make_op(ir, IR_LS, v, make_const(ir, f->bit_off, holder), holder);
-	old = make_op(ir, IR_AND_A, old,
-			make_const(ir, (int64_t)~(mask << f->bit_off), holder), holder);
-	v = make_op(ir, IR_OR_A, old, v, holder);
-	make_str_ptr(ir, addr, v, holder);
-	return bitfield_extract(ir, v, f);
-}
-
-static uint32_t gen_field_addr (IR *ir, ASTNode *n)
-{
-	ASTNode *left = ir->ast->nodes + n->child;
-	const StructField *f = find_field(left->data_type, n->str, n->len);
-	uint32_t base = gen_expr(ir, left);
-
-	return add_offset(ir, base, f->offset);
-}
-
-static uint32_t gen_field (IR *ir, ASTNode *n)
-{
-	TypeId st = ir->ast->nodes[n->child].data_type;
-	uint32_t addr = gen_field_addr(ir, n);
-
-	if (n->flags & NODE_FLAG_BITFIELD) {
-		const StructField *f = find_field(st, n->str, n->len);
-
-		return bitfield_extract(ir, make_ld_ptr(ir, addr, f->type), f);
-	}
-	if (type_kind(n->data_type) == TK_STRUCT)
-		return addr;
-	if (type_dyn_rank(n->data_type) > 0)
-		return make_ld_ptr(ir, addr,
-				type_ptr_to(type_flat_element(n->data_type)));
-	if (type_kind(n->data_type) == TK_ARRAY)
-		return addr;
-	return make_ld_ptr(ir, addr, n->data_type);
-}
-
-uint32_t gen_slice_desc (IR *ir, uint32_t dst, ASTNode *val, TypeId type)
-{
-	TypeId ptr_type = type_ptr_to(type_flat_element(type));
-
-	if (val->type == NODE_FN_CALL && type_dyn_rank(val->data_type) > 0) {
-		uint32_t buf = gen_call_desc(ir, val);
-
-		gen_copy(ir, dst, buf, val->data_type);
-		return make_ld_ptr(ir, buf, ptr_type);
-	}
-
-	uint32_t src_ptr = gen_expr(ir, val);
-	make_str_ptr(ir, dst, src_ptr, ptr_type);
-
-	int slice_index = 0;
-	TypeId level_type = type;
-	int level = 0;
-
-	while (type_kind(level_type) == TK_ARRAY || type_kind(level_type) == TK_SLICE) {
-		if (type_kind(level_type) == TK_SLICE) {
-			uint32_t length = slice_dim_reg(ir, val, level, TYPE_i64);
-			make_str_ptr(ir, add_offset(ir, dst, (uint64_t)8 * (slice_index + 1)), length, TYPE_i64);
-			slice_index++;
-		}
-		level_type = types[level_type].base;
-		level++;
-	}
-	return src_ptr;
-}
-
-static uint32_t init_find (IR *ir, ASTNode *init, const char *name, uint16_t len)
-{
-	for (uint32_t it = init->child; it != NO_NODE; it = ir->ast->nodes[it].next_bro) {
-		ASTNode *fi = ir->ast->nodes + it;
-		if (fi->len == len && memcmp(fi->str, name, len) == 0) return fi->child;
-	}
-	return NO_NODE;
-}
-
-static int init_needs_zero (IR *ir, uint32_t idx, TypeId type);
-
-static int alt_needs_zero (IR *ir, ASTNode *init, const Type *t, const StructField *f)
-{
-	for (uint32_t j = 0; j < t->field_count; j++) {
-		const StructField *g = t->fields + j;
-		uint32_t val;
-
-		if (g->grp != f->grp || g->alt != f->alt) continue;
-		val = init_find(ir, init, g->name, g->len);
-		if (val == NO_NODE || init_needs_zero(ir, val, g->type)) return 1;
-	}
-	return 0;
-}
-
-static int group_needs_zero (IR *ir, ASTNode *init, const Type *t, uint16_t grp)
-{
-	for (uint32_t k = 0; k < t->field_count; k++) {
-		const StructField *f = t->fields + k;
-
-		if (f->grp != grp) continue;
-		if (init_find(ir, init, f->name, f->len) != NO_NODE)
-			return alt_needs_zero(ir, init, t, f);
-	}
-	return 1;
-}
-
-static int arr_needs_zero (IR *ir, ASTNode *init, TypeId type)
-{
-	TypeId elem = types[type].base;
-
-	if (init->type == NODE_LIT_STR) return 0;
-	for (uint32_t it = init->child; it != NO_NODE; it = ir->ast->nodes[it].next_bro) {
-		if (init_needs_zero(ir, it, elem)) return 1;
-	}
-	return 0;
-}
-
-static int init_needs_zero (IR *ir, uint32_t idx, TypeId type)
-{
-	ASTNode *n = ir->ast->nodes + idx;
-	const Type *t = types + type;
-
-	if (type_kind(type) == TK_ARRAY) return arr_needs_zero(ir, n, type);
-	if (type_kind(type) != TK_STRUCT || n->type != NODE_STRUCT_INIT) return 0;
-
-	for (uint32_t k = 0; k < t->field_count; k++) {
-		const StructField *f = t->fields + k;
-
-		if (f->grp) {
-			int done = 0;
-
-			for (uint32_t j = 0; j < k; j++)
-				if (t->fields[j].grp == f->grp) done = 1;
-			if (done) continue;
-			if (group_needs_zero(ir, n, t, f->grp)) return 1;
-			continue;
-		}
-		uint32_t val = init_find(ir, n, f->name, f->len);
-		if (val == NO_NODE) return 1;
-		if (init_needs_zero(ir, val, f->type)) return 1;
-	}
-	return 0;
-}
-
-static void gen_struct_init (IR *ir, uint32_t base, ASTNode *init, TypeId type)
-{
-	if (init_needs_zero(ir, (uint32_t)(init - ir->ast->nodes), type))
-		gen_zero_range(ir, base, types[type].size);
-
-	int fused = fuse_struct_init(ir, base, init, type);
-	uint32_t item = init->child;
-
-	while (item != NO_NODE) {
-		ASTNode *fi = ir->ast->nodes + item;
-		const StructField *f = find_field(type, fi->str, fi->len);
-
-		if (fused && const_tree(ir, fi->child)) {
-			item = fi->next_bro;
-			continue;
-		}
-		uint32_t at = add_offset(ir, base, f->offset);
-
-		if (f->bits)
-			gen_bitfield_store(ir, at, f, gen_expr(ir, ir->ast->nodes + fi->child));
-		else if (type_kind(f->type) == TK_STRUCT)
-			gen_struct_into(ir, at, fi->child, f->type, 1);
-		else if (type_dyn_rank(f->type) > 0) {
-			ASTNode *val = ir->ast->nodes + fi->child;
-			gen_slice_desc(ir, at, val, f->type);
-		} else if (type_kind(f->type) == TK_ARRAY)
-			gen_array_init(ir, at, fi->child, f->type, 1);
-		else make_str_ptr(ir, at, gen_expr(ir, ir->ast->nodes + fi->child), f->type);
-		item = fi->next_bro;
-	}
-}
-
-void gen_struct_into (IR *ir, uint32_t dst, uint32_t expr, TypeId type, int fresh)
-{
-	ASTNode *e = ir->ast->nodes + expr;
-
-	if (e->type == NODE_CAST && (e->flags & NODE_FLAG_LITERAL) && e->child != NO_NODE) {
-		expr = e->child;
-		e = ir->ast->nodes + expr;
-	}
-	if (e->type == NODE_STRUCT_INIT) {
-		if (!fresh) {
-			uint32_t tmp = new_struct_temp(ir, type);
-			gen_struct_init(ir, tmp, e, type);
-			gen_copy(ir, dst, tmp, type);
-			return;
-		}
-		gen_struct_init(ir, dst, e, type);
-		return;
-	}
-	if (e->type == NODE_FN_CALL && fresh
-			&& ret_count(ir, call_ret_node(ir, e)) == 1) {
-		gen_call(ir, e, dst);
-		return;
-	}
-	gen_copy(ir, dst, gen_expr(ir, e), type);
-}
-
-static int args_assign (IR *ir, uint32_t idx)
-{
-	ASTNode *n = ir->ast->nodes + idx;
-
-	if (n->type >= NODE_ASSIGN && n->type <= NODE_RS_ASSIGN) return 1;
-	for (uint32_t k = n->child; k != NO_NODE; k = ir->ast->nodes[k].next_bro) {
-		if (args_assign(ir, k)) return 1;
-	}
-	return 0;
-}
-
-static int can_alias_arg (IR *ir, ASTNode *call, uint32_t arg, uint32_t param)
-{
-	uint32_t sym = agg_root_sym(ir->ast, arg);
-
-	if (sym == NO_SYMBOL || param == NO_NODE) return 0;
-	Symbol *s = ir->symtab->symbols + sym;
-	Symbol *ps = ir->symtab->symbols + ir->ast->nodes[param].sym;
-
-	if (s->kind != SYMBOL_VAR || !s->depth || s->is_static || s->escaped) return 0;
-	if (ps->written || ps->escaped) return 0;
-
-	for (uint32_t k = call->child; k != NO_NODE; k = ir->ast->nodes[k].next_bro) {
-		if (args_assign(ir, k)) return 0;
-	}
-
-	int budget = SROA_MAX_LEAVES;
-	if (type_scalar_leaves(s->type, &budget)) return 0;
-
-	return 1;
-}
-
-static uint32_t gen_struct_arg (IR *ir, ASTNode *a, int alias)
-{
-	if (a->type == NODE_CAST && (a->flags & NODE_FLAG_LITERAL) && a->child != NO_NODE) {
-		ASTNode *init = ir->ast->nodes + a->child;
-
-		if (init->type == NODE_STRUCT_INIT) {
-			uint32_t tmp = new_struct_temp(ir, a->data_type);
-
-			gen_struct_init(ir, tmp, init, a->data_type);
-			return tmp;
-		}
-	}
-
-	uint32_t src = gen_expr(ir, a);
-	if (alias) ir->no_tail = 1;
-	if (a->type == NODE_FN_CALL || alias) return src;
-
-	uint32_t tmp = new_struct_temp(ir, a->data_type);
-	gen_copy(ir, tmp, src, a->data_type);
-	return tmp;
-}
-
-static uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest)
-{
-	Symbol *fn = ir->symtab->symbols + n->sym;
-	uint32_t ret = call_ret_node(ir, n);
-	int sret = fn_uses_sret(ir, ret);
-	uint32_t argc = count_bros(ir, n->child);
-	uint32_t regs[ir->fns[fn->ir_id].param_count + 1];
-	uint32_t params = ir->ast->nodes[fn->decl].child;
-	uint32_t param = ir->ast->nodes[params].child;
-	uint32_t arg = n->child;
-	uint32_t k = 0;
-
-	if (sret) regs[k++] = dest != NO_REG ? dest : new_struct_temp(ir, ret_buf_type(ir, ret));
-	for (uint32_t i = 0; i < argc; i++) {
-		ASTNode *a = ir->ast->nodes + arg;
-		TypeId pt = param == NO_NODE ? TYPE_VOID : ir->ast->nodes[param].data_type;
-
-		regs[k++] = type_kind(pt) == TK_STRUCT
-				? gen_struct_arg(ir, a, can_alias_arg(ir, n, arg, param))
-				: gen_expr(ir, a);
-
-		k = push_dims(ir, a, pt, regs, k);
-		arg = a->next_bro;
-		if (param != NO_NODE) param = ir->ast->nodes[param].next_bro;
-	}
-
-	for (uint32_t i = 0; i < k; i++)
-		make_arg(ir, regs[i], i);
-
-	if (sret) {
-		make_call(ir, fn->ir_id, (uint16_t)k, TYPE_VOID);
-		return regs[0];
-	}
-	return make_call(ir, fn->ir_id, (uint16_t)k, ir->fns[fn->ir_id].ret_type);
-}
-
-static uint32_t gen_call_desc (IR *ir, ASTNode *n)
-{
-	uint32_t idx = (uint32_t)(n - ir->ast->nodes);
-
-	if (ir->desc[idx] == NO_REG) ir->desc[idx] = gen_call(ir, n, NO_REG);
-	return ir->desc[idx];
-}
-
-static uint32_t gen_call_value (IR *ir, ASTNode *n)
-{
-	if (!fn_uses_sret(ir, call_ret_node(ir, n))) return gen_call(ir, n, NO_REG);
-	TypeId type = n->data_type;
-
-	if (type_kind(type) == TK_STRUCT) return gen_call(ir, n, NO_REG);
-	if (type_dyn_rank(type) > 0)
-		return make_ld_ptr(ir, gen_call_desc(ir, n),
-				type_ptr_to(type_flat_element(type)));
-
-	uint32_t buf = gen_call(ir, n, NO_REG);
-	if (type_kind(type) == TK_ARRAY)
-		return make_ld_ptr(ir, buf, type_ptr_to(type_flat_element(type)));
-	return make_ld_ptr(ir, buf, type);
-}
-
-static int mentions_sym (IR *ir, uint32_t idx, uint32_t sym)
-{
-	ASTNode *n = ir->ast->nodes + idx;
-
-	if (n->type == NODE_ID && n->sym == sym) return 1;
-	for (uint32_t k = n->child; k != NO_NODE; k = ir->ast->nodes[k].next_bro) {
-		if (mentions_sym(ir, k, sym)) return 1;
-	}
-	return 0;
-}
-
-static int dest_is_private (IR *ir, ASTNode *lhs)
-{
-	uint32_t root = agg_root_sym(ir->ast, (uint32_t)(lhs - ir->ast->nodes));
-	uint32_t call = lhs->next_bro;
-
-	if (root == NO_SYMBOL || ir->ast->nodes[call].type != NODE_FN_CALL) return 0;
-	Symbol *s = ir->symtab->symbols + root;
-	if (s->kind != SYMBOL_VAR || !s->depth || s->is_static || s->escaped) return 0;
-	if (struct_is_small(lhs->data_type)) return 0;
-	return !mentions_sym(ir, call, root);
-}
-
-static uint32_t gen_assign (IR *ir, ASTNode *n)
-{
-	ASTNode *lhs = ir->ast->nodes + n->child;
-
-	if ((lhs->type == NODE_DOT || lhs->type == NODE_ID) && type_dyn_rank(lhs->data_type) > 0) {
-		uint32_t dst;
-		if (lhs->type == NODE_DOT) dst = gen_lvalue_addr(ir, lhs);
-		else {
-			Symbol *s = ir->symtab->symbols + lhs->sym;
-			if (!s->depth || s->is_static) {
-				dst = new_reg(ir, TYPE_i64);
-				make_addr_global(ir, dst, s->ir_id, s->type);
-			} else dst = local_storage_addr(ir, s, s->type);
-		}
-		ASTNode *rhs = ir->ast->nodes + lhs->next_bro;
-		return gen_slice_desc(ir, dst, rhs, lhs->data_type);
-	}
-
-	if (lhs->flags & NODE_FLAG_BITFIELD) {
-		const StructField *f = find_field(ir->ast->nodes[lhs->child].data_type, lhs->str, lhs->len);
-		uint32_t addr = gen_field_addr(ir, lhs);
-		uint32_t val = gen_expr(ir, ir->ast->nodes + lhs->next_bro);
-
-		return gen_bitfield_store(ir, addr, f, val);
-	}
-
-	if (type_kind(lhs->data_type) == TK_STRUCT) {
-		uint32_t dst = gen_expr(ir, lhs);
-		gen_struct_into(ir, dst, lhs->next_bro, lhs->data_type, dest_is_private(ir, lhs));
-		return dst;
-	}
-
-	uint32_t addr = gen_lvalue_addr(ir, lhs);
-	uint32_t val = gen_expr(ir, ir->ast->nodes + lhs->next_bro);
-
-	if (addr != NO_REG) {
-		make_str_ptr(ir, addr, val, lhs->data_type);
-		return val;
-	}
-
-	Symbol *s = ir->symtab->symbols + lhs->sym;
-	if (!s->depth || s->is_static) make_str_global(ir, s->ir_id, val, s->type);
-	else make_move(ir, s->ir_id, val, s->type);
-	return val;
-}
-
-static uint32_t gen_target_addr (IR *ir, ASTNode *t)
-{
-	uint32_t addr = gen_lvalue_addr(ir, t);
-
-	if (addr != NO_REG) return addr;
-
-	Symbol *s = ir->symtab->symbols + t->sym;
-	if (!s->depth || s->is_static) {
-		uint32_t dst = new_reg(ir, TYPE_i64);
-
-		make_addr_global(ir, dst, s->ir_id, s->type);
-		return dst;
-	}
-	return local_storage_addr(ir, s, s->type);
-}
-
-static uint32_t convert_value (IR *ir, uint32_t val, TypeId from, TypeId to)
-{
-	if (from == to) return val;
-	if (types[from].size == 8 && types[to].size == 8) {
-		ir->reg_types[val] = to;
-		return val;
-	}
-	return make_op(ir, IR_EXTEND, val, NO_REG, to);
-}
-
-static void gen_multi_store (IR *ir, uint32_t target, uint32_t at, TypeId type)
-{
-	ASTNode *t = ir->ast->nodes + target;
-	TypeId dst = t->data_type;
-
-	if (t->type == NODE_VAR_DEC || t->type == NODE_ARR_DEC) gen_var_dec(ir, t);
-	if (type_is_aggregate(dst)) {
-		gen_copy(ir, gen_target_addr(ir, t), at, dst);
-		return;
-	}
-
-	uint32_t val = convert_value(ir, make_ld_ptr(ir, at, type), type, dst);
-	uint32_t addr = gen_lvalue_addr(ir, t);
-
-	if (addr != NO_REG) {
-		make_str_ptr(ir, addr, val, dst);
-		return;
-	}
-	Symbol *s = ir->symtab->symbols + t->sym;
-	if (!s->depth || s->is_static) make_str_global(ir, s->ir_id, val, dst);
-	else make_move(ir, s->ir_id, val, dst);
-}
-
-void gen_multi_assign (IR *ir, ASTNode *n)
-{
-	uint32_t rhs = n->child;
-
-	while (ir->ast->nodes[rhs].next_bro != NO_NODE)
-		rhs = ir->ast->nodes[rhs].next_bro;
-
-	uint32_t ret = call_ret_node(ir, ir->ast->nodes + rhs);
-	uint32_t count = ret == NO_NODE ? 0 : ret_count(ir, ret);
-	uint32_t buf = gen_call(ir, ir->ast->nodes + rhs, NO_REG);
-	uint32_t target = n->child;
-	uint32_t i = 0;
-
-	while (target != rhs) {
-		uint32_t next = ir->ast->nodes[target].next_bro;
-
-		if (i < count)
-			gen_multi_store(ir, target, add_offset(ir, buf, ret_off(ir, ret, i)),
-					ir->ast->nodes[ret_node_at(ir, ret, i)].data_type);
-		target = next;
-		i++;
-	}
-}
-
-static uint32_t gen_compound_assign (IR *ir, ASTNode *n)
-{
-	ASTNode *lhs = ir->ast->nodes + n->child;
-	ASTNode *rhs = ir->ast->nodes + lhs->next_bro;
-
-	if (lhs->flags & NODE_FLAG_BITFIELD) {
-		const StructField *f = find_field(ir->ast->nodes[lhs->child].data_type, lhs->str, lhs->len);
-		uint32_t addr = gen_field_addr(ir, lhs);
-		uint32_t a = bitfield_extract(ir, make_ld_ptr(ir, addr, f->type), f);
-		uint32_t b = gen_expr(ir, rhs);
-
-		return gen_bitfield_store(ir, addr, f, make_op(ir, node_to_ir[n->type], a, b, f->type));
-	}
-
-	uint32_t addr = gen_lvalue_addr(ir, lhs);
-	uint32_t a = addr != NO_REG ? make_ld_ptr(ir, addr, lhs->data_type)
-			: load_var(ir, ir->symtab->symbols + lhs->sym);
-	uint32_t b = ptr_scale(ir, gen_expr(ir, rhs), lhs->data_type, 1);
-	uint32_t val = make_op(ir, node_to_ir[n->type], a, b, lhs->data_type);
-
-	if (addr != NO_REG) {
-		make_str_ptr(ir, addr, val, lhs->data_type);
-		return val;
-	}
-
-	Symbol *s = ir->symtab->symbols + lhs->sym;
-	if (!s->depth || s->is_static) make_str_global(ir, s->ir_id, val, s->type);
-	else make_move(ir, s->ir_id, val, s->type);
-	return val;
-}
-
-void gen_inc_dec (IR *ir, ASTNode *n)
-{
-	ASTNode *target = ir->ast->nodes + n->child;
-	TypeId type = target->data_type;
-	uint32_t addr = gen_lvalue_addr(ir, target);
-
-	if (target->flags & NODE_FLAG_BITFIELD) {
-		const StructField *f = find_field(ir->ast->nodes[target->child].data_type, target->str, target->len);
-		uint32_t a = bitfield_extract(ir, make_ld_ptr(ir, addr, f->type), f);
-		uint32_t one = make_const(ir, 1, f->type);
-
-		gen_bitfield_store(ir, addr, f, make_op(ir, n->type == NODE_INC ? IR_ADD : IR_SUB, a, one, f->type));
-		return;
-	}
-	uint32_t step = 1;
-	uint32_t a = addr != NO_REG ? make_ld_ptr(ir, addr, type)
-			: load_var(ir, ir->symtab->symbols + target->sym);
-
-	if (type_kind(type) == TK_PTR)
-		step = types[types[type].base].size;
-
-	uint32_t val = make_op(ir, n->type == NODE_INC ? IR_ADD : IR_SUB, a,
-			make_const(ir, step, type), type);
-	if (addr != NO_REG) {
-		make_str_ptr(ir, addr, val, type);
-		return;
-	}
-
-	Symbol *s = ir->symtab->symbols + target->sym;
-	if (!s->depth || s->is_static) make_str_global(ir, s->ir_id, val, s->type);
-	else make_move(ir, s->ir_id, val, s->type);
-}
-
 static uint32_t gen_unary (IR *ir, ASTNode *n)
 {
 	ASTNode *operand = ir->ast->nodes + n->child;
@@ -984,7 +51,7 @@ static uint32_t gen_unary (IR *ir, ASTNode *n)
 	return make_op(ir, node_to_ir[n->type], a, NO_REG, operand->data_type);
 }
 
-static uint32_t ptr_scale (IR *ir, uint32_t val, TypeId ptr_type, int up)
+uint32_t ptr_scale (IR *ir, uint32_t val, TypeId ptr_type, int up)
 {
 	if (type_kind(ptr_type) != TK_PTR) return val;
 	uint32_t size = types[types[ptr_type].base].size;
@@ -998,6 +65,7 @@ static int is_ptr_arith (ASTNode *n, ASTNode *l, ASTNode *r)
 	if (n->type != NODE_ADD && n->type != NODE_SUB) return 0;
 	return type_kind(l->data_type) == TK_PTR || type_kind(r->data_type) == TK_PTR;
 }
+
 static uint32_t gen_ptr_arith (IR *ir, ASTNode *n, ASTNode *l, ASTNode *r)
 {
 	int ptr_left = type_kind(l->data_type) == TK_PTR;
@@ -1228,6 +296,70 @@ static uint32_t gen_cast (IR *ir, ASTNode *n)
 	return make_op(ir, IR_EXTEND, src, NO_REG, n->data_type);
 }
 
+static uint32_t gen_compound_assign (IR *ir, ASTNode *n)
+{
+	ASTNode *lhs = ir->ast->nodes + n->child;
+	ASTNode *rhs = ir->ast->nodes + lhs->next_bro;
+
+	if (lhs->flags & NODE_FLAG_BITFIELD) {
+		const StructField *f = find_field(ir->ast->nodes[lhs->child].data_type, lhs->str, lhs->len);
+		uint32_t addr = gen_field_addr(ir, lhs);
+		uint32_t a = bitfield_extract(ir, make_ld_ptr(ir, addr, f->type), f);
+		uint32_t b = gen_expr(ir, rhs);
+
+		return gen_bitfield_store(ir, addr, f, make_op(ir, node_to_ir[n->type], a, b, f->type));
+	}
+
+	uint32_t addr = gen_lvalue_addr(ir, lhs);
+	uint32_t a = addr != NO_REG ? make_ld_ptr(ir, addr, lhs->data_type)
+			: load_var(ir, ir->symtab->symbols + lhs->sym);
+	uint32_t b = ptr_scale(ir, gen_expr(ir, rhs), lhs->data_type, 1);
+	uint32_t val = make_op(ir, node_to_ir[n->type], a, b, lhs->data_type);
+
+	if (addr != NO_REG) {
+		make_str_ptr(ir, addr, val, lhs->data_type);
+		return val;
+	}
+
+	Symbol *s = ir->symtab->symbols + lhs->sym;
+	if (!s->depth || s->is_static) make_str_global(ir, s->ir_id, val, s->type);
+	else make_move(ir, s->ir_id, val, s->type);
+	return val;
+}
+
+void gen_inc_dec (IR *ir, ASTNode *n)
+{
+	ASTNode *target = ir->ast->nodes + n->child;
+	TypeId type = target->data_type;
+	uint32_t addr = gen_lvalue_addr(ir, target);
+
+	if (target->flags & NODE_FLAG_BITFIELD) {
+		const StructField *f = find_field(ir->ast->nodes[target->child].data_type, target->str, target->len);
+		uint32_t a = bitfield_extract(ir, make_ld_ptr(ir, addr, f->type), f);
+		uint32_t one = make_const(ir, 1, f->type);
+
+		gen_bitfield_store(ir, addr, f, make_op(ir, n->type == NODE_INC ? IR_ADD : IR_SUB, a, one, f->type));
+		return;
+	}
+	uint32_t step = 1;
+	uint32_t a = addr != NO_REG ? make_ld_ptr(ir, addr, type)
+			: load_var(ir, ir->symtab->symbols + target->sym);
+
+	if (type_kind(type) == TK_PTR)
+		step = types[types[type].base].size;
+
+	uint32_t val = make_op(ir, n->type == NODE_INC ? IR_ADD : IR_SUB, a,
+			make_const(ir, step, type), type);
+	if (addr != NO_REG) {
+		make_str_ptr(ir, addr, val, type);
+		return;
+	}
+
+	Symbol *s = ir->symtab->symbols + target->sym;
+	if (!s->depth || s->is_static) make_str_global(ir, s->ir_id, val, s->type);
+	else make_move(ir, s->ir_id, val, s->type);
+}
+
 uint32_t gen_expr (IR *ir, ASTNode *n)
 {
 	switch (n->type)
@@ -1291,20 +423,4 @@ uint32_t gen_expr (IR *ir, ASTNode *n)
 		assert(node_to_ir[n->type] != IR_NOP);
 		return gen_binary(ir, n);
 	}
-}
-
-uint32_t local_storage_addr (IR *ir, Symbol *s, TypeId type)
-{
-	if ((uint32_t)(s - ir->symtab->symbols) == ir->nrvo) return ir->sret;
-	uint32_t dst = new_reg(ir, TYPE_i64);
-
-	ir->addressed[s->ir_id] = 1;
-	make_addr_local(ir, dst, s->ir_id, type);
-	return dst;
-}
-
-int struct_is_small (TypeId type)
-{
-	int budget = SROA_MAX_LEAVES;
-	return type_scalar_leaves(type, &budget);
 }

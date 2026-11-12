@@ -13,19 +13,11 @@ typedef struct {
 	uint64_t align;
 } OperandInfo;
 
-static uint64_t operand_align (TypeId type)
-{
-	TypeId leaf = type_repr(type);
-	while (type_kind(leaf) == TK_ARRAY || type_kind(leaf) == TK_SLICE)
-		leaf = type_repr(types[leaf].base);
-	return type_align(leaf);
-}
-
 static void info_from_type (OperandInfo *info, TypeId type)
 {
 	info->type = type;
 	info->size = types[type].size;
-	info->align = operand_align(type);
+	info->align = type_align(type_repr(type));
 }
 
 static int operand_named_info (Sema *s, ASTNode *n, OperandInfo *info, const char *op)

@@ -48,9 +48,28 @@ void gen_var_dec (IR *ir, ASTNode *n);
 void gen_jump_if (IR *ir, ASTNode *n, uint32_t label, int when);
 void gen_array_init (IR *ir, uint32_t base, uint32_t init_idx, TypeId arr, int zero);
 void gen_struct_into (IR *ir, uint32_t dst, uint32_t expr, TypeId type, int fresh);
+void gen_struct_init (IR *ir, uint32_t base, ASTNode *init, TypeId type);
 uint32_t gen_slice_desc (IR *ir, uint32_t dst, ASTNode *val, TypeId type);
 uint32_t local_storage_addr (IR *ir, Symbol *s, TypeId type);
 int gen_select (IR *ir, ASTNode *n);
 void gen_inc_dec (IR *ir, ASTNode *n);
+
+uint32_t gen_addr (IR *ir, ASTNode *n);
+uint32_t gen_deref (IR *ir, ASTNode *n);
+uint32_t gen_index_addr (IR *ir, ASTNode *n);
+uint32_t gen_array_addr (IR *ir, ASTNode *n);
+uint32_t gen_field_addr (IR *ir, ASTNode *n);
+uint32_t gen_field (IR *ir, ASTNode *n);
+uint32_t slice_dim_reg (IR *ir, ASTNode *n, int dim, TypeId type);
+uint32_t read_reg (IR *ir, uint32_t reg, TypeId type);
+uint32_t gen_lvalue_addr (IR *ir, ASTNode *lhs);
+uint32_t ptr_scale (IR *ir, uint32_t val, TypeId ptr_type, int up);
+uint32_t new_struct_temp (IR *ir, TypeId type);
+uint32_t bitfield_extract (IR *ir, uint32_t raw, const StructField *f);
+uint32_t gen_bitfield_store (IR *ir, uint32_t addr, const StructField *f, uint32_t value);
+uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest);
+uint32_t gen_call_desc (IR *ir, ASTNode *n);
+uint32_t gen_call_value (IR *ir, ASTNode *n);
+uint32_t gen_assign (IR *ir, ASTNode *n);
 
 #endif
