@@ -20,15 +20,13 @@ fn make(3 params, 18 regs) : void
     ret
     ret
 
-fn main(0 params, 232 regs) : i64
+fn main(0 params, 234 regs) : i64
     r2 = const.u32 573785095
     str_local.u32 r0, r2
     r5 = const.u8 17
     str_local.u8 r0, r5 +4
-    r8 = const.u8 1
-    r9 = const.u32 2
-    str_local.u8 r6, r8
-    str_local.u32 r6, r9 +1
+    r232 = const.u8 1
+    r233 = const.u32 2
     r19 = const.u32 5
     r20 = const.u32 18446744073709551608
     r21 = and.u32 r198, r20
@@ -45,8 +43,8 @@ fn main(0 params, 232 regs) : i64
     r62 = const.u16 18446744073709490175
     r63 = and.u16 r200, r62
     r200 = or.u16 r63, r61
-    str_local.u8 r78, r8
-    str_local.u32 r78, r9 +1
+    str_local.u8 r78, r232
+    str_local.u32 r78, r233 +1
     r97 = ld_local.u8 r0
     str_local.u8 r78, r97 +5
     r100 = ld_local.u32 r0 +1

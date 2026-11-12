@@ -141,6 +141,7 @@ void optimize_ir (IR *ir, Arena *a, OptLevel level)
 	if (level == OPT_FULL) {
 		compact_ir(ir);
 		if (inline_ir(ir, a)) {
+			sroa_ir(ir, a);
 			init_opt(&opt, ir, a, level);
 			optimize_all(&opt);
 		}

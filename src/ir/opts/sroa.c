@@ -50,7 +50,8 @@ static void scan_defs (Sroa *s)
 	for (uint32_t i = 0; i < fn->count; i++) {
 		IRInstr *in = s->code + i;
 
-		if (in->op == IR_LD_PTR || in->op == IR_STR_PTR) s->mem_n++;
+		if (in->op == IR_LD_PTR || in->op == IR_STR_PTR
+				|| in->op == IR_LD_LOCAL || in->op == IR_STR_LOCAL) s->mem_n++;
 		if (in->dst == NO_REG) continue;
 		if (s->defs[in->dst] < 2) s->defs[in->dst]++;
 		s->isk[in->dst] = in->op == IR_CONST;
@@ -107,14 +108,29 @@ static void derive_move (Sroa *s, IRInstr *in)
 	s->roff[in->dst] = s->roff[x];
 }
 
+static int access_key (Sroa *s, IRInstr *in, Access *key)
+{
+	int local = in->op == IR_LD_LOCAL || in->op == IR_STR_LOCAL;
+	int ptr = in->op == IR_LD_PTR || in->op == IR_STR_PTR;
+
+	if (local && type_kind(s->fn->reg_types[in->src1]) == TK_STRUCT) {
+		key->slot = in->src1;
+		key->off = in->imm64;
+		return 1;
+	}
+	if (!ptr || s->root[in->src1] == SROA_NONE) return 0;
+	key->slot = s->root[in->src1];
+	key->off = s->roff[in->src1] + in->imm64;
+	return 1;
+}
+
 static void note_access (Sroa *s, IRInstr *in)
 {
-	Access *a;
+	Access key = {0};
 
-	if (s->root[in->src1] == SROA_NONE) return;
-	a = s->acc + s->acc_n++;
-	a->slot = s->root[in->src1];
-	a->off = s->roff[in->src1] + in->imm64;
+	if (!access_key(s, in, &key)) return;
+	Access *a = s->acc + s->acc_n++;
+	*a = key;
 	a->type = in->data_type;
 }
 
@@ -127,9 +143,10 @@ static void trace_uses (Sroa *s)
 
 		if (in->op == IR_ADDR_LOCAL || in->op == IR_ADD || in->op == IR_SUB
 				|| in->op == IR_MOVE) continue;
-		if (in->op == IR_LD_PTR || in->op == IR_STR_PTR) {
+		if (in->op == IR_LD_PTR || in->op == IR_STR_PTR
+				|| in->op == IR_LD_LOCAL || in->op == IR_STR_LOCAL) {
 			note_access(s, in);
-			if (in->op == IR_STR_PTR) mark_bad(s, in->src2);
+			if (in->op == IR_STR_PTR || in->op == IR_STR_LOCAL) mark_bad(s, in->src2);
 			continue;
 		}
 		n = get_srcs(in, src);
@@ -199,18 +216,13 @@ static void rewrite (Sroa *s)
 {
 	for (uint32_t i = 0; i < s->fn->count; i++) {
 		IRInstr *in = s->code + i;
+		int store = in->op == IR_STR_PTR || in->op == IR_STR_LOCAL;
 		Access key = {0};
-		if ((in->op != IR_LD_PTR && in->op != IR_STR_PTR)
-				|| s->root[in->src1] == SROA_NONE) continue;
 
-		key.slot = s->root[in->src1];
-		key.off = s->roff[in->src1] + in->imm64;
-		if (s->bad[key.slot]) continue;
-
+		if (!access_key(s, in, &key) || s->bad[key.slot]) continue;
 		Access *a = bsearch(&key, s->acc, s->acc_n, sizeof(Access), acc_cmp);
-		if (in->op == IR_LD_PTR) {
-			in->src1 = a->reg;
-		} else {
+		if (!store) in->src1 = a->reg;
+		else {
 			in->dst = a->reg;
 			in->src1 = in->src2;
 		}
@@ -222,6 +234,9 @@ static void rewrite (Sroa *s)
 
 static void release_slots (Sroa *s)
 {
+	for (uint32_t i = 0; i < s->acc_n; i++) {
+		if (!s->bad[s->acc[i].slot]) s->fn->addressed[s->acc[i].slot] = 0;
+	}
 	for (uint32_t i = 0; i < s->fn->count; i++) {
 		IRInstr *in = s->code + i;
 

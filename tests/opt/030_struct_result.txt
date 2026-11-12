@@ -23,19 +23,7 @@ fn twice(1 params, 4 regs) : i32
     ret.i32 r3
     ret
 
-fn main(0 params, 85 regs) : i64
-    r2 = const.i32 1
-    r5 = const.i32 2
-    r8 = const.i32 3
-    r11 = const.i32 4
-    str_local.i32 r15, r2
-    str_local.i32 r15, r5 +4
-    str_local.i32 r24, r8
-    str_local.i32 r24, r11 +4
-    r56 = const.i32 4
-    r67 = const.i32 6
-    str_local.i32 r12, r56
-    str_local.i32 r12, r67 +4
+fn main(0 params, 91 regs) : i64
     r42 = const.i64 20
     ret.i64 r42
     ret
