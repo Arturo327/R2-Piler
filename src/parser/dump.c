@@ -132,6 +132,9 @@ static void dump_node_value (ASTNode *n)
 	case NODE_DOT: case NODE_FIELD_INIT:
 		printf(" field=\"%.*s\"", (int)n->len, n->str);
 		break;
+	case NODE_CAST:
+		if (n->flags & NODE_FLAG_LITERAL) printf(" literal");
+		break;
 	default:
 		break;
 	}

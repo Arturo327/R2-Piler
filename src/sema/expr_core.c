@@ -45,7 +45,7 @@ static TypeId check_expr_node (Sema *s, uint32_t idx)
 	case NODE_EMPTY: n->data_type = TYPE_VOID; return TYPE_VOID;
 	case NODE_ARRAY_INIT: case NODE_STRUCT_INIT:
 		error_report(s->err, ERR_ERROR, node_loc(n),
-				"a '{...}' initializer is only valid in an array or struct declaration");
+				"a '{...}' literal needs an explicit type; write '{...} as T'");
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	case NODE_ERROR: n->data_type=TYPE_ERROR; return TYPE_ERROR;
@@ -94,6 +94,11 @@ int expr_has_effect (Sema *s, uint32_t idx)
 	case NODE_INDEX:
 		return expr_has_effect(s, child)
 				|| expr_has_effect(s, s->ast->nodes[child].next_bro);
+	case NODE_ARRAY_INIT: case NODE_STRUCT_INIT:
+		for (uint32_t k = child; k != NO_NODE; k = s->ast->nodes[k].next_bro) {
+			if (expr_has_effect(s, k)) return 1;
+		}
+		return 0;
 	case NODE_TERNARY: {
 		uint32_t then_idx = s->ast->nodes[child].next_bro;
 

@@ -14,7 +14,7 @@ static uint32_t parse_field_init (Parser *p)
 	}
 	consume(p, TOK_ASSIGN, "expected '=' after the field name");
 
-	uint32_t value = p->curr.type == TOK_LKEY ? parse_brace_init(p) : parse_expr(p, 0);
+	uint32_t value = parse_expr(p, 0);
 	p->ast.nodes[node].child = value;
 	return node;
 }
@@ -39,7 +39,7 @@ uint32_t parse_brace_init (Parser *p)
 		}
 		uint32_t item;
 		if (desig) item = parse_field_init(p);
-		else item = p->curr.type == TOK_LKEY ? parse_brace_init(p) : parse_expr(p, 0);
+		else item = parse_expr(p, 0);
 
 		append_child(p, node, &last, item);
 		if (p->curr.type != TOK_COMMA) break;
@@ -86,8 +86,7 @@ static uint32_t parse_decl_inner (Parser *p, int is_arr)
 
 	if (p->curr.type == TOK_ASSIGN) {
 		advance(p);
-		uint32_t value = p->curr.type == TOK_LKEY
-				? parse_brace_init(p) : parse_expr(p, 0);
+		uint32_t value = parse_expr(p, 0);
 		p->ast.nodes[node].child = value;
 	}
 

@@ -163,6 +163,8 @@ static uint32_t parse_primary_inner (Parser *p)
 		return parse_unary(p);
 	case TOK_SIZEOF:
 		return parse_sizeof(p);
+	case TOK_LKEY:
+		return parse_brace_init(p);
 	case TOK_LPAREN:
 		advance(p);
 		node = parse_expr(p, 0);
@@ -325,6 +327,10 @@ uint32_t parse_cast (Parser *p)
 		p->ast.nodes[cast].data_type = type;
 		p->ast.nodes[cast].type_node = type_node;
 		p->ast.nodes[cast].child = node;
+		if (p->ast.nodes[node].type == NODE_STRUCT_INIT
+				|| (p->ast.nodes[node].type == NODE_ARRAY_INIT
+				&& p->ast.nodes[node].child == NO_NODE))
+			p->ast.nodes[cast].flags |= NODE_FLAG_LITERAL;
 		node = cast;
 	}
 	p->depth = (uint16_t)(p->depth - extra);

@@ -462,11 +462,38 @@ static int cast_types_ok (Sema *s, ASTNode *n, TypeId from, TypeId to)
 
 TypeId check_cast (Sema *s, uint32_t idx)
 {
-	TypeId from = check_expr(s, s->ast->nodes[idx].child);
 	TypeId to = resolve_type_node(s, s->ast->nodes + idx);
-
 	ASTNode *n = s->ast->nodes + idx;
-	if (from == TYPE_ERROR || to == TYPE_ERROR) {
+	uint8_t child_type = s->ast->nodes[n->child].type;
+
+	if (to == TYPE_ERROR) {
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	if (child_type == NODE_STRUCT_INIT || child_type == NODE_ARRAY_INIT) {
+		uint32_t init = n->child;
+
+		if (type_kind(to) != TK_STRUCT) {
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"a '{...}' literal can only be cast to a struct or union type");
+			n->data_type = TYPE_ERROR;
+			return TYPE_ERROR;
+		}
+		if (!as_struct_init(s, init, to)) {
+			s->ast->nodes[idx].data_type = TYPE_ERROR;
+			return TYPE_ERROR;
+		}
+		check_struct_init(s, init, to);
+		n = s->ast->nodes + idx;
+		n->flags |= NODE_FLAG_LITERAL;
+		n->data_type = to;
+		return to;
+	}
+
+	TypeId from = check_expr(s, n->child);
+
+	n = s->ast->nodes + idx;
+	if (from == TYPE_ERROR) {
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}

@@ -1,0 +1,33 @@
+struct P [1:8] depth=0 size=12 align=4
+  field x type=i32 offset=0
+  field y type=i32 offset=4
+  field z type=i8 offset=8
+struct Q [7:8] depth=0 size=16 align=4
+  field p type=P offset=0
+  field n type=i32 offset=12
+struct WithArr [12:8] depth=0 size=16 align=4
+  field a type=i32[3] offset=0
+  field k type=i32 offset=12
+struct Bits [17:8] depth=0 size=1 align=1
+  field lo type=u8 offset=0 bits=3 bit_off=0
+  field hi type=u8 offset=0 bits=5 bit_off=3
+union V [22:7] depth=0 size=2 align=2
+  field a type=u8 offset=0
+  field b type=u8 offset=1
+  field c type=u16 offset=0
+struct Tagged [27:8] depth=0 size=4 align=2
+  field tag type=u8 offset=0
+  field u type=V offset=2
+struct PB [32:15] depth=0 size=5 align=1 packed
+  field tag type=u8 offset=0
+  field w type=u32 offset=1
+fn main [37:4] depth=0 type=i64
+var a [38:6] depth=1 type=P
+var b [39:6] depth=1 type=P
+var c [40:6] depth=1 type=Q
+var d [41:6] depth=1 type=WithArr
+var e [42:6] depth=1 type=Bits
+var f [43:6] depth=1 type=V
+var g [44:6] depth=1 type=V
+var h [45:6] depth=1 type=Tagged
+var i [46:6] depth=1 type=PB

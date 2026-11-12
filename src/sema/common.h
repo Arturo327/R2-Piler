@@ -29,6 +29,7 @@ void check_array_init_at (Sema *s, TypeId arr, uint32_t init_idx);
 void sema_decl_struct (Sema *s, uint32_t idx);
 void sema_layout_structs (Sema *s);
 void check_struct_init (Sema *s, uint32_t init_idx, TypeId st);
+int as_struct_init (Sema *s, uint32_t idx, TypeId st);
 
 const char *type_display_name (TypeId type);
 void warn_bitfield_truncation (Sema *s, const StructField *f, uint32_t value);

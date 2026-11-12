@@ -134,8 +134,8 @@ static void check_var_dec (Sema *s, uint32_t idx)
 
 		if (kind == TK_ARRAY) {
 			check_array_init(s, idx);
-		} else if (kind == TK_STRUCT
-				&& s->ast->nodes[n->child].type == NODE_STRUCT_INIT) {
+		} else if (kind == TK_STRUCT && (s->ast->nodes[n->child].type == NODE_STRUCT_INIT
+				|| s->ast->nodes[n->child].type == NODE_ARRAY_INIT)) {
 			check_struct_init(s, n->child, n->data_type);
 		} else if (s->ast->nodes[n->child].type == NODE_STRUCT_INIT) {
 			if (kind != TK_ERROR)

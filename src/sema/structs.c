@@ -361,8 +361,8 @@ static void check_field_value (Sema *s, uint32_t item, const StructField *f)
 	TypeKind kind = type_kind(f->type);
 
 	int has_slice = type_dyn_rank(f->type) > 0;
-	if (kind == TK_STRUCT && vt == NODE_STRUCT_INIT) {
-		check_struct_init(s, val, f->type);
+	if (kind == TK_STRUCT && (vt == NODE_STRUCT_INIT || vt == NODE_ARRAY_INIT)) {
+		if (as_struct_init(s, val, f->type)) check_struct_init(s, val, f->type);
 	} else if (kind == TK_ARRAY && !has_slice
 			&& (vt == NODE_ARRAY_INIT || vt == NODE_LIT_STR)) {
 		check_array_init_at(s, f->type, val);
@@ -392,15 +392,6 @@ static void check_field_value (Sema *s, uint32_t item, const StructField *f)
 	}
 }
 
-static int alt_seen (const Type *t, const uint8_t *seen, uint16_t grp, uint16_t alt)
-{
-	for (uint32_t j = 0; j < t->field_count; j++) {
-		if (seen[j] && t->fields[j].grp == grp && (!alt || t->fields[j].alt == alt))
-			return 1;
-	}
-	return 0;
-}
-
 static int union_conflict (const Type *t, const uint8_t *seen, const StructField *f)
 {
 	for (uint32_t j = 0; f->grp && j < t->field_count; j++) {
@@ -408,32 +399,6 @@ static int union_conflict (const Type *t, const uint8_t *seen, const StructField
 			return 1;
 	}
 	return 0;
-}
-
-static int first_in_group (const Type *t, uint32_t k)
-{
-	for (uint32_t j = 0; j < k; j++) {
-		if (t->fields[j].grp == t->fields[k].grp) return 0;
-	}
-	return 1;
-}
-
-static void report_missing (Sema *s, uint32_t init_idx, TypeId st, const uint8_t *seen)
-{
-	const Type *t = types + st;
-
-	for (uint32_t k = 0; k < t->field_count; k++) {
-		const StructField *f = t->fields + k;
-		const char *what = "missing field '%.*s' in the initializer of struct '%s'";
-
-		if (seen[k]) continue;
-		if (f->grp && !alt_seen(t, seen, f->grp, f->alt)) {
-			if (alt_seen(t, seen, f->grp, 0) || !first_in_group(t, k)) continue;
-			what = "missing a member of the union that contains '%.*s' in the initializer of '%s'";
-		}
-		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + init_idx),
-				what, (int)f->len, f->name, t->name);
-	}
 }
 
 static void check_field_init (Sema *s, uint32_t item, TypeId st, uint8_t *seen)
@@ -457,17 +422,36 @@ static void check_field_init (Sema *s, uint32_t item, TypeId st, uint8_t *seen)
 	check_field_value(s, item, f);
 }
 
+int as_struct_init (Sema *s, uint32_t idx, TypeId st)
+{
+	ASTNode *n = s->ast->nodes + idx;
+
+	if (n->type == NODE_STRUCT_INIT) {
+		n->data_type = st;
+		return 1;
+	}
+	if (n->type != NODE_ARRAY_INIT) return 0;
+	if (n->child != NO_NODE) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"positional '{...}' initializers are not valid for struct '%s';"
+				" use '.field = value'", types[st].name);
+		return 0;
+	}
+	n->type = NODE_STRUCT_INIT;
+	n->data_type = st;
+	return 1;
+}
+
 void check_struct_init (Sema *s, uint32_t init_idx, TypeId st)
 {
 	uint32_t count = types[st].field_count;
+	if (!as_struct_init(s, init_idx, st)) return;
+
 	uint8_t *seen = arena_alloc(s->arena, count + 1u);
 	uint32_t item = s->ast->nodes[init_idx].child;
-
 	memset(seen, 0, count + 1u);
-	s->ast->nodes[init_idx].data_type = st;
 	while (item != NO_NODE) {
 		check_field_init(s, item, st, seen);
 		item = s->ast->nodes[item].next_bro;
 	}
-	report_missing(s, init_idx, st, seen);
 }

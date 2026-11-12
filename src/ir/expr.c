@@ -346,6 +346,42 @@ static void gen_copy_loop (IR *ir, uint32_t dst, uint32_t src, uint32_t size)
 	make_label(ir, end);
 }
 
+static void gen_zero_loop (IR *ir, uint32_t base, uint64_t size)
+{
+	uint32_t loop = ir->label_count++;
+	uint32_t end = ir->label_count++;
+	uint32_t off = new_reg(ir, TYPE_i64);
+	uint32_t limit = make_const(ir, size, TYPE_i64);
+	uint32_t step = make_const(ir, 8, TYPE_i64);
+	uint32_t zero = make_const(ir, 0, TYPE_u64);
+
+	make_const_into(ir, off, 0, TYPE_i64);
+	make_label(ir, loop);
+	make_jump(ir, IR_JNZ, make_op(ir, IR_GE, off, limit, TYPE_i64), end);
+	make_str_ptr(ir, make_op(ir, IR_ADD, base, off, TYPE_i64), zero, TYPE_u64);
+	make_move(ir, off, make_op(ir, IR_ADD, off, step, TYPE_i64), TYPE_i64);
+	make_jump(ir, IR_JMP, NO_REG, loop);
+	make_label(ir, end);
+}
+
+static void gen_zero_range (IR *ir, uint32_t base, uint64_t size)
+{
+	uint64_t off = 0;
+
+	if ((size >> 3) > COPY_UNROLL) {
+		off = size & ~7u;
+		gen_zero_loop(ir, base, off);
+	}
+	while (off < size) {
+		uint64_t left = size - off;
+		TypeId ut = left >= 8 ? TYPE_u64 : left >= 4 ? TYPE_u32
+				: left >= 2 ? TYPE_u16 : TYPE_u8;
+
+		make_str_ptr(ir, off ? add_offset(ir, base, off) : base, make_const(ir, 0, ut), ut);
+		off += types[ut].size;
+	}
+}
+
 static void gen_copy_fields (IR *ir, uint32_t dst, uint32_t src, TypeId type, uint32_t base)
 {
 	const Type *t = types + type;
@@ -488,8 +524,85 @@ uint32_t gen_slice_desc (IR *ir, uint32_t dst, ASTNode *val, TypeId type)
 	return src_ptr;
 }
 
+static uint32_t init_find (IR *ir, ASTNode *init, const char *name, uint16_t len)
+{
+	for (uint32_t it = init->child; it != NO_NODE; it = ir->ast->nodes[it].next_bro) {
+		ASTNode *fi = ir->ast->nodes + it;
+		if (fi->len == len && memcmp(fi->str, name, len) == 0) return fi->child;
+	}
+	return NO_NODE;
+}
+
+static int init_needs_zero (IR *ir, uint32_t idx, TypeId type);
+
+static int alt_needs_zero (IR *ir, ASTNode *init, const Type *t, const StructField *f)
+{
+	for (uint32_t j = 0; j < t->field_count; j++) {
+		const StructField *g = t->fields + j;
+		uint32_t val;
+
+		if (g->grp != f->grp || g->alt != f->alt) continue;
+		val = init_find(ir, init, g->name, g->len);
+		if (val == NO_NODE || init_needs_zero(ir, val, g->type)) return 1;
+	}
+	return 0;
+}
+
+static int group_needs_zero (IR *ir, ASTNode *init, const Type *t, uint16_t grp)
+{
+	for (uint32_t k = 0; k < t->field_count; k++) {
+		const StructField *f = t->fields + k;
+
+		if (f->grp != grp) continue;
+		if (init_find(ir, init, f->name, f->len) != NO_NODE)
+			return alt_needs_zero(ir, init, t, f);
+	}
+	return 1;
+}
+
+static int arr_needs_zero (IR *ir, ASTNode *init, TypeId type)
+{
+	TypeId elem = types[type].base;
+
+	if (init->type == NODE_LIT_STR) return 0;
+	for (uint32_t it = init->child; it != NO_NODE; it = ir->ast->nodes[it].next_bro) {
+		if (init_needs_zero(ir, it, elem)) return 1;
+	}
+	return 0;
+}
+
+static int init_needs_zero (IR *ir, uint32_t idx, TypeId type)
+{
+	ASTNode *n = ir->ast->nodes + idx;
+	const Type *t = types + type;
+
+	if (type_kind(type) == TK_ARRAY) return arr_needs_zero(ir, n, type);
+	if (type_kind(type) != TK_STRUCT || n->type != NODE_STRUCT_INIT) return 0;
+
+	for (uint32_t k = 0; k < t->field_count; k++) {
+		const StructField *f = t->fields + k;
+
+		if (f->grp) {
+			int done = 0;
+
+			for (uint32_t j = 0; j < k; j++)
+				if (t->fields[j].grp == f->grp) done = 1;
+			if (done) continue;
+			if (group_needs_zero(ir, n, t, f->grp)) return 1;
+			continue;
+		}
+		uint32_t val = init_find(ir, n, f->name, f->len);
+		if (val == NO_NODE) return 1;
+		if (init_needs_zero(ir, val, f->type)) return 1;
+	}
+	return 0;
+}
+
 static void gen_struct_init (IR *ir, uint32_t base, ASTNode *init, TypeId type)
 {
+	if (init_needs_zero(ir, (uint32_t)(init - ir->ast->nodes), type))
+		gen_zero_range(ir, base, types[type].size);
+
 	int fused = fuse_struct_init(ir, base, init, type);
 	uint32_t item = init->child;
 
@@ -521,7 +634,17 @@ void gen_struct_into (IR *ir, uint32_t dst, uint32_t expr, TypeId type, int fres
 {
 	ASTNode *e = ir->ast->nodes + expr;
 
+	if (e->type == NODE_CAST && (e->flags & NODE_FLAG_LITERAL) && e->child != NO_NODE) {
+		expr = e->child;
+		e = ir->ast->nodes + expr;
+	}
 	if (e->type == NODE_STRUCT_INIT) {
+		if (!fresh) {
+			uint32_t tmp = new_struct_temp(ir, type);
+			gen_struct_init(ir, tmp, e, type);
+			gen_copy(ir, dst, tmp, type);
+			return;
+		}
 		gen_struct_init(ir, dst, e, type);
 		return;
 	}
@@ -567,6 +690,17 @@ static int can_alias_arg (IR *ir, ASTNode *call, uint32_t arg, uint32_t param)
 
 static uint32_t gen_struct_arg (IR *ir, ASTNode *a, int alias)
 {
+	if (a->type == NODE_CAST && (a->flags & NODE_FLAG_LITERAL) && a->child != NO_NODE) {
+		ASTNode *init = ir->ast->nodes + a->child;
+
+		if (init->type == NODE_STRUCT_INIT) {
+			uint32_t tmp = new_struct_temp(ir, a->data_type);
+
+			gen_struct_init(ir, tmp, init, a->data_type);
+			return tmp;
+		}
+	}
+
 	uint32_t src = gen_expr(ir, a);
 	if (alias) ir->no_tail = 1;
 	if (a->type == NODE_FN_CALL || alias) return src;
@@ -1082,7 +1216,8 @@ static uint32_t gen_cast (IR *ir, ASTNode *n)
 	uint32_t src = gen_expr(ir, operand);
 
 	if (type_kind(operand->data_type) == TK_ARRAY
-			|| type_kind(operand->data_type) == TK_SLICE)
+			|| type_kind(operand->data_type) == TK_SLICE
+			|| type_kind(operand->data_type) == TK_STRUCT)
 		return src;
 	if (types[n->data_type].size == 8 && types[operand->data_type].size == 8) {
 		ir->reg_types[src] = n->data_type;
@@ -1146,6 +1281,11 @@ uint32_t gen_expr (IR *ir, ASTNode *n)
 	case NODE_AND_L: case NODE_OR_L: return gen_logic(ir, n);
 	case NODE_CAST: return gen_cast(ir, n);
 	case NODE_TERNARY: return gen_ternary(ir, n);
+	case NODE_STRUCT_INIT: {
+		uint32_t tmp = new_struct_temp(ir, n->data_type);
+		gen_struct_init(ir, tmp, n, n->data_type);
+		return tmp;
+	}
 
 	default:
 		assert(node_to_ir[n->type] != IR_NOP);

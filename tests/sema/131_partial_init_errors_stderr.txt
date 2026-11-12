@@ -1,0 +1,6 @@
+tests/sema/131_partial_init_errors_src.r2:7:14: ERROR: positional '{...}' initializers are not valid for struct 'P'; use '.field = value'
+      7 |         var a : P = {1, 2};
+        |                     ^
+tests/sema/131_partial_init_errors_src.r2:8:16: ERROR: '{...}' initializer requires an array type
+      8 |         var b : i64 = {};
+        |                       ^

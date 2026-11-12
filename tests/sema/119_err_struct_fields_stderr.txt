@@ -4,9 +4,6 @@ tests/sema/119_err_struct_fields_src.r2:3:2: ERROR: duplicate field 'x'
 tests/sema/119_err_struct_fields_src.r2:12:24: ERROR: duplicate field 'x' in the initializer
      12 |         var a : P = {.x = 1, .x = 2, .y = 3};
         |                               ^
-tests/sema/119_err_struct_fields_src.r2:13:14: ERROR: missing field 'y' in the initializer of struct 'P'
-     13 |         var b : P = {.x = 1};
-        |                     ^
 tests/sema/119_err_struct_fields_src.r2:14:32: ERROR: struct 'P' has no field 'z'
      14 |         var c : P = {.x = 1, .y = 2, .z = 3};
         |                                       ^

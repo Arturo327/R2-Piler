@@ -418,8 +418,8 @@ void check_array_init_at (Sema *s, TypeId arr, uint32_t init_idx)
 						types[elem].name);
 			else
 				check_array_init_at(s, elem, item);
-		} else if (type_kind(elem) == TK_STRUCT
-				&& item_node->type == NODE_STRUCT_INIT) {
+		} else if (type_kind(elem) == TK_STRUCT && (item_node->type == NODE_STRUCT_INIT
+				|| item_node->type == NODE_ARRAY_INIT)) {
 			check_struct_init(s, item, elem);
 		} else if (item_node->type == NODE_ARRAY_INIT) {
 			error_report(s->err, ERR_ERROR, node_loc(item_node),
@@ -537,7 +537,8 @@ void check_global_var_init (Sema *s, uint32_t idx)
 	if (n->data_type != TYPE_ERROR && type_kind(n->data_type) == TK_ARRAY) {
 		check_array_init(s, idx);
 	} else if (n->data_type != TYPE_ERROR && type_kind(n->data_type) == TK_STRUCT
-			&& s->ast->nodes[n->child].type == NODE_STRUCT_INIT) {
+			&& (s->ast->nodes[n->child].type == NODE_STRUCT_INIT
+				|| s->ast->nodes[n->child].type == NODE_ARRAY_INIT)) {
 		check_struct_init(s, n->child, n->data_type);
 	} else {
 		TypeId init_type = check_expr(s, n->child);
