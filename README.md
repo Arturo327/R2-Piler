@@ -33,11 +33,16 @@ tested:
   Pointer arithmetic is lowered with C semantics: `p + n` scales by
   `sizeof(T)` and `p - q` yields the distance in **elements**. The backend
   lowers address-of, dereference, loads/stores and a deduplicated `.rodata`
-  string pool; address-taken locals get a stack slot.
+  string pool; address-taken locals get a stack slot. Global pointer
+  initializers must be link-time constants — `NULL`, a string literal or the
+  address of a global (`$g`) — and at `-O2`/`-O3` they are bound statically
+  into `.data` (`.quad .LC0`, `.quad __r2_g`) instead of running in
+  `__r2_init`.
 - **C interop** through `extern fn` / `extern var` declarations: they have no
   body or initializer, calls are type-checked like normal functions, and the
   emitted symbol keeps its plain C name (`call puts`, `optind(%rip)`) with
-  `gcc` resolving it at link time.
+  `gcc` resolving it at link time. `%al` is zeroed before every extern call
+  (SysV variadic ABI).
 - Multidimensional arrays and slices of any rank are supported
   (`arr m : i32[R][C]`, `i32[][]` slice parameters), and structs/unions
   with C-like layout, designated `{.field = ...}` exhaustive initializers,

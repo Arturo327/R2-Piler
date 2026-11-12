@@ -1,11 +1,6 @@
 global g : i32[2]
 
-fn __r2_init(0 params, 5 regs) : void
-    r0 = addr_global.i32[2] @g
-    r1 = const.i32 3
-    str_ptr.i32 r0, r1
-    r2 = const.i32 4
-    str_ptr.i32 r0, r2 +4
+fn __r2_init(0 params, 0 regs) : void
     ret
 
 fn main(0 params, 42 regs) : i64

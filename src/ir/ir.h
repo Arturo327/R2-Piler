@@ -64,7 +64,8 @@ typedef struct IRFn {
 enum {
 	IR_INIT_NUM = 0,
 	IR_INIT_STR = 1,
-	IR_INIT_ADDR = 2
+	IR_INIT_ADDR = 2,
+	IR_INIT_IMAGE = 3
 };
 
 typedef struct IRGlobal {
@@ -77,6 +78,7 @@ typedef struct IRGlobal {
 	uint8_t init_kind;
 	uint8_t is_extern;
 	uint32_t init_ref;
+	uint8_t *image;
 } IRGlobal;
 
 typedef struct IRString {

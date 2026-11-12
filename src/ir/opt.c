@@ -75,6 +75,8 @@ static void init_caches (OptFn *f, IR *ir, Arena *a, size_t max_regs)
 	memset(f->dstamp, 0, max_regs * sizeof(uint32_t));
 	f->gepoch = 1;
 	f->depoch = 1;
+	f->gvis = arena_alloc(a, globals * sizeof(uint32_t));
+	f->gvis_count = visible_globals(ir, a, f->gvis);
 
 	f->live = NULL;
 	f->live_cap = 0;

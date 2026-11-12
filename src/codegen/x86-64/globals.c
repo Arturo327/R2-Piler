@@ -8,6 +8,23 @@ static const char *asm_size_name[9] =
 	[8] = ".quad"
 };
 
+static void make_global_image (CodeGen *c, IRGlobal *g)
+{
+	uint32_t size = types[g->type].size;
+
+	cg_printf(c, "\n");
+	for (uint32_t j = 0; j < size; j += 32) {
+		uint32_t n = size - j < 32 ? size - j : 32;
+
+		cg_printf(c, "\t.byte ");
+		for (uint32_t k = 0; k < n; k++) {
+			if (k) cg_printf(c, ", ");
+			cg_printf(c, "%u", (unsigned)g->image[j + k]);
+		}
+		cg_printf(c, "\n");
+	}
+}
+
 static void make_global_data (CodeGen *c, uint32_t i)
 {
 	IRGlobal *g = c->ir->globals + i;
@@ -23,6 +40,10 @@ static void make_global_data (CodeGen *c, uint32_t i)
 		IRGlobal *ref = c->ir->globals + g->init_ref;
 
 		cg_printf(c, ".quad %s%.*s\n", GLOBAL_PREFIX(ref), (int)ref->len, ref->name);
+		return;
+	}
+	if (g->init_kind == IR_INIT_IMAGE) {
+		make_global_image(c, g);
 		return;
 	}
 	cg_printf(c, "%s ", asm_size_name[size]);

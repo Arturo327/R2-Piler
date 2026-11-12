@@ -5,6 +5,7 @@
 
 #define FUSE_MAX_IMAGE 4096
 #define FUSE_TEMPLATE_MIN 64
+#define IMAGE_MAX (1u << 20)
 
 enum {
 	ST_BUSY = 0,
@@ -186,4 +187,31 @@ int fuse_struct_init (IR *ir, uint32_t base, ASTNode *init, TypeId type)
 	}
 	make_runs(&f, base);
 	return 1;
+}
+
+static int image_type_ok (TypeId id)
+{
+	TypeKind kind = type_kind(id);
+	const Type *t = types + id;
+
+	if (kind == TK_PTR || kind == TK_SLICE || kind == TK_STR) return 0;
+	if (kind == TK_ARRAY) return image_type_ok(t->base);
+	if (kind != TK_STRUCT) return 1;
+	for (uint16_t i = 0; i < t->field_count; i++)
+		if (!image_type_ok(t->fields[i].type)) return 0;
+	return 1;
+}
+
+uint8_t *const_image (IR *ir, uint32_t init, TypeId type)
+{
+	Fuse f = { .ir = ir, .size = types[type].size };
+
+	if (f.size > IMAGE_MAX || type_has_bitfield(type)) return NULL;
+	if (!image_type_ok(type) || !const_tree(ir, init)) return NULL;
+	f.img = arena_alloc(ir->arena, f.size);
+	f.st = arena_alloc(ir->arena, f.size);
+	memset(f.img, 0, f.size);
+	memset(f.st, ST_BUSY, f.size);
+	put_value(&f, init, type, 0);
+	return f.img;
 }

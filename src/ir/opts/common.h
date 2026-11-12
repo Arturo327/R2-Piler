@@ -13,6 +13,7 @@ void track_const (OptFn *f, IRInstr *in);
 int reg_const (Optimizer *opt, OptFn *f, uint32_t reg, int64_t *val);
 void to_const (OptFn *f, IRInstr *in, int64_t v);
 int simplify_instr (Optimizer *opt, OptFn *f, IRInstr *in);
+uint32_t visible_globals (IR *ir, Arena *a, uint32_t *out);
 
 int opt_propagate (Optimizer *opt, OptFn *f);
 int opt_fold (Optimizer *opt, OptFn *f);

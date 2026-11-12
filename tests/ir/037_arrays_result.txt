@@ -2,29 +2,7 @@ global g : i32[3]
 global s : i8[6]
 global z : i64[2]
 
-fn __r2_init(0 params, 16 regs) : void
-    r0 = addr_global.i32[3] @g
-    r1 = const.i32 1
-    str_ptr.i32 r0, r1
-    r2 = const.i32 2
-    r3 = const.i64 4
-    r4 = add.i64 r0, r3
-    str_ptr.i32 r4, r2
-    r5 = const.i32 3
-    r6 = const.i64 8
-    r7 = add.i64 r0, r6
-    str_ptr.i32 r7, r5
-    r8 = addr_global.i8[6] @s
-    r9 = const.i8 0
-    r10 = const.i8 104
-    str_ptr.i8 r8, r10
-    r11 = const.i8 105
-    r12 = const.i64 1
-    r13 = add.i64 r8, r12
-    str_ptr.i8 r13, r11
-    r14 = const.i64 2
-    r15 = add.i64 r8, r14
-    str_ptr.i8 r15, r9
+fn __r2_init(0 params, 0 regs) : void
     ret
 
 fn sum(2 params, 11 regs) : i64

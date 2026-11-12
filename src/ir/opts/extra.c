@@ -1,5 +1,7 @@
 #include "ir/opts/common.h"
 
+#include <string.h>
+
 static int strength_instr (Optimizer *opt, OptFn *f, IRInstr *in)
 {
 	IRInstr *k;
@@ -66,6 +68,31 @@ static void note_global (OptFn *f, IRInstr *in, uint32_t reg)
 	f->gstamp[g] = f->gepoch;
 }
 
+uint32_t visible_globals (IR *ir, Arena *a, uint32_t *out)
+{
+	uint8_t *seen = arena_alloc(a, (size_t)ir->global_count + 1);
+	uint32_t n = 0;
+
+	memset(seen, 0, (size_t)ir->global_count + 1);
+	for (uint32_t g = 0; g < ir->global_count; g++)
+		seen[g] = ir->globals[g].is_extern;
+	for (uint32_t i = 0; i < ir->instr_count; i++) {
+		IRInstr *in = ir->instrs + i;
+
+		if (in->op == IR_ADDR_GLOBAL) seen[in->target] = 1;
+	}
+	for (uint32_t g = 0; g < ir->global_count; g++) {
+		if (seen[g]) out[n++] = g;
+	}
+	return n;
+}
+
+static void kill_visible (OptFn *f)
+{
+	for (uint32_t k = 0; k < f->gvis_count; k++)
+		f->gstamp[f->gvis[k]] = 0;
+}
+
 static int globals_block (Optimizer *opt, OptFn *f, CfgBlock *blk)
 {
 	IRInstr *code = opt->ir->instrs + blk->start;
@@ -76,7 +103,7 @@ static int globals_block (Optimizer *opt, OptFn *f, CfgBlock *blk)
 		IRInstr *in = code + i;
 
 		if (in->op == IR_CALL) f->gepoch++;
-		else if (in->op == IR_STR_PTR) f->gepoch++;
+		else if (in->op == IR_STR_PTR) kill_visible(f);
 		else if (in->op == IR_STR_GLOBAL) note_global(f, in, in->src1);
 		else if (in->op == IR_LD_GLOBAL && fwd_global(f, in)) changed = 1;
 		else if (in->op == IR_LD_GLOBAL) note_global(f, in, in->dst);

@@ -16,6 +16,7 @@ uint32_t call_ret_node (IR *ir, ASTNode *call);
 TypeId ret_slot_type (TypeId t);
 uint32_t add_offset (IR *ir, uint32_t base, uint64_t off);
 int const_tree (IR *ir, uint32_t idx);
+uint8_t *const_image (IR *ir, uint32_t init, TypeId type);
 int fuse_struct_init (IR *ir, uint32_t base, ASTNode *init, TypeId type);
 uint32_t make_blob (IR *ir, const uint8_t *data, uint32_t len);
 void gen_copy (IR *ir, uint32_t dst, uint32_t src, TypeId type);

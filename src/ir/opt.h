@@ -57,6 +57,8 @@ typedef struct OptFn {
 	uint32_t *gval;
 	uint32_t *gstamp;
 	uint32_t gepoch;
+	uint32_t *gvis;
+	uint32_t gvis_count;
 
 	uint32_t *dstamp;
 	uint32_t depoch;

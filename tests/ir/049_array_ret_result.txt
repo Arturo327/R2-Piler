@@ -1,41 +1,7 @@
 global g : i64[3]
 global m : i64[2][3]
 
-fn __r2_init(0 params, 25 regs) : void
-    r0 = addr_global.i64[3] @g
-    r1 = const.i64 1
-    str_ptr.i64 r0, r1
-    r2 = const.i64 2
-    r3 = const.i64 8
-    r4 = add.i64 r0, r3
-    str_ptr.i64 r4, r2
-    r5 = const.i64 3
-    r6 = const.i64 16
-    r7 = add.i64 r0, r6
-    str_ptr.i64 r7, r5
-    r8 = addr_global.i64[2][3] @m
-    r9 = const.i64 1
-    str_ptr.i64 r8, r9
-    r10 = const.i64 2
-    r11 = const.i64 8
-    r12 = add.i64 r8, r11
-    str_ptr.i64 r12, r10
-    r13 = const.i64 3
-    r14 = const.i64 16
-    r15 = add.i64 r8, r14
-    str_ptr.i64 r15, r13
-    r16 = const.i64 24
-    r17 = add.i64 r8, r16
-    r18 = const.i64 4
-    str_ptr.i64 r17, r18
-    r19 = const.i64 5
-    r20 = const.i64 8
-    r21 = add.i64 r17, r20
-    str_ptr.i64 r21, r19
-    r22 = const.i64 6
-    r23 = const.i64 16
-    r24 = add.i64 r17, r23
-    str_ptr.i64 r24, r22
+fn __r2_init(0 params, 0 regs) : void
     ret
 
 fn shape(0 params, 1 regs) : ptr i64

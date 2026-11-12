@@ -408,12 +408,29 @@ static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
 	fn_end(ir, fn_idx);
 }
 
+static int bind_image (IR *ir, ASTNode *n, Symbol *s)
+{
+	IRGlobal *g = ir->globals + s->ir_id;
+	TypeKind kind = type_kind(s->type);
+	uint8_t *img;
+
+	if (kind != TK_STRUCT && kind != TK_ARRAY) return 0;
+	if (type_dyn_rank(s->type) > 0) return 0;
+	img = const_image(ir, n->child, s->type);
+	if (!img) return 0;
+	g->image = img;
+	g->init_kind = IR_INIT_IMAGE;
+	g->has_init = 1;
+	return 1;
+}
+
 static void gen_var_init (IR *ir, uint32_t idx)
 {
 	ASTNode *n = ir->ast->nodes + idx;
 	Symbol *s = ir->symtab->symbols + n->sym;
 
 	if (n->child == NO_NODE) return;
+	if (bind_image(ir, n, s)) return;
 	if (type_dyn_rank(s->type) > 0 || type_kind(s->type) == TK_SLICE
 			|| type_kind(s->type) == TK_ARRAY || type_kind(s->type) == TK_STRUCT) {
 		uint32_t base = new_reg(ir, TYPE_i64);
