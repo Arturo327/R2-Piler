@@ -1,0 +1,6 @@
+tests/opt/034_bitfield_rmw_src.r2:19:6: WARNING: value assigned to field 'c' of 'v' is not used
+     19 |         v.c += 2;
+        |             ^~
+tests/opt/034_bitfield_rmw_src.r2:23:7: WARNING: value assigned to field 'lo' of 'w' is not used
+     23 |         w.lo = 3;
+        |              ^

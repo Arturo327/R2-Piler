@@ -30,6 +30,8 @@ typedef struct Symbol {
 	uint32_t *ir_dims;
 	uint32_t next;
 	uint32_t write_node;
+	uint32_t agg_slots;
+	uint64_t agg_written;
 
 	uint16_t line;
 	uint16_t col;

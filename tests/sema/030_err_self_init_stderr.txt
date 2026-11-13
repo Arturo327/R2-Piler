@@ -1,3 +1,6 @@
 tests/sema/030_err_self_init_src.r2:1:15: ERROR: 'x' cannot be used in its own initializer
       1 | var x : i64 = x;
         |               ^
+tests/sema/030_err_self_init_src.r2:3:5: WARNING: unused variable 'z'
+      3 | var z : i64 = y;
+        |     ^

@@ -246,6 +246,15 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->dead_count = 0;
 	s->dead_cap = 16;
 	s->dead = arena_alloc(arena, sizeof(DeadWrite) * s->dead_cap);
+	s->place_count = 0;
+	s->place_cap = 16;
+	s->places = arena_alloc(arena, sizeof(AggPlace) * s->place_cap);
+	s->dead_place_count = 0;
+	s->dead_place_cap = 16;
+	s->dead_places = arena_alloc(arena, sizeof(AggPlace) * s->dead_place_cap);
+	s->write_root = NO_NODE;
+	s->addr_operand = 0;
+	s->curr_fn = NO_SYMBOL;
 	s->expr_depth = 0;
 	s->too_deep = 0;
 
@@ -296,6 +305,7 @@ uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 
 	uint32_t sym_idx = symtab_declare(&s->table, s->arena, sym);
 	s->ast->nodes[decl_node].sym = sym_idx;
+	agg_declare(s, sym_idx, decl_node);
 	return sym_idx;
 }
 
@@ -774,6 +784,32 @@ static void decl_globals (Sema *s)
 	}
 }
 
+static int is_extern_decl (Sema *s, Symbol *sym)
+{
+	ASTNode *n = s->ast->nodes + sym->decl;
+
+	return sym->decl != NO_NODE
+			&& (n->type == NODE_EXTERN_FN_DEC || n->type == NODE_EXTERN_VAR_DEC);
+}
+
+static void warn_unused_top (Sema *s)
+{
+	for (uint32_t i = 0; i < s->table.count; i++) {
+		Symbol *sym = s->table.symbols + i;
+		ErrorLoc loc = { .line = sym->line, .col = sym->col, .len = sym->len };
+
+		if (sym->depth != 0 || sym->read || is_extern_decl(s, sym)) continue;
+
+		if (sym->kind == SYMBOL_FN && !(sym->len == 4
+				&& memcmp(sym->name, "main", 4) == 0))
+			error_report(s->err, ERR_WARNING, loc,
+					"unused function '%.*s'", (int)sym->len, sym->name);
+		else if (sym->kind == SYMBOL_VAR)
+			error_report(s->err, ERR_WARNING, loc,
+					"unused variable '%.*s'", (int)sym->len, sym->name);
+	}
+}
+
 void sema_run (Sema *s)
 {
 	reserve_cast_nodes(s);
@@ -787,6 +823,7 @@ void sema_run (Sema *s)
 	bind_enums(s);
 
 	check_root(s);
+	warn_unused_top(s);
 }
 
 // debug shit

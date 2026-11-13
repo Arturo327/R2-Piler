@@ -1,0 +1,3 @@
+tests/asm/008_cmp_signed_src.r2:7:11: WARNING: comparison of an expression with itself is always true; did you mean to compare two different values?
+      7 |                                 if (a == a) {
+        |                                       ^~

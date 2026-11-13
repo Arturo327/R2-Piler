@@ -1,0 +1,3 @@
+tests/ir/045_struct_src.r2:30:6: WARNING: value assigned to field 'b' of 'l' is not used
+     30 |         l.b = m;
+        |             ^

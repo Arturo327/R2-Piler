@@ -1,0 +1,3 @@
+tests/sema/035_ok_forward_chain_src.r2:1:5: WARNING: unused variable 'a'
+      1 | var a : i64 = b;
+        |     ^

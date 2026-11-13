@@ -7,3 +7,12 @@ tests/sema/028_err_void_cond_src.r2:11:10: ERROR: expression with resulting type
 tests/sema/028_err_void_cond_src.r2:17:10: ERROR: expression with resulting type void is not valid as a condition
      17 |   for (; v();) {
         |          ^
+tests/sema/028_err_void_cond_src.r2:4:4: WARNING: unused function 'f'
+      4 | fn f() : i64 {
+        |    ^
+tests/sema/028_err_void_cond_src.r2:10:4: WARNING: unused function 'g'
+     10 | fn g() : void {
+        |    ^
+tests/sema/028_err_void_cond_src.r2:16:4: WARNING: unused function 'h'
+     16 | fn h() : void {
+        |    ^

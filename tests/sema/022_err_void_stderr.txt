@@ -22,3 +22,6 @@ tests/sema/022_err_void_src.r2:7:7: WARNING: unused variable 'c'
 tests/sema/022_err_void_src.r2:8:7: WARNING: unused variable 'd'
       8 |   var d : i64 = v();
         |       ^
+tests/sema/022_err_void_src.r2:4:4: WARNING: unused function 'f'
+      4 | fn f() : i64 {
+        |    ^

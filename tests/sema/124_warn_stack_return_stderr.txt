@@ -16,3 +16,30 @@ tests/sema/124_warn_stack_return_src.r2:30:13: WARNING: returning a slice of the
 tests/sema/124_warn_stack_return_src.r2:35:12: WARNING: returning a pointer to the local 'x'; it dangles when the function returns
      35 |     return $x;
         |            ^
+tests/sema/124_warn_stack_return_src.r2:5:4: WARNING: unused function 'w_arr'
+      5 | fn w_arr() : i64[] {
+        |    ^~~~~
+tests/sema/124_warn_stack_return_src.r2:10:4: WARNING: unused function 'w_slice'
+     10 | fn w_slice() : i64[] {
+        |    ^~~~~~~
+tests/sema/124_warn_stack_return_src.r2:16:4: WARNING: unused function 'w_chain'
+     16 | fn w_chain() : i64[] {
+        |    ^~~~~~~
+tests/sema/124_warn_stack_return_src.r2:23:4: WARNING: unused function 'w_sub'
+     23 | fn w_sub() : i64[] {
+        |    ^~~~~
+tests/sema/124_warn_stack_return_src.r2:28:4: WARNING: unused function 'w_field'
+     28 | fn w_field() : i64[] {
+        |    ^~~~~~~
+tests/sema/124_warn_stack_return_src.r2:33:4: WARNING: unused function 'w_addr'
+     33 | fn w_addr() : ptr i64 {
+        |    ^~~~~~
+tests/sema/124_warn_stack_return_src.r2:38:4: WARNING: unused function 'ok_global'
+     38 | fn ok_global() : i64[] {
+        |    ^~~~~~~~~
+tests/sema/124_warn_stack_return_src.r2:42:4: WARNING: unused function 'ok_param'
+     42 | fn ok_param(x : i64[]) : i64[] {
+        |    ^~~~~~~~
+tests/sema/124_warn_stack_return_src.r2:46:4: WARNING: unused function 'ok_arr_param'
+     46 | fn ok_arr_param(x : i64[3]) : i64[3] {
+        |    ^~~~~~~~~~~~

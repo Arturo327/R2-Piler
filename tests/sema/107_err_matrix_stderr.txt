@@ -31,3 +31,6 @@ tests/sema/107_err_matrix_src.r2:24:6: WARNING: unused variable 'b'
 tests/sema/107_err_matrix_src.r2:25:6: WARNING: unused variable 'c'
      25 |         arr c : i32[][][];
         |             ^
+tests/sema/107_err_matrix_src.r2:9:4: WARNING: unused function 'bad'
+      9 | fn bad(p : ptr i32, a : i32[2], m : i32[2][3], s : i32[]) : i64 {
+        |    ^~~

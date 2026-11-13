@@ -1,0 +1,6 @@
+tests/sema/122_multi_ret_src.r2:2:5: WARNING: unused variable 'gl'
+      2 | arr gl : i32[2][3] = {{1, 2, 3}, {4, 5, 6}};
+        |     ^~
+tests/sema/122_multi_ret_src.r2:24:4: WARNING: unused function 'relay'
+     24 | fn relay(m : i32[2][3][]) : i64 {
+        |    ^~~~~

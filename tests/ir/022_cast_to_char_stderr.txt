@@ -10,3 +10,6 @@ tests/ir/022_cast_to_char_src.r2:7:7: WARNING: unused variable 'd'
 tests/ir/022_cast_to_char_src.r2:8:7: WARNING: unused variable 'e'
       8 |   var e : char = c as char;
         |       ^
+tests/ir/022_cast_to_char_src.r2:1:5: WARNING: unused variable 'y'
+      1 | var y : u64 = x as u64;
+        |     ^

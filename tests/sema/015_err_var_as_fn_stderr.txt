@@ -1,3 +1,9 @@
 tests/sema/015_err_var_as_fn_src.r2:3:17: ERROR: 'f' is a variable, not a function
       3 |   var x : i64 = f();
         |                 ^
+tests/sema/015_err_var_as_fn_src.r2:1:5: WARNING: unused variable 'f'
+      1 | var f : i64 = 1;
+        |     ^
+tests/sema/015_err_var_as_fn_src.r2:2:4: WARNING: unused function 'g'
+      2 | fn g() : i64 {
+        |    ^

@@ -19,3 +19,9 @@ tests/sema/061_enum_err_decl_src.r2:17:6: ERROR: enum 'Empty' must have at least
 tests/sema/061_enum_err_decl_src.r2:25:10: ERROR: enums can only be declared at the top level
      25 |     enum Nested {
         |          ^~~~~~
+tests/sema/061_enum_err_decl_src.r2:24:4: WARNING: unused function 'f'
+     24 | fn f () : i64 {
+        |    ^
+tests/sema/061_enum_err_decl_src.r2:35:5: WARNING: unused variable 'WithVar'
+     35 | var WithVar : i64 = 1;
+        |     ^~~~~~~

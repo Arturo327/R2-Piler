@@ -1,0 +1,15 @@
+tests/ir/032_ptr_elem_arith_src.r2:1:4: WARNING: unused function 'step'
+      1 | fn step (p : ptr i64, n : i64) : ptr i64 {
+        |    ^~~~
+tests/ir/032_ptr_elem_arith_src.r2:5:4: WARNING: unused function 'back'
+      5 | fn back (p : ptr i32, n : i32) : ptr i32 {
+        |    ^~~~
+tests/ir/032_ptr_elem_arith_src.r2:9:4: WARNING: unused function 'gap'
+      9 | fn gap (a : ptr i64, b : ptr i64) : i64 {
+        |    ^~~
+tests/ir/032_ptr_elem_arith_src.r2:13:4: WARNING: unused function 'narrow'
+     13 | fn narrow (c : i8, p : ptr i8) : ptr i8 {
+        |    ^~~~~~
+tests/ir/032_ptr_elem_arith_src.r2:17:4: WARNING: unused function 'bump'
+     17 | fn bump (p : ptr i64, n : i64) : ptr i64 {
+        |    ^~~~

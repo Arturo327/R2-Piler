@@ -55,3 +55,9 @@ tests/sema/123_err_multi_ret_src.r2:27:9: WARNING: unused variable 'd'
 tests/sema/123_err_multi_ret_src.r2:27:18: WARNING: unused variable 'e'
      27 |     var d : i64, e : i64 = 3;
         |                  ^
+tests/sema/123_err_multi_ret_src.r2:9:4: WARNING: unused function 'bad_void'
+      9 | fn bad_void() : void, i64 {
+        |    ^~~~~~~~
+tests/sema/123_err_multi_ret_src.r2:19:4: WARNING: unused function 'entry'
+     19 | fn entry() : i64 {
+        |    ^~~~~

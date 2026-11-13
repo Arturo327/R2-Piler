@@ -1,0 +1,6 @@
+tests/sema/051_ok_cond_assign_src.r2:1:4: WARNING: unused function 'f'
+      1 | fn f(c : i64) : i64 {
+        |    ^
+tests/sema/051_ok_cond_assign_src.r2:16:4: WARNING: unused function 'g'
+     16 | fn g(c : i64) : i64 {
+        |    ^

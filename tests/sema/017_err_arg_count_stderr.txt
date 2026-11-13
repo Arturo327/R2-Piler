@@ -7,3 +7,6 @@ tests/sema/017_err_arg_count_src.r2:6:17: ERROR: wrong number of arguments in ca
 tests/sema/017_err_arg_count_src.r2:6:7: WARNING: unused variable 'y'
       6 |   var y : i64 = one(1, 2);
         |       ^
+tests/sema/017_err_arg_count_src.r2:4:4: WARNING: unused function 'f'
+      4 | fn f() : i64 {
+        |    ^

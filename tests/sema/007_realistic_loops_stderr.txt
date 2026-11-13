@@ -1,3 +1,6 @@
 tests/sema/007_realistic_loops_src.r2:32:7: WARNING: value assigned to 'k' is not used
      32 |   var k : i64 = 0;
         |       ^
+tests/sema/007_realistic_loops_src.r2:31:4: WARNING: unused function 'run'
+     31 | fn run() : void {
+        |    ^~~

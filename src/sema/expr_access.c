@@ -7,6 +7,27 @@ static TypeId check_len_field (Sema *s, uint32_t idx, uint32_t left, TypeId type
 static TypeId check_dot_value (Sema *s, uint32_t idx);
 static TypeId check_field (Sema *s, uint32_t idx, TypeId st);
 
+static TypeId check_member_base (Sema *s, uint32_t child)
+{
+	ASTNode *n = s->ast->nodes + child;
+
+	if (n->type != NODE_ID) return check_expr(s, child);
+
+	uint32_t sym_idx = symtab_find(&s->table, n->str, n->len);
+	if (sym_idx == NO_SYMBOL || !s->table.symbols[sym_idx].agg_slots)
+		return check_expr(s, child);
+
+	TypeId type = check_var_ref(s, child, 1);
+	n = s->ast->nodes + child;
+	if (type != TYPE_ERROR && n->sym != NO_SYMBOL && child != s->write_root) {
+		Symbol *sym = &s->table.symbols[n->sym];
+
+		sym->read = 1;
+		sym->pending_write = 0;
+	}
+	return type;
+}
+
 typedef struct {
 	TypeId type;
 	uint64_t size;
@@ -299,11 +320,13 @@ TypeId check_addr (Sema *s, uint32_t idx)
 	ASTNode *n = s->ast->nodes + idx;
 	ASTNode *child = s->ast->nodes + n->child;
 	TypeId type;
+	uint32_t saved_addr = s->addr_operand;
 
+	s->addr_operand = 1;
 	if (child->type == NODE_ID) {
 		type = check_var_ref(s, n->child, 0);
 		n = s->ast->nodes + idx;
-		child = &s->ast->nodes[n->child];
+		child = s->ast->nodes + n->child;
 		if (type != TYPE_ERROR && child->sym != NO_SYMBOL)
 			s->table.symbols[child->sym].addressed = 1;
 		mark_read(s, n->child);
@@ -327,11 +350,13 @@ TypeId check_addr (Sema *s, uint32_t idx)
 			type = TYPE_ERROR;
 		}
 	} else {
+		s->addr_operand = saved_addr;
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"operand of '$' must be a variable, a dereference or an index");
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+	s->addr_operand = saved_addr;
 
 	if (type == TYPE_ERROR) {
 		n->data_type = TYPE_ERROR;
@@ -356,6 +381,7 @@ TypeId check_addr (Sema *s, uint32_t idx)
 		error_report(s->err, ERR_ERROR, node_loc(n), "too many types");
 		return TYPE_ERROR;
 	}
+	agg_untrack_root(s, n->child);
 	return n->data_type;
 }
 
@@ -424,6 +450,8 @@ static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 			if (prev == NO_NODE) call->child = arg;
 			else s->ast->nodes[prev].next_bro = arg;
 		}
+		if (type_kind(arg_type) == TK_ARRAY || type_kind(arg_type) == TK_SLICE)
+			agg_untrack_root(s, arg);
 
 		prev = arg;
 		if (param != NO_NODE) param = s->ast->nodes[param].next_bro;
@@ -472,6 +500,7 @@ TypeId check_fn_call (Sema *s, uint32_t idx)
 
 	n->sym = sym_idx;
 	Symbol *fn = &s->table.symbols[sym_idx];
+	if (sym_idx != s->curr_fn) fn->read = 1;
 	check_call_args(s, idx, fn->decl);
 	n->data_type = fn->type;
 	return n->data_type;
@@ -599,13 +628,14 @@ static TypeId check_field (Sema *s, uint32_t idx, TypeId st)
 	}
 	if (f->bits) n->flags |= NODE_FLAG_BITFIELD;
 	n->data_type = f->type;
+	agg_member_read(s, idx);
 	return f->type;
 }
 
 static TypeId check_dot_value (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
-	TypeId type = check_expr(s, n->child);
+	TypeId type = check_member_base(s, n->child);
 
 	n = s->ast->nodes + idx;
 	if (type == TYPE_ERROR) {
@@ -675,7 +705,7 @@ TypeId check_index (Sema *s, uint32_t idx)
 	ASTNode *n = s->ast->nodes + idx;
 	uint32_t base = n->child;
 	uint32_t index = s->ast->nodes[base].next_bro;
-	TypeId ptr = check_expr(s, base);
+	TypeId ptr = check_member_base(s, base);
 	TypeId off = check_expr(s, index);
 
 	n = s->ast->nodes + idx;
@@ -725,5 +755,6 @@ TypeId check_index (Sema *s, uint32_t idx)
 
 	n->data_type = types[ptr].base;
 	if (kind == TK_PTR) warn_null_deref(s, idx, base);
+	agg_member_read(s, idx);
 	return n->data_type;
 }

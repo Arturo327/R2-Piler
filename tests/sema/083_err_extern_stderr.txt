@@ -13,3 +13,6 @@ tests/sema/083_err_extern_src.r2:5:13: ERROR: extern declarations can only appea
 tests/sema/083_err_extern_src.r2:6:9: ERROR: 'x' is not declared
       6 |         return x;
         |                ^
+tests/sema/083_err_extern_src.r2:4:4: WARNING: unused function 'f'
+      4 | fn f () : i64 {
+        |    ^

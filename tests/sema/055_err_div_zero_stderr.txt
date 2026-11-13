@@ -10,3 +10,24 @@ tests/sema/055_err_div_zero_src.r2:8:17: ERROR: division by zero
 tests/sema/055_err_div_zero_src.r2:11:17: ERROR: division by zero
      11 |   return a / (0 as u8);
         |                 ^~
+tests/sema/055_err_div_zero_src.r2:1:4: WARNING: unused function 'lit'
+      1 | fn lit(a : i64) : i64 {
+        |    ^~~
+tests/sema/055_err_div_zero_src.r2:4:4: WARNING: unused function 'modz'
+      4 | fn modz(a : i64) : i64 {
+        |    ^~~~
+tests/sema/055_err_div_zero_src.r2:7:4: WARNING: unused function 'folded'
+      7 | fn folded(a : i64) : i64 {
+        |    ^~~~~~
+tests/sema/055_err_div_zero_src.r2:10:4: WARNING: unused function 'casted'
+     10 | fn casted(a : u8) : u8 {
+        |    ^~~~~~
+tests/sema/055_err_div_zero_src.r2:13:4: WARNING: unused function 'ok_two'
+     13 | fn ok_two(a : i64) : i64 {
+        |    ^~~~~~
+tests/sema/055_err_div_zero_src.r2:16:4: WARNING: unused function 'ok_zero_num'
+     16 | fn ok_zero_num(a : i64) : i64 {
+        |    ^~~~~~~~~~~
+tests/sema/055_err_div_zero_src.r2:19:4: WARNING: unused function 'ok_var_div'
+     19 | fn ok_var_div(b : i64, c : i64) : i64 {
+        |    ^~~~~~~~~~

@@ -1,0 +1,6 @@
+tests/sema/006_realistic_funcs_src.r2:17:5: WARNING: unused variable 'flag'
+     17 | var flag : i64 = 0;
+        |     ^~~~
+tests/sema/006_realistic_funcs_src.r2:18:4: WARNING: unused function 'check'
+     18 | fn check() : void {
+        |    ^~~~~

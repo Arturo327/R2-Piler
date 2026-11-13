@@ -1,0 +1,18 @@
+tests/sema/136_warn_agg_members_src.r2:5:17: WARNING: field 'x' of 'p' is used without being assigned
+      5 |         var s : i64 = p.x;
+        |                        ^
+tests/sema/136_warn_agg_members_src.r2:7:17: WARNING: array element of 'a' is used without being assigned
+      7 |         var u : i64 = a[2];
+        |                        ^
+tests/sema/136_warn_agg_members_src.r2:9:6: WARNING: value assigned to field 'y' of 'q' is not used
+      9 |         q.y = 7;
+        |             ^
+tests/sema/136_warn_agg_members_src.r2:12:7: WARNING: value assigned to an element of 'b' is not used
+     12 |         b[0] = 5;
+        |              ^
+tests/sema/136_warn_agg_members_src.r2:14:6: WARNING: unused variable 'unused_s'
+     14 |         var unused_s : P;
+        |             ^~~~~~~~
+tests/sema/136_warn_agg_members_src.r2:15:6: WARNING: unused variable 'unused_a'
+     15 |         var unused_a : i64[2];
+        |             ^~~~~~~~

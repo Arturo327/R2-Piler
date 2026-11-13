@@ -110,10 +110,10 @@ static TypeId check_rhs (Sema *s, uint8_t op, uint32_t right)
 
 	uint8_t *snap = arena_alloc(s->arena, (size_t)mark + 1);
 	symtab_save_flags(&s->table, snap, mark);
-	symtab_clear_pending(&s->table);
+	sema_clear_pending(s);
 	TypeId type = check_expr(s, right);
 	symtab_intersect_flags(&s->table, snap, mark);
-	symtab_load_flags(&s->table, snap, mark);
+	sema_load_flags(s, snap, mark);
 	return type;
 }
 
@@ -288,8 +288,77 @@ static void decay_operand (Sema *s, uint32_t *idx, TypeId *type)
 	ptr = type_ptr_to(type_flat_element(*type));
 	if (type_kind(ptr) != TK_PTR) return;
 
+	agg_untrack_root(s, *idx);
 	*idx = sema_wrap_cast(s, *idx, ptr);
 	*type = ptr;
+}
+
+static int same_expr (Sema *s, uint32_t a, uint32_t b);
+
+static int same_children (Sema *s, uint32_t a, uint32_t b)
+{
+	while (a != NO_NODE && b != NO_NODE) {
+		if (!same_expr(s, a, b)) return 0;
+		a = s->ast->nodes[a].next_bro;
+		b = s->ast->nodes[b].next_bro;
+	}
+	return a == b;
+}
+
+static int same_expr (Sema *s, uint32_t a, uint32_t b)
+{
+	ASTNode *na = s->ast->nodes + a;
+	ASTNode *nb = s->ast->nodes + b;
+
+	if (na->type != nb->type) return 0;
+
+	switch (na->type)
+	{
+	case NODE_LIT_STR: case NODE_TERNARY: return 0;
+	case NODE_LIT_NULL: return 1;
+	case NODE_LIT_i64: return na->i64 == nb->i64;
+	case NODE_LIT_u64: return na->u64 == nb->u64;
+	case NODE_LIT_CHAR: return na->chr == nb->chr;
+	case NODE_ID:
+		if (na->sym != NO_SYMBOL || nb->sym != NO_SYMBOL)
+			return na->sym != NO_SYMBOL && na->sym == nb->sym;
+		return na->len == nb->len && memcmp(na->str, nb->str, na->len) == 0;
+	case NODE_DOT: case NODE_FIELD_INIT:
+		if (na->len != nb->len || memcmp(na->str, nb->str, na->len) != 0)
+			return 0;
+		break;
+	default: break;
+	}
+
+	if (na->data_type != nb->data_type) return 0;
+	return same_children(s, na->child, nb->child);
+}
+
+static int const_compare (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+
+	if (n->type == NODE_LIT_NULL) return 1;
+	return const_operand(s, idx);
+}
+
+static void warn_self_compare (Sema *s, uint32_t idx, uint32_t left, uint32_t right)
+{
+	const char *result;
+
+	switch (s->ast->nodes[idx].type)
+	{
+	case NODE_EQ: case NODE_GE: case NODE_LE: result = "true"; break;
+	case NODE_NE: case NODE_GT: case NODE_LT: result = "false"; break;
+	default: return;
+	}
+	if (expr_has_effect(s, left) || expr_has_effect(s, right)) return;
+	if (const_compare(s, left) && const_compare(s, right)) return;
+	if (!same_expr(s, left, right)) return;
+
+	error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + idx),
+			"comparison of an expression with itself is always %s;"
+			" did you mean to compare two different values?", result);
 }
 
 TypeId check_binary (Sema *s, uint32_t idx)
@@ -304,6 +373,7 @@ TypeId check_binary (Sema *s, uint32_t idx)
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+	warn_self_compare(s, idx, left, right);
 	if (op_type == NODE_ADD || op_type == NODE_SUB) {
 		decay_operand(s, &left, &l);
 		decay_operand(s, &right, &r);
@@ -403,16 +473,16 @@ TypeId check_ternary (Sema *s, uint32_t idx)
 
 	memset(acc, 1, mark);
 	symtab_save_flags(&s->table, snap, mark);
-	symtab_clear_pending(&s->table);
+	sema_clear_pending(s);
 
 	TypeId a = check_expr(s, then_idx);
 	symtab_save_flags(&s->table, acc, mark);
-	symtab_load_flags(&s->table, snap, mark);
-	symtab_clear_pending(&s->table);
+	sema_load_flags(s, snap, mark);
+	sema_clear_pending(s);
 	TypeId b = check_expr(s, else_idx);
 
 	symtab_intersect_flags(&s->table, acc, mark);
-	symtab_load_flags(&s->table, acc, mark);
+	sema_load_flags(s, acc, mark);
 
 	n = s->ast->nodes + idx;
 	n->data_type = ternary_unify(s, idx, &then_idx, &else_idx, a, b);
@@ -501,6 +571,8 @@ TypeId check_cast (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+	if (type_kind(from) == TK_ARRAY || type_kind(from) == TK_SLICE)
+		agg_untrack_root(s, n->child);
 	if (from == to)
 		error_report(s->err, ERR_WARNING, node_loc(n),
 				"redundant cast to '%s'; the value already has that type",

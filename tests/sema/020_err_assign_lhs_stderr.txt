@@ -4,3 +4,9 @@ tests/sema/020_err_assign_lhs_src.r2:6:9: ERROR: left side of '=' must be a vari
 tests/sema/020_err_assign_lhs_src.r2:7:9: ERROR: left side of '=' must be a variable
       7 |   id(1) = 3;
         |         ^
+tests/sema/020_err_assign_lhs_src.r2:1:4: WARNING: unused function 'id'
+      1 | fn id(a : i64) : i64 {
+        |    ^~
+tests/sema/020_err_assign_lhs_src.r2:4:4: WARNING: unused function 'f'
+      4 | fn f() : i64 {
+        |    ^

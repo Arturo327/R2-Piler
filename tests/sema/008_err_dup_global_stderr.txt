@@ -1,3 +1,9 @@
 tests/sema/008_err_dup_global_src.r2:2:5: ERROR: 'x' already declared in this scope
       2 | var x : i64 = 2;
         |     ^
+tests/sema/008_err_dup_global_src.r2:1:5: WARNING: unused variable 'x'
+      1 | var x : i64 = 1;
+        |     ^
+tests/sema/008_err_dup_global_src.r2:2:5: WARNING: unused variable 'x'
+      2 | var x : i64 = 2;
+        |     ^

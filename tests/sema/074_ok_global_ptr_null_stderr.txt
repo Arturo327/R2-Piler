@@ -1,0 +1,6 @@
+tests/sema/074_ok_global_ptr_null_src.r2:1:5: WARNING: unused variable 'p'
+      1 | var p : ptr i32 = NULL;
+        |     ^
+tests/sema/074_ok_global_ptr_null_src.r2:2:5: WARNING: unused variable 'q'
+      2 | var q : ptr void = NULL;
+        |     ^

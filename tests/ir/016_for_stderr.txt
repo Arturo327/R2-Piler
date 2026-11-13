@@ -1,0 +1,6 @@
+tests/ir/016_for_src.r2:19:3: WARNING: code will never be executed
+     19 |   return;
+        |   ^
+tests/ir/016_for_src.r2:15:4: WARNING: unused function 'empty'
+     15 | fn empty() : void {
+        |    ^~~~~

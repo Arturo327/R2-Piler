@@ -61,3 +61,6 @@ tests/sema/100_err_array_init_src.r2:15:6: WARNING: unused variable 'j'
 tests/sema/100_err_array_init_src.r2:16:6: WARNING: unused variable 'k'
      16 |         var k : i32 = 1;
         |             ^
+tests/sema/100_err_array_init_src.r2:1:4: WARNING: unused function 'val'
+      1 | fn val() : i32 {
+        |    ^~~

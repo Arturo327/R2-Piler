@@ -13,3 +13,6 @@ tests/sema/041_ok_cast_src.r2:13:7: WARNING: unused variable 'f'
 tests/sema/041_ok_cast_src.r2:14:7: WARNING: unused variable 'h2'
      14 |   var h2 : u64 = id_u64(a as u64);
         |       ^~
+tests/sema/041_ok_cast_src.r2:2:5: WARNING: unused variable 'h'
+      2 | var h : u64 = g as u64;
+        |     ^

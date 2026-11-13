@@ -49,3 +49,6 @@ tests/sema/115_err_static_src.r2:19:13: WARNING: unused variable 'e'
 tests/sema/115_err_static_src.r2:20:13: WARNING: unused variable 'e'
      20 |         static var e : i64 = 6;
         |                    ^
+tests/sema/115_err_static_src.r2:7:12: WARNING: unused variable 'top'
+      7 | static var top : i64 = 1;
+        |            ^~~

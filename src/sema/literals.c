@@ -558,6 +558,8 @@ uint32_t force_cast (Sema *s, uint32_t child, TypeId child_type, TypeId target, 
 		*ok = 0;
 		return child;
 	}
+	if (type_kind(child_type) == TK_ARRAY || type_kind(child_type) == TK_SLICE)
+		agg_untrack_root(s, child);
 	return sema_wrap_cast(s, child, target);
 }
 

@@ -10,9 +10,19 @@ static int stmt_returns (Sema *s, uint32_t idx);
 static void check_block_body (Sema *s, uint32_t idx)
 {
 	uint32_t stmt = s->ast->nodes[idx].child;
+	int dead = 0;
+
 	while (stmt != NO_NODE) {
+		uint32_t next = s->ast->nodes[stmt].next_bro;
+
+		if (dead) {
+			error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + stmt),
+					"code will never be executed");
+			dead = 0;
+		}
 		check_statement(s, stmt);
-		stmt = s->ast->nodes[stmt].next_bro;
+		if (next != NO_NODE && stmt_returns(s, stmt)) dead = 1;
+		stmt = next;
 	}
 }
 
@@ -50,9 +60,13 @@ static void warn_unused (Sema *s, uint32_t idx, Symbol *sym)
 
 static void pop_scope (Sema *s, uint32_t mark)
 {
-	for (uint32_t i = mark; i < s->table.act_count; i++)
-		warn_unused(s, s->table.active[i],
-				&s->table.symbols[s->table.active[i]]);
+	for (uint32_t i = mark; i < s->table.act_count; i++) {
+		uint32_t sym_idx = s->table.active[i];
+		Symbol *sym = s->table.symbols + sym_idx;
+
+		warn_unused(s, sym_idx, sym);
+		sema_pop_places(s, sym_idx, sym);
+	}
 
 	symtab_pop_scope(&s->table, mark);
 }
@@ -239,7 +253,9 @@ void check_fn_dec (Sema *s, uint32_t idx)
 	s->depth++;
 	s->curr_ret = s->ast->nodes[ret].data_type;
 	s->curr_ret_list = ret;
+	uint32_t saved_fn = s->curr_fn;
 
+	s->curr_fn = s->ast->nodes[idx].sym;
 	uint32_t param = s->ast->nodes[args].child;
 	uint32_t count = 0;
 	while (param != NO_NODE) {
@@ -253,6 +269,7 @@ void check_fn_dec (Sema *s, uint32_t idx)
 				"too many parameters (max %d)", MAX_PARAMS);
 
 	check_block_body(s, body);
+	s->curr_fn = saved_fn;
 
 	if (s->curr_ret != TYPE_VOID && s->curr_ret != TYPE_ERROR
 			&& !stmt_returns(s, body))
@@ -345,7 +362,7 @@ static int check_elif_chain (Sema *s, uint32_t idx, uint8_t *snap, uint8_t *acc,
 		ASTNode *n = s->ast->nodes + idx;
 		uint32_t body = n->child;
 
-		symtab_clear_pending(&s->table);
+		sema_clear_pending(s);
 		if (n->type == NODE_ELIF) {
 			body = s->ast->nodes[n->child].next_bro;
 			check_cond(s, n->child, 1);
@@ -356,7 +373,7 @@ static int check_elif_chain (Sema *s, uint32_t idx, uint8_t *snap, uint8_t *acc,
 
 		if (!stmt_returns(s, body))
 			symtab_intersect_flags(&s->table, acc, mark);
-		symtab_load_flags(&s->table, snap, mark);
+		sema_load_flags(s, snap, mark);
 		idx = n->next_bro;
 	}
 
@@ -379,20 +396,20 @@ static void check_if (Sema *s, uint32_t idx)
 		check_body(s, body);
 		symtab_save_flags(&s->table, snap, mark);
 		check_elif_chain(s, s->ast->nodes[body].next_bro, snap, acc, mark);
-		symtab_load_flags(&s->table, snap, mark);
+		sema_load_flags(s, snap, mark);
 		return;
 	}
 
 	symtab_save_flags(&s->table, snap, mark);
-	symtab_clear_pending(&s->table);
+	sema_clear_pending(s);
 	check_body(s, body);
 	if (!stmt_returns(s, body))
 		symtab_save_flags(&s->table, acc, mark);
-	symtab_load_flags(&s->table, snap, mark);
+	sema_load_flags(s, snap, mark);
 
 	if (!check_elif_chain(s, s->ast->nodes[body].next_bro, snap, acc, mark))
 		symtab_intersect_flags(&s->table, acc, mark);
-	symtab_load_flags(&s->table, acc, mark);
+	sema_load_flags(s, acc, mark);
 }
 
 static void check_while (Sema *s, uint32_t idx)
@@ -402,7 +419,7 @@ static void check_while (Sema *s, uint32_t idx)
 	uint32_t body = s->ast->nodes[cond].next_bro;
 
 	check_cond(s, cond, 0);
-	symtab_clear_pending(&s->table);
+	sema_clear_pending(s);
 
 	uint32_t mark = s->table.act_count;
 	uint8_t *snap = arena_alloc(s->arena, (size_t)mark);
@@ -410,7 +427,7 @@ static void check_while (Sema *s, uint32_t idx)
 	symtab_save_flags(&s->table, snap, mark);
 	check_body(s, body);
 	symtab_intersect_flags(&s->table, snap, mark);
-	symtab_load_flags(&s->table, snap, mark);
+	sema_load_flags(s, snap, mark);
 }
 
 static void check_for (Sema *s, uint32_t idx)
@@ -426,13 +443,14 @@ static void check_for (Sema *s, uint32_t idx)
 
 	check_statement(s, init);
 	check_cond(s, cond, 0);
-	symtab_clear_pending(&s->table);
+	sema_clear_pending(s);
 
 	uint32_t body_mark = s->table.act_count;
 	uint8_t *snap = arena_alloc(s->arena, (size_t)body_mark);
 
 	symtab_save_flags(&s->table, snap, body_mark);
 	check_body(s, body);
+	s->place_count = 0;
 	uint8_t kind = s->ast->nodes[updt].type;
 
 	if (kind == NODE_INC || kind == NODE_DEC) check_inc_dec(s, updt);
@@ -440,7 +458,7 @@ static void check_for (Sema *s, uint32_t idx)
 	else finalize_type(s, updt, check_expr(s, updt));
 
 	symtab_intersect_flags(&s->table, snap, body_mark);
-	symtab_load_flags(&s->table, snap, body_mark);
+	sema_load_flags(s, snap, body_mark);
 
 	s->depth--;
 	pop_scope(s, mark);
@@ -537,11 +555,11 @@ static void check_case_clause (Sema *s, uint32_t clause, TypeId type, uint64_t *
 
 static void check_switch_body (Sema *s, uint32_t body, uint8_t *snap, uint8_t *acc, uint32_t mark)
 {
-	symtab_clear_pending(&s->table);
+	sema_clear_pending(s);
 	check_body(s, body);
 	if (!stmt_returns(s, body))
 		symtab_intersect_flags(&s->table, acc, mark);
-	symtab_load_flags(&s->table, snap, mark);
+	sema_load_flags(s, snap, mark);
 }
 
 static void check_switch_clauses (Sema *s, uint32_t idx, TypeId type)
@@ -578,7 +596,7 @@ static void check_switch_clauses (Sema *s, uint32_t idx, TypeId type)
 	if (!has_default)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"switch requires a 'default' clause");
-	symtab_load_flags(&s->table, acc, mark);
+	sema_load_flags(s, acc, mark);
 }
 
 static void check_switch (Sema *s, uint32_t idx)

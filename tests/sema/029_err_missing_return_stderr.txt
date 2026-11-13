@@ -19,3 +19,12 @@ tests/sema/029_err_missing_return_src.r2:12:13: WARNING: condition is always tru
 tests/sema/029_err_missing_return_src.r2:9:4: ERROR: function may reach the end without returning
       9 | fn b() : i64 {
         |    ^
+tests/sema/029_err_missing_return_src.r2:1:4: WARNING: unused function 'g'
+      1 | fn g() : i64 {
+        |    ^
+tests/sema/029_err_missing_return_src.r2:4:4: WARNING: unused function 'm'
+      4 | fn m() : i64 {
+        |    ^
+tests/sema/029_err_missing_return_src.r2:9:4: WARNING: unused function 'b'
+      9 | fn b() : i64 {
+        |    ^

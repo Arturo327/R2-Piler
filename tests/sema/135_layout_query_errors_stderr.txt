@@ -49,3 +49,9 @@ tests/sema/135_layout_query_errors_src.r2:37:28: ERROR: offsetof cannot traverse
 tests/sema/135_layout_query_errors_src.r2:38:28: ERROR: offsetof cannot traverse field 'z' of type ptr i32
      38 |         var q : i64 = offsetof(P, z.x);
         |                                   ^
+tests/sema/135_layout_query_errors_src.r2:13:4: WARNING: unused function 'side'
+     13 | fn side () : i32 {
+        |    ^~~~
+tests/sema/135_layout_query_errors_src.r2:17:4: WARNING: unused function 'nothing'
+     17 | fn nothing () {
+        |    ^~~~~~~

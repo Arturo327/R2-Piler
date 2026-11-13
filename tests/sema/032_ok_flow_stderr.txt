@@ -4,3 +4,12 @@ tests/sema/032_ok_flow_src.r2:2:9: WARNING: condition is always true
 tests/sema/032_ok_flow_src.r2:4:13: WARNING: condition is always true
       4 |   } elif (2 == 2) {
         |             ^~
+tests/sema/032_ok_flow_src.r2:14:3: WARNING: code will never be executed
+     14 |   return;
+        |   ^
+tests/sema/032_ok_flow_src.r2:1:4: WARNING: unused function 'k'
+      1 | fn k() : i64 {
+        |    ^
+tests/sema/032_ok_flow_src.r2:10:4: WARNING: unused function 'loop'
+     10 | fn loop() : void {
+        |    ^~~~

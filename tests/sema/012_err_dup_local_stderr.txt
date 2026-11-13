@@ -7,3 +7,6 @@ tests/sema/012_err_dup_local_src.r2:2:7: WARNING: unused variable 'x'
 tests/sema/012_err_dup_local_src.r2:3:7: WARNING: unused variable 'x'
       3 |   var x : i64 = 2;
         |       ^
+tests/sema/012_err_dup_local_src.r2:1:4: WARNING: unused function 'f'
+      1 | fn f() : void {
+        |    ^

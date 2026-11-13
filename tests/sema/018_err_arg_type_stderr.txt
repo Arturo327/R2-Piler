@@ -7,3 +7,6 @@ tests/sema/018_err_arg_type_src.r2:8:24: ERROR: argument type u64 does not match
 tests/sema/018_err_arg_type_src.r2:8:7: WARNING: unused variable 'y'
       8 |   var y : i64 = add(c, u);
         |       ^
+tests/sema/018_err_arg_type_src.r2:4:4: WARNING: unused function 'f'
+      4 | fn f() : i64 {
+        |    ^

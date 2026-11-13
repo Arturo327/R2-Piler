@@ -4,3 +4,6 @@ tests/sema/050_warn_cond_assign_src.r2:16:10: WARNING: 'a' is used without being
 tests/sema/050_warn_cond_assign_src.r2:16:14: WARNING: 'b' is used without being assigned
      16 |   return a + b + w;
         |              ^
+tests/sema/050_warn_cond_assign_src.r2:1:4: WARNING: unused function 'f'
+      1 | fn f(c : i64) : i64 {
+        |    ^

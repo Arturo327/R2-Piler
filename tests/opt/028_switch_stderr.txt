@@ -1,0 +1,3 @@
+tests/opt/028_switch_src.r2:1:4: WARNING: unused function 'classify'
+      1 | fn classify(n : i64) : i64 {
+        |    ^~~~~~~~

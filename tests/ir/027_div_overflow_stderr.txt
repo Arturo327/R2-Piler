@@ -1,0 +1,24 @@
+tests/ir/027_div_overflow_src.r2:1:4: WARNING: unused function 'd8'
+      1 | fn d8() : i8 {
+        |    ^~
+tests/ir/027_div_overflow_src.r2:4:4: WARNING: unused function 'd8b'
+      4 | fn d8b() : i8 {
+        |    ^~~
+tests/ir/027_div_overflow_src.r2:7:4: WARNING: unused function 'm8'
+      7 | fn m8() : i8 {
+        |    ^~
+tests/ir/027_div_overflow_src.r2:10:4: WARNING: unused function 'ok8'
+     10 | fn ok8() : i8 {
+        |    ^~~
+tests/ir/027_div_overflow_src.r2:13:4: WARNING: unused function 'd16'
+     13 | fn d16() : i16 {
+        |    ^~~
+tests/ir/027_div_overflow_src.r2:16:4: WARNING: unused function 'd64'
+     16 | fn d64() : i64 {
+        |    ^~~
+tests/ir/027_div_overflow_src.r2:19:4: WARNING: unused function 'u8div'
+     19 | fn u8div() : u8 {
+        |    ^~~~~
+tests/ir/027_div_overflow_src.r2:22:4: WARNING: unused function 'rt'
+     22 | fn rt(a : i16) : i16 {
+        |    ^~

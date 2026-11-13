@@ -1,3 +1,6 @@
 tests/sema/021_err_binop_src.r2:2:19: ERROR: type mismatch: i64 vs u64 (use 'as' to convert explicitly)
       2 |   var x : i64 = a + b;
         |                   ^
+tests/sema/021_err_binop_src.r2:1:4: WARNING: unused function 'f'
+      1 | fn f(a : i64, b : u64) : i64 {
+        |    ^

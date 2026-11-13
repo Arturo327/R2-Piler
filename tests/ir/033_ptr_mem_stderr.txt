@@ -4,3 +4,6 @@ tests/ir/033_ptr_mem_src.r2:15:9: WARNING: unused variable 's'
 tests/ir/033_ptr_mem_src.r2:16:9: WARNING: unused variable 't'
      16 |     var t : ptr i8 = "hello";
         |         ^
+tests/ir/033_ptr_mem_src.r2:2:5: WARNING: unused variable 'gp'
+      2 | var gp : ptr i64 = NULL;
+        |     ^~

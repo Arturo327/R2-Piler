@@ -1,3 +1,6 @@
 tests/sema/027_err_use_before_decl_src.r2:2:3: ERROR: 'x' is not declared
       2 |   x = 1;
         |   ^
+tests/sema/027_err_use_before_decl_src.r2:1:4: WARNING: unused function 'f'
+      1 | fn f() : i64 {
+        |    ^

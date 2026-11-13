@@ -4,3 +4,6 @@ tests/sema/010_err_dup_param_src.r2:1:15: ERROR: 'a' already declared in this sc
 tests/sema/010_err_dup_param_src.r2:1:6: WARNING: unused parameter 'a'
       1 | fn f(a : i64, a : i64) : i64 {
         |      ^
+tests/sema/010_err_dup_param_src.r2:1:4: WARNING: unused function 'f'
+      1 | fn f(a : i64, a : i64) : i64 {
+        |    ^

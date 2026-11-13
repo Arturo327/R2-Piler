@@ -55,4 +55,15 @@ int sema_implicit_cast_ok (TypeId from, TypeId to);
 void check_fn_dec (Sema *s, uint32_t idx);
 void check_extern_fn (Sema *s, uint32_t idx);
 
+void agg_declare (Sema *s, uint32_t sym_idx, uint32_t decl_idx);
+void agg_init_all (Sema *s, uint32_t sym_idx);
+void agg_untrack (Sema *s, uint32_t sym_idx);
+void agg_untrack_root (Sema *s, uint32_t access);
+void agg_member_read (Sema *s, uint32_t access);
+void agg_store (Sema *s, uint32_t lvalue, uint32_t node);
+void agg_whole_read (Sema *s, uint32_t sym_idx);
+void sema_clear_pending (Sema *s);
+void sema_load_flags (Sema *s, uint8_t *src, uint32_t mark);
+void sema_pop_places (Sema *s, uint32_t sym_idx, Symbol *sym);
+
 #endif

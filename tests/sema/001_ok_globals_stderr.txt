@@ -1,0 +1,9 @@
+tests/sema/001_ok_globals_src.r2:2:5: WARNING: unused variable 'c'
+      2 | var c : char = 'a';
+        |     ^
+tests/sema/001_ok_globals_src.r2:3:5: WARNING: unused variable 'u'
+      3 | var u : u64 = 42u;
+        |     ^
+tests/sema/001_ok_globals_src.r2:7:5: WARNING: unused variable 'y'
+      7 | var y : i64 = add(x, 1);
+        |     ^

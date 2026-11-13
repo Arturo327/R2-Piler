@@ -13,3 +13,6 @@ tests/sema/133_struct_literal_errors_src.r2:15:23: ERROR: a '{...}' literal can 
 tests/sema/133_struct_literal_errors_src.r2:16:23: ERROR: a '{...}' literal can only be cast to a struct or union type
      16 |         var e : P = {.x = 8} as ptr P;
         |                              ^~
+tests/sema/133_struct_literal_errors_src.r2:6:4: WARNING: unused function 'naked'
+      6 | fn naked () : P {
+        |    ^~~~~

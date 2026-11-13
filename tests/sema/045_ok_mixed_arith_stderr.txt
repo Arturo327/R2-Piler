@@ -19,3 +19,6 @@ tests/sema/045_ok_mixed_arith_src.r2:8:7: WARNING: unused variable 'u'
 tests/sema/045_ok_mixed_arith_src.r2:9:7: WARNING: unused variable 'v'
       9 |   var v : u64 = b * c as u64;
         |       ^
+tests/sema/045_ok_mixed_arith_src.r2:1:4: WARNING: unused function 'mixed'
+      1 | fn mixed(a : i64, b : u64, c : char) : i64 {
+        |    ^~~~~

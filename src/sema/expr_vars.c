@@ -102,11 +102,12 @@ static void warn_unassigned (Sema *s, uint32_t idx, TypeId type)
 void mark_read (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
-
 	if (n->sym == NO_SYMBOL) return;
 
-	s->table.symbols[n->sym].read = 1;
-	s->table.symbols[n->sym].pending_write = 0;
+	Symbol *sym = s->table.symbols + n->sym;
+	sym->read = 1;
+	sym->pending_write = 0;
+	if (sym->agg_slots) agg_whole_read(s, n->sym);
 }
 
 static void record_dead_write (Sema *s, uint32_t sym, uint32_t node)
@@ -177,6 +178,16 @@ static TypeId check_lvalue (Sema *s, uint32_t idx)
 	case NODE_DOT: return check_dot(s, idx);
 	default: return TYPE_ERROR;
 	}
+}
+
+static uint32_t lvalue_root (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+
+	while (n->type == NODE_DOT || n->type == NODE_INDEX)
+		n = s->ast->nodes + n->child;
+	if (n->type != NODE_ID) return NO_NODE;
+	return (uint32_t)(n - s->ast->nodes);
 }
 
 static TypeId reject_place (Sema *s, uint32_t idx, uint32_t right, const char *what)
@@ -293,7 +304,11 @@ TypeId check_assign (Sema *s, uint32_t idx)
 		}
 	}
 
+	uint32_t saved_root = s->write_root;
+
+	s->write_root = lvalue_root(s, left);
 	TypeId l = check_lvalue(s, left);
+	s->write_root = saved_root;
 
 	if (left_kind == NODE_DOT && s->ast->nodes[left].type != NODE_DOT)
 		return reject_place(s, idx, right, "left side of '='");
@@ -330,6 +345,7 @@ TypeId check_assign (Sema *s, uint32_t idx)
 		sym_set_stack_slice(s, s->ast->nodes[left].sym, right);
 	if (left_kind == NODE_DOT)
 		warn_bitfield_truncation(s, bitfield_field(s, left), right);
+	agg_store(s, left, idx);
 	s->ast->nodes[idx].data_type = l;
 	return l;
 }
@@ -421,6 +437,7 @@ static CompoundLhsResult check_compound_lhs (Sema *s, uint32_t idx, uint32_t lef
 	mark_assigned(s, left);
 	set_null_state(s, left, left_kind, 0);
 	if (left_kind == NODE_ID) sym_write(s, s->ast->nodes[left].sym, idx);
+	agg_store(s, left, idx);
 	return res;
 }
 
@@ -546,6 +563,7 @@ static void check_multi_decl (Sema *s, uint32_t target, TypeId want)
 	uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_VAR, t, target);
 
 	s->table.symbols[sym].assigned = 1;
+	agg_init_all(s, sym);
 }
 
 static void check_multi_lvalue (Sema *s, uint32_t target, TypeId want, uint32_t rhs)
@@ -560,7 +578,11 @@ static void check_multi_lvalue (Sema *s, uint32_t target, TypeId want, uint32_t 
 		return;
 	}
 
+	uint32_t saved_root = s->write_root;
+
+	s->write_root = lvalue_root(s, target);
 	TypeId l = check_lvalue(s, target);
+	s->write_root = saved_root;
 
 	if (l == TYPE_ERROR) return;
 
@@ -583,6 +605,7 @@ static void check_multi_lvalue (Sema *s, uint32_t target, TypeId want, uint32_t 
 		sym_write(s, n->sym, target);
 		sym_set_stack_slice(s, n->sym, rhs);
 	}
+	agg_store(s, target, target);
 }
 
 static void check_multi_target (Sema *s, uint32_t target, TypeId want, uint32_t rhs)
@@ -729,6 +752,7 @@ void check_inc_dec (Sema *s, uint32_t idx)
 	mark_assigned(s, target);
 	set_null_state(s, target, target_kind, 0);
 	if (target_kind == NODE_ID) sym_write(s, s->ast->nodes[target].sym, idx);
+	agg_store(s, target, idx);
 
 	if (type != TYPE_ERROR && type_is_aggregate(type)) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),

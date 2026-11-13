@@ -61,3 +61,6 @@ tests/sema/101_err_array_ops_src.r2:20:6: WARNING: unused variable 'w'
 tests/sema/101_err_array_ops_src.r2:21:6: WARNING: unused variable 'q'
      21 |         var q : ptr i32 = $a;
         |             ^
+tests/sema/101_err_array_ops_src.r2:1:4: WARNING: unused function 'set_len'
+      1 | fn set_len(v : i32[]) : void {
+        |    ^~~~~~~

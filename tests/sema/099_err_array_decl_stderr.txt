@@ -37,3 +37,9 @@ tests/sema/099_err_array_decl_src.r2:16:6: WARNING: unused variable 'n'
 tests/sema/099_err_array_decl_src.r2:17:6: WARNING: unused variable 'o'
      17 |         arr o : i32[][][];
         |             ^
+tests/sema/099_err_array_decl_src.r2:1:4: WARNING: unused function 'arr_param'
+      1 | fn arr_param(a : i32[2]) : i64 {
+        |    ^~~~~~~~~
+tests/sema/099_err_array_decl_src.r2:5:4: WARNING: unused function 'arr_ret'
+      5 | fn arr_ret() : i32[] {
+        |    ^~~~~~~

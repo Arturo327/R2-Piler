@@ -1,3 +1,6 @@
 tests/sema/025_err_nested_fn_src.r2:2:6: ERROR: functions can only be declared at the top level
       2 |   fn inner() : void {
         |      ^~~~~
+tests/sema/025_err_nested_fn_src.r2:1:4: WARNING: unused function 'outer'
+      1 | fn outer() : void {
+        |    ^~~~~

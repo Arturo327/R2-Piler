@@ -1,0 +1,6 @@
+tests/asm/009_cmp_unsigned_src.r2:6:10: WARNING: comparison of an expression with itself is always true; did you mean to compare two different values?
+      6 |                         if (a >= a) {
+        |                               ^~
+tests/asm/009_cmp_unsigned_src.r2:7:11: WARNING: comparison of an expression with itself is always true; did you mean to compare two different values?
+      7 |                                 if (b <= b) {
+        |                                       ^~

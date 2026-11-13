@@ -7,3 +7,12 @@ tests/sema/023_err_return_src.r2:5:3: ERROR: function returning void cannot retu
 tests/sema/023_err_return_src.r2:9:3: ERROR: cannot return u64 from a function returning i64; use an explicit cast with 'as'
       9 |   return u;
         |   ^
+tests/sema/023_err_return_src.r2:1:4: WARNING: unused function 'a'
+      1 | fn a() : i64 {
+        |    ^
+tests/sema/023_err_return_src.r2:4:4: WARNING: unused function 'b'
+      4 | fn b() : void {
+        |    ^
+tests/sema/023_err_return_src.r2:7:4: WARNING: unused function 'c'
+      7 | fn c() : i64 {
+        |    ^

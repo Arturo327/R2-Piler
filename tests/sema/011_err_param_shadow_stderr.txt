@@ -4,3 +4,6 @@ tests/sema/011_err_param_shadow_src.r2:2:7: ERROR: 'a' already declared in this 
 tests/sema/011_err_param_shadow_src.r2:1:6: WARNING: unused parameter 'a'
       1 | fn f(a : i64) : i64 {
         |      ^
+tests/sema/011_err_param_shadow_src.r2:1:4: WARNING: unused function 'f'
+      1 | fn f(a : i64) : i64 {
+        |    ^

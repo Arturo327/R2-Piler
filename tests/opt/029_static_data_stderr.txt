@@ -1,0 +1,6 @@
+tests/opt/029_static_data_src.r2:3:4: WARNING: unused function 'counter'
+      3 | fn counter() : i64 {
+        |    ^~~~~~~
+tests/opt/029_static_data_src.r2:11:4: WARNING: unused function 'ptrstatic'
+     11 | fn ptrstatic() : i64 {
+        |    ^~~~~~~~~

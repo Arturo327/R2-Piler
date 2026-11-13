@@ -7,3 +7,6 @@ tests/sema/019_err_assign_src.r2:5:3: ERROR: 'nosuch' is not declared
 tests/sema/019_err_assign_src.r2:2:7: WARNING: value assigned to 'x' is not used
       2 |   var x : i64 = 1;
         |       ^
+tests/sema/019_err_assign_src.r2:1:4: WARNING: unused function 'f'
+      1 | fn f() : i64 {
+        |    ^

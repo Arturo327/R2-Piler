@@ -4,3 +4,24 @@ tests/sema/004_ok_types_src.r2:8:7: WARNING: unused variable 'm'
 tests/sema/004_ok_types_src.r2:9:7: WARNING: unused variable 'n'
       9 |   var n : char = ~a;
         |       ^
+tests/sema/004_ok_types_src.r2:1:5: WARNING: unused variable 'd'
+      1 | var d : i64 = 0x10;
+        |     ^
+tests/sema/004_ok_types_src.r2:2:5: WARNING: unused variable 'o'
+      2 | var o : i64 = 0o17;
+        |     ^
+tests/sema/004_ok_types_src.r2:3:5: WARNING: unused variable 'b'
+      3 | var b : i64 = 0b101;
+        |     ^
+tests/sema/004_ok_types_src.r2:4:5: WARNING: unused variable 'u'
+      4 | var u : u64 = 0xFFu;
+        |     ^
+tests/sema/004_ok_types_src.r2:5:5: WARNING: unused variable 'big'
+      5 | var big : u64 = 18446744073709551615u;
+        |     ^~~
+tests/sema/004_ok_types_src.r2:6:4: WARNING: unused function 'chars'
+      6 | fn chars(a : char, c : char) : char {
+        |    ^~~~~
+tests/sema/004_ok_types_src.r2:12:4: WARNING: unused function 'cmp'
+     12 | fn cmp(a : i64, e : i64) : i64 {
+        |    ^~~

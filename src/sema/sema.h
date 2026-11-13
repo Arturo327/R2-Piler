@@ -13,6 +13,13 @@ typedef struct DeadWrite {
 	uint32_t node;
 } DeadWrite;
 
+typedef struct AggPlace {
+	uint32_t sym;
+	uint32_t place;
+	uint32_t node;
+	uint32_t slot;
+} AggPlace;
+
 typedef struct Sema {
 	SymbolTable table;
 
@@ -31,6 +38,18 @@ typedef struct Sema {
 	DeadWrite *dead;
 	uint32_t dead_count;
 	uint32_t dead_cap;
+
+	AggPlace *places;
+	uint32_t place_count;
+	uint32_t place_cap;
+
+	AggPlace *dead_places;
+	uint32_t dead_place_count;
+	uint32_t dead_place_cap;
+
+	uint32_t write_root;
+	uint32_t addr_operand;
+	uint32_t curr_fn;
 
 	uint32_t depth;
 	uint32_t init_node;

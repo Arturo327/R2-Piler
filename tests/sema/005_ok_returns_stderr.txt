@@ -1,0 +1,3 @@
+tests/sema/005_ok_returns_src.r2:4:4: WARNING: unused function 'h'
+      4 | fn h() : void {
+        |    ^

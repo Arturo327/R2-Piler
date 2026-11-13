@@ -1,0 +1,9 @@
+tests/ir/012_return_unreachable_src.r2:6:7: WARNING: code will never be executed
+      6 |   var x : i64 = 2;
+        |       ^
+tests/ir/012_return_unreachable_src.r2:1:4: WARNING: unused function 'v'
+      1 | fn v() : void {
+        |    ^
+tests/ir/012_return_unreachable_src.r2:4:4: WARNING: unused function 'f'
+      4 | fn f() : i64 {
+        |    ^

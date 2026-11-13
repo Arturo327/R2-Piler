@@ -13,3 +13,9 @@ tests/sema/066_err_type_unknown_src.r2:4:20: ERROR: unknown type 'Gone'
 tests/sema/066_err_type_unknown_src.r2:4:7: WARNING: unused parameter 'p'
       4 | fn f (p : Ghost) : Gone {
         |       ^
+tests/sema/066_err_type_unknown_src.r2:2:5: WARNING: unused variable 'x'
+      2 | var x : Nope = 1;
+        |     ^
+tests/sema/066_err_type_unknown_src.r2:4:4: WARNING: unused function 'f'
+      4 | fn f (p : Ghost) : Gone {
+        |    ^

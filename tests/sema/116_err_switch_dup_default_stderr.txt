@@ -1,3 +1,6 @@
 tests/sema/116_err_switch_dup_default_src.r2:7:2: ERROR: duplicate default clause
       7 |         default { return 3; }
         |         ^
+tests/sema/116_err_switch_dup_default_src.r2:9:2: WARNING: code will never be executed
+      9 |         return 0;
+        |         ^

@@ -1,0 +1,6 @@
+tests/ir/009_globals_src.r2:3:5: WARNING: unused variable 'c'
+      3 | var c : char = 'z';
+        |     ^
+tests/ir/009_globals_src.r2:4:5: WARNING: unused variable 'u'
+      4 | var u : u64 = 7u;
+        |     ^
