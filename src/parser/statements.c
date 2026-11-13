@@ -207,6 +207,25 @@ static uint32_t parse_return (Parser *p)
 	return node;
 }
 
+static uint32_t parse_loop_jump (Parser *p, NodeType type, const char *msg)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	uint64_t level = 1;
+
+	advance(p);
+	if (p->curr.type == TOK_LIT_i64 || p->curr.type == TOK_LIT_u64) {
+		level = p->curr.u64;
+		advance(p);
+	}
+
+	uint32_t node = new_node(p, type, line, col);
+
+	p->ast.nodes[node].u64 = level;
+	consume(p, TOK_SEMCOL, msg);
+	return node;
+}
+
 static inline uint32_t parse_cond (Parser *p, const char *msg)
 {
 	consume(p, TOK_LPAREN, msg);
@@ -897,6 +916,8 @@ static uint32_t parse_statement_inner (Parser *p)
 		return parse_struct(p, 1);
 	}
 	case TOK_RET: return parse_return(p);
+	case TOK_BREAK: return parse_loop_jump(p, NODE_BREAK, "expected ';' after 'break'");
+	case TOK_CONTINUE: return parse_loop_jump(p, NODE_CONTINUE, "expected ';' after 'continue'");
 	case TOK_IF: return parse_if(p);
 	case TOK_WHILE: return parse_while(p);
 	case TOK_FOR: return parse_for(p);

@@ -1,0 +1,6 @@
+tests/sema/142_err_break_level_src.r2:3:3: ERROR: 'break 2' exceeds the 1 enclosing loop
+      3 |                 break 2;
+        |                 ^
+tests/sema/142_err_break_level_src.r2:9:3: ERROR: 'continue 0' is invalid; the loop level must be at least 1
+      9 |                 continue 0;
+        |                 ^

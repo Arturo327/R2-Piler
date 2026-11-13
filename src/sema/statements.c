@@ -6,6 +6,7 @@
 
 static void check_statement (Sema *s, uint32_t idx);
 static int stmt_returns (Sema *s, uint32_t idx);
+static int stmt_terminates (Sema *s, uint32_t idx);
 
 static void check_block_body (Sema *s, uint32_t idx)
 {
@@ -21,7 +22,7 @@ static void check_block_body (Sema *s, uint32_t idx)
 			dead = 0;
 		}
 		check_statement(s, stmt);
-		if (next != NO_NODE && stmt_returns(s, stmt)) dead = 1;
+		if (next != NO_NODE && stmt_terminates(s, stmt)) dead = 1;
 		stmt = next;
 	}
 }
@@ -475,6 +476,29 @@ static void check_if (Sema *s, uint32_t idx)
 	sema_load_flags(s, acc, mark);
 }
 
+static void check_loop_jump (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	const char *kw = n->type == NODE_BREAK ? "break" : "continue";
+	uint64_t level = n->u64;
+
+	n->data_type = TYPE_VOID;
+	if (level == 0) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'%s 0' is invalid; the loop level must be at least 1", kw);
+		return;
+	}
+	if (level <= s->loop_depth) return;
+
+	if (s->loop_depth == 0)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'%s' is only valid inside a loop", kw);
+	else error_report(s->err, ERR_ERROR, node_loc(n),
+			"'%s %llu' exceeds the %u enclosing loop%s", kw,
+			(unsigned long long)level, s->loop_depth,
+			s->loop_depth == 1 ? "" : "s");
+}
+
 static void check_while (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -488,7 +512,9 @@ static void check_while (Sema *s, uint32_t idx)
 	uint8_t *snap = arena_alloc(s->arena, (size_t)mark);
 
 	symtab_save_flags(&s->table, snap, mark);
+	s->loop_depth++;
 	check_body(s, body);
+	s->loop_depth--;
 	symtab_intersect_flags(&s->table, snap, mark);
 	sema_load_flags(s, snap, mark);
 }
@@ -512,7 +538,9 @@ static void check_for (Sema *s, uint32_t idx)
 	uint8_t *snap = arena_alloc(s->arena, (size_t)body_mark);
 
 	symtab_save_flags(&s->table, snap, body_mark);
+	s->loop_depth++;
 	check_body(s, body);
+	s->loop_depth--;
 	s->place_count = 0;
 	uint8_t kind = s->ast->nodes[updt].type;
 
@@ -830,6 +858,31 @@ static int switch_returns (Sema *s, uint32_t idx)
 	return has_default;
 }
 
+static uint32_t loop_body_index (Sema *s, uint32_t idx)
+{
+	uint32_t body = s->ast->nodes[idx].child;
+
+	if (s->ast->nodes[idx].type == NODE_WHILE)
+		return s->ast->nodes[body].next_bro;
+	for (int k = 0; k < 3; k++)
+		body = s->ast->nodes[body].next_bro;
+	return body;
+}
+
+static int jump_exits_loop (Sema *s, uint32_t idx, uint32_t depth)
+{
+	ASTNode *n = s->ast->nodes + idx;
+
+	if (n->type == NODE_BREAK)
+		return n->u64 >= depth;
+	if (n->type == NODE_WHILE || n->type == NODE_FOR)
+		return jump_exits_loop(s, loop_body_index(s, idx), depth + 1);
+
+	for (uint32_t c = n->child; c != NO_NODE; c = s->ast->nodes[c].next_bro)
+		if (jump_exits_loop(s, c, depth)) return 1;
+	return 0;
+}
+
 static int stmt_returns (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -841,13 +894,23 @@ static int stmt_returns (Sema *s, uint32_t idx)
 	case NODE_BLOCK: return block_returns(s, idx);
 	case NODE_IF: return if_returns(s, idx);
 	case NODE_SWITCH: return switch_returns(s, idx);
-	case NODE_WHILE: return const_cond_value(s, n->child) == 1;
+	case NODE_WHILE:
+		return const_cond_value(s, n->child) == 1
+				&& !jump_exits_loop(s, loop_body_index(s, idx), 1);
 	case NODE_FOR:
 		cond = s->ast->nodes[n->child].next_bro;
-		return s->ast->nodes[cond].type == NODE_EMPTY
-				|| const_cond_value(s, cond) == 1;
+		return (s->ast->nodes[cond].type == NODE_EMPTY
+				|| const_cond_value(s, cond) == 1)
+				&& !jump_exits_loop(s, loop_body_index(s, idx), 1);
 	default: return 0;
 	}
+}
+
+static int stmt_terminates (Sema *s, uint32_t idx)
+{
+	uint8_t type = s->ast->nodes[idx].type;
+
+	return type == NODE_BREAK || type == NODE_CONTINUE || stmt_returns(s, idx);
 }
 
 static void warn_no_effect (Sema *s, uint32_t idx, TypeId type)
@@ -867,6 +930,7 @@ static void check_statement (Sema *s, uint32_t idx)
 	case NODE_VAR_DEC: case NODE_ARR_DEC: check_var_dec(s, idx); return;
 	case NODE_BLOCK: check_block(s, idx); return;
 	case NODE_RET: check_return(s, idx); return;
+	case NODE_BREAK: case NODE_CONTINUE: check_loop_jump(s, idx); return;
 	case NODE_MULTI_ASSIGN: check_multi_assign(s, idx); return;
 	case NODE_WHILE: check_while(s, idx); return;
 	case NODE_FOR: check_for(s, idx); return;

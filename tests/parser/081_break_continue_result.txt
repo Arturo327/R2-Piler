@@ -1,0 +1,31 @@
+NODE_ROOT [0:0]
+  NODE_FN_DEC [1:4] name="f"
+    NODE_ARGS_DEC [1:5]
+    NODE_RET_DEC [1:8] type=i64
+    NODE_BLOCK [1:14]
+      NODE_WHILE [2:2]
+        NODE_LIT_i64 [2:9] i64=1
+        NODE_BLOCK [2:12]
+          NODE_BREAK [3:3] level=1
+      NODE_FOR [6:2]
+        NODE_VAR_DEC [6:11] name="i" type=i64
+          NODE_LIT_i64 [6:21] i64=0
+        NODE_LT [6:26]
+          NODE_ID [6:24] str="i"
+          NODE_LIT_i64 [6:28] i64=3
+        NODE_INC [6:32]
+          NODE_ID [6:31] str="i"
+        NODE_BLOCK [6:36]
+          NODE_IF [7:3]
+            NODE_EQ [7:9]
+              NODE_ID [7:7] str="i"
+              NODE_LIT_i64 [7:12] i64=1
+            NODE_CONTINUE [7:15] level=1
+          NODE_IF [8:3]
+            NODE_EQ [8:9]
+              NODE_ID [8:7] str="i"
+              NODE_LIT_i64 [8:12] i64=2
+            NODE_BREAK [8:15] level=2
+          NODE_CONTINUE [9:3] level=2
+      NODE_RET [11:2]
+        NODE_LIT_i64 [11:9] i64=0

@@ -20,6 +20,7 @@ typedef enum {
 	TOK_i64, TOK_u64, TOK_CHAR, TOK_VOID,					// Types
 
 	TOK_IF, TOK_ELSE, TOK_ELIF, TOK_WHILE, TOK_FOR, TOK_RET, TOK_AS,	// Control, Branching
+	TOK_BREAK, TOK_CONTINUE,						// loop control
 	TOK_SWITCH, TOK_CASE, TOK_DEFAULT,					// switch & cases
 
 	TOK_ADD, TOK_SUB, TOK_STAR, TOK_SLASH, TOK_PERCENT,			// Operations

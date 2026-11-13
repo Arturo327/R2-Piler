@@ -19,7 +19,7 @@ un cast explícito.
 - Literales string, de tipo `string`, que se comportan como `ptr i8` donde se espera uno. Ver §2.5.
 - Arrays concretos de rango N (`arr m : i32[2][3]`, también declarables con `var`) con inicializadores exhaustivos, `.len`/`sizeof`/`alignof`, indexación y decay a puntero; slices `T[]`/`T[][]`/... y tipos mixtos `T[R][]` como parámetros, locales y tipos de retorno (un array concreto se devuelve como puntero). Ver §3.3 y §8.
 - Structs y uniones (`struct P { x : i32; y : i32; }`, `union V { i : i64; b : u8[8]; }`) con layout C (y `packed struct` sin padding), miembros anidados anónimos, **bitfields** (`x : u8 : 3`, `x : u3`), inicializadores designados parciales con zero-fill y literales `{...} as T`, acceso `.` con auto-desreferencia sobre punteros, copia por valor, paso de argumentos y retorno por valor. Ver §3.4.
-- Statements: `if`/`elif`/`else`, `while`, `for` (C-style y por índice sobre arrays/slices), `switch` con `case`/`default`, `static var`/`static arr` dentro de funciones, la multi-asignación `a, b = f();` y el ternario `?:` como expresión. Ver §5 y §6.
+- Statements: `if`/`elif`/`else`, `while`, `for` (C-style y por índice sobre arrays/slices), `break`/`continue` (también con nivel: `break N`, `continue N`), `switch` con `case`/`default`, `static var`/`static arr` dentro de funciones, la multi-asignación `a, b = f();` y el ternario `?:` como expresión. Ver §5 y §6.
 - Funciones solo a nivel top-level, con parámetros por valor y uno o varios valores de retorno (`fn f() : i64, u32`). Ver §8.
 - Interoperabilidad con C vía declaraciones `extern fn` / `extern var`, que no llevan cuerpo ni init y se emiten con su nombre C sin mangling. Ver §8.1.
 - Scopes de bloque con shadowing entre scopes.
@@ -52,8 +52,9 @@ Keywords (una palabra clave nunca puede usarse como identificador):
 fn  if    for    arr   i8   u8   i16  u16  i32  u32
 i64  u64   var   char  elif  else  void
 while  return  as  enum  type  newtype  extern
-switch  case  default  static  ptr  NULL  sizeof
-struct  union  packed  alignof  offsetof
+break  continue  switch  case  default  static
+ptr  NULL  sizeof  struct  union  packed
+alignof  offsetof
 ```
 
 `ptr`, `NULL`, `sizeof`, `packed`, `alignof` y `offsetof` son keywords (no identificadores). `@` y `$` son operadores unarios, no palabras clave. En un bitfield, `uN`/`iN` (`u3`, `i5`, ...) **no** son keywords: se lexan como identificadores y solo el parser de campos de struct les da significado (§3.4).
@@ -386,6 +387,7 @@ Con punteros: `@p + 1` es `(@p) + 1` (suma al *valor* apuntado, no al puntero) y
   - `init`: declaración `var` (con su `;`), expresión, o vacía.
   - `cond`: expresión o vacía (vacía = verdadero: `for(;;)` es un bucle infinito válido).
   - `updt`: expresión o vacía.
+- **`break;` / `continue;` / `break N;` / `continue N;`** — solo dentro de un `while` o un `for`; fuera de un bucle es error (`'break' is only valid inside a loop`, `'continue' is only valid inside a loop`). `N` es siempre un **literal entero** (por defecto `1`) y cuenta los bucles desde el más interno: `break 2` sale de dos bucles y `continue 2` abandona el bucle interno y continúa el siguiente (en un `for`, por su update). `N = 0` es error (`'break 0' is invalid; the loop level must be at least 1`) y un nivel mayor que el anidamiento también (`'break 2' exceeds the 1 enclosing loop`). En un `for`, `continue` ejecuta el **update** antes de volver a la condición. El `for` por índice se desazucara a bucles anidados, así que cada nivel sintético cuenta como un bucle real: `break` dentro de `for (i, j : m)` rompe solo el bucle de `j` y hay que usar `break 2` para salir de la matriz. Un `break` que sale de un bucle invalida la garantía de retorno de `while (1)`/`for (;;)` (§8), y el código que sigue a un salto en el mismo bloque avisa (`code will never be executed`).
 - `for (var idx : T : arr) body`, `for (var idx : arr) body` y `for (idx : arr) body` — recorren un array o un slice (de rango 1 o N) con **un índice por dimensión**, y `idx` es el **índice**, no el elemento. Con varios índices (`for (var i : i64, j : i64 : mat)`, `for (var i, j : mat)`, `for (i, j : mat)`) el parser los desazucara a bucles **anidados**, uno por índice, con el AST idéntico al escrito a mano y conservando los spans originales: el nivel k recorre `arr[idx0]...[idxk-1]` con la cota `arr[idx0]...[idxk-1].len`, o sea `for (var i : i64 = 0; i < mat.len; i++) for (var j : i64 = 0; j < mat[i].len; j++) body` (`idx = 0` cuando reutiliza una variable y, sin tipo, el índice es `i64`; el **último** índice de la forma con tipos puede omitir el suyo). Se admiten hasta 8 índices (`too many index variables in the 'for' (max 8)`). `arr` es cualquier expresión con `.len` (un nombre, `m[i]`, ...). Con menos índices que dimensiones se recorren las primeras (una matriz con un solo índice itera filas); con más, el error sale del `.len` de más. Si una longitud constante no cabe en el tipo de su índice, salta el error del literal plegado (`literal 300 does not fit in type i8`); en un slice la longitud es runtime y no se comprueba. El índice de cada dimensión debe ser un objetivo asignable: un identificador, una desreferencia `@p` o un índice `a[k]` (`for (1 : a)` y `for (a + 1 : a)` dan un único error, nunca un crash).
 - **`switch (expr)`**: `switch (expr) { case (v1, v2) { ... } ... default { ... } }`. `expr` debe ser numérico o un enum (también a través de un alias o newtype: se mira la representación) y se evalúa **una sola vez**. Cada `case` lleva entre paréntesis una lista, separada por comas y con al menos un valor, de **expresiones constantes** (`case value must be a constant expression`) que se convierten al tipo del switch con las reglas de asignación (literal flexible o cast explícito; si no, `case value of type X does not match the switch type Y; use an explicit cast with 'as'`). Los valores duplicados, también entre cláusulas distintas, son error (`duplicate case value`). No hay fallthrough: al terminar el cuerpo de una cláusula se sigue después del `switch`. Todo `switch` necesita un `default` (`switch requires a 'default' clause`), que puede ir en cualquier posición; un segundo `default` es error (`duplicate default clause`). El cuerpo de una cláusula puede ser un bloque o una sola sentencia (se envuelve en un bloque implícito), y las variables declaradas dentro no escapan. Ejemplo: `switch (d) { case (Dias.Lunes, Dias.Martes) { return 1; } default { return 0; } }`.
 - **`static var` / `static arr`**: declaración de duración estática **dentro de una función** (a nivel top-level es error: `static variables can only be declared inside a function`). `static var x : T [= expr];` y `static arr a : T[N] [= expr];` reservan **una sola** instancia para toda la ejecución, aunque la declaración esté en un bloque o en el cuerpo de un `case`; el nombre sigue las reglas de scope normales (shadowing incluido). El inicializador, si existe, debe ser una **expresión constante**: literal, `-literal`, `~literal`, literal string, `NULL`, `$global`, o un inicializador de array o struct recursivamente hecho de esos, designado y parcial incluido (`static var q : P = {.y = 2};` y `static var r : P = {};` valen; `a 'static' initializer must be a constant expression` si no). La inicialización ocurre una sola vez, **antes de los inicializadores dinámicos de globales** (así un global init que llame a una función que lea un `static` ve el valor ya inicializado), y el almacenamiento es un global interno (`sv.<k>.<nombre>`); sin inicializador empieza a cero. Ejemplo: `static var calls : i64 = 0; calls += 1;`.
@@ -424,7 +426,7 @@ Con punteros: `@p + 1` es `(@p) + 1` (suma al *valor* apuntado, no al puntero) y
   - Un `return` garantiza.
   - Un bloque garantiza si alguno de sus statements garantiza.
   - Un `if` garantiza solo si tiene `else` final y todas las ramas (then/elif/else) garantizan.
-  - `while`/`for` garantizan solo si su condición es constante verdadera (`while (1)`, `for (;;)`): sin `break`, el bucle solo sale con `return`. Con condición no constante nunca garantizan.
+  - `while`/`for` garantizan solo si su condición es constante verdadera (`while (1)`, `for (;;)`) **y ningún `break` sale de ese bucle**: sin break, el bucle solo sale con `return`. Con condición no constante nunca garantizan.
 
 ### 8.1 `extern` (interoperabilidad con C)
 
@@ -549,9 +551,11 @@ block          = "{" { statement } "}" ;
 statement      = var_decl | arr_decl | static_decl | block | if_stmt | while_stmt | for_stmt
                | switch_stmt
                | "return" [ expr { "," expr } ] ";"
+               | jump_stmt
                | multi_assign
                | inc_dec_stmt
                | expr ";" ;
+jump_stmt      = ( "break" | "continue" ) [ INT_LIT ] ";" ;
 multi_assign   = ( lvalue { "," lvalue } | multi_decl { "," multi_decl } ) "=" expr ";" ;
 multi_decl     = ( "var" | "arr" ) IDENT ":" type ;
 inc_dec_stmt   = lvalue ( "++" | "--" ) ";" ;

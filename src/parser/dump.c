@@ -50,6 +50,8 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_ELSE] = "NODE_ELSE",
 	[NODE_WHILE] = "NODE_WHILE",
 	[NODE_FOR] = "NODE_FOR",
+	[NODE_BREAK] = "NODE_BREAK",
+	[NODE_CONTINUE] = "NODE_CONTINUE",
 	[NODE_SWITCH] = "NODE_SWITCH",
 	[NODE_CASE] = "NODE_CASE",
 	[NODE_DEFAULT] = "NODE_DEFAULT",
@@ -115,6 +117,9 @@ static void dump_node_value (ASTNode *n)
 		printf(" str=\"");
 		print_escaped(n->str, n->len, '"');
 		printf("\"");
+		break;
+	case NODE_BREAK: case NODE_CONTINUE:
+		printf(" level=%llu", (unsigned long long)n->u64);
 		break;
 	case NODE_VAR_DEC: case NODE_ARR_DEC: case NODE_FN_DEC: case NODE_FN_CALL:
 	case NODE_ENUM_DEC: case NODE_ENUM_VAL:

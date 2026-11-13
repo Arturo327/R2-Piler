@@ -439,6 +439,7 @@ static const Keyword keywords[] = {
 	{"enum", TOK_ENUM},
 	{"type", TOK_TYPE},
 	{"void", TOK_VOID},
+	{"break", TOK_BREAK},
 	{"union", TOK_UNION},
 	{"while", TOK_WHILE},
 	{"extern", TOK_EXTERN},
@@ -451,6 +452,7 @@ static const Keyword keywords[] = {
 	{"alignof", TOK_ALIGNOF},
 	{"default", TOK_DEFAULT},
 	{"newtype", TOK_NEWTYPE},
+	{"continue", TOK_CONTINUE},
 	{"offsetof", TOK_OFFSETOF}
 };
 
@@ -595,7 +597,7 @@ static const char *const token_names[TOK_COUNT] = {
 	TN(TOK_i8), TN(TOK_u8), TN(TOK_i16), TN(TOK_u16), TN(TOK_i32), TN(TOK_u32),
 	TN(TOK_i64), TN(TOK_u64), TN(TOK_CHAR), TN(TOK_VOID), TN(TOK_IF),
 	TN(TOK_ELSE), TN(TOK_ELIF), TN(TOK_WHILE), TN(TOK_FOR), TN(TOK_RET), TN(TOK_AS),
-	TN(TOK_SWITCH), TN(TOK_CASE), TN(TOK_DEFAULT),
+	TN(TOK_BREAK), TN(TOK_CONTINUE), TN(TOK_SWITCH), TN(TOK_CASE), TN(TOK_DEFAULT),
 	TN(TOK_ADD), TN(TOK_SUB), TN(TOK_STAR), TN(TOK_SLASH), TN(TOK_PERCENT),
 	TN(TOK_AND_A), TN(TOK_OR_A), TN(TOK_XOR), TN(TOK_RS), TN(TOK_LS),
 	TN(TOK_NOT_A), TN(TOK_INC), TN(TOK_DEC),

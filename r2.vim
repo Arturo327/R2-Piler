@@ -5,7 +5,7 @@ if exists("b:current_syntax")
   finish
 endif
 
-syntax keyword r2Statement fn return if elif else while for switch case default
+syntax keyword r2Statement fn return if elif else while for switch case default break continue
 syntax keyword r2Storage   var arr extern pub export type newtype struct union class static enum packed
 syntax keyword r2Flow      defer new delete reset
 syntax keyword r2Keyword   as sizeof offsetof alignof import from

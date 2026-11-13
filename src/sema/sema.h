@@ -52,6 +52,7 @@ typedef struct Sema {
 	uint32_t curr_fn;
 
 	uint32_t depth;
+	uint32_t loop_depth;
 	uint32_t init_node;
 	uint32_t expr_depth;
 	TypeId curr_ret;

@@ -1,0 +1,6 @@
+tests/sema/144_warn_break_dead_src.r2:4:7: WARNING: code will never be executed
+      4 |                 var x : i64 = 1;
+        |                     ^
+tests/sema/144_warn_break_dead_src.r2:4:7: WARNING: unused variable 'x'
+      4 |                 var x : i64 = 1;
+        |                     ^

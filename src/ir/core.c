@@ -127,6 +127,9 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select)
 	ir->init_fn = 0;
 	ir->reg_count = 0;
 	ir->label_count = 0;
+	ir->loops = NULL;
+	ir->loop_count = 0;
+	ir->loop_cap = 0;
 	ir->use_select = use_select;
 	ir->no_tail = 0;
 	ir->scalarize = 0;

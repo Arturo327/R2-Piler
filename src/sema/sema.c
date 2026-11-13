@@ -234,6 +234,7 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->err = err;
 	s->arena = arena;
 	s->depth = 0;
+	s->loop_depth = 0;
 	s->init_node = NO_NODE;
 	s->curr_ret = TYPE_VOID;
 	s->curr_ret_list = NO_NODE;

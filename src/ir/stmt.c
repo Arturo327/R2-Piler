@@ -172,18 +172,58 @@ static void gen_if (IR *ir, ASTNode *n)
 	make_label(ir, end);
 }
 
+static uint32_t push_loop (IR *ir, uint32_t break_label, uint32_t cont_label)
+{
+	if (ir->loop_count == ir->loop_cap) {
+		uint32_t old_cap = ir->loop_cap;
+		ir->loop_cap = old_cap ? old_cap << 1 : 8;
+		ir->loops = arena_realloc(ir->arena, ir->loops,
+				old_cap * sizeof(IRLoop), ir->loop_cap * sizeof(IRLoop));
+	}
+
+	uint32_t slot = ir->loop_count++;
+
+	ir->loops[slot].break_label = break_label;
+	ir->loops[slot].cont_label = cont_label;
+	return slot;
+}
+
+static uint32_t gen_loop_target (IR *ir, uint32_t level, int cont)
+{
+	uint32_t slot = ir->loop_count - level;
+	uint32_t *label = cont ? &ir->loops[slot].cont_label
+			: &ir->loops[slot].break_label;
+
+	if (*label == NO_LABEL) *label = ir->label_count++;
+	return *label;
+}
+
+static void gen_loop_jump (IR *ir, ASTNode *n)
+{
+	int cont = n->type == NODE_CONTINUE;
+	uint32_t target = gen_loop_target(ir, (uint32_t)n->u64, cont);
+
+	make_jump(ir, IR_JMP, NO_REG, target);
+}
+
 static void gen_while (IR *ir, ASTNode *n)
 {
 	ASTNode *nodes = ir->ast->nodes;
 	uint32_t body = nodes[n->child].next_bro;
 	uint32_t l_body = ir->label_count++;
 	uint32_t l_cond = ir->label_count++;
+	uint32_t slot = push_loop(ir, NO_LABEL, l_cond);
 
 	make_jump(ir, IR_JMP, NO_REG, l_cond);
 	make_label(ir, l_body);
 	gen_stmt(ir, nodes + body);
 	make_label(ir, l_cond);
 	gen_jump_if(ir, nodes + n->child, l_body, 1);
+
+	uint32_t brk = ir->loops[slot].break_label;
+
+	ir->loop_count--;
+	if (brk != NO_LABEL) make_label(ir, brk);
 }
 
 static void gen_for (IR *ir, ASTNode *n)
@@ -194,6 +234,7 @@ static void gen_for (IR *ir, ASTNode *n)
 	ASTNode *body = nodes + updt->next_bro;
 	uint32_t l_body = ir->label_count++;
 	uint32_t l_cond = ir->label_count++;
+	uint32_t slot = push_loop(ir, NO_LABEL, NO_LABEL);
 
 	gen_stmt(ir, nodes + n->child);
 	if (cond->type != NODE_EMPTY)
@@ -201,10 +242,17 @@ static void gen_for (IR *ir, ASTNode *n)
 
 	make_label(ir, l_body);
 	gen_stmt(ir, body);
+	if (ir->loops[slot].cont_label != NO_LABEL)
+		make_label(ir, ir->loops[slot].cont_label);
 	gen_stmt(ir, updt);
 	make_label(ir, l_cond);
 	if (cond->type == NODE_EMPTY) make_jump(ir, IR_JMP, NO_REG, l_body);
 	else gen_jump_if(ir, cond, l_body, 1);
+
+	uint32_t brk = ir->loops[slot].break_label;
+
+	ir->loop_count--;
+	if (brk != NO_LABEL) make_label(ir, brk);
 }
 
 static uint32_t ir_case_body (IR *ir, uint32_t clause)
@@ -293,6 +341,7 @@ static void gen_stmt_inner (IR *ir, ASTNode *n)
 	case NODE_RET: gen_return(ir, n); return;
 	case NODE_WHILE: gen_while(ir, n); return;
 	case NODE_FOR: gen_for(ir, n); return;
+	case NODE_BREAK: case NODE_CONTINUE: gen_loop_jump(ir, n); return;
 	case NODE_IF: gen_if(ir, n); return;
 	case NODE_SWITCH: gen_switch(ir, n); return;
 	case NODE_INC: case NODE_DEC: gen_inc_dec(ir, n); return;
@@ -443,6 +492,7 @@ static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
 	ir->addressed_cap = 0;
 	ir->no_tail = 0;
 	ir->temp_count = 0;
+	ir->loop_count = 0;
 	ir->sret = NO_REG;
 	ir->ret_node = ret;
 	memset(ir->desc, 0xFF, sizeof(uint32_t) * ir->ast->count);

@@ -9,6 +9,7 @@
 
 #define INIT_FN_NAME "__r2_init"
 #define NO_REG 0xFFFFFFFF
+#define NO_LABEL 0xFFFFFFFF
 
 typedef enum {
 	IR_NOP = 0,
@@ -92,6 +93,11 @@ typedef struct TempSlot {
 	uint8_t busy;
 } TempSlot;
 
+typedef struct IRLoop {
+	uint32_t break_label;
+	uint32_t cont_label;
+} IRLoop;
+
 typedef struct IR {
 	IRInstr *instrs;
 	uint32_t instr_count;
@@ -119,6 +125,10 @@ typedef struct IR {
 
 	uint32_t reg_count;
 	uint32_t label_count;
+
+	IRLoop *loops;
+	uint32_t loop_count;
+	uint32_t loop_cap;
 
 	TypeId *reg_types;
 	uint32_t reg_type_cap;

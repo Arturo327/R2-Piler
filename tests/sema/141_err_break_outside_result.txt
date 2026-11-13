@@ -1,0 +1,2 @@
+fn f [1:4] depth=0 type=void
+fn main [5:4] depth=0 type=i64

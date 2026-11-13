@@ -1,0 +1,3 @@
+tests/sema/143_err_break_no_return_src.r2:1:4: ERROR: function may reach the end without returning
+      1 | fn f() : i64 {
+        |    ^
