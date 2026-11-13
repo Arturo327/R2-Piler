@@ -1,0 +1,4 @@
+fn f [1:4] depth=0 type=void
+fn g [8:4] depth=0 type=void
+fn main [18:4] depth=0 type=i64
+var c [9:6] depth=1 type=i64

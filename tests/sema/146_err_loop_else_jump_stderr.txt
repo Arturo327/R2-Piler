@@ -1,0 +1,9 @@
+tests/sema/146_err_loop_else_jump_src.r2:2:9: WARNING: condition is always false
+      2 |         while (0) {
+        |                ^
+tests/sema/146_err_loop_else_jump_src.r2:4:3: ERROR: 'break' is only valid inside a loop
+      4 |                 break;
+        |                 ^
+tests/sema/146_err_loop_else_jump_src.r2:14:3: ERROR: 'continue' is only valid inside a loop
+     14 |                 continue;
+        |                 ^

@@ -1,0 +1,4 @@
+fn main [1:4] depth=0 type=i64
+var i [2:6] depth=1 type=i64
+var a [3:6] depth=1 type=i64
+var j [11:11] depth=2 type=i64

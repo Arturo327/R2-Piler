@@ -7,6 +7,7 @@
 static void check_statement (Sema *s, uint32_t idx);
 static int stmt_returns (Sema *s, uint32_t idx);
 static int stmt_terminates (Sema *s, uint32_t idx);
+static int jump_exits_loop (Sema *s, uint32_t idx, uint32_t depth);
 
 static void check_block_body (Sema *s, uint32_t idx)
 {
@@ -499,11 +500,24 @@ static void check_loop_jump (Sema *s, uint32_t idx)
 			s->loop_depth == 1 ? "" : "s");
 }
 
+static void check_loop_else (Sema *s, uint32_t els, uint32_t body, uint8_t *snap, uint32_t mark)
+{
+	if (els == NO_NODE) return;
+
+	sema_clear_pending(s);
+	check_body(s, s->ast->nodes[els].child);
+	if (jump_exits_loop(s, body, 1)) {
+		symtab_intersect_flags(&s->table, snap, mark);
+		sema_load_flags(s, snap, mark);
+	}
+}
+
 static void check_while (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
 	uint32_t cond = n->child;
 	uint32_t body = s->ast->nodes[cond].next_bro;
+	uint32_t els = s->ast->nodes[body].next_bro;
 
 	check_cond(s, cond, 0);
 	sema_clear_pending(s);
@@ -517,6 +531,7 @@ static void check_while (Sema *s, uint32_t idx)
 	s->loop_depth--;
 	symtab_intersect_flags(&s->table, snap, mark);
 	sema_load_flags(s, snap, mark);
+	check_loop_else(s, els, body, snap, mark);
 }
 
 static void check_for (Sema *s, uint32_t idx)
@@ -526,6 +541,7 @@ static void check_for (Sema *s, uint32_t idx)
 	uint32_t cond = s->ast->nodes[init].next_bro;
 	uint32_t updt = s->ast->nodes[cond].next_bro;
 	uint32_t body = s->ast->nodes[updt].next_bro;
+	uint32_t els = s->ast->nodes[body].next_bro;
 
 	uint32_t mark = s->table.act_count;
 	s->depth++;
@@ -550,6 +566,7 @@ static void check_for (Sema *s, uint32_t idx)
 
 	symtab_intersect_flags(&s->table, snap, body_mark);
 	sema_load_flags(s, snap, body_mark);
+	check_loop_else(s, els, body, snap, body_mark);
 
 	s->depth--;
 	pop_scope(s, mark);
@@ -869,18 +886,34 @@ static uint32_t loop_body_index (Sema *s, uint32_t idx)
 	return body;
 }
 
+static uint32_t loop_else_index (Sema *s, uint32_t idx)
+{
+	uint32_t body = loop_body_index(s, idx);
+	return s->ast->nodes[body].next_bro;
+}
+
 static int jump_exits_loop (Sema *s, uint32_t idx, uint32_t depth)
 {
 	ASTNode *n = s->ast->nodes + idx;
 
 	if (n->type == NODE_BREAK)
 		return n->u64 >= depth;
-	if (n->type == NODE_WHILE || n->type == NODE_FOR)
-		return jump_exits_loop(s, loop_body_index(s, idx), depth + 1);
+	if (n->type == NODE_WHILE || n->type == NODE_FOR) {
+		uint32_t body = loop_body_index(s, idx);
+		if (jump_exits_loop(s, body, depth + 1)) return 1;
+		uint32_t els = s->ast->nodes[body].next_bro;
+		return els != NO_NODE && jump_exits_loop(s, s->ast->nodes[els].child, depth);
+	}
 
 	for (uint32_t c = n->child; c != NO_NODE; c = s->ast->nodes[c].next_bro)
 		if (jump_exits_loop(s, c, depth)) return 1;
 	return 0;
+}
+
+static int loop_else_returns (Sema *s, uint32_t idx)
+{
+	uint32_t els = loop_else_index(s, idx);
+	return els != NO_NODE && stmt_returns(s, s->ast->nodes[els].child);
 }
 
 static int stmt_returns (Sema *s, uint32_t idx)
@@ -895,13 +928,15 @@ static int stmt_returns (Sema *s, uint32_t idx)
 	case NODE_IF: return if_returns(s, idx);
 	case NODE_SWITCH: return switch_returns(s, idx);
 	case NODE_WHILE:
-		return const_cond_value(s, n->child) == 1
-				&& !jump_exits_loop(s, loop_body_index(s, idx), 1);
+		return !jump_exits_loop(s, loop_body_index(s, idx), 1)
+				&& (const_cond_value(s, n->child) == 1
+				|| loop_else_returns(s, idx));
 	case NODE_FOR:
 		cond = s->ast->nodes[n->child].next_bro;
-		return (s->ast->nodes[cond].type == NODE_EMPTY
-				|| const_cond_value(s, cond) == 1)
-				&& !jump_exits_loop(s, loop_body_index(s, idx), 1);
+		return !jump_exits_loop(s, loop_body_index(s, idx), 1)
+				&& (s->ast->nodes[cond].type == NODE_EMPTY
+				|| const_cond_value(s, cond) == 1
+				|| loop_else_returns(s, idx));
 	default: return 0;
 	}
 }

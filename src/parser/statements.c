@@ -248,6 +248,32 @@ static uint32_t parse_body (Parser *p)
 	return block;
 }
 
+static uint32_t node_tail (Parser *p, uint32_t node)
+{
+	uint32_t last = p->ast.nodes[node].child;
+
+	while (p->ast.nodes[last].next_bro != NO_NODE)
+		last = p->ast.nodes[last].next_bro;
+	return last;
+}
+
+static void parse_loop_else (Parser *p, uint32_t node)
+{
+	if (p->curr.type != TOK_ELSE) return;
+
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	uint32_t else_last = NO_NODE;
+	uint32_t last = node_tail(p, node);
+
+	consume(p, TOK_ELSE, "expected 'else'");
+	uint32_t else_node = new_node(p, NODE_ELSE, line, col);
+	uint32_t else_body = parse_body(p);
+
+	append_child(p, node, &last, else_node);
+	append_child(p, else_node, &else_last, else_body);
+}
+
 static void parse_elif_chain (Parser *p, uint32_t if_node, uint32_t *last)
 {
 	while (p->curr.type == TOK_ELIF) {
@@ -310,6 +336,7 @@ static uint32_t parse_while (Parser *p)
 	uint32_t last = NO_NODE;
 	append_child(p, node, &last, cond);
 	append_child(p, node, &last, body);
+	parse_loop_else(p, node);
 
 	return node;
 }
@@ -547,6 +574,7 @@ static uint32_t parse_for_range (Parser *p, uint32_t node, uint32_t *inits, uint
 
 		body = parse_for_level(p, loop, inits[k], exprs[k], body);
 	}
+	parse_loop_else(p, node);
 	return node;
 }
 
@@ -626,6 +654,7 @@ static uint32_t parse_for_tail (Parser *p, uint32_t node, uint32_t beg)
 	append_child(p, node, &last, cond);
 	append_child(p, node, &last, updt);
 	append_child(p, node, &last, body);
+	parse_loop_else(p, node);
 
 	if (decls == NO_NODE) return node;
 	return wrap_for_decls(p, decls, node);

@@ -210,6 +210,7 @@ static void gen_while (IR *ir, ASTNode *n)
 {
 	ASTNode *nodes = ir->ast->nodes;
 	uint32_t body = nodes[n->child].next_bro;
+	uint32_t els = nodes[body].next_bro;
 	uint32_t l_body = ir->label_count++;
 	uint32_t l_cond = ir->label_count++;
 	uint32_t slot = push_loop(ir, NO_LABEL, l_cond);
@@ -223,6 +224,7 @@ static void gen_while (IR *ir, ASTNode *n)
 	uint32_t brk = ir->loops[slot].break_label;
 
 	ir->loop_count--;
+	if (els != NO_NODE) gen_stmt(ir, nodes + nodes[els].child);
 	if (brk != NO_LABEL) make_label(ir, brk);
 }
 
@@ -232,6 +234,7 @@ static void gen_for (IR *ir, ASTNode *n)
 	ASTNode *cond = nodes + nodes[n->child].next_bro;
 	ASTNode *updt = nodes + cond->next_bro;
 	ASTNode *body = nodes + updt->next_bro;
+	uint32_t els = body->next_bro;
 	uint32_t l_body = ir->label_count++;
 	uint32_t l_cond = ir->label_count++;
 	uint32_t slot = push_loop(ir, NO_LABEL, NO_LABEL);
@@ -252,6 +255,7 @@ static void gen_for (IR *ir, ASTNode *n)
 	uint32_t brk = ir->loops[slot].break_label;
 
 	ir->loop_count--;
+	if (els != NO_NODE) gen_stmt(ir, nodes + nodes[els].child);
 	if (brk != NO_LABEL) make_label(ir, brk);
 }
 

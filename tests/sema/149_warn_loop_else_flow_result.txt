@@ -1,0 +1,7 @@
+fn natural [1:4] depth=0 type=i64
+fn maybe [13:4] depth=0 type=i64
+fn main [26:4] depth=0 type=i64
+var x [2:6] depth=1 type=i64
+var c [3:6] depth=1 type=i64
+var x [14:6] depth=1 type=i64
+var c [15:6] depth=1 type=i64
