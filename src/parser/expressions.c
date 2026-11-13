@@ -91,13 +91,32 @@ uint32_t maybe_inc_dec (Parser *p, uint32_t node)
 	return node;
 }
 
+static uint32_t parse_named_arg (Parser *p, uint32_t arg)
+{
+	ASTNode *n = p->ast.nodes + arg;
+
+	if (n->type != NODE_ASSIGN || n->child == NO_NODE) return arg;
+	uint32_t name = n->child;
+	if (p->ast.nodes[name].type != NODE_ID) return arg;
+	uint32_t value = p->ast.nodes[name].next_bro;
+
+	n->type = NODE_NAMED_ARG;
+	n->line = p->ast.nodes[name].line;
+	n->col = p->ast.nodes[name].col;
+	n->str = p->ast.nodes[name].str;
+	n->len = p->ast.nodes[name].len;
+	n->child = value;
+	p->ast.nodes[value].next_bro = NO_NODE;
+	return arg;
+}
+
 static uint32_t parse_call_args (Parser *p, uint32_t call)
 {
 	uint32_t last = NO_NODE;
 	consume(p, TOK_LPAREN, "expected '('");
 
 	while (p->curr.type != TOK_RPAREN && p->curr.type != TOK_EOF) {
-		uint32_t arg = parse_expr(p, 0);
+		uint32_t arg = parse_named_arg(p, parse_expr(p, 0));
 		append_child(p, call, &last, arg);
 
 		if (p->curr.type != TOK_COMMA) break;

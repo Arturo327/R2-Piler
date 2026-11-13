@@ -1,0 +1,28 @@
+global g : i64
+
+fn __r2_init(0 params, 1 regs) : void
+    ret
+
+fn mix(3 params, 8 regs) : i64
+    r0 = param.i64 #0
+    r1 = param.i64 #1
+    r2 = param.i64 #2
+    r5 = mul.i64 r0, r1
+    r7 = add.i64 r5, r2
+    ret.i64 r7
+    ret
+
+fn main(0 params, 27 regs) : i64
+    r0 = ld_global.i64 @g
+    r1 = const.i64 2
+    r2 = const.i64 8
+    r16 = lshift.i64 r0, r1
+    r3 = add.i64 r16, r2
+    r5 = const.i64 2
+    r6 = const.i64 2
+    r24 = lshift.i64 r0, r5
+    r7 = add.i64 r24, r6
+    r10 = add.i64 r3, r7
+    ret.i64 r10
+    ret
+

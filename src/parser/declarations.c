@@ -16,6 +16,12 @@ static uint32_t parse_param (Parser *p)
 	TypeId type = parse_type(p, 0, node, &type_node);
 	p->ast.nodes[node].data_type = type;
 	p->ast.nodes[node].type_node = type_node;
+
+	if (p->curr.type == TOK_ASSIGN) {
+		advance(p);
+		uint32_t def = parse_expr(p, 0);
+		p->ast.nodes[node].child = def;
+	}
 	return node;
 }
 

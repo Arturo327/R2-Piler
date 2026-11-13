@@ -428,41 +428,174 @@ static uint32_t adapt_call_arg (Sema *s, uint32_t arg, TypeId arg_type, TypeId p
 	return new_arg;
 }
 
-static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
+static uint32_t count_params (Sema *s, uint32_t params_node)
 {
-	ASTNode *call = &s->ast->nodes[call_idx];
-	uint32_t params_node = s->ast->nodes[fn_idx].child;
-	uint32_t param = s->ast->nodes[params_node].child;
-	uint32_t arg = call->child;
-	uint32_t prev = NO_NODE;
-	int count_ok = 1;
+	uint32_t count = 0;
+
+	for (uint32_t p = s->ast->nodes[params_node].child; p != NO_NODE;
+			p = s->ast->nodes[p].next_bro)
+		count++;
+	return count;
+}
+
+static uint32_t param_at (Sema *s, uint32_t params_node, uint32_t i)
+{
+	uint32_t p = s->ast->nodes[params_node].child;
+
+	while (i-- > 0 && p != NO_NODE) p = s->ast->nodes[p].next_bro;
+	return p;
+}
+
+static uint32_t find_param (Sema *s, uint32_t params_node, char *name, uint16_t len)
+{
+	uint32_t p = s->ast->nodes[params_node].child;
+	uint32_t i = 0;
+
+	for (; p != NO_NODE; p = s->ast->nodes[p].next_bro, i++)
+		if (s->ast->nodes[p].len == len
+				&& memcmp(s->ast->nodes[p].str, name, len) == 0)
+			return i;
+	return NO_NODE;
+}
+
+static uint32_t check_arg_value (Sema *s, uint32_t arg, TypeId param_type)
+{
+	TypeId arg_type = check_expr(s, arg);
+	uint32_t out = arg;
+
+	if (param_type != TYPE_VOID && arg_type != TYPE_ERROR
+			&& param_type != TYPE_ERROR && arg_type != param_type
+			&& !sema_array_slice_compat(arg_type, param_type))
+		out = adapt_call_arg(s, arg, arg_type, param_type);
+	if (type_kind(arg_type) == TK_ARRAY || type_kind(arg_type) == TK_SLICE)
+		agg_untrack_root(s, out);
+	return out;
+}
+
+typedef struct CallArgs {
+	Sema *s;
+	uint32_t call_idx;
+	uint32_t params_node;
+	uint32_t *at;
+	uint32_t count;
+	uint32_t pos;
+	int named;
+	int bad;
+} CallArgs;
+
+static uint32_t named_param (CallArgs *c, uint32_t arg)
+{
+	ASTNode *a = c->s->ast->nodes + arg;
+	uint32_t pi = find_param(c->s, c->params_node, a->str, a->len);
+
+	if (pi == NO_NODE) {
+		error_report(c->s->err, ERR_ERROR, node_loc(a),
+				"unknown parameter '%.*s' in call to '%.*s'",
+				(int)a->len, a->str, (int)c->s->ast->nodes[c->call_idx].len,
+				c->s->ast->nodes[c->call_idx].str);
+		return NO_NODE;
+	}
+	if (c->at[pi] != NO_NODE) {
+		error_report(c->s->err, ERR_ERROR, node_loc(a),
+				"argument for parameter '%.*s' is given more than once",
+				(int)a->len, a->str);
+		return NO_NODE;
+	}
+	return pi;
+}
+
+static uint32_t arg_param (CallArgs *c, uint32_t arg)
+{
+	ASTNode *a = c->s->ast->nodes + arg;
+
+	if (a->type == NODE_NAMED_ARG) {
+		c->named = 1;
+		uint32_t pi = named_param(c, arg);
+		if (pi == NO_NODE) c->bad |= 1;
+		return pi;
+	}
+	if (c->named) {
+		error_report(c->s->err, ERR_ERROR, node_loc(a),
+				"positional argument cannot follow a named argument");
+		c->bad |= 1;
+		return NO_NODE;
+	}
+	if (c->pos < c->count) return c->pos++;
+	c->bad |= 2;
+	return NO_NODE;
+}
+
+static TypeId param_type (Sema *s, uint32_t params_node, uint32_t pi)
+{
+	if (pi == NO_NODE) return TYPE_VOID;
+	return s->ast->nodes[param_at(s, params_node, pi)].data_type;
+}
+
+static int collect_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx, uint32_t *arg_at, uint32_t count)
+{
+	CallArgs c = { s, call_idx, s->ast->nodes[fn_idx].child, arg_at, count, 0, 0, 0 };
+	uint32_t arg = s->ast->nodes[call_idx].child;
 
 	while (arg != NO_NODE) {
-		TypeId arg_type = check_expr(s, arg);
-		TypeId param_type = param != NO_NODE ? s->ast->nodes[param].data_type : TYPE_VOID;
 		uint32_t next = s->ast->nodes[arg].next_bro;
+		uint32_t pi = arg_param(&c, arg);
+		uint32_t expr = s->ast->nodes[arg].type == NODE_NAMED_ARG
+				? s->ast->nodes[arg].child : arg;
+		uint32_t val = check_arg_value(s, expr, param_type(s, c.params_node, pi));
 
-		if (param == NO_NODE) {
-			count_ok = 0;
-		} else if (arg_type != TYPE_ERROR && param_type != TYPE_ERROR && arg_type != param_type
-				&& !sema_array_slice_compat(arg_type, param_type)) {
-			arg = adapt_call_arg(s, arg, arg_type, param_type);
-			if (prev == NO_NODE) call->child = arg;
-			else s->ast->nodes[prev].next_bro = arg;
-		}
-		if (type_kind(arg_type) == TK_ARRAY || type_kind(arg_type) == TK_SLICE)
-			agg_untrack_root(s, arg);
-
-		prev = arg;
-		if (param != NO_NODE) param = s->ast->nodes[param].next_bro;
+		if (pi != NO_NODE) arg_at[pi] = val;
 		arg = next;
 	}
+	return c.bad;
+}
 
-	if (param != NO_NODE) count_ok = 0;
+static int fill_call_defaults (Sema *s, uint32_t fn_idx, uint32_t *arg_at, uint32_t count)
+{
+	uint32_t params_node = s->ast->nodes[fn_idx].child;
+	int missing = 0;
 
-	if (!count_ok) error_report(s->err, ERR_ERROR, node_loc(call),
-			"wrong number of arguments in call to '%.*s'",
-			(int)call->len, call->str);
+	for (uint32_t i = 0; i < count; i++) {
+		uint32_t p = param_at(s, params_node, i);
+
+		if (arg_at[i] != NO_NODE) continue;
+		if (s->ast->nodes[p].child == NO_NODE) { missing = 1; continue; }
+		arg_at[i] = sema_wrap_cast(s, s->ast->nodes[p].child,
+				s->ast->nodes[p].data_type);
+	}
+	return missing;
+}
+
+static void link_call_args (Sema *s, uint32_t call_idx, uint32_t *arg_at, uint32_t count)
+{
+	uint32_t prev = NO_NODE;
+
+	for (uint32_t i = 0; i < count; i++) {
+		uint32_t a = arg_at[i];
+
+		if (a == NO_NODE) continue;
+		s->ast->nodes[a].next_bro = NO_NODE;
+		if (prev == NO_NODE) s->ast->nodes[call_idx].child = a;
+		else s->ast->nodes[prev].next_bro = a;
+		prev = a;
+	}
+	if (prev == NO_NODE) s->ast->nodes[call_idx].child = NO_NODE;
+}
+
+static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
+{
+	uint32_t params_node = s->ast->nodes[fn_idx].child;
+	uint32_t count = count_params(s, params_node);
+	uint32_t arg_at[count + 1];
+
+	for (uint32_t i = 0; i <= count; i++) arg_at[i] = NO_NODE;
+	int bad = collect_call_args(s, call_idx, fn_idx, arg_at, count);
+	if (fill_call_defaults(s, fn_idx, arg_at, count)) bad |= 4;
+	link_call_args(s, call_idx, arg_at, count);
+
+	if ((bad & 6) && !(bad & 1))
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + call_idx),
+				"wrong number of arguments in call to '%.*s'",
+				(int)s->ast->nodes[call_idx].len, s->ast->nodes[call_idx].str);
 }
 
 TypeId check_fn_call (Sema *s, uint32_t idx)

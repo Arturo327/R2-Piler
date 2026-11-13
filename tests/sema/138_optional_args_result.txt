@@ -1,0 +1,15 @@
+enum E [1:6] depth=0 type=E base=i32
+  variant A = 1
+  variant B = 2
+struct P [2:8] depth=0 size=16 align=8
+  field x type=i64 offset=0
+  field y type=i64 offset=8
+var g [3:5] depth=0 type=i64
+fn mix [5:4] depth=0 type=i64
+fn main [9:4] depth=0 type=i64
+param a [5:9] depth=1 type=i64
+param b [5:18] depth=1 type=i64
+param s [5:31] depth=1 type=ptr i8
+param p [5:49] depth=1 type=ptr i64
+param e [5:67] depth=1 type=E
+var x [10:6] depth=1 type=i64

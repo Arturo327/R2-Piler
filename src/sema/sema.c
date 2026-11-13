@@ -822,6 +822,7 @@ void sema_run (Sema *s)
 	decl_globals(s);
 	bind_enums(s);
 
+	check_fn_defaults_all(s);
 	check_root(s);
 	warn_unused_top(s);
 }

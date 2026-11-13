@@ -240,6 +240,69 @@ static void check_signature_types (Sema *s, uint32_t idx, int is_extern)
 	}
 }
 
+static void check_param_default (Sema *s, uint32_t param)
+{
+	ASTNode *p = s->ast->nodes + param;
+	uint32_t def = p->child;
+	TypeId type = p->data_type;
+
+	if (def == NO_NODE || type == TYPE_ERROR) return;
+	if (type_kind(type) == TK_ARRAY || type_kind(type) == TK_SLICE) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + def),
+				"an array or slice parameter cannot have a default value");
+		return;
+	}
+
+	TypeId def_type = check_expr(s, def);
+	if (def_type == TYPE_ERROR) return;
+	if (!is_static_const(s, def)) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + def),
+				"a default argument must be a constant expression");
+		return;
+	}
+
+	int ok;
+	uint32_t cast = force_cast(s, def, def_type, type, &ok);
+	s->ast->nodes[param].child = cast;
+	if (!ok)
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cast),
+				"default argument type %s does not match parameter type %s; use an explicit cast with 'as'",
+				type_display_name(def_type), types[type].name);
+}
+
+static void check_fn_defaults (Sema *s, uint32_t idx)
+{
+	uint32_t args = s->ast->nodes[idx].child;
+	uint32_t param = s->ast->nodes[args].child;
+	int seen = 0;
+
+	while (param != NO_NODE) {
+		ASTNode *p = s->ast->nodes + param;
+		int has_default = p->child != NO_NODE;
+
+		if (has_default) seen = 1;
+		else if (seen)
+			error_report(s->err, ERR_ERROR, node_loc(p),
+					"required parameter '%.*s' cannot follow an optional parameter",
+					(int)p->len, p->str);
+		check_param_default(s, param);
+		param = s->ast->nodes[param].next_bro;
+	}
+}
+
+void check_fn_defaults_all (Sema *s)
+{
+	uint32_t idx = s->ast->nodes[0].child;
+
+	while (idx != NO_NODE) {
+		ASTNode *n = s->ast->nodes + idx;
+
+		if (n->type == NODE_FN_DEC || n->type == NODE_EXTERN_FN_DEC)
+			check_fn_defaults(s, idx);
+		idx = n->next_bro;
+	}
+}
+
 void check_fn_dec (Sema *s, uint32_t idx)
 {
 	resolve_fn_types(s, idx);

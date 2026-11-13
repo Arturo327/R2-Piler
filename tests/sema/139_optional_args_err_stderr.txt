@@ -1,0 +1,21 @@
+tests/sema/139_optional_args_err_src.r2:3:22: ERROR: required parameter 'y' cannot follow an optional parameter
+      3 | fn bad (x : i64 = 1, y : i64) : i64 { return x + y; }
+        |                      ^
+tests/sema/139_optional_args_err_src.r2:6:23: ERROR: a default argument must be a constant expression
+      6 | fn noconst (x : i64 = g) : i64 { return x; }
+        |                       ^
+tests/sema/139_optional_args_err_src.r2:9:23: ERROR: unknown parameter 'z' in call to 'opt'
+      9 |         var a : i64 = opt(1, z = 3);
+        |                              ^
+tests/sema/139_optional_args_err_src.r2:10:30: ERROR: argument for parameter 'y' is given more than once
+     10 |         var b : i64 = opt(1, y = 3, y = 4);
+        |                                     ^
+tests/sema/139_optional_args_err_src.r2:11:27: ERROR: positional argument cannot follow a named argument
+     11 |         var c : i64 = opt(y = 1, 2);
+        |                                  ^
+tests/sema/139_optional_args_err_src.r2:12:16: ERROR: wrong number of arguments in call to 'req'
+     12 |         var d : i64 = req(y = 1);
+        |                       ^~~
+tests/sema/139_optional_args_err_src.r2:13:16: ERROR: wrong number of arguments in call to 'opt'
+     13 |         var e : i64 = opt(1, 2, 3);
+        |                       ^~~
