@@ -95,7 +95,11 @@ static const OpNeeds x86_64_needs[IR_COUNT] =
 	},
 	[IR_RET] = {
 		.src1 = { .type = REG_COND_FIXED, .reg = RAX },
+		.src2 = { .type = REG_COND_FIXED, .reg = RDX },
 		.destroy_mask = 1ull << RAX
+	},
+	[IR_RETHI] = {
+		.dst = { .type = REG_COND_HINT, .reg = RDX }
 	}
 };
 

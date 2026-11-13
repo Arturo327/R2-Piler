@@ -90,6 +90,15 @@ static void gen_multi_return (IR *ir, ASTNode *n, uint32_t ret, uint32_t count)
 	make_ret(ir, NO_REG, TYPE_VOID);
 }
 
+static void gen_ret_regs (IR *ir, uint32_t val, TypeId type)
+{
+	uint32_t words[2];
+	uint32_t src = gen_expr(ir, ir->ast->nodes + val);
+
+	pack_struct(ir, src, type, words);
+	make_ret2(ir, words[0], words[1], TYPE_u64);
+}
+
 static void gen_single_return (IR *ir, ASTNode *n, uint32_t ret)
 {
 	TypeId type = ir->ast->nodes[ret].data_type;
@@ -104,6 +113,10 @@ static void gen_single_return (IR *ir, ASTNode *n, uint32_t ret)
 			gen_slice_desc(ir, ir->sret, ir->ast->nodes + n->child, type);
 		else gen_struct_into(ir, ir->sret, n->child, type, 1);
 		make_ret(ir, NO_REG, TYPE_VOID);
+		return;
+	}
+	if (struct_eightbytes(type)) {
+		gen_ret_regs(ir, n->child, type);
 		return;
 	}
 	make_ret(ir, gen_expr(ir, ir->ast->nodes + n->child), ret_slot_type(type));
@@ -321,6 +334,34 @@ static uint32_t dec_aggregate_param (IR *ir, Symbol *s, uint32_t idx)
 	return idx;
 }
 
+static uint32_t dec_struct_regs (IR *ir, Symbol *s, uint32_t idx)
+{
+	uint32_t n8 = struct_eightbytes(s->type);
+
+	s->ir_id = new_reg(ir, TYPE_u64);
+	make_arg_dec(ir, s->ir_id, idx++, TYPE_u64);
+	if (n8 == 2) make_arg_dec(ir, new_reg(ir, TYPE_u64), idx++, TYPE_u64);
+	return idx;
+}
+
+static void spill_struct_params (IR *ir, uint32_t node)
+{
+	uint32_t p = ir->ast->nodes[node].child;
+
+	for (; p != NO_NODE; p = ir->ast->nodes[p].next_bro) {
+		Symbol *s = ir->symtab->symbols + ir->ast->nodes[p].sym;
+		uint32_t words[2] = { s->ir_id, s->ir_id + 1 };
+		uint32_t obj;
+
+		if (!struct_eightbytes(s->type)) continue;
+		if (struct_eightbytes(s->type) == 1) words[1] = NO_REG;
+		s->ir_id = new_reg(ir, s->type);
+		obj = local_storage_addr(ir, s, s->type);
+		unpack_struct(ir, obj, s->type, words);
+		s->ir_id = obj;
+	}
+}
+
 static void gen_args_dec (IR *ir, uint32_t node)
 {
 	uint32_t p = ir->ast->nodes[node].child;
@@ -331,7 +372,9 @@ static void gen_args_dec (IR *ir, uint32_t node)
 		Symbol *s = ir->symtab->symbols + n->sym;
 		TypeKind kind = type_kind(s->type);
 
-		if (kind == TK_ARRAY || kind == TK_SLICE || kind == TK_STRUCT) {
+		if (struct_eightbytes(s->type)) {
+			idx = dec_struct_regs(ir, s, idx);
+		} else if (kind == TK_ARRAY || kind == TK_SLICE || kind == TK_STRUCT) {
 			idx = dec_aggregate_param(ir, s, idx);
 		} else {
 			s->ir_id = new_reg(ir, s->type);
@@ -340,6 +383,7 @@ static void gen_args_dec (IR *ir, uint32_t node)
 		}
 		p = n->next_bro;
 	}
+	spill_struct_params(ir, node);
 }
 
 static void fn_end (IR *ir, uint32_t idx)

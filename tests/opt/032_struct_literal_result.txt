@@ -1,21 +1,31 @@
 fn __r2_init(0 params, 0 regs) : void
     ret
 
-fn sum(1 params, 10 regs) : i64
-    r0 = param.ptr P #0
-    r2 = ld_ptr.i32 r0
-    r3 = extend.i64 r2
-    r7 = ld_ptr.i32 r0 +4
-    r8 = extend.i64 r7
-    r9 = add.i64 r3, r8
-    ret.i64 r9
+fn sum(1 params, 20 regs) : i64
+    r0 = param.u64 #0
+    r3 = extend.i32 r0
+    r4 = const.u64 32
+    r5 = rshift.u64 r0, r4
+    r6 = extend.i32 r5
+    r11 = extend.i64 r3
+    r16 = extend.i64 r6
+    r17 = add.i64 r11, r16
+    ret.i64 r17
     ret
 
-fn make(1 params, 2 regs) : void
-    r0 = param.ptr P #0
-    r1 = const.u64 85899345930
-    str_ptr.u64 r0, r1
-    ret
+fn make(0 params, 14 regs) : u64
+    r2 = const.u64 85899345930
+    str_local.u64 r0, r2
+    r3 = ld_local.i32 r0
+    r4 = extend.u32 r3
+    r5 = extend.u64 r4
+    r8 = ld_local.i32 r0 +4
+    r9 = extend.u32 r8
+    r10 = extend.u64 r9
+    r11 = const.u64 32
+    r12 = lshift.u64 r10, r11
+    r13 = or.u64 r5, r12
+    ret.u64 r13
     ret
 
 fn pair(1 params, 5 regs) : void
@@ -27,7 +37,7 @@ fn pair(1 params, 5 regs) : void
     ret
     ret
 
-fn main(0 params, 107 regs) : i64
+fn main(0 params, 149 regs) : i64
     r2 = const.u64 0
     str_local.u64 r0, r2
     r3 = const.u32 1
@@ -36,52 +46,72 @@ fn main(0 params, 107 regs) : i64
     str_local.u64 r4, r6
     r9 = const.i32 2
     str_local.i32 r4, r9 +4
-    r91 = const.u64 85899345930
-    str_local.u64 r10, r91
-    r93 = const.u64 171798691870
-    str_local.u64 r12, r93
-    r96 = const.i64 7
-    str_local.i64 r12, r96 +8
-    r19 = ld_local.i32 r12 +4
-    r28 = const.u64 0
-    str_local.u64 r26, r28
-    r29 = const.i32 3
-    str_local.i32 r26, r29
-    r32 = const.i32 4
-    str_local.i32 r26, r32 +8
-    r35 = const.u64 25769803781
+    r112 = const.u64 85899345930
+    str_local.u64 r110, r112
+    r113 = ld_local.i32 r110
+    r114 = extend.u32 r113
+    r115 = extend.u64 r114
+    r118 = ld_local.i32 r110 +4
+    r119 = extend.u32 r118
+    r120 = extend.u64 r119
+    r121 = const.u64 32
+    r122 = lshift.u64 r120, r121
+    r12 = or.u64 r115, r122
+    r13 = extend.i32 r12
+    r125 = const.u64 171798691870
+    str_local.u64 r19, r125
+    r128 = const.i64 7
+    str_local.i64 r19, r128 +8
+    r26 = ld_local.i32 r19 +4
+    r35 = const.u64 0
     str_local.u64 r33, r35
-    r99 = ld_local.i32 r33
-    r100 = extend.i64 r99
-    r104 = ld_local.i32 r33 +4
-    r105 = extend.i64 r104
-    r36 = add.i64 r100, r105
-    r40 = const.u64 34359738375
-    str_local.u64 r33, r40
-    r41 = ld_local.i32 r33
-    str_local.i32 r0, r41
-    r44 = ld_local.i32 r33 +4
-    str_local.i32 r0, r44 +4
-    r49 = const.u64 0
-    str_local.u64 r33, r49
-    r52 = const.u32 9
-    str_local.u32 r33, r52 +4
-    r53 = ld_local.i32 r33
-    str_local.i32 r0, r53
-    r56 = ld_local.i32 r33 +4
-    str_local.i32 r0, r56 +4
-    r61 = extend.i64 r53
-    r66 = const.i64 2
-    r67 = add.i64 r61, r66
-    r69 = ld_local.i32 r10
-    r70 = extend.i64 r69
-    r71 = add.i64 r67, r70
-    r76 = extend.i64 r19
-    r77 = add.i64 r71, r76
-    r79 = add.i64 r77, r96
-    r84 = const.i64 4
+    r36 = const.i32 3
+    str_local.i32 r33, r36
+    r39 = const.i32 4
+    str_local.i32 r33, r39 +8
+    r42 = const.u64 25769803781
+    str_local.u64 r40, r42
+    r43 = ld_local.i32 r40
+    r44 = extend.u32 r43
+    r45 = extend.u64 r44
+    r48 = ld_local.i32 r40 +4
+    r49 = extend.u32 r48
+    r50 = extend.u64 r49
+    r51 = const.u64 32
+    r52 = lshift.u64 r50, r51
+    r53 = or.u64 r45, r52
+    r132 = extend.i32 r53
+    r133 = const.u64 32
+    r134 = rshift.u64 r53, r133
+    r135 = extend.i32 r134
+    r140 = extend.i64 r132
+    r145 = extend.i64 r135
+    r54 = add.i64 r140, r145
+    r58 = const.u64 34359738375
+    str_local.u64 r40, r58
+    r59 = ld_local.i32 r40
+    str_local.i32 r0, r59
+    r62 = ld_local.i32 r40 +4
+    str_local.i32 r0, r62 +4
+    r67 = const.u64 0
+    str_local.u64 r40, r67
+    r70 = const.u32 9
+    str_local.u32 r40, r70 +4
+    r71 = ld_local.i32 r40
+    str_local.i32 r0, r71
+    r74 = ld_local.i32 r40 +4
+    str_local.i32 r0, r74 +4
+    r79 = extend.i64 r71
+    r84 = const.i64 2
     r85 = add.i64 r79, r84
-    r87 = add.i64 r85, r36
-    ret.i64 r87
+    r88 = extend.i64 r13
+    r89 = add.i64 r85, r88
+    r94 = extend.i64 r26
+    r95 = add.i64 r89, r94
+    r97 = add.i64 r95, r128
+    r102 = const.i64 4
+    r103 = add.i64 r97, r102
+    r105 = add.i64 r103, r54
+    ret.i64 r105
     ret
 

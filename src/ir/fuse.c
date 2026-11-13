@@ -112,7 +112,7 @@ static void put_value (Fuse *f, uint32_t idx, TypeId type, uint32_t off)
 	else put_scalar(f, off, types[type].size, fuse_bits(n));
 }
 
-static int type_has_bitfield (TypeId id)
+int type_has_bitfield (TypeId id)
 {
 	const Type *t = types + id;
 

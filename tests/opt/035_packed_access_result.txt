@@ -11,86 +11,88 @@ fn peek(1 params, 10 regs) : i64
     ret.i64 r9
     ret
 
-fn make(3 params, 18 regs) : void
-    r0 = param.ptr Header #0
-    r1 = param.u8 #1
-    r2 = param.u32 #2
-    str_ptr.u8 r0, r1
-    str_ptr.u32 r0, r2 +1
-    ret
+fn make(2 params, 20 regs) : u64
+    r0 = param.u8 #0
+    r1 = param.u32 #1
+    r10 = extend.u64 r0
+    r14 = extend.u64 r1
+    r15 = const.u64 8
+    r16 = lshift.u64 r14, r15
+    r17 = or.u64 r10, r16
+    ret.u64 r17
     ret
 
-fn main(0 params, 234 regs) : i64
+fn main(0 params, 243 regs) : i64
     r2 = const.u32 573785095
     str_local.u32 r0, r2
     r5 = const.u8 17
     str_local.u8 r0, r5 +4
-    r232 = const.u8 1
-    r233 = const.u32 2
-    r19 = const.u32 5
-    r20 = const.u32 18446744073709551608
-    r21 = and.u32 r198, r20
-    r198 = or.u32 r21, r19
-    r32 = const.u32 8184
-    r33 = const.u32 18446744069414584327
-    r34 = and.u32 r198, r33
-    r198 = or.u32 r34, r32
-    r48 = const.u16 4095
-    r49 = const.u16 18446744073709547520
-    r50 = and.u16 r200, r49
-    r200 = or.u16 r50, r48
-    r61 = const.u16 36864
-    r62 = const.u16 18446744073709490175
-    r63 = and.u16 r200, r62
-    r200 = or.u16 r63, r61
-    str_local.u8 r78, r232
-    str_local.u32 r78, r233 +1
-    r97 = ld_local.u8 r0
-    str_local.u8 r78, r97 +5
-    r100 = ld_local.u32 r0 +1
-    str_local.u32 r78, r100 +6
-    r106 = const.u32 66051
-    str_local.u32 r0, r106 +1
-    r113 = const.u32 3
-    r114 = const.u32 18446744073709551608
-    r115 = and.u32 r198, r114
-    r198 = or.u32 r115, r113
-    r123 = const.u16 4095
-    r124 = and.u16 r200, r123
-    r125 = const.u16 1
-    r126 = add.u16 r124, r125
-    r128 = const.u16 4095
-    r129 = and.u16 r126, r128
-    r130 = const.u16 18446744073709547520
-    r131 = and.u16 r200, r130
-    r200 = or.u16 r131, r129
-    r225 = extend.i64 r97
-    r230 = const.i64 66051
-    r150 = add.i64 r225, r230
-    r155 = const.u32 7
-    r156 = and.u32 r198, r155
-    r157 = extend.i64 r156
-    r158 = add.i64 r150, r157
-    r163 = const.u32 3
-    r164 = rshift.u32 r198, r163
-    r165 = const.u32 536870911
-    r166 = and.u32 r164, r165
-    r167 = extend.i64 r166
-    r168 = add.i64 r158, r167
-    r173 = const.u16 4095
-    r174 = and.u16 r200, r173
-    r175 = extend.i64 r174
-    r176 = add.i64 r168, r175
-    r181 = const.u16 12
-    r182 = rshift.u16 r200, r181
-    r183 = const.u16 15
-    r184 = and.u16 r182, r183
-    r185 = extend.i64 r184
-    r186 = add.i64 r176, r185
-    r189 = const.i64 9
-    r190 = add.i64 r186, r189
-    r195 = const.i64 4
-    r196 = add.i64 r190, r195
-    ret.i64 r196
+    r11 = const.u8 1
+    r14 = const.u32 2
+    r26 = const.u32 5
+    r27 = const.u32 18446744073709551608
+    r28 = and.u32 r207, r27
+    r207 = or.u32 r28, r26
+    r39 = const.u32 8184
+    r40 = const.u32 18446744069414584327
+    r41 = and.u32 r207, r40
+    r207 = or.u32 r41, r39
+    r55 = const.u16 4095
+    r56 = const.u16 18446744073709547520
+    r57 = and.u16 r209, r56
+    r209 = or.u16 r57, r55
+    r68 = const.u16 36864
+    r69 = const.u16 18446744073709490175
+    r70 = and.u16 r209, r69
+    r209 = or.u16 r70, r68
+    str_local.u8 r85, r11
+    str_local.u32 r85, r14 +1
+    r104 = ld_local.u8 r0
+    str_local.u8 r85, r104 +5
+    r107 = ld_local.u32 r0 +1
+    str_local.u32 r85, r107 +6
+    r113 = const.u32 66051
+    str_local.u32 r0, r113 +1
+    r120 = const.u32 3
+    r121 = const.u32 18446744073709551608
+    r122 = and.u32 r207, r121
+    r207 = or.u32 r122, r120
+    r130 = const.u16 4095
+    r131 = and.u16 r209, r130
+    r132 = const.u16 1
+    r133 = add.u16 r131, r132
+    r135 = const.u16 4095
+    r136 = and.u16 r133, r135
+    r137 = const.u16 18446744073709547520
+    r138 = and.u16 r209, r137
+    r209 = or.u16 r138, r136
+    r236 = extend.i64 r104
+    r241 = const.i64 66051
+    r157 = add.i64 r236, r241
+    r162 = const.u32 7
+    r163 = and.u32 r207, r162
+    r164 = extend.i64 r163
+    r165 = add.i64 r157, r164
+    r170 = const.u32 3
+    r171 = rshift.u32 r207, r170
+    r172 = const.u32 536870911
+    r173 = and.u32 r171, r172
+    r174 = extend.i64 r173
+    r175 = add.i64 r165, r174
+    r180 = const.u16 4095
+    r181 = and.u16 r209, r180
+    r182 = extend.i64 r181
+    r183 = add.i64 r175, r182
+    r188 = const.u16 12
+    r189 = rshift.u16 r209, r188
+    r190 = const.u16 15
+    r191 = and.u16 r189, r190
+    r192 = extend.i64 r191
+    r193 = add.i64 r183, r192
+    r196 = const.i64 9
+    r197 = add.i64 r193, r196
+    r202 = const.i64 4
+    r203 = add.i64 r197, r202
+    ret.i64 r203
     ret
 

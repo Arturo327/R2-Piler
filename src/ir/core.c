@@ -186,7 +186,7 @@ int fn_uses_sret (IR *ir, uint32_t ret)
 
 	if (ir->ast->nodes[ret].child != NO_NODE) return 1;
 	if (type_dyn_rank(t) > 0) return 1;
-	return type_kind(t) == TK_STRUCT;
+	return type_kind(t) == TK_STRUCT && !struct_eightbytes(t);
 }
 
 TypeId ret_slot_type (TypeId t)
@@ -231,7 +231,10 @@ static uint32_t param_slots (IR *ir, ASTNode *n)
 	uint32_t p = ir->ast->nodes[n->child].child;
 
 	while (p != NO_NODE) {
-		count += 1u + (uint32_t)type_dyn_rank(ir->ast->nodes[p].data_type);
+		TypeId t = ir->ast->nodes[p].data_type;
+
+		count += struct_eightbytes(t) ? struct_eightbytes(t)
+				: 1u + (uint32_t)type_dyn_rank(t);
 		p = ir->ast->nodes[p].next_bro;
 	}
 	return count;
@@ -247,6 +250,7 @@ static uint32_t declare_fn (IR *ir, ASTNode *n, Symbol *sym)
 	if (fn_uses_sret(ir, ret)) fn.ret_type = TYPE_VOID;
 	else if (type_kind(sym->type) == TK_ARRAY)
 		fn.ret_type = type_ptr_to(type_flat_element(sym->type));
+	else if (struct_eightbytes(sym->type)) fn.ret_type = TYPE_u64;
 	else fn.ret_type = sym->type;
 	fn.param_count = param_slots(ir, n);
 	fn.is_extern = n->type == NODE_EXTERN_FN_DEC;
@@ -507,6 +511,28 @@ void make_ret (IR *ir, uint32_t val, TypeId type)
 	i.src1 = val;
 	i.data_type = type;
 	push_instr(ir, i);
+}
+
+void make_ret2 (IR *ir, uint32_t lo, uint32_t hi, TypeId type)
+{
+	IRInstr i = blank_instr;
+
+	i.op = IR_RET;
+	i.src1 = lo;
+	i.src2 = hi;
+	i.data_type = type;
+	push_instr(ir, i);
+}
+
+uint32_t make_rethi (IR *ir)
+{
+	IRInstr i = blank_instr;
+
+	i.op = IR_RETHI;
+	i.dst = new_reg(ir, TYPE_u64);
+	i.data_type = TYPE_u64;
+	push_instr(ir, i);
+	return i.dst;
 }
 
 void make_select (IR *ir, uint32_t dst, uint32_t a,

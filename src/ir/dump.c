@@ -17,7 +17,8 @@ static const char *const op_names[IR_COUNT] = {
 	[IR_EQ] = "eq", [IR_NE] = "ne", [IR_GT] = "gt", [IR_GE] = "ge",
 	[IR_LT] = "lt", [IR_LE] = "le",
 	[IR_LABEL] = "label", [IR_JMP] = "jmp", [IR_JZ] = "jz", [IR_JNZ] = "jnz",
-	[IR_ARG] = "arg", [IR_CALL] = "call", [IR_RET] = "ret"
+	[IR_ARG] = "arg", [IR_CALL] = "call", [IR_RET] = "ret",
+	[IR_RETHI] = "rethi"
 };
 
 static void dump_extra (IR *ir, IRInstr *i)

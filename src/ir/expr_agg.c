@@ -4,7 +4,6 @@
 #include <string.h>
 
 #define COPY_UNROLL 8
-#define SROA_MAX_LEAVES 8
 
 static void store_string (IR *ir, uint32_t base, ASTNode *lit, TypeId elem)
 {
@@ -398,7 +397,7 @@ void gen_struct_into (IR *ir, uint32_t dst, uint32_t expr, TypeId type, int fres
 		gen_struct_init(ir, dst, e, type);
 		return;
 	}
-	if (e->type == NODE_FN_CALL && fresh
+	if (e->type == NODE_FN_CALL && (fresh || struct_eightbytes(type))
 			&& ret_count(ir, call_ret_node(ir, e)) == 1) {
 		gen_call(ir, e, dst);
 		return;

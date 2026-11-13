@@ -133,7 +133,7 @@ IRInstr *x86_tail_ret (IRInstr *call);
 int x86_tail_match (X86Fn *f, IRInstr *call);
 int x86_make_tail_call (X86Fn *f, IRInstr *i);
 int x86_make_arg (X86Fn *f, IRInstr *i);
-void x86_make_call (X86Fn *f, IRInstr *i);
+int x86_make_call (X86Fn *f, IRInstr *i);
 void x86_make_ret (X86Fn *f, IRInstr *i);
 
 int x86_make_rmw (X86Fn *f, IRInstr *a);

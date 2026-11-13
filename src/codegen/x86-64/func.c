@@ -69,8 +69,7 @@ static int make_instr (X86Fn *f, IRInstr *i)
 	case IR_CALL:
 		n = x86_make_tail_call(f, i);
 		if (n) return n;
-		x86_make_call(f, i);
-		return 1;
+		return x86_make_call(f, i);
 	case IR_RET: x86_make_ret(f, i); return 1;
 
 	default: return 1;

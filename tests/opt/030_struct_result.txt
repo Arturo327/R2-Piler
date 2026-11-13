@@ -1,19 +1,27 @@
 fn __r2_init(0 params, 0 regs) : void
     ret
 
-fn add(3 params, 30 regs) : void
-    r0 = param.ptr Point #0
-    r1 = param.ptr Point #1
-    r2 = param.ptr Point #2
-    r6 = ld_ptr.i32 r1
-    r8 = ld_ptr.i32 r2
-    r9 = add.i32 r6, r8
-    r15 = ld_ptr.i32 r1 +4
-    r19 = ld_ptr.i32 r2 +4
-    r20 = add.i32 r15, r19
-    str_ptr.i32 r0, r9
-    str_ptr.i32 r0, r20 +4
-    ret
+fn add(2 params, 54 regs) : u64
+    r0 = param.u64 #0
+    r1 = param.u64 #1
+    r4 = extend.i32 r0
+    r5 = const.u64 32
+    r6 = rshift.u64 r0, r5
+    r7 = extend.i32 r6
+    r12 = extend.i32 r1
+    r13 = const.u64 32
+    r14 = rshift.u64 r1, r13
+    r15 = extend.i32 r14
+    r24 = add.i32 r4, r12
+    r35 = add.i32 r7, r15
+    r38 = extend.u32 r24
+    r39 = extend.u64 r38
+    r43 = extend.u32 r35
+    r44 = extend.u64 r43
+    r45 = const.u64 32
+    r46 = lshift.u64 r44, r45
+    r47 = or.u64 r39, r46
+    ret.u64 r47
     ret
 
 fn twice(1 params, 4 regs) : i32
@@ -23,8 +31,8 @@ fn twice(1 params, 4 regs) : i32
     ret.i32 r3
     ret
 
-fn main(0 params, 91 regs) : i64
-    r42 = const.i64 20
-    ret.i64 r42
+fn main(0 params, 124 regs) : i64
+    r55 = const.i64 20
+    ret.i64 r55
     ret
 

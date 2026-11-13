@@ -1,8 +1,6 @@
 #include "ir/ir.h"
 #include "ir/internal.h"
 
-#define SROA_MAX_LEAVES 8
-
 static uint32_t count_bros (IR *ir, uint32_t first)
 {
 	uint32_t count = 0;
@@ -79,10 +77,38 @@ static uint32_t push_dims (IR *ir, ASTNode *a, TypeId pt, uint32_t *regs, uint32
 	return k;
 }
 
+static uint32_t push_arg (IR *ir, ASTNode *call, uint32_t arg, uint32_t param, uint32_t *regs, uint32_t k)
+{
+	ASTNode *a = ir->ast->nodes + arg;
+	TypeId pt = param == NO_NODE ? TYPE_VOID : ir->ast->nodes[param].data_type;
+	uint32_t n8 = struct_eightbytes(pt);
+
+	if (n8) {
+		pack_struct(ir, gen_expr(ir, a), pt, regs + k);
+		return k + n8;
+	}
+	regs[k++] = type_kind(pt) == TK_STRUCT
+			? gen_struct_arg(ir, a, can_alias_arg(ir, call, arg, param))
+			: gen_expr(ir, a);
+	return push_dims(ir, a, pt, regs, k);
+}
+
+static uint32_t call_struct_regs (IR *ir, uint32_t fn_idx, uint32_t argc, TypeId type, uint32_t dest)
+{
+	uint32_t words[2] = { NO_REG, NO_REG };
+
+	words[0] = make_call(ir, fn_idx, (uint16_t)argc, TYPE_u64);
+	if (struct_eightbytes(type) == 2) words[1] = make_rethi(ir);
+	if (dest == NO_REG) dest = new_struct_temp(ir, type);
+	unpack_struct(ir, dest, type, words);
+	return dest;
+}
+
 uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest)
 {
 	Symbol *fn = ir->symtab->symbols + n->sym;
 	uint32_t ret = call_ret_node(ir, n);
+	TypeId rtype = ir->ast->nodes[ret].data_type;
 	int sret = fn_uses_sret(ir, ret);
 	uint32_t argc = count_bros(ir, n->child);
 	uint32_t regs[ir->fns[fn->ir_id].param_count + 1];
@@ -93,15 +119,8 @@ uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest)
 
 	if (sret) regs[k++] = dest != NO_REG ? dest : new_struct_temp(ir, ret_buf_type(ir, ret));
 	for (uint32_t i = 0; i < argc; i++) {
-		ASTNode *a = ir->ast->nodes + arg;
-		TypeId pt = param == NO_NODE ? TYPE_VOID : ir->ast->nodes[param].data_type;
-
-		regs[k++] = type_kind(pt) == TK_STRUCT
-				? gen_struct_arg(ir, a, can_alias_arg(ir, n, arg, param))
-				: gen_expr(ir, a);
-
-		k = push_dims(ir, a, pt, regs, k);
-		arg = a->next_bro;
+		k = push_arg(ir, n, arg, param, regs, k);
+		arg = ir->ast->nodes[arg].next_bro;
 		if (param != NO_NODE) param = ir->ast->nodes[param].next_bro;
 	}
 
@@ -112,6 +131,8 @@ uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest)
 		make_call(ir, fn->ir_id, (uint16_t)k, TYPE_VOID);
 		return regs[0];
 	}
+	if (struct_eightbytes(rtype))
+		return call_struct_regs(ir, fn->ir_id, k, rtype, dest);
 	return make_call(ir, fn->ir_id, (uint16_t)k, ir->fns[fn->ir_id].ret_type);
 }
 

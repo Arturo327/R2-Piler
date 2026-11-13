@@ -3,6 +3,8 @@
 
 #include "ir/ir.h"
 
+#define SROA_MAX_LEAVES 8
+
 uint32_t push_fn (IR *ir, IRFn fn);
 uint32_t new_reg (IR *ir, TypeId type);
 
@@ -22,6 +24,13 @@ uint32_t make_blob (IR *ir, const uint8_t *data, uint32_t len);
 void gen_copy (IR *ir, uint32_t dst, uint32_t src, TypeId type);
 void gen_multi_assign (IR *ir, ASTNode *n);
 int struct_is_small (TypeId type);
+int type_has_bitfield (TypeId type);
+
+uint32_t struct_eightbytes (TypeId type);
+void pack_struct (IR *ir, uint32_t addr, TypeId type, uint32_t *out);
+void unpack_struct (IR *ir, uint32_t addr, TypeId type, const uint32_t *in);
+uint32_t make_rethi (IR *ir);
+void make_ret2 (IR *ir, uint32_t lo, uint32_t hi, TypeId type);
 
 void ir_scan_structs (IR *ir);
 void make_arg_dec (IR *ir, uint32_t dst, uint32_t idx, TypeId type);

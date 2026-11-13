@@ -98,9 +98,33 @@ int x86_make_arg (X86Fn *f, IRInstr *i)
 	return (int)n;
 }
 
-void x86_make_call (X86Fn *f, IRInstr *i)
+static void store_call_pair (X86Fn *f, IRInstr *call, IRInstr *hi)
+{
+	IRInstr *ins[2] = { call, hi };
+	uint8_t src[2] = { RAX, RDX };
+	uint32_t n = 0;
+
+	for (int k = 0; k < 2; k++) {
+		uint32_t v = ins[k]->dst;
+		if (v == NO_REG || !f->regs[v].uses) continue;
+		TypeId t = f->fn->reg_types[v];
+		int p = x86_phys_reg(f, v);
+		f->moves[n].from = (int8_t)src[k];
+		f->moves[n].to = p >= 0 ? (int8_t)p : PM_SLOT;
+		f->moves[n].slot = f->regs[v].slot;
+		f->moves[n].size = types[t].size;
+		f->moves[n].sign = types[t].sign;
+		n++;
+	}
+	x86_parallel_move(f, f->moves, n);
+}
+
+int x86_make_call (X86Fn *f, IRInstr *i)
 {
 	CodeGen *c = f->cg;
+	IRInstr *end = c->ir->instrs + f->fn->start + f->fn->count;
+	IRInstr *hi = x86_next_live(f, i, end);
+	int pair = hi != end && hi->op == IR_RETHI;
 
 	f->clobbers |= x86_call_clobbers(f, i);
 	if (i->argc == 0) move_call_live(f, i, 0);
@@ -110,14 +134,37 @@ void x86_make_call (X86Fn *f, IRInstr *i)
 	x86_print_fn_name(c, c->ir->fns + i->target);
 	cg_printf(c, "\n");
 
-	if (i->dst != NO_REG)
+	if (pair) store_call_pair(f, i, hi);
+	else if (i->dst != NO_REG)
 		x86_store_reg(f, RAX, i->dst);
 	move_call_live(f, i, 1);
+	return pair ? (int)(hi - i) + 1 : 1;
+}
+
+static void load_ret_pair (X86Fn *f, IRInstr *i)
+{
+	int a = x86_phys_reg(f, i->src1);
+	int b = x86_phys_reg(f, i->src2);
+
+	x86_take_fixed(f, RAX, i->src1);
+	x86_take_fixed(f, RDX, i->src2);
+	if (a == RDX && b == RAX) {
+		cg_printf(f->cg, "\txchgq %%rax, %%rdx\n");
+		return;
+	}
+	if (b == RAX) {
+		x86_load_reg(f, RDX, i->src2);
+		x86_load_reg(f, RAX, i->src1);
+		return;
+	}
+	x86_load_reg(f, RAX, i->src1);
+	x86_load_reg(f, RDX, i->src2);
 }
 
 void x86_make_ret (X86Fn *f, IRInstr *i)
 {
-	if (i->src1 != NO_REG) {
+	if (i->src2 != NO_REG) load_ret_pair(f, i);
+	else if (i->src1 != NO_REG) {
 		x86_take_fixed(f, RAX, i->src1);
 		x86_load_reg(f, RAX, i->src1);
 	}

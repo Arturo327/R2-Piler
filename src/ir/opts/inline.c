@@ -24,6 +24,7 @@ typedef struct Site {
 	uint32_t llo;
 	uint32_t end;
 	uint32_t dst;
+	uint32_t hi;
 } Site;
 
 static IRInstr inl_instr (uint8_t op, uint32_t dst, uint32_t src, TypeId type)
@@ -107,6 +108,8 @@ static void inl_ret (Inliner *n, const Site *s, IRInstr *c, int last)
 
 	if (c->src1 != NO_REG && s->dst != NO_REG)
 		n->out[n->count++] = inl_instr(IR_MOVE, s->dst, s->base + c->src1, c->data_type);
+	if (c->src2 != NO_REG && s->hi != NO_REG)
+		n->out[n->count++] = inl_instr(IR_MOVE, s->hi, s->base + c->src2, c->data_type);
 	if (last) return;
 	j = inl_instr(IR_JMP, NO_REG, NO_REG, TYPE_VOID);
 	j.target = s->end;
@@ -138,13 +141,12 @@ static void inl_body (Inliner *n, const Site *s, IRInstr *c, int last)
 	n->out[n->count++] = o;
 }
 
-static void inl_site (Inliner *n, IRInstr *call, const uint32_t *args)
+static void inl_site (Inliner *n, IRInstr *call, const uint32_t *args, uint32_t hi)
 {
 	IRFn *callee = n->fns + call->target;
-	Site s = { .base = n->regs, .dst = call->dst, .args = args };
+	Site s = { .base = n->regs, .dst = call->dst, .args = args, .hi = hi };
 	IRInstr end = inl_instr(IR_LABEL, NO_REG, NO_REG, TYPE_VOID);
 
-	uint32_t hi;
 	uint32_t span = 0;
 
 	label_span(n, callee, &s.llo, &hi);
@@ -166,7 +168,7 @@ static void inl_site (Inliner *n, IRInstr *call, const uint32_t *args)
 	n->out[n->count++] = end;
 }
 
-static int inl_call (Inliner *n, IRInstr *call)
+static int inl_call (Inliner *n, IRInstr *call, uint32_t hi)
 {
 	uint32_t argc = call->argc;
 	uint32_t args[argc + 1];
@@ -179,7 +181,7 @@ static int inl_call (Inliner *n, IRInstr *call)
 		args[k] = first[k].src1;
 
 	n->count -= argc;
-	inl_site(n, call, args);
+	inl_site(n, call, args, hi);
 	return 1;
 }
 
@@ -208,7 +210,15 @@ static void inl_fn (Inliner *n, uint32_t idx)
 	for (uint32_t j = 0; j < old->count; j++) {
 		IRInstr *in = n->src + old->start + j;
 
-		if (in->op == IR_CALL && n->elig[in->target] && inl_call(n, in)) continue;
+		if (in->op == IR_CALL && n->elig[in->target]) {
+			uint32_t hi = j + 1 < old->count && in[1].op == IR_RETHI
+					? in[1].dst : NO_REG;
+
+			if (inl_call(n, in, hi)) {
+				j += hi != NO_REG;
+				continue;
+			}
+		}
 		n->out[n->count++] = *in;
 	}
 
