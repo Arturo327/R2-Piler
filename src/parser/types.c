@@ -94,8 +94,12 @@ static TypeSpec *parse_type_spec (Parser *p, int allow_void)
 		ts = new_spec(p, TS_REF, t);
 		ts->str = t.str;
 	} else {
-		if (!p->panic_mode)
-			error_report(p->err, ERR_ERROR, token_loc(t), "expected type");
+		if (!p->panic_mode) {
+			if (t.type == TOK_AND_A)
+				error_report(p->err, ERR_ERROR, token_loc(t),
+						"references are only allowed as function parameter types");
+			else error_report(p->err, ERR_ERROR, token_loc(t), "expected type");
+		}
 		p->panic_mode = 1;
 		p->depth--;
 		return NULL;

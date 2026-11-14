@@ -128,6 +128,7 @@ static void dump_node_value (ASTNode *n)
 	case NODE_STRUCT_DEC: case NODE_FIELD_DEC:
 		if (n->str) printf(" name=\"%.*s\"", (int)n->len, n->str);
 		if (n->flags & NODE_FLAG_STATIC) printf(" static");
+		if (n->flags & NODE_FLAG_REF) printf(" ref");
 		if (n->flags & NODE_FLAG_UNION) printf(" union");
 		if (n->flags & NODE_FLAG_PACKED) printf(" packed");
 		if (n->flags & NODE_FLAG_BITFIELD) {

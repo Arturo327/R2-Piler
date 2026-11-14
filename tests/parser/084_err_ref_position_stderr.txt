@@ -1,0 +1,9 @@
+tests/parser/084_err_ref_position_src.r2:1:11: ERROR: expected type
+      1 | fn f(x : &void) {
+        |           ^~~~
+tests/parser/084_err_ref_position_src.r2:5:10: ERROR: references are only allowed as function parameter types
+      5 |         var r : &i64;
+        |                 ^
+tests/parser/084_err_ref_position_src.r2:6:14: ERROR: references are only allowed as function parameter types
+      6 |         var p : ptr &i64;
+        |                     ^

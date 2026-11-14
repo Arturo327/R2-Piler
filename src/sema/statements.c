@@ -249,6 +249,11 @@ static void check_param_default (Sema *s, uint32_t param)
 	TypeId type = p->data_type;
 
 	if (def == NO_NODE || type == TYPE_ERROR) return;
+	if (p->flags & NODE_FLAG_REF_LOWERED) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + def),
+				"a reference parameter cannot have a default value");
+		return;
+	}
 	if (type_kind(type) == TK_ARRAY || type_kind(type) == TK_SLICE) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + def),
 				"an array or slice parameter cannot have a default value");
@@ -325,9 +330,13 @@ void check_fn_dec (Sema *s, uint32_t idx)
 	uint32_t count = 0;
 	while (param != NO_NODE) {
 		ASTNode *p = s->ast->nodes + param;
-		sema_declare(s, p->str, p->len, SYMBOL_PARAM, p->data_type, param);
+		int by_ref = (p->flags & NODE_FLAG_REF_LOWERED) != 0;
+		uint32_t next = p->next_bro;
+		uint32_t psym = sema_declare(s, p->str, p->len, SYMBOL_PARAM, p->data_type, param);
+
+		s->table.symbols[psym].by_ref = by_ref;
 		count++;
-		param = p->next_bro;
+		param = next;
 	}
 	if (count > MAX_PARAMS)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),

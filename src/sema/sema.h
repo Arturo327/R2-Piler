@@ -58,6 +58,7 @@ typedef struct Sema {
 	TypeId curr_ret;
 	uint32_t curr_ret_list;
 	uint8_t too_deep;
+	uint8_t ref_arg;
 } Sema;
 
 void sema_init (Sema *sema, Arena *arena, AST *ast, ErrorReporter *err);

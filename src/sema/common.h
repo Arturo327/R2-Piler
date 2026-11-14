@@ -11,6 +11,8 @@ uint32_t sema_ret_count (Sema *s, uint32_t ret);
 uint32_t sema_ret_at (Sema *s, uint32_t ret, uint32_t i);
 int enum_const_value (Sema *s, uint32_t idx, TypeId enum_id, uint64_t *out);
 uint32_t sema_wrap_deref (Sema *s, uint32_t child, TypeId to_type);
+uint32_t sema_wrap_addr (Sema *s, uint32_t child);
+uint32_t sema_ref_value (Sema *s, uint32_t idx);
 
 uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 		TypeId data_type, uint32_t decl_node);

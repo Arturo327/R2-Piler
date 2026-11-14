@@ -102,12 +102,16 @@ static void warn_unassigned (Sema *s, uint32_t idx, TypeId type)
 void mark_read (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
-	if (n->sym == NO_SYMBOL) return;
+	int direct = n->type == NODE_ID;
+
+	while (n->type == NODE_DEREF || n->type == NODE_INDEX || n->type == NODE_DOT)
+		n = s->ast->nodes + n->child;
+	if (n->type != NODE_ID || n->sym == NO_SYMBOL) return;
 
 	Symbol *sym = s->table.symbols + n->sym;
 	sym->read = 1;
 	sym->pending_write = 0;
-	if (sym->agg_slots) agg_whole_read(s, n->sym);
+	if (direct && sym->agg_slots) agg_whole_read(s, n->sym);
 }
 
 static void record_dead_write (Sema *s, uint32_t sym, uint32_t node)
@@ -147,10 +151,18 @@ static void set_null_state (Sema *s, uint32_t left, uint8_t left_kind, int is_nu
 	if (sym != NO_SYMBOL) s->table.symbols[sym].null_known = is_null != 0;
 }
 
+static int id_by_ref (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	return n->sym != NO_SYMBOL && s->table.symbols[n->sym].by_ref;
+}
+
 TypeId check_id (Sema *s, uint32_t idx)
 {
 	TypeId type = check_var_ref(s, idx, 1);
 
+	if (type != TYPE_ERROR && id_by_ref(s, idx))
+		type = sema_ref_value(s, idx);
 	warn_unassigned(s, idx, type);
 	mark_read(s, idx);
 	return type;
@@ -172,7 +184,13 @@ static TypeId check_lvalue (Sema *s, uint32_t idx)
 {
 	switch (s->ast->nodes[idx].type)
 	{
-	case NODE_ID: return check_var_ref(s, idx, 1);
+	case NODE_ID: {
+		TypeId type = check_var_ref(s, idx, 1);
+
+		if (type != TYPE_ERROR && id_by_ref(s, idx))
+			return sema_ref_value(s, idx);
+		return type;
+	}
 	case NODE_DEREF: return check_deref(s, idx);
 	case NODE_INDEX: return check_index(s, idx);
 	case NODE_DOT: return check_dot(s, idx);

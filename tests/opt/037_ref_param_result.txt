@@ -1,0 +1,28 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn inc(2 params, 6 regs) : void
+    r0 = param.ptr i64 #0
+    r1 = param.i64 #1
+    r3 = ld_ptr.i64 r0
+    r5 = add.i64 r3, r1
+    str_ptr.i64 r0, r5
+    ret
+
+fn get(1 params, 3 regs) : i64
+    r0 = param.ptr i64 #0
+    r2 = ld_ptr.i64 r0
+    ret.i64 r2
+    ret
+
+fn main(0 params, 16 regs) : i64
+    r0 = const.i64 3
+    r2 = const.i64 4
+    r10 = ld_local.i64 r0
+    r12 = add.i64 r10, r2
+    str_local.i64 r0, r12
+    r5 = move.i64 r0
+    r6 = add.i64 r12, r5
+    ret.i64 r6
+    ret
+

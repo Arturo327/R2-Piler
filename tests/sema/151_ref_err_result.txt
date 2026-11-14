@@ -1,0 +1,19 @@
+struct B [1:8] depth=0 size=1 align=1
+  field f type=u8 offset=0 bits=3 bit_off=0
+fn inc [5:4] depth=0 type=void
+fn afn [9:4] depth=0 type=void
+fn sfn [13:4] depth=0 type=void
+fn dflt [17:4] depth=0 type=void
+fn deref [21:4] depth=0 type=i64
+fn bf [25:4] depth=0 type=void
+fn main [29:4] depth=0 type=i64
+param x [5:8] depth=1 type=ptr i64
+param x [9:8] depth=1 type=error
+param x [13:8] depth=1 type=error
+param x [17:9] depth=1 type=ptr i64
+param x [21:10] depth=1 type=ptr i64
+param x [25:7] depth=1 type=ptr u8
+var n [30:6] depth=1 type=i64
+var m [32:6] depth=1 type=i32
+var b [34:6] depth=1 type=B
+var v [36:6] depth=1 type=i32[3]

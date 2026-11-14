@@ -1,0 +1,22 @@
+struct P [1:8] depth=0 size=16 align=8
+  field x type=i64 offset=0
+  field y type=i64 offset=8
+fn inc [6:4] depth=0 type=void
+fn twice [10:4] depth=0 type=void
+fn get [14:4] depth=0 type=i64
+fn addr [18:4] depth=0 type=ptr i64
+fn field [22:4] depth=0 type=i64
+fn set [26:4] depth=0 type=void
+fn main [30:4] depth=0 type=i64
+param x [6:8] depth=1 type=ptr i64
+param d [6:18] depth=1 type=i64
+param x [10:10] depth=1 type=ptr i64
+param x [14:8] depth=1 type=ptr i64
+param x [18:9] depth=1 type=ptr i64
+param p [22:10] depth=1 type=ptr P
+param p [26:8] depth=1 type=ptr P
+param v [26:16] depth=1 type=i64
+var n [31:6] depth=1 type=i64
+var m [34:6] depth=1 type=i64
+var q [35:6] depth=1 type=ptr i64
+var a [37:6] depth=1 type=P

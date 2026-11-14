@@ -191,6 +191,37 @@ TypeId resolve_type_node (Sema *s, ASTNode *n)
 	return id;
 }
 
+static void lower_ref_param (Sema *s, uint32_t idx)
+{
+	ASTNode *p = s->ast->nodes + idx;
+
+	if (!(p->flags & NODE_FLAG_REF) || (p->flags & NODE_FLAG_REF_LOWERED))
+		return;
+	p->flags |= NODE_FLAG_REF_LOWERED;
+
+	TypeId base = p->data_type;
+	if (base == TYPE_ERROR) return;
+	if (base == TYPE_VOID) {
+		error_report(s->err, ERR_ERROR, node_loc(p),
+				"a reference cannot refer to void");
+		p->data_type = TYPE_ERROR;
+		return;
+	}
+	if (type_kind(base) == TK_ARRAY || type_kind(base) == TK_SLICE) {
+		error_report(s->err, ERR_ERROR, node_loc(p),
+				"references to arrays and slices are not supported");
+		p->data_type = TYPE_ERROR;
+		return;
+	}
+	TypeId ptr = type_ptr_to(base);
+	if (ptr == TYPE_ERROR) {
+		error_report(s->err, ERR_ERROR, node_loc(p), "too many types");
+		p->data_type = TYPE_ERROR;
+		return;
+	}
+	p->data_type = ptr;
+}
+
 void resolve_fn_types (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -200,6 +231,7 @@ void resolve_fn_types (Sema *s, uint32_t idx)
 
 	while (param != NO_NODE) {
 		resolve_type_node(s, s->ast->nodes + param);
+		lower_ref_param(s, param);
 		param = s->ast->nodes[param].next_bro;
 	}
 	resolve_type_node(s, s->ast->nodes + ret);
@@ -258,6 +290,7 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->curr_fn = NO_SYMBOL;
 	s->expr_depth = 0;
 	s->too_deep = 0;
+	s->ref_arg = 0;
 
 	symtab_init(&s->table, arena);
 }
@@ -343,6 +376,33 @@ uint32_t sema_wrap_cast (Sema *s, uint32_t child, TypeId to_type)
 	return sema_new_node(s, cast);
 }
 
+uint32_t sema_ref_value (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	ASTNode raw = {0};
+
+	raw.type = NODE_ID;
+	raw.str = n->str;
+	raw.len = n->len;
+	raw.sym = n->sym;
+	raw.data_type = n->data_type;
+	raw.line = n->line;
+	raw.col = n->col;
+	raw.child = NO_NODE;
+	raw.next_bro = NO_NODE;
+
+	uint32_t raw_idx = sema_new_node(s, raw);
+	n = s->ast->nodes + idx;
+	TypeId ptr = n->data_type;
+
+	n->type = NODE_DEREF;
+	n->flags = NODE_FLAG_REF;
+	n->child = raw_idx;
+	n->sym = NO_SYMBOL;
+	n->data_type = types[ptr].base;
+	return n->data_type;
+}
+
 uint32_t sema_wrap_deref (Sema *s, uint32_t child, TypeId to_type)
 {
 	ASTNode *c = s->ast->nodes + child;
@@ -360,6 +420,24 @@ uint32_t sema_wrap_deref (Sema *s, uint32_t child, TypeId to_type)
 
 	c->next_bro = NO_NODE;
 	return sema_new_node(s, deref);
+}
+
+uint32_t sema_wrap_addr (Sema *s, uint32_t child)
+{
+	ASTNode *c = s->ast->nodes + child;
+	ASTNode addr = {0};
+
+	addr.type = NODE_ADDR;
+	addr.line = c->line;
+	addr.col = c->col;
+	addr.len = 1;
+	addr.child = child;
+	addr.next_bro = c->next_bro;
+	addr.sym = NO_NODE;
+	addr.type_node = NO_TYPE_NODE;
+
+	c->next_bro = NO_NODE;
+	return sema_new_node(s, addr);
 }
 
 static void reserve_cast_nodes (Sema *s)

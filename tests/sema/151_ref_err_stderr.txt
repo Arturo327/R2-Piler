@@ -1,0 +1,21 @@
+tests/sema/151_ref_err_src.r2:9:8: ERROR: references to arrays and slices are not supported
+      9 | fn afn(x : &i32[3]) {
+        |        ^
+tests/sema/151_ref_err_src.r2:13:8: ERROR: references to arrays and slices are not supported
+     13 | fn sfn(x : &i32[]) {
+        |        ^
+tests/sema/151_ref_err_src.r2:17:20: ERROR: a reference parameter cannot have a default value
+     17 | fn dflt(x : &i64 = 5) {
+        |                    ^
+tests/sema/151_ref_err_src.r2:22:9: ERROR: cannot dereference a value of type i64
+     22 |         return @x;
+        |                ^
+tests/sema/151_ref_err_src.r2:31:6: ERROR: argument for reference parameter 'x' must be a variable
+     31 |         inc(5);
+        |             ^
+tests/sema/151_ref_err_src.r2:33:6: ERROR: argument type i32 does not match reference parameter 'x' (&i64)
+     33 |         inc(m);
+        |             ^
+tests/sema/151_ref_err_src.r2:35:6: ERROR: cannot take a reference to bitfield 'f'
+     35 |         bf(b.f);
+        |             ^

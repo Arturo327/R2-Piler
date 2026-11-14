@@ -62,6 +62,8 @@ static int operand_named_info (Sema *s, ASTNode *n, OperandInfo *info, const cha
 		return 0;
 
 	info->type = sym->type;
+	if (sym->by_ref && type_kind(info->type) == TK_PTR)
+		info->type = types[info->type].base;
 	return 1;
 }
 
@@ -290,6 +292,8 @@ TypeId check_offsetof (Sema *s, uint32_t idx)
 TypeId check_deref (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
+
+	if (n->flags & NODE_FLAG_REF) return n->data_type;
 	TypeId type = check_expr(s, n->child);
 
 	n = s->ast->nodes + idx;
@@ -315,55 +319,95 @@ TypeId check_deref (Sema *s, uint32_t idx)
 	return n->data_type;
 }
 
-TypeId check_addr (Sema *s, uint32_t idx)
+static TypeId check_addr_id (Sema *s, uint32_t idx, uint32_t saved_addr, int *finalized)
 {
 	ASTNode *n = s->ast->nodes + idx;
 	ASTNode *child = s->ast->nodes + n->child;
-	TypeId type;
-	uint32_t saved_addr = s->addr_operand;
+	TypeId type = check_var_ref(s, n->child, 0);
 
-	s->addr_operand = 1;
-	if (child->type == NODE_ID) {
-		type = check_var_ref(s, n->child, 0);
-		n = s->ast->nodes + idx;
-		child = s->ast->nodes + n->child;
-		if (type != TYPE_ERROR && child->sym != NO_SYMBOL)
-			s->table.symbols[child->sym].addressed = 1;
-		mark_read(s, n->child);
-	} else if (child->type == NODE_DEREF) {
-		type = check_deref(s, n->child);
-		n = s->ast->nodes + idx;
-	} else if (child->type == NODE_INDEX) {
-		type = check_index(s, n->child);
-		n = s->ast->nodes + idx;
-	} else if (child->type == NODE_DOT) {
-		type = check_dot(s, n->child);
-		n = s->ast->nodes + idx;
-		if (type != TYPE_ERROR && (s->ast->nodes[n->child].flags & NODE_FLAG_BITFIELD)) {
-			error_report(s->err, ERR_ERROR, node_loc(n),
-					"cannot take the address of bitfield '%.*s'",
-					(int)s->ast->nodes[n->child].len, s->ast->nodes[n->child].str);
-			type = TYPE_ERROR;
-		} else if (type != TYPE_ERROR && s->ast->nodes[n->child].type != NODE_DOT) {
-			error_report(s->err, ERR_ERROR, node_loc(n),
-					"operand of '$' must be a variable, a dereference or an index");
-			type = TYPE_ERROR;
-		}
-	} else {
+	n = s->ast->nodes + idx;
+	child = s->ast->nodes + n->child;
+	if (type != TYPE_ERROR && child->sym != NO_SYMBOL
+			&& s->table.symbols[child->sym].by_ref) {
 		s->addr_operand = saved_addr;
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"operand of '$' must be a variable, a dereference or an index");
-		n->data_type = TYPE_ERROR;
+		n->type = NODE_ID;
+		n->child = NO_NODE;
+		n->sym = child->sym;
+		n->str = child->str;
+		n->len = child->len;
+		n->data_type = type;
+		mark_read(s, idx);
+		*finalized = 1;
+		return type;
+	}
+	if (type != TYPE_ERROR && child->sym != NO_SYMBOL)
+		s->table.symbols[child->sym].addressed = 1;
+	mark_read(s, n->child);
+	return type;
+}
+
+static TypeId check_addr_dot (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	TypeId type = check_dot(s, n->child);
+
+	n = s->ast->nodes + idx;
+	if (type != TYPE_ERROR && (s->ast->nodes[n->child].flags & NODE_FLAG_BITFIELD)) {
+		if (s->ref_arg)
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"cannot take a reference to bitfield '%.*s'",
+					(int)s->ast->nodes[n->child].len, s->ast->nodes[n->child].str);
+		else error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot take the address of bitfield '%.*s'",
+				(int)s->ast->nodes[n->child].len, s->ast->nodes[n->child].str);
 		return TYPE_ERROR;
 	}
+	if (type != TYPE_ERROR && s->ast->nodes[n->child].type != NODE_DOT) {
+		if (s->ref_arg)
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"argument for reference parameter must be a variable");
+		else error_report(s->err, ERR_ERROR, node_loc(n),
+				"operand of '$' must be a variable, a dereference or an index");
+		return TYPE_ERROR;
+	}
+	return type;
+}
+
+static TypeId check_addr_child (Sema *s, uint32_t idx, uint32_t saved_addr, int *finalized)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	ASTNode *child = s->ast->nodes + n->child;
+
+	if (child->type == NODE_ID)
+		return check_addr_id(s, idx, saved_addr, finalized);
+	if (child->type == NODE_DEREF)
+		return check_deref(s, n->child);
+	if (child->type == NODE_INDEX)
+		return check_index(s, n->child);
+	if (child->type == NODE_DOT)
+		return check_addr_dot(s, idx);
+
 	s->addr_operand = saved_addr;
+	error_report(s->err, ERR_ERROR, node_loc(n),
+			"operand of '$' must be a variable, a dereference or an index");
+	n->data_type = TYPE_ERROR;
+	*finalized = 1;
+	return TYPE_ERROR;
+}
+
+static TypeId check_addr_finish (Sema *s, uint32_t idx, TypeId type)
+{
+	ASTNode *n = s->ast->nodes + idx;
 
 	if (type == TYPE_ERROR) {
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
 	if (type_kind(type) == TK_ARRAY || type_kind(type) == TK_SLICE) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
+		if (s->ref_arg)
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"cannot take a reference to an array or slice");
+		else error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot take the address of an array; the array itself decays to a pointer to its first element, use it directly");
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
@@ -383,6 +427,18 @@ TypeId check_addr (Sema *s, uint32_t idx)
 	}
 	agg_untrack_root(s, n->child);
 	return n->data_type;
+}
+
+TypeId check_addr (Sema *s, uint32_t idx)
+{
+	uint32_t saved_addr = s->addr_operand;
+
+	s->addr_operand = 1;
+	int finalized = 0;
+	TypeId type = check_addr_child(s, idx, saved_addr, &finalized);
+	s->addr_operand = saved_addr;
+	if (finalized) return type;
+	return check_addr_finish(s, idx, type);
 }
 
 int sema_array_slice_compat (TypeId arg, TypeId param)
@@ -458,8 +514,44 @@ static uint32_t find_param (Sema *s, uint32_t params_node, char *name, uint16_t 
 	return NO_NODE;
 }
 
-static uint32_t check_arg_value (Sema *s, uint32_t arg, TypeId param_type)
+static uint32_t check_ref_arg (Sema *s, uint32_t arg, uint32_t param)
 {
+	uint8_t kind = s->ast->nodes[arg].type;
+	TypeId want = s->ast->nodes[param].data_type;
+
+	if (want == TYPE_ERROR) return arg;
+	if (kind != NODE_ID && kind != NODE_DEREF
+			&& kind != NODE_INDEX && kind != NODE_DOT) {
+		ASTNode *p = s->ast->nodes + param;
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + arg),
+				"argument for reference parameter '%.*s' must be a variable",
+				(int)p->len, p->str);
+		return arg;
+	}
+
+	uint32_t node = sema_wrap_addr(s, arg);
+	uint8_t saved = s->ref_arg;
+	s->ref_arg = 1;
+	TypeId got = check_addr(s, node);
+	s->ref_arg = saved;
+
+	if (got == TYPE_ERROR) return node;
+	if (got != want) {
+		ASTNode *p = s->ast->nodes + param;
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + arg),
+				"argument type %s does not match reference parameter '%.*s' (&%s)",
+				type_display_name(types[got].base), (int)p->len, p->str,
+				type_display_name(types[want].base));
+	}
+	return node;
+}
+
+static uint32_t check_arg_value (Sema *s, uint32_t arg, uint32_t param)
+{
+	if (param != NO_NODE && (s->ast->nodes[param].flags & NODE_FLAG_REF_LOWERED))
+		return check_ref_arg(s, arg, param);
+
+	TypeId param_type = param == NO_NODE ? TYPE_VOID : s->ast->nodes[param].data_type;
 	TypeId arg_type = check_expr(s, arg);
 	uint32_t out = arg;
 
@@ -525,12 +617,6 @@ static uint32_t arg_param (CallArgs *c, uint32_t arg)
 	return NO_NODE;
 }
 
-static TypeId param_type (Sema *s, uint32_t params_node, uint32_t pi)
-{
-	if (pi == NO_NODE) return TYPE_VOID;
-	return s->ast->nodes[param_at(s, params_node, pi)].data_type;
-}
-
 static int collect_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx, uint32_t *arg_at, uint32_t count)
 {
 	CallArgs c = { s, call_idx, s->ast->nodes[fn_idx].child, arg_at, count, 0, 0, 0 };
@@ -541,7 +627,9 @@ static int collect_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx, uint3
 		uint32_t pi = arg_param(&c, arg);
 		uint32_t expr = s->ast->nodes[arg].type == NODE_NAMED_ARG
 				? s->ast->nodes[arg].child : arg;
-		uint32_t val = check_arg_value(s, expr, param_type(s, c.params_node, pi));
+		uint32_t param = pi == NO_NODE ? NO_NODE
+				: param_at(s, c.params_node, pi);
+		uint32_t val = check_arg_value(s, expr, param);
 
 		if (pi != NO_NODE) arg_at[pi] = val;
 		arg = next;
@@ -817,10 +905,14 @@ TypeId check_dot (Sema *s, uint32_t idx)
 	}
 
 	Symbol *sym = s->table.symbols + sym_idx;
-	TypeKind kind = type_kind(sym->type);
+	TypeId sym_type = sym->type;
+
+	if (sym->by_ref && type_kind(sym_type) == TK_PTR)
+		sym_type = types[sym_type].base;
+	TypeKind kind = type_kind(sym_type);
 
 	if (kind == TK_STRUCT || (kind == TK_PTR
-			&& type_kind(types[sym->type].base) == TK_STRUCT))
+			&& type_kind(types[sym_type].base) == TK_STRUCT))
 		return check_dot_value(s, idx);
 	if (sym->kind == SYMBOL_VAR || sym->kind == SYMBOL_PARAM)
 		return check_dot_var(s, idx, sym);

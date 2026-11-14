@@ -1,0 +1,50 @@
+NODE_ROOT [0:0]
+  NODE_STRUCT_DEC [1:8] name="P"
+    NODE_FIELD_DEC [2:2] name="x" type=i64
+    NODE_FIELD_DEC [3:2] name="y" type=i64
+  NODE_FN_DEC [6:4] name="inc"
+    NODE_ARGS_DEC [6:7]
+      NODE_VAR_DEC [6:8] name="x" ref type=i64
+    NODE_RET_DEC [6:18] type=void
+    NODE_BLOCK [6:18]
+      NODE_ADD_ASSIGN [7:4]
+        NODE_ID [7:2] str="x"
+        NODE_LIT_i64 [7:7] i64=1
+  NODE_FN_DEC [10:4] name="advance"
+    NODE_ARGS_DEC [10:11]
+      NODE_VAR_DEC [10:12] name="p" ref type=ptr i64
+    NODE_RET_DEC [10:26] type=void
+    NODE_BLOCK [10:26]
+      NODE_ASSIGN [11:4]
+        NODE_ID [11:2] str="p"
+        NODE_ADD [11:8]
+          NODE_ID [11:6] str="p"
+          NODE_LIT_i64 [11:10] i64=1
+  NODE_FN_DEC [14:4] name="field"
+    NODE_ARGS_DEC [14:9]
+      NODE_VAR_DEC [14:10] name="p" ref type=P
+    NODE_RET_DEC [14:18] type=i64
+    NODE_BLOCK [14:24]
+      NODE_RET [15:2]
+        NODE_DOT [15:10] field="x"
+          NODE_ID [15:9] str="p"
+  NODE_FN_DEC [18:4] name="main"
+    NODE_ARGS_DEC [18:8]
+    NODE_RET_DEC [18:11] type=i64
+    NODE_BLOCK [18:17]
+      NODE_VAR_DEC [19:6] name="n" type=i64
+        NODE_LIT_i64 [19:16] i64=0
+      NODE_FN_CALL [20:2] name="inc"
+        NODE_ID [20:6] str="n"
+      NODE_VAR_DEC [21:6] name="q" type=ptr i64
+        NODE_ADDR [21:20]
+          NODE_ID [21:21] str="n"
+      NODE_FN_CALL [22:2] name="advance"
+        NODE_ID [22:10] str="q"
+      NODE_RET [23:2]
+        NODE_FN_CALL [23:9] name="field"
+          NODE_STRUCT_INIT [23:15]
+            NODE_FIELD_INIT [23:17] field="x"
+              NODE_LIT_i64 [23:21] i64=0
+            NODE_FIELD_INIT [23:25] field="y"
+              NODE_LIT_i64 [23:29] i64=0

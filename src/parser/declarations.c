@@ -12,6 +12,10 @@ static uint32_t parse_param (Parser *p)
 	}
 
 	consume(p, TOK_COL, "expected ':' followed by the parameter type");
+	if (p->curr.type == TOK_AND_A) {
+		p->ast.nodes[node].flags |= NODE_FLAG_REF;
+		advance(p);
+	}
 	uint16_t type_node;
 	TypeId type = parse_type(p, 0, node, &type_node);
 	p->ast.nodes[node].data_type = type;

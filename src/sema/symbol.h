@@ -50,6 +50,7 @@ typedef struct Symbol {
 	uint8_t written : 1;
 	uint8_t escaped : 1;
 	uint8_t stack_slice : 1;
+	uint8_t by_ref : 1;
 } Symbol;
 
 #define SYM_FLAG_ASSIGNED 1
