@@ -28,6 +28,7 @@ static uint32_t collect_leaves (TypeId type, uint32_t base, Leaf *out, uint32_t 
 			n = collect_leaves(f->type, base + f->offset, out, n);
 			continue;
 		}
+		if (((base + f->offset) & 7) + types[f->type].size > 8) return UINT32_MAX;
 		out[n].off = base + f->offset;
 		out[n].type = f->type;
 		n++;

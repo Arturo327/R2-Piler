@@ -137,17 +137,17 @@ void sema_decl_struct (Sema *s, uint32_t idx)
 static TypeId field_struct_dep (Sema *s, uint32_t idx)
 {
 	ASTNode *f = s->ast->nodes + idx;
-	ASTNode *ref;
-	TypeId id;
 
 	if (f->flags & NODE_FLAG_BITFIELD) return TYPE_ERROR;
 	if (f->type_node == NO_TYPE_NODE) return TYPE_ERROR;
-	ref = f + f->type_node;
-	while (ref->type == NODE_TYPE_ARRAY && ref->type_node != NO_TYPE_NODE)
-		ref = ref + ref->type_node;
-	if (ref->type != NODE_TYPE_REF) return TYPE_ERROR;
+	ASTNode *ref = f + f->type_node;
 
-	id = type_canon(find_type(ref->str, ref->len));
+	while ((ref->type == NODE_TYPE_ARRAY || ref->type == NODE_TYPE_SLICE)
+			&& ref->type_node != NO_TYPE_NODE)
+		ref = ref + ref->type_node;
+
+	if (ref->type != NODE_TYPE_REF) return TYPE_ERROR;
+	TypeId id = type_canon(find_type(ref->str, ref->len));
 	return type_kind(id) == TK_STRUCT ? id : TYPE_ERROR;
 }
 

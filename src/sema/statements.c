@@ -719,7 +719,7 @@ static void check_switch_clauses (Sema *s, uint32_t idx, TypeId type)
 static void check_switch (Sema *s, uint32_t idx)
 {
 	uint32_t cond = s->ast->nodes[idx].child;
-	TypeId type = check_expr(s, cond);
+	TypeId type = finalize_type(s, cond, check_expr(s, cond));
 
 	TypeKind kind = type_kind(type_repr(type));
 	if (type != TYPE_ERROR && !(kind == TK_INT || kind == TK_ENUM)) {
@@ -728,7 +728,6 @@ static void check_switch (Sema *s, uint32_t idx)
 				type_display_name(type));
 		type = TYPE_ERROR;
 	}
-	type = finalize_type(s, cond, type);
 	check_switch_clauses(s, idx, type);
 }
 

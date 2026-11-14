@@ -158,10 +158,10 @@ static ASTNode *lone_assign (IR *ir, uint32_t idx)
 		n = nodes + n->child;
 	}
 	if (n->type != NODE_ASSIGN) return NULL;
+	if (nodes[n->child].type != NODE_ID) return NULL;
 
 	Symbol *s = ir->symtab->symbols + nodes[n->child].sym;
-
-	if (!s->depth || s->is_static) return NULL;
+	if (!s->depth || s->is_static || type_is_aggregate(s->type)) return NULL;
 	return is_simple_val(ir, nodes[n->child].next_bro) ? n : NULL;
 }
 

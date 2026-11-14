@@ -89,8 +89,11 @@ static int dim_value (Sema *s, uint32_t idx, uint64_t *out)
 	if (n->child == NO_NODE) return 0;
 	if (!dim_value(s, n->child, &a)) return 0;
 
+	uint32_t rhs = s->ast->nodes[n->child].next_bro;
+	if (rhs == NO_NODE) return 0;
+
 	uint64_t b;
-	if (!dim_value(s, s->ast->nodes[n->child].next_bro, &b)) return 0;
+	if (!dim_value(s, rhs, &b)) return 0;
 
 	switch (n->type)
 	{

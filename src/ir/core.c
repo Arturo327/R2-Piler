@@ -133,6 +133,7 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select)
 	ir->use_select = use_select;
 	ir->no_tail = 0;
 	ir->scalarize = 0;
+	ir->init_dirty = 0;
 	ir->sret = NO_REG;
 	ir->nrvo = NO_SYMBOL;
 	ir->ret_node = NO_NODE;

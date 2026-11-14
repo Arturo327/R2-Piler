@@ -30,11 +30,22 @@ static int array_decay (IR *ir, uint32_t idx, uint32_t parent)
 	return !(p->type == NODE_INDEX && p->child == idx);
 }
 
+static void taint_multi (IR *ir, ASTNode *n)
+{
+	uint32_t k = n->child;
+
+	while (ir->ast->nodes[k].next_bro != NO_NODE) {
+		taint(ir, k, 0);
+		k = ir->ast->nodes[k].next_bro;
+	}
+}
+
 static void scan_node (IR *ir, uint32_t idx, uint32_t parent)
 {
 	ASTNode *n = ir->ast->nodes + idx;
 
 	if (n->type >= NODE_ASSIGN && n->type <= NODE_DEC) taint(ir, n->child, 0);
+	else if (n->type == NODE_MULTI_ASSIGN) taint_multi(ir, n);
 	else if (n->type == NODE_ADDR) taint(ir, n->child, 1);
 	else if (array_decay(ir, idx, parent)) taint(ir, idx, 1);
 

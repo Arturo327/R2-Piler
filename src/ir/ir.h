@@ -139,6 +139,7 @@ typedef struct IR {
 	uint8_t use_select;
 	uint8_t no_tail;
 	uint8_t scalarize;
+	uint8_t init_dirty;
 	uint32_t sret;
 	uint32_t nrvo;
 
