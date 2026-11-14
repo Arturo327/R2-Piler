@@ -6,6 +6,11 @@
 Type types[TYPE_MAX];
 uint16_t type_count;
 
+#define TYPE_HASH_SIZE (TYPE_MAX * 2)
+
+static uint16_t derived_tab[TYPE_HASH_SIZE];
+static uint16_t name_tab[TYPE_HASH_SIZE];
+
 static Arena type_arena;
 static int type_arena_ready;
 
@@ -41,6 +46,41 @@ static const uint8_t builtin_kind[TYPE_COUNT] = {
 	[TYPE_STR] = TK_STR
 };
 
+static uint16_t *derived_slot (uint8_t kind, TypeId base, uint32_t count)
+{
+	uint32_t h = 2166136261u;
+
+	h = (h ^ kind) * 16777619u;
+	h = (h ^ base) * 16777619u;
+	h = (h ^ count) * 16777619u;
+	h ^= h >> 15;
+	h &= TYPE_HASH_SIZE - 1;
+	while (derived_tab[h]) {
+		const Type *t = types + derived_tab[h];
+
+		if (t->kind == kind && t->base == base && t->count == count) break;
+		h = (h + 1) & (TYPE_HASH_SIZE - 1);
+	}
+	return derived_tab + h;
+}
+
+static uint16_t *name_slot (const char *name, uint16_t len)
+{
+	uint32_t h = 2166136261u;
+
+	for (uint16_t i = 0; i < len; i++)
+		h = (h ^ (uint8_t)name[i]) * 16777619u;
+	h ^= h >> 15;
+	h &= TYPE_HASH_SIZE - 1;
+	while (name_tab[h]) {
+		const Type *t = types + name_tab[h];
+
+		if (t->len == len && memcmp(t->name, name, len) == 0) break;
+		h = (h + 1) & (TYPE_HASH_SIZE - 1);
+	}
+	return name_tab + h;
+}
+
 void init_types (void)
 {
 	if (type_arena_ready) arena_destroy(&type_arena);
@@ -48,6 +88,8 @@ void init_types (void)
 	type_arena_ready = 1;
 
 	memset(types, 0, sizeof(types));
+	memset(derived_tab, 0, sizeof(derived_tab));
+	memset(name_tab, 0, sizeof(name_tab));
 	for (int i = 0; i < TYPE_COUNT; i++) {
 		types[i] = builtin_types[i];
 		types[i].len = (uint16_t)strlen(types[i].name);
@@ -66,6 +108,8 @@ void types_destroy (void)
 	type_arena_ready = 0;
 	type_count = 0;
 	memset(types, 0, sizeof(types));
+	memset(derived_tab, 0, sizeof(derived_tab));
+	memset(name_tab, 0, sizeof(name_tab));
 }
 
 static const char *copy_name (const char *name, uint16_t len)
@@ -101,6 +145,11 @@ TypeId add_type (const char *name, uint16_t len, TypeKind kind, TypeId base)
 	t->layout = 0;
 	t->is_union = 0;
 	t->is_packed = 0;
+
+	if (kind == TK_ENUM || kind == TK_ALIAS || kind == TK_NEWTYPE || kind == TK_STRUCT) {
+		uint16_t *slot = name_slot(name, len);
+		*slot = id;
+	}
 	return id;
 }
 
@@ -108,10 +157,8 @@ TypeId type_ptr_to (TypeId base)
 {
 	if (base == TYPE_ERROR || base >= type_count) return TYPE_ERROR;
 
-	for (TypeId id = TYPE_COUNT; id < type_count; id++) {
-		if (types[id].kind != TK_PTR || types[id].base != base) continue;
-		return id;
-	}
+	uint16_t *slot = derived_slot(TK_PTR, base, 0);
+	if (*slot) return *slot;
 
 	uint32_t total = (uint32_t)types[base].len + 4;
 	if (total > UINT16_MAX) return TYPE_ERROR;
@@ -125,6 +172,7 @@ TypeId type_ptr_to (TypeId base)
 	if (id == TYPE_ERROR) return TYPE_ERROR;
 	types[id].size = 8;
 	types[id].sign = 0;
+	*slot = id;
 	return id;
 }
 
@@ -176,10 +224,8 @@ TypeId type_array_of (TypeId base, uint32_t count)
 	if (base == TYPE_ERROR || base >= type_count) return TYPE_ERROR;
 	if (!count || !types[base].size) return TYPE_ERROR;
 
-	for (TypeId id = TYPE_COUNT; id < type_count; id++) {
-		if (types[id].kind != TK_ARRAY || types[id].base != base) continue;
-		if (types[id].count == count) return id;
-	}
+	uint16_t *slot = derived_slot(TK_ARRAY, base, count);
+	if (*slot) return *slot;
 
 	int dyn = type_dyn_rank(base);
 	uint64_t total = dyn ? 8u * (1u + (uint64_t)dyn)
@@ -195,6 +241,7 @@ TypeId type_array_of (TypeId base, uint32_t count)
 	types[id].size = (uint32_t)total;
 	types[id].count = count;
 	types[id].sign = 0;
+	*slot = id;
 	return id;
 }
 
@@ -203,9 +250,8 @@ TypeId type_slice_of (TypeId base)
 	if (base == TYPE_ERROR || base >= type_count || !types[base].size)
 		return TYPE_ERROR;
 
-	for (TypeId id = TYPE_COUNT; id < type_count; id++) {
-		if (types[id].kind == TK_SLICE && types[id].base == base) return id;
-	}
+	uint16_t *slot = derived_slot(TK_SLICE, base, 0);
+	if (*slot) return *slot;
 
 	uint16_t leaf = element_name_len(types + base);
 	uint32_t total = (uint32_t)types[base].len + 2;
@@ -222,6 +268,7 @@ TypeId type_slice_of (TypeId base)
 	types[id].size = 8u * (uint32_t)(2 + type_dyn_rank(base));
 	types[id].count = 0;
 	types[id].sign = 0;
+	*slot = id;
 	return id;
 }
 
@@ -328,9 +375,13 @@ uint32_t type_align (TypeId id)
 
 TypeId find_type (const char *name, uint16_t len)
 {
-	for (TypeId id = TYPE_COUNT; id < type_count; id++) {
-		if (types[id].len != len) continue;
-		if (memcmp(types[id].name, name, len) == 0) return id;
+	uint16_t *slot = name_slot(name, len);
+
+	if (*slot) {
+		const Type *t = types + *slot;
+
+		if (t->len == len && memcmp(t->name, name, len) == 0)
+			return *slot;
 	}
 	return TYPE_ERROR;
 }

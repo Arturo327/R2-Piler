@@ -59,6 +59,10 @@ typedef struct Sema {
 	uint32_t curr_ret_list;
 	uint8_t too_deep;
 	uint8_t ref_arg;
+
+	uint8_t *flag_stack;
+	uint32_t flag_cap;
+	uint32_t flag_top;
 } Sema;
 
 void sema_init (Sema *sema, Arena *arena, AST *ast, ErrorReporter *err);
@@ -66,3 +70,6 @@ void sema_run (Sema *sema);
 void dump_symbols (Sema *s);
 
 #endif
+
+uint8_t *sema_flags_push (Sema *s, uint32_t n);
+void sema_flags_pop (Sema *s, uint32_t n);

@@ -406,8 +406,11 @@ static Token handle_char_literal (Lexer *l)
 
 typedef struct Keyword {
 	const char *name;
-	const TokenType type;
+	uint8_t len;
+	TokenType type;
 } Keyword;
+
+#define KW(s, t) { s, sizeof(s) - 1, t }
 
 typedef struct KeywordKey {
 	const char *str;
@@ -416,54 +419,52 @@ typedef struct KeywordKey {
 
 // WARNING: order must be: first length, then alphabetically.
 static const Keyword keywords[] = {
-	{"as", TOK_AS},
-	{"fn", TOK_FN},
-	{"i8", TOK_i8},
-	{"if", TOK_IF},
-	{"u8", TOK_u8},
-	{"arr", TOK_ARR},
-	{"for", TOK_FOR},
-	{"i16", TOK_i16},
-	{"i32", TOK_i32},
-	{"i64", TOK_i64},
-	{"ptr", TOK_PTR},
-	{"u16", TOK_u16},
-	{"u32", TOK_u32},
-	{"u64", TOK_u64},
-	{"var", TOK_VAR},
-	{"NULL", TOK_NULL},
-	{"case", TOK_CASE},
-	{"char", TOK_CHAR},
-	{"elif", TOK_ELIF},
-	{"else", TOK_ELSE},
-	{"enum", TOK_ENUM},
-	{"type", TOK_TYPE},
-	{"void", TOK_VOID},
-	{"break", TOK_BREAK},
-	{"union", TOK_UNION},
-	{"while", TOK_WHILE},
-	{"extern", TOK_EXTERN},
-	{"packed", TOK_PACKED},
-	{"return", TOK_RET},
-	{"sizeof", TOK_SIZEOF},
-	{"static", TOK_STATIC},
-	{"struct", TOK_STRUCT},
-	{"switch", TOK_SWITCH},
-	{"alignof", TOK_ALIGNOF},
-	{"default", TOK_DEFAULT},
-	{"newtype", TOK_NEWTYPE},
-	{"continue", TOK_CONTINUE},
-	{"offsetof", TOK_OFFSETOF}
+	KW("as", TOK_AS),
+	KW("fn", TOK_FN),
+	KW("i8", TOK_i8),
+	KW("if", TOK_IF),
+	KW("u8", TOK_u8),
+	KW("arr", TOK_ARR),
+	KW("for", TOK_FOR),
+	KW("i16", TOK_i16),
+	KW("i32", TOK_i32),
+	KW("i64", TOK_i64),
+	KW("ptr", TOK_PTR),
+	KW("u16", TOK_u16),
+	KW("u32", TOK_u32),
+	KW("u64", TOK_u64),
+	KW("var", TOK_VAR),
+	KW("NULL", TOK_NULL),
+	KW("case", TOK_CASE),
+	KW("char", TOK_CHAR),
+	KW("elif", TOK_ELIF),
+	KW("else", TOK_ELSE),
+	KW("enum", TOK_ENUM),
+	KW("type", TOK_TYPE),
+	KW("void", TOK_VOID),
+	KW("break", TOK_BREAK),
+	KW("union", TOK_UNION),
+	KW("while", TOK_WHILE),
+	KW("extern", TOK_EXTERN),
+	KW("packed", TOK_PACKED),
+	KW("return", TOK_RET),
+	KW("sizeof", TOK_SIZEOF),
+	KW("static", TOK_STATIC),
+	KW("struct", TOK_STRUCT),
+	KW("switch", TOK_SWITCH),
+	KW("alignof", TOK_ALIGNOF),
+	KW("default", TOK_DEFAULT),
+	KW("newtype", TOK_NEWTYPE),
+	KW("continue", TOK_CONTINUE),
+	KW("offsetof", TOK_OFFSETOF)
 };
 
 static int cmp_keywords (const void *a, const void *b)
 {
 	const KeywordKey *key = a;
 	const Keyword *kw = b;
-	size_t kw_len = strlen(kw->name);
-
-	if (key->len != kw_len)
-		return key->len < kw_len ? -1 : 1;
+	if (key->len != kw->len)
+		return key->len < kw->len ? -1 : 1;
 
 	return memcmp(key->str, kw->name, key->len);
 }

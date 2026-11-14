@@ -294,6 +294,9 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->expr_depth = 0;
 	s->too_deep = 0;
 	s->ref_arg = 0;
+	s->flag_stack = NULL;
+	s->flag_cap = 0;
+	s->flag_top = 0;
 
 	symtab_init(&s->table, arena);
 }
@@ -1012,4 +1015,25 @@ void dump_symbols (Sema *s)
 		if (sym->kind == SYMBOL_FN) dump_ret_items(s, sym);
 		printf("\n");
 	}
+}
+
+uint8_t *sema_flags_push (Sema *s, uint32_t n)
+{
+	if (s->flag_top + n > s->flag_cap) {
+		uint32_t new_cap = s->flag_cap ? s->flag_cap << 1 : 1024;
+
+		while (new_cap < s->flag_top + n) new_cap <<= 1;
+		s->flag_stack = arena_realloc(s->arena, s->flag_stack,
+				s->flag_cap, new_cap);
+		s->flag_cap = new_cap;
+	}
+	uint8_t *p = s->flag_stack + s->flag_top;
+
+	s->flag_top += n;
+	return p;
+}
+
+void sema_flags_pop (Sema *s, uint32_t n)
+{
+	s->flag_top -= n;
 }

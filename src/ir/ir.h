@@ -115,6 +115,9 @@ typedef struct IR {
 	uint32_t string_count;
 	uint32_t string_cap;
 
+	uint32_t *string_tab;
+	uint32_t string_tab_cap;
+
 	uint32_t init_fn;
 
 	uint32_t *init_order;

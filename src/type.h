@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define TYPE_MAX 4096
+#define TYPE_MAX 16384
 #define TYPE_CHAR TYPE_i8
 
 typedef uint16_t TypeId;

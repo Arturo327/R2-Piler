@@ -108,12 +108,13 @@ static TypeId check_rhs (Sema *s, uint8_t op, uint32_t right)
 	if (op != NODE_AND_L && op != NODE_OR_L)
 		return check_expr(s, right);
 
-	uint8_t *snap = arena_alloc(s->arena, (size_t)mark + 1);
+	uint8_t *snap = sema_flags_push(s, mark + 1);
 	symtab_save_flags(&s->table, snap, mark);
 	sema_clear_pending(s);
 	TypeId type = check_expr(s, right);
 	symtab_intersect_flags(&s->table, snap, mark);
 	sema_load_flags(s, snap, mark);
+	sema_flags_pop(s, mark + 1);
 	return type;
 }
 
@@ -464,7 +465,7 @@ TypeId check_ternary (Sema *s, uint32_t idx)
 	ASTNode *n = s->ast->nodes + idx;
 	uint32_t cond = n->child;
 	uint32_t mark = s->table.act_count;
-	uint8_t *snap = arena_alloc(s->arena, (size_t)mark * 2);
+	uint8_t *snap = sema_flags_push(s, (size_t)mark * 2);
 	uint8_t *acc = snap + mark;
 
 	check_cond(s, cond, 0);
@@ -490,6 +491,7 @@ TypeId check_ternary (Sema *s, uint32_t idx)
 	n->child = cond;
 	s->ast->nodes[cond].next_bro = then_idx;
 	s->ast->nodes[then_idx].next_bro = else_idx;
+	sema_flags_pop(s, (size_t)mark * 2);
 	return n->data_type;
 }
 

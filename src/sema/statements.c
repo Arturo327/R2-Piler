@@ -462,7 +462,7 @@ static void check_if (Sema *s, uint32_t idx)
 	int cv = check_cond(s, cond, 1);
 
 	uint32_t mark = s->table.act_count;
-	uint8_t *snap = arena_alloc(s->arena, (size_t)mark * 2);
+	uint8_t *snap = sema_flags_push(s, (size_t)mark * 2);
 	uint8_t *acc = snap + mark;
 
 	memset(acc, 1, mark);
@@ -471,6 +471,7 @@ static void check_if (Sema *s, uint32_t idx)
 		symtab_save_flags(&s->table, snap, mark);
 		check_elif_chain(s, s->ast->nodes[body].next_bro, snap, acc, mark);
 		sema_load_flags(s, snap, mark);
+		sema_flags_pop(s, (size_t)mark * 2);
 		return;
 	}
 
@@ -484,6 +485,7 @@ static void check_if (Sema *s, uint32_t idx)
 	if (!check_elif_chain(s, s->ast->nodes[body].next_bro, snap, acc, mark))
 		symtab_intersect_flags(&s->table, acc, mark);
 	sema_load_flags(s, acc, mark);
+	sema_flags_pop(s, (size_t)mark * 2);
 }
 
 static void check_loop_jump (Sema *s, uint32_t idx)
@@ -532,7 +534,7 @@ static void check_while (Sema *s, uint32_t idx)
 	sema_clear_pending(s);
 
 	uint32_t mark = s->table.act_count;
-	uint8_t *snap = arena_alloc(s->arena, (size_t)mark);
+	uint8_t *snap = sema_flags_push(s, (size_t)mark);
 
 	symtab_save_flags(&s->table, snap, mark);
 	s->loop_depth++;
@@ -541,6 +543,7 @@ static void check_while (Sema *s, uint32_t idx)
 	symtab_intersect_flags(&s->table, snap, mark);
 	sema_load_flags(s, snap, mark);
 	check_loop_else(s, els, body, snap, mark);
+	sema_flags_pop(s, (size_t)mark);
 }
 
 static void check_for (Sema *s, uint32_t idx)
@@ -560,7 +563,7 @@ static void check_for (Sema *s, uint32_t idx)
 	sema_clear_pending(s);
 
 	uint32_t body_mark = s->table.act_count;
-	uint8_t *snap = arena_alloc(s->arena, (size_t)body_mark);
+	uint8_t *snap = sema_flags_push(s, (size_t)body_mark);
 
 	symtab_save_flags(&s->table, snap, body_mark);
 	s->loop_depth++;
@@ -576,6 +579,7 @@ static void check_for (Sema *s, uint32_t idx)
 	symtab_intersect_flags(&s->table, snap, body_mark);
 	sema_load_flags(s, snap, body_mark);
 	check_loop_else(s, els, body, snap, body_mark);
+	sema_flags_pop(s, (size_t)body_mark);
 
 	s->depth--;
 	pop_scope(s, mark);
@@ -683,7 +687,7 @@ static void check_switch_clauses (Sema *s, uint32_t idx, TypeId type)
 {
 	uint32_t cond = s->ast->nodes[idx].child;
 	uint32_t mark = s->table.act_count;
-	uint8_t *snap = arena_alloc(s->arena, (size_t)mark * 2);
+	uint8_t *snap = sema_flags_push(s, (size_t)mark * 2);
 	uint8_t *acc = snap + mark;
 	uint64_t *seen = arena_alloc(s->arena, sizeof(uint64_t) * (switch_value_count(s, cond) + 1));
 	uint32_t nseen = 0;
@@ -714,6 +718,7 @@ static void check_switch_clauses (Sema *s, uint32_t idx, TypeId type)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"switch requires a 'default' clause");
 	sema_load_flags(s, acc, mark);
+	sema_flags_pop(s, (size_t)mark * 2);
 }
 
 static void check_switch (Sema *s, uint32_t idx)

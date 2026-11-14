@@ -162,6 +162,9 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select)
 	ir->string_count = 0;
 	ir->string_cap = 0;
 	ir->strings = NULL;
+
+	ir->string_tab = NULL;
+	ir->string_tab_cap = 0;
 }
 
 uint32_t ret_count (IR *ir, uint32_t ret)
@@ -412,12 +415,50 @@ void make_str_ptr (IR *ir, uint32_t ptr, uint32_t val, TypeId type)
 	push_instr(ir, i);
 }
 
-static uint32_t intern_string (IR *ir, ASTNode *n)
+static uint32_t fnv_string (const char *data, uint32_t len)
 {
+	uint32_t h = 2166136261u;
+
+	for (uint32_t i = 0; i < len; i++)
+		h = (h ^ (uint8_t)data[i]) * 16777619u;
+	h ^= h >> 15;
+	return h;
+}
+
+static void string_tab_grow (IR *ir, uint32_t new_cap)
+{
+	uint32_t *tab = arena_alloc(ir->arena, (size_t)new_cap * sizeof(uint32_t));
+	memset(tab, 0, (size_t)new_cap * sizeof(uint32_t));
+
 	for (uint32_t i = 0; i < ir->string_count; i++) {
 		IRString *s = ir->strings + i;
+		uint32_t h = fnv_string(s->data, s->len) & (new_cap - 1);
 
-		if (s->len == n->len && !memcmp(s->data, n->str, n->len)) return i;
+		while (tab[h]) h = (h + 1) & (new_cap - 1);
+		tab[h] = i + 1;
+	}
+
+	ir->string_tab = tab;
+	ir->string_tab_cap = new_cap;
+}
+
+static uint32_t intern_string (IR *ir, ASTNode *n)
+{
+	if (ir->string_tab_cap == 0 || ir->string_count * 2 >= ir->string_tab_cap) {
+		uint32_t new_cap = ir->string_tab_cap ? ir->string_tab_cap << 1 : 16;
+
+		string_tab_grow(ir, new_cap);
+	}
+
+	uint32_t cap = ir->string_tab_cap;
+	uint32_t h = fnv_string(n->str, n->len) & (cap - 1);
+
+	while (ir->string_tab[h]) {
+		uint32_t idx = ir->string_tab[h] - 1;
+		IRString *s = ir->strings + idx;
+
+		if (s->len == n->len && !memcmp(s->data, n->str, n->len)) return idx;
+		h = (h + 1) & (cap - 1);
 	}
 
 	IRString string;
@@ -425,7 +466,13 @@ static uint32_t intern_string (IR *ir, ASTNode *n)
 	memcpy(string.data, n->str, n->len);
 	string.data[n->len] = '\0';
 	string.len = n->len;
-	return push_string(ir, string);
+
+	uint32_t idx = push_string(ir, string);
+
+	h = fnv_string(n->str, n->len) & (ir->string_tab_cap - 1);
+	while (ir->string_tab[h]) h = (h + 1) & (ir->string_tab_cap - 1);
+	ir->string_tab[h] = idx + 1;
+	return idx;
 }
 
 uint32_t make_str_lit (IR *ir, ASTNode *n)

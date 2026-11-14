@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-#define SHRINK_MAX_BLOCKS 2048u
+#define SHRINK_MAX_BLOCKS 256u
 
 typedef struct Shrink {
 	RegAlloc *ra;
@@ -24,6 +24,8 @@ typedef struct Shrink {
 
 	uint8_t *reach;
 	uint8_t *is_exit;
+	uint8_t *cyclic;
+	uint8_t *exit_ok;
 } Shrink;
 
 static void touch_live (Shrink *s, uint32_t b, uint32_t p, const uint64_t *live)
@@ -181,6 +183,46 @@ static uint32_t block_depth (Shrink *s, uint32_t b)
 	return depth;
 }
 
+
+static int reaches (Shrink *s, uint32_t from, uint32_t to);
+
+static void mark_cyclic (Shrink *s)
+{
+	memset(s->cyclic, 0, s->blocks);
+	for (uint32_t b = 0; b < s->blocks; b++) {
+		if (!s->reach[b]) continue;
+		for (uint32_t e = s->first[b]; e < s->first[b + 1]; e++) {
+			if (reaches(s, s->adj[e], b)) {
+				s->cyclic[b] = 1;
+				break;
+			}
+		}
+	}
+}
+
+static void mark_exits_ok (Shrink *s)
+{
+	for (uint32_t b = 0; b < s->blocks; b++) {
+		int ok = 1;
+
+		if (!s->reach[b]) {
+			s->exit_ok[b] = 0;
+			continue;
+		}
+		for (uint32_t e = 0; e < s->blocks; e++) {
+			const uint64_t *row;
+
+			if (!s->is_exit[e] || !reaches(s, b, e)) continue;
+			row = s->dom + (size_t)e * s->words;
+			if (!(row[b >> 6] >> (b & 63) & 1)) {
+				ok = 0;
+				break;
+			}
+		}
+		s->exit_ok[b] = (uint8_t)ok;
+	}
+}
+
 static void dom_init (Shrink *s)
 {
 	uint64_t full = s->blocks >= 64 ? ~0ull : (1ull << s->blocks) - 1;
@@ -261,18 +303,6 @@ static int reaches (Shrink *s, uint32_t from, uint32_t to)
 	return 0;
 }
 
-static int exits_ok (Shrink *s, uint32_t b)
-{
-	for (uint32_t e = 0; e < s->blocks; e++) {
-		const uint64_t *row;
-
-		if (!s->is_exit[e] || !reaches(s, b, e)) continue;
-		row = s->dom + (size_t)e * s->words;
-		if (!(row[b >> 6] >> (b & 63) & 1)) return 0;
-	}
-	return 1;
-}
-
 static uint32_t save_at (Shrink *s, uint32_t b)
 {
 	IR *ir = s->ra->ir;
@@ -292,15 +322,10 @@ static uint32_t pick_save_block (Shrink *s, const uint64_t *common)
 	uint32_t depth = block_depth(s, 0);
 
 	for (uint32_t b = 1; b < s->blocks; b++) {
-		uint32_t d;
-		int cyclic = 0;
-
 		if (!s->reach[b] || !(common[b >> 6] >> (b & 63) & 1)) continue;
 		if (save_at(s, b) == UINT32_MAX) continue;
-		for (uint32_t e = s->first[b]; e < s->first[b + 1]; e++)
-			if (reaches(s, s->adj[e], b)) { cyclic = 1; break; }
-		if (cyclic || !exits_ok(s, b)) continue;
-		d = block_depth(s, b);
+		if (s->cyclic[b] || !s->exit_ok[b]) continue;
+		uint32_t d = block_depth(s, b);
 		if (d > depth) {
 			best = b;
 			depth = d;
@@ -408,17 +433,23 @@ void shrink_wrap (RegAlloc *ra)
 	s.stamp = arena_alloc(s.arena, (size_t)s.blocks * sizeof(uint32_t));
 	s.reach = arena_alloc(s.arena, s.blocks);
 	s.is_exit = arena_alloc(s.arena, s.blocks);
+	s.cyclic = arena_alloc(s.arena, s.blocks);
+	s.exit_ok = arena_alloc(s.arena, s.blocks);
 	memset(s.touch, 0, (size_t)s.blocks * sizeof(uint64_t));
 	memset(s.saved, 0, (size_t)s.blocks * sizeof(uint64_t));
 	memset(s.stamp, 0, (size_t)s.blocks * sizeof(uint32_t));
 	memset(s.is_exit, 0, s.blocks);
+	memset(s.cyclic, 0, s.blocks);
+	memset(s.exit_ok, 0, s.blocks);
 
 	build_adj(&s);
 	mark_reach(&s);
 	mark_exits(&s);
+	mark_cyclic(&s);
 	dom_init(&s);
 	while (dom_step(&s))
 		;
+	mark_exits_ok(&s);
 	touch_instrs(&s);
 	touch_edges(&s);
 	for (uint32_t r = 0; r < 64; r++)
