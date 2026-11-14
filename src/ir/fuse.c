@@ -106,6 +106,10 @@ static void put_value (Fuse *f, uint32_t idx, TypeId type, uint32_t off)
 	ASTNode *n = f->ir->ast->nodes + idx;
 	TypeKind kind = type_kind(type);
 
+	if (kind == TK_SLICE) {
+		f->skipped = 1;
+		return;
+	}
 	if (n->type == NODE_LIT_STR) put_string(f, n, type, off);
 	else if (kind == TK_STRUCT) put_struct(f, idx, type, off);
 	else if (kind == TK_ARRAY) put_array(f, idx, type, off);

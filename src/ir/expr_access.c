@@ -68,6 +68,12 @@ uint32_t gen_field (IR *ir, ASTNode *n)
 
 uint32_t slice_dim_reg (IR *ir, ASTNode *n, int dim, TypeId type)
 {
+	ASTNode *str = n;
+
+	while (str->type == NODE_CAST && str->child != NO_NODE)
+		str = ir->ast->nodes + str->child;
+	if (str->type == NODE_LIT_STR) return make_const(ir, (int64_t)str->len, type);
+
 	if (n->type == NODE_CAST && n->child != NO_NODE)
 		n = ir->ast->nodes + n->child;
 	ASTNode *root = n;

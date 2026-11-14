@@ -283,6 +283,8 @@ static uint32_t gen_cast (IR *ir, ASTNode *n)
 	ASTNode *operand = ir->ast->nodes + n->child;
 	uint32_t src = gen_expr(ir, operand);
 
+	if (operand->data_type == TYPE_STR && type_kind(n->data_type) == TK_SLICE)
+		return src;
 	if (type_kind(operand->data_type) == TK_ARRAY
 			|| type_kind(operand->data_type) == TK_SLICE
 			|| type_kind(operand->data_type) == TK_STRUCT)

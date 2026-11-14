@@ -1,0 +1,14 @@
+struct P [1:8] depth=0 size=24 align=8
+  field n type=i64 offset=0
+  field name type=i8[] offset=8
+var g [2:5] depth=0 type=i8[]
+fn take [4:4] depth=0 type=i64
+fn give [5:4] depth=0 type=i8[]
+fn main [7:4] depth=0 type=i64
+param s [4:9] depth=1 type=i8[]
+static var sg [8:13] depth=1 type=i8[]
+var s [9:6] depth=1 type=i8[]
+var t [10:6] depth=1 type=i8[]
+var p [11:6] depth=1 type=P
+var q [12:6] depth=1 type=P
+var l [13:6] depth=1 type=i64

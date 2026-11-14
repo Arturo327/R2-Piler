@@ -1,0 +1,25 @@
+tests/sema/158_err_string_slice_src.r2:2:6: ERROR: can't initialize 'u' (u8[]) with a value of type string; use an explicit cast with 'as'
+      2 |         var u : u8[] = "abc";
+        |             ^
+tests/sema/158_err_string_slice_src.r2:3:6: ERROR: can't initialize 'm' (i8[][]) with a value of type string; use an explicit cast with 'as'
+      3 |         var m : char[][] = "abc";
+        |             ^
+tests/sema/158_err_string_slice_src.r2:4:6: ERROR: can't initialize 'x' (i32[]) with a value of type string; use an explicit cast with 'as'
+      4 |         var x : i32[] = "abc";
+        |             ^
+tests/sema/158_err_string_slice_src.r2:5:6: ERROR: can't initialize 'p' (ptr u8) with a value of type string; use an explicit cast with 'as'
+      5 |         var p : ptr u8 = "abc";
+        |             ^
+tests/sema/158_err_string_slice_src.r2:2:6: WARNING: unused variable 'u'
+      2 |         var u : u8[] = "abc";
+        |             ^
+tests/sema/158_err_string_slice_src.r2:3:6: WARNING: unused variable 'm'
+      3 |         var m : char[][] = "abc";
+        |             ^
+tests/sema/158_err_string_slice_src.r2:4:6: WARNING: unused variable 'x'
+      4 |         var x : i32[] = "abc";
+        |             ^
+tests/sema/158_err_string_slice_src.r2:5:6: WARNING: unused variable 'p'
+      5 |         var p : ptr u8 = "abc";
+        |             ^
+4 errors, 4 warnings

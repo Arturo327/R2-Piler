@@ -12,7 +12,8 @@ int sema_implicit_cast_ok (TypeId from, TypeId to)
 	if (from == TYPE_NULL) return to_kind == TK_PTR;
 	if (to == TYPE_NULL) return 0;
 	if (from == TYPE_STR)
-		return to_kind == TK_PTR && types[to].base == TYPE_i8;
+		return (to_kind == TK_PTR && types[to].base == TYPE_i8)
+				|| (to_kind == TK_SLICE && types[to].base == TYPE_i8);
 
 	if (to == TYPE_STR) return 0;
 

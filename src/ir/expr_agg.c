@@ -60,6 +60,10 @@ void gen_array_init (IR *ir, uint32_t base, uint32_t init_idx, TypeId arr, int z
 			uint32_t at = add_offset(ir, base, (uint64_t)i * elem_size);
 
 			gen_struct_into(ir, at, item, elem, 1);
+		} else if (type_kind(elem) == TK_SLICE) {
+			uint32_t at = add_offset(ir, base, (uint64_t)i * elem_size);
+
+			gen_slice_desc(ir, at, ir->ast->nodes + item, elem);
 		} else {
 			uint32_t val = gen_expr(ir, ir->ast->nodes + item);
 
@@ -359,7 +363,7 @@ void gen_struct_init (IR *ir, uint32_t base, ASTNode *init, TypeId type)
 		ASTNode *fi = ir->ast->nodes + item;
 		const StructField *f = find_field(type, fi->str, fi->len);
 
-		if (fused && const_tree(ir, fi->child)) {
+		if (fused && const_tree(ir, fi->child) && type_kind(f->type) != TK_SLICE) {
 			item = fi->next_bro;
 			continue;
 		}

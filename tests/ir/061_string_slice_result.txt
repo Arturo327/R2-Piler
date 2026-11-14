@@ -1,0 +1,44 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn take(2 params, 3 regs) : i64
+    r0 = param.ptr i8 #0
+    r1 = param.i64 #1
+    r2 = move.i64 r1
+    ret.i64 r2
+    ret
+
+fn main(0 params, 25 regs) : i64
+    r1 = addr_local.i8[] r0
+    r2 = str_lit.string .LC0
+    str_ptr.ptr i8 r1, r2
+    r3 = const.i64 5
+    r4 = const.i64 8
+    r5 = add.i64 r1, r4
+    str_ptr.i64 r5, r3
+    r6 = addr_local.i8[] r0
+    r7 = const.i64 8
+    r8 = add.i64 r6, r7
+    r9 = ld_ptr.i64 r8
+    r10 = addr_local.i8[] r0
+    r11 = str_lit.string .LC1
+    str_ptr.ptr i8 r10, r11
+    r12 = const.i64 2
+    r13 = const.i64 8
+    r14 = add.i64 r10, r13
+    str_ptr.i64 r14, r12
+    r15 = move.i64 r9
+    r16 = str_lit.string .LC2
+    r17 = const.i64 3
+    arg r16 #0
+    arg r17 #1
+    r18 = call.i64 take
+    r19 = add.i64 r15, r18
+    r20 = addr_local.i8[] r0
+    r21 = const.i64 8
+    r22 = add.i64 r20, r21
+    r23 = ld_ptr.i64 r22
+    r24 = add.i64 r19, r23
+    ret.i64 r24
+    ret
+
