@@ -1,0 +1,37 @@
+tests/sema/156_err_untyped_var_src.r2:3:5: ERROR: cannot infer the type of global 'g'; add an explicit type
+      3 | var g = 5;
+        |     ^
+tests/sema/156_err_untyped_var_src.r2:8:6: ERROR: cannot infer the type of 'x'; add an explicit type or an initializer
+      8 |         var x;
+        |             ^
+tests/sema/156_err_untyped_var_src.r2:9:6: ERROR: cannot infer the type of 'p' from NULL; add an explicit type
+      9 |         var p = NULL;
+        |             ^
+tests/sema/156_err_untyped_var_src.r2:10:6: ERROR: cannot infer the type of 'v' from a void value; add an explicit type
+     10 |         var v = nothing();
+        |             ^
+tests/sema/156_err_untyped_var_src.r2:11:10: ERROR: a '{...}' literal needs an explicit type; write '{...} as T'
+     11 |         var d = {.a = 5};
+        |                 ^
+tests/sema/156_err_untyped_var_src.r2:12:6: ERROR: untyped 'arr' declarations are not allowed; add the element type
+     12 |         arr q = {1, 2};
+        |             ^
+tests/sema/156_err_untyped_var_src.r2:8:6: WARNING: unused variable 'x'
+      8 |         var x;
+        |             ^
+tests/sema/156_err_untyped_var_src.r2:9:6: WARNING: unused variable 'p'
+      9 |         var p = NULL;
+        |             ^
+tests/sema/156_err_untyped_var_src.r2:10:6: WARNING: unused variable 'v'
+     10 |         var v = nothing();
+        |             ^
+tests/sema/156_err_untyped_var_src.r2:11:6: WARNING: unused variable 'd'
+     11 |         var d = {.a = 5};
+        |             ^
+tests/sema/156_err_untyped_var_src.r2:12:6: WARNING: unused variable 'q'
+     12 |         arr q = {1, 2};
+        |             ^
+tests/sema/156_err_untyped_var_src.r2:3:5: WARNING: unused variable 'g'
+      3 | var g = 5;
+        |     ^
+6 errors, 6 warnings

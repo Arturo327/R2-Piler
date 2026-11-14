@@ -567,6 +567,11 @@ static void check_multi_decl (Sema *s, uint32_t target, TypeId want)
 
 	TypeId t = n->data_type;
 
+	if (t == TYPE_VOID) {
+		t = want;
+		n->data_type = t;
+	}
+
 	if (t != TYPE_ERROR && type_kind(t) == TK_ARRAY)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot assign a value of type %s; arrays and slices"

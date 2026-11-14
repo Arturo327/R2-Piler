@@ -1,0 +1,20 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn main(0 params, 14 regs) : i64
+    r0 = const.i64 0
+    r1 = const.i64 1
+    jmp -> L1
+  L0:
+    r4 = const.i64 2
+    r5 = mul.i64 r1, r4
+    r0 = add.i64 r0, r5
+    r8 = const.i64 1
+    r1 = add.i64 r1, r8
+  L1:
+    r11 = const.i64 10
+    r12 = le.i64 r1, r11
+    jnz r12 -> L0
+    ret.i64 r0
+    ret
+

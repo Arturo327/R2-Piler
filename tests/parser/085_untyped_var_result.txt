@@ -1,0 +1,58 @@
+NODE_ROOT [0:0]
+  NODE_STRUCT_DEC [1:8] name="P"
+    NODE_FIELD_DEC [1:12] name="x" type=i64
+  NODE_FN_DEC [3:4] name="f"
+    NODE_ARGS_DEC [3:5]
+    NODE_RET_DEC [3:8] type=i64
+      NODE_RET_ITEM [3:15] type=u32
+    NODE_BLOCK [3:19]
+      NODE_RET [3:21]
+        NODE_LIT_i64 [3:28] i64=1
+        NODE_LIT_i64 [3:31] i64=2
+  NODE_FN_DEC [5:4] name="main"
+    NODE_ARGS_DEC [5:8]
+    NODE_RET_DEC [5:11] type=i64
+    NODE_BLOCK [5:17]
+      NODE_VAR_DEC [6:6] name="a" untyped
+        NODE_LIT_i64 [6:10] i64=33
+      NODE_VAR_DEC [7:6] name="s" untyped
+        NODE_LIT_STR [7:10] str="hola"
+      NODE_VAR_DEC [8:6] name="e" untyped
+        NODE_CAST [8:19] literal type=P
+          NODE_STRUCT_INIT [8:10]
+            NODE_FIELD_INIT [8:12] field="x"
+              NODE_LIT_i64 [8:16] i64=5
+      NODE_VAR_DEC [9:13] name="st" static untyped
+        NODE_LIT_i64 [9:18] i64=7
+      NODE_MULTI_ASSIGN [10:6]
+        NODE_VAR_DEC [10:6] name="x" untyped
+        NODE_VAR_DEC [10:9] name="y" untyped
+        NODE_FN_CALL [10:13] name="f"
+      NODE_FOR [11:2]
+        NODE_VAR_DEC [11:11] name="i" untyped
+          NODE_LIT_i64 [11:15] i64=0
+        NODE_LT [11:20]
+          NODE_ID [11:18] str="i"
+          NODE_LIT_i64 [11:22] i64=3
+        NODE_INC [11:26]
+          NODE_ID [11:25] str="i"
+        NODE_BLOCK [11:30]
+          NODE_ADD_ASSIGN [11:34]
+            NODE_ID [11:32] str="a"
+            NODE_ID [11:37] str="i"
+      NODE_RET [12:2]
+        NODE_ADD [12:40]
+          NODE_ADD [12:24]
+            NODE_ADD [12:19]
+              NODE_ADD [12:15]
+                NODE_ADD [12:11]
+                  NODE_ID [12:9] str="a"
+                  NODE_ID [12:13] str="x"
+                NODE_ID [12:17] str="y"
+              NODE_ID [12:21] str="st"
+            NODE_CAST [12:32] type=i64
+              NODE_INDEX [12:28]
+                NODE_ID [12:27] str="s"
+                NODE_LIT_i64 [12:29] i64=0
+          NODE_DOT [12:43] field="x"
+            NODE_ID [12:42] str="e"

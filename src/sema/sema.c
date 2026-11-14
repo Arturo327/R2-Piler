@@ -852,6 +852,17 @@ static void check_root (Sema *s)
 	}
 }
 
+static void reject_untyped_global (Sema *s, ASTNode *n)
+{
+	if (n->type != NODE_VAR_DEC && n->type != NODE_ARR_DEC) return;
+	if (n->type_node != NO_TYPE_NODE || n->data_type != TYPE_VOID) return;
+
+	error_report(s->err, ERR_ERROR, node_loc(n),
+			"cannot infer the type of global '%.*s'; add an explicit type",
+			(int)n->len, n->str);
+	n->data_type = TYPE_ERROR;
+}
+
 static void decl_globals (Sema *s)
 {
 	uint32_t idx = s->ast->nodes[0].child;
@@ -868,6 +879,7 @@ static void decl_globals (Sema *s)
 				|| n->type == NODE_EXTERN_VAR_DEC) {
 			resolve_type_node(s, n);
 			check_storage_decl(s, n);
+			reject_untyped_global(s, n);
 			if (n->len == 4 && memcmp(n->str, "main", 4) == 0)
 				error_report(s->err, ERR_ERROR, node_loc(n),
 						"'main' must be a function");

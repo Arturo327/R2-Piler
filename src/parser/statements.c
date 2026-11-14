@@ -76,7 +76,10 @@ static uint32_t parse_decl_type (Parser *p, int is_arr)
 {
 	uint32_t node = parse_decl_name(p, is_arr);
 
-	parse_decl_types(p, node);
+	if (p->curr.type == TOK_COL) parse_decl_types(p, node);
+	else if (p->curr.type != TOK_ASSIGN && p->curr.type != TOK_COMMA
+			&& p->curr.type != TOK_SEMCOL)
+		parse_decl_types(p, node);
 	return node;
 }
 
@@ -711,6 +714,10 @@ static uint32_t parse_for_var (Parser *p, uint32_t node)
 	uint32_t last = parse_decl_name(p, 0);
 	if (p->curr.type == TOK_COMMA && !p->panic_mode)
 		return parse_for_names_range(p, node, last);
+	if (p->curr.type == TOK_ASSIGN && !p->panic_mode) {
+		inits[count++] = last;
+		return parse_for_decl_tail(p, node, inits, count);
+	}
 
 	parse_decl_types(p, last);
 	inits[count++] = last;

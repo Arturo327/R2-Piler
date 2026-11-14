@@ -133,17 +133,80 @@ static void check_static_decl (Sema *s, uint32_t idx)
 	record_static(s, idx);
 }
 
+static TypeId infer_decl_type (Sema *s, uint32_t idx, TypeId init)
+{
+	ASTNode *n = s->ast->nodes + idx;
+
+	if (init == TYPE_ERROR) return TYPE_ERROR;
+	if (init == TYPE_NULL) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot infer the type of '%.*s' from NULL; add an explicit type",
+				(int)n->len, n->str);
+		return TYPE_ERROR;
+	}
+	if (init == TYPE_VOID) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot infer the type of '%.*s' from a void value; add an explicit type",
+				(int)n->len, n->str);
+		return TYPE_ERROR;
+	}
+	if (init == TYPE_STR) {
+		TypeId ptr = type_ptr_to(TYPE_i8);
+
+		if (ptr == TYPE_ERROR)
+			error_report(s->err, ERR_ERROR, node_loc(n), "too many types");
+		return ptr;
+	}
+	if (type_kind(init) == TK_ARRAY) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot infer an array type for '%.*s'; add an explicit array type",
+				(int)n->len, n->str);
+		return TYPE_ERROR;
+	}
+	return finalize_type(s, n->child, init);
+}
+
+static void check_inferred_decl (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+
+	if (n->type == NODE_ARR_DEC) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"untyped 'arr' declarations are not allowed; add the element type");
+		n->data_type = TYPE_ERROR;
+		return;
+	}
+	if (n->child == NO_NODE) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot infer the type of '%.*s'; add an explicit type or an initializer",
+				(int)n->len, n->str);
+		n->data_type = TYPE_ERROR;
+		return;
+	}
+
+	TypeId init = check_expr(s, n->child);
+	TypeId decl = infer_decl_type(s, idx, init);
+
+	n = s->ast->nodes + idx;
+	n->data_type = decl;
+	if (decl != TYPE_ERROR && decl != init)
+		check_var_init_type(s, n, init);
+}
+
 static void check_var_dec (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
+	int untyped = (n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC)
+			&& n->type_node == NO_TYPE_NODE && n->data_type == TYPE_VOID;
 	int has_init = n->child != NO_NODE;
 	int is_null = has_init && is_null_value(s, n->child);
 
 	resolve_type_node(s, n);
 	n = s->ast->nodes + idx;
-	check_storage_decl(s, n);
+	if (untyped) check_inferred_decl(s, idx);
+	else check_storage_decl(s, n);
 
-	if (has_init) {
+	if (has_init && !untyped) {
 		n = s->ast->nodes + idx;
 		TypeKind kind = n->data_type == TYPE_ERROR
 				? TK_ERROR : type_kind(n->data_type);

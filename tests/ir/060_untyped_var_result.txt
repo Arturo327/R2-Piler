@@ -1,0 +1,29 @@
+global sv.0.st : i64
+
+fn __r2_init(0 params, 1 regs) : void
+    r0 = const.i64 3
+    str_global.i64 r0 @sv.0.st
+    ret
+
+fn main(0 params, 18 regs) : i64
+    r0 = const.i64 10
+    r1 = move.i64 r0
+    r2 = const.i64 5
+    r3 = add.i64 r1, r2
+    r4 = str_lit.string .LC0
+    r5 = move.ptr i8 r4
+    r6 = const.i64 1
+    r7 = add.ptr i8 r5, r6
+    r8 = ld_ptr.i8 r7
+    r9 = extend.i64 r8
+    r10 = const.u64 2
+    r11 = move.i64 r3
+    r12 = move.i64 r9
+    r13 = add.i64 r11, r12
+    r14 = move.u64 r10
+    r15 = add.i64 r13, r14
+    r16 = ld_global.i64 @sv.0.st
+    r17 = add.i64 r15, r16
+    ret.i64 r17
+    ret
+

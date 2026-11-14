@@ -1,0 +1,22 @@
+struct P [1:8] depth=0 size=16 align=8
+  field x type=i64 offset=0
+  field y type=i64 offset=8
+enum E [2:6] depth=0 type=E base=u8
+  variant A = 1
+  variant B = 2
+fn pair [4:4] depth=0 type=i64, u32
+fn main [6:4] depth=0 type=i64
+var a [7:6] depth=1 type=i64
+var b [8:6] depth=1 type=i64
+var s [9:6] depth=1 type=ptr i8
+var c [10:6] depth=1 type=i64
+var e [11:6] depth=1 type=P
+var u [12:6] depth=1 type=u64
+var ch [13:6] depth=1 type=i8
+var en [14:6] depth=1 type=E
+var p [15:6] depth=1 type=ptr i64
+var sl [16:6] depth=1 type=i64
+static var st [17:13] depth=1 type=i64
+var x [18:6] depth=1 type=i64
+var y [18:9] depth=1 type=u32
+var i [19:11] depth=2 type=i64

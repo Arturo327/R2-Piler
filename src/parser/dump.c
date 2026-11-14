@@ -225,6 +225,11 @@ static void dump_type (AST *ast, ASTNode *n)
 		dump_type_name(ast, &ast->nodes[idx]);
 		return;
 	}
+	if ((n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC)
+			&& n->data_type == TYPE_VOID) {
+		printf(" untyped");
+		return;
+	}
 	printf(" type=%s", types[n->data_type].name);
 }
 
