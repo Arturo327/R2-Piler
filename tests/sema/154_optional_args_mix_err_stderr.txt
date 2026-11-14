@@ -1,0 +1,6 @@
+tests/sema/154_optional_args_mix_err_src.r2:8:14: ERROR: optional argument for parameter 'b' must be named; name all optional arguments or pass them all positionally
+      8 |         r += foo(x, 2, c = 4);
+        |                     ^
+tests/sema/154_optional_args_mix_err_src.r2:9:21: ERROR: positional argument cannot follow a named argument
+      9 |         r += foo(x, b = 2, 3);
+        |                            ^

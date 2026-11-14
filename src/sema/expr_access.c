@@ -571,6 +571,8 @@ typedef struct CallArgs {
 	uint32_t *at;
 	uint32_t count;
 	uint32_t pos;
+	uint32_t pos_opt;
+	uint32_t pos_opt_param;
 	int named;
 	int bad;
 } CallArgs;
@@ -612,14 +614,35 @@ static uint32_t arg_param (CallArgs *c, uint32_t arg)
 		c->bad |= 1;
 		return NO_NODE;
 	}
-	if (c->pos < c->count) return c->pos++;
-	c->bad |= 2;
-	return NO_NODE;
+	if (c->pos >= c->count) {
+		c->bad |= 2;
+		return NO_NODE;
+	}
+	uint32_t pi = c->pos++;
+	uint32_t param = param_at(c->s, c->params_node, pi);
+
+	if (c->pos_opt == NO_NODE && c->s->ast->nodes[param].child != NO_NODE) {
+		c->pos_opt = arg;
+		c->pos_opt_param = param;
+	}
+	return pi;
+}
+
+static void report_mixed_optionals (CallArgs *c)
+{
+	ASTNode *p = c->s->ast->nodes + c->pos_opt_param;
+
+	error_report(c->s->err, ERR_ERROR, node_loc(c->s->ast->nodes + c->pos_opt),
+			"optional argument for parameter '%.*s' must be named;"
+			" name all optional arguments or pass them all positionally",
+			(int)p->len, p->str);
+	c->bad |= 1;
 }
 
 static int collect_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx, uint32_t *arg_at, uint32_t count)
 {
-	CallArgs c = { s, call_idx, s->ast->nodes[fn_idx].child, arg_at, count, 0, 0, 0 };
+	CallArgs c = { s, call_idx, s->ast->nodes[fn_idx].child, arg_at, count, 0,
+			NO_NODE, NO_NODE, 0, 0 };
 	uint32_t arg = s->ast->nodes[call_idx].child;
 
 	while (arg != NO_NODE) {
@@ -634,6 +657,8 @@ static int collect_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx, uint3
 		if (pi != NO_NODE) arg_at[pi] = val;
 		arg = next;
 	}
+	if (!(c.bad & 1) && c.named && c.pos_opt != NO_NODE)
+		report_mixed_optionals(&c);
 	return c.bad;
 }
 
