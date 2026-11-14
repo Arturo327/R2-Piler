@@ -4,3 +4,4 @@ tests/ir/009_globals_src.r2:3:5: WARNING: unused variable 'c'
 tests/ir/009_globals_src.r2:4:5: WARNING: unused variable 'u'
       4 | var u : u64 = 7u;
         |     ^
+0 errors, 2 warnings

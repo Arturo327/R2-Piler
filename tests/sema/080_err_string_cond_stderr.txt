@@ -13,3 +13,4 @@ tests/sema/080_err_string_cond_src.r2:5:11: ERROR: operator cannot be applied to
 tests/sema/080_err_string_cond_src.r2:6:12: ERROR: operator cannot be applied to a value of type string
       6 |     return -"abc";
         |            ^
+5 errors, 0 warnings

@@ -95,6 +95,7 @@ static uint32_t parse_named_arg (Parser *p, uint32_t arg)
 {
 	ASTNode *n = p->ast.nodes + arg;
 
+	if (n->flags & NODE_FLAG_PAREN) return arg;
 	if (n->type != NODE_ASSIGN || n->child == NO_NODE) return arg;
 	uint32_t name = n->child;
 	if (p->ast.nodes[name].type != NODE_ID) return arg;
@@ -192,6 +193,8 @@ static uint32_t parse_primary_inner (Parser *p)
 		advance(p);
 		node = parse_expr(p, 0);
 		consume(p, TOK_RPAREN, "expected ')'");
+		if (p->ast.nodes[node].type == NODE_ASSIGN)
+			p->ast.nodes[node].flags |= NODE_FLAG_PAREN;
 		return node;
 	case TOK_LIT_i64:
 		node = new_node(p, NODE_LIT_i64, line, col);

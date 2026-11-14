@@ -43,3 +43,4 @@ tests/sema/046_err_narrow_src.r2:17:7: WARNING: unused variable 'j'
 tests/sema/046_err_narrow_src.r2:18:7: WARNING: unused variable 'k'
      18 |   var k : i64 = 18446744073709551615u;
         |       ^
+7 errors, 8 warnings

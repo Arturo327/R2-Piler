@@ -19,3 +19,4 @@ tests/sema/139_optional_args_err_src.r2:12:16: ERROR: wrong number of arguments 
 tests/sema/139_optional_args_err_src.r2:13:16: ERROR: wrong number of arguments in call to 'opt'
      13 |         var e : i64 = opt(1, 2, 3);
         |                       ^~~
+7 errors, 0 warnings

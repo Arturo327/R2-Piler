@@ -25,3 +25,4 @@ tests/sema/113_err_switch_src.r2:40:7: WARNING: unused variable 'y'
 tests/sema/113_err_switch_src.r2:46:10: ERROR: expression of type string cannot be switched on
      46 |         switch ("abc") {
         |                 ^~~
+7 errors, 2 warnings

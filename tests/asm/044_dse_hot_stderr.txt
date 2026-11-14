@@ -1,3 +1,4 @@
 tests/asm/044_dse_hot_src.r2:10:7: WARNING: value assigned to 'u' is not used
      10 |                 var u : i64 = t;
         |                     ^
+0 errors, 1 warnings

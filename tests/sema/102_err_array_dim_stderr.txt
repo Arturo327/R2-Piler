@@ -49,3 +49,4 @@ tests/sema/102_err_array_dim_src.r2:10:6: WARNING: unused variable 'h'
 tests/sema/102_err_array_dim_src.r2:11:6: WARNING: unused variable 'i'
      11 |         arr i : i32[1 + 2 * 3];
         |             ^
+7 errors, 10 warnings

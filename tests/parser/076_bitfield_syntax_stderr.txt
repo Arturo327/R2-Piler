@@ -10,3 +10,4 @@ tests/parser/076_bitfield_syntax_src.r2:33:11: ERROR: bitfield width must be bet
 tests/parser/076_bitfield_syntax_src.r2:34:11: ERROR: bitfield width must be an integer literal
      34 |         d : u8 : width;
         |                  ^~~~~
+4 errors, 0 warnings

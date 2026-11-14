@@ -7,3 +7,4 @@ tests/parser/026_recovery_src.r2:7:7: ERROR: expected expression
 tests/parser/026_recovery_src.r2:11:1: ERROR: expected expression
      11 | }
         | ^
+3 errors, 0 warnings

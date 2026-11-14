@@ -7,3 +7,4 @@ tests/ir/023_mixed_arith_src.r2:6:7: WARNING: unused variable 'd'
 tests/ir/023_mixed_arith_src.r2:7:7: WARNING: unused variable 'e'
       7 |   var e : char = ch + ch;
         |       ^
+0 errors, 3 warnings

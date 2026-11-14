@@ -4,3 +4,4 @@ tests/asm/005_divmod_i16_src.r2:4:24: WARNING: redundant cast to 'i16'; the valu
 tests/asm/005_divmod_i16_src.r2:5:24: WARNING: redundant cast to 'i16'; the value already has that type
       5 |         var d : i16 = (a % b) as i16;
         |                               ^~
+0 errors, 2 warnings

@@ -16,3 +16,4 @@ tests/parser/034_while_error_src.r2:12:1: ERROR: expected ';' at end of expressi
 tests/parser/034_while_error_src.r2:13:18: ERROR: expected '}' for block closing
      13 |   var x : i64 = 1;
         |                  ^
+6 errors, 0 warnings

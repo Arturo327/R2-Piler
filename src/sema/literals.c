@@ -16,20 +16,9 @@ int sema_implicit_cast_ok (TypeId from, TypeId to)
 
 	if (to == TYPE_STR) return 0;
 
-	if (from_kind == TK_ARRAY && type_dyn_rank(to) > 0) {
-		TypeId a = from;
-		TypeId p = to;
-		if (type_flat_element(a) != type_flat_element(p)) return 0;
-		while (type_kind(p) == TK_ARRAY || type_kind(p) == TK_SLICE) {
-			if (type_kind(a) != TK_ARRAY && type_kind(a) != TK_SLICE) return 0;
-			if (type_kind(p) == TK_ARRAY) {
-				if (type_kind(a) != TK_ARRAY || types[a].count != types[p].count) return 0;
-			}
-			a = types[a].base;
-			p = types[p].base;
-		}
-		return type_kind(a) != TK_ARRAY && type_kind(a) != TK_SLICE;
-	}
+	if (from_kind == TK_ARRAY && type_dyn_rank(to) > 0)
+		return type_flat_element(from) == type_flat_element(to)
+				&& sema_dims_match(from, to);
 
 	if (from_kind == TK_ARRAY || from_kind == TK_SLICE)
 		return to_kind == TK_PTR && (types[to].base == type_flat_element(from) || types[to].base == TYPE_VOID);

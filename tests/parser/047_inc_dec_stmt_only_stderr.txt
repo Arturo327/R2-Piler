@@ -7,3 +7,4 @@ tests/parser/047_inc_dec_stmt_only_src.r2:5:10: ERROR: '++' is only valid as a s
 tests/parser/047_inc_dec_stmt_only_src.r2:6:13: ERROR: expected ';' after return statement
       6 |     return i++;
         |             ^~
+3 errors, 0 warnings

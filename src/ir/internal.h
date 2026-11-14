@@ -81,5 +81,6 @@ uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest);
 uint32_t gen_call_desc (IR *ir, ASTNode *n);
 uint32_t gen_call_value (IR *ir, ASTNode *n);
 uint32_t gen_assign (IR *ir, ASTNode *n);
+void store_var (IR *ir, Symbol *s, uint32_t val);
 
 #endif

@@ -7,3 +7,4 @@ tests/ir/007_assign_src.r2:7:20: WARNING: value assigned to 'x' is not used
 tests/ir/007_assign_src.r2:4:7: WARNING: value assigned to 'y' is not used
       4 |   var y : i64 = 2;
         |       ^
+0 errors, 3 warnings

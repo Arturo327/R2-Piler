@@ -4,3 +4,4 @@ tests/opt/022_global_ptr_static_init_src.r2:9:42: WARNING: redundant cast to 'i6
 tests/opt/022_global_ptr_static_init_src.r2:4:5: WARNING: unused variable 'v'
       4 | var v : ptr void = $g as ptr void;
         |     ^
+0 errors, 2 warnings

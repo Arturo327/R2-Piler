@@ -19,3 +19,4 @@ tests/sema/151_ref_err_src.r2:33:6: ERROR: argument type i32 does not match refe
 tests/sema/151_ref_err_src.r2:35:6: ERROR: cannot take a reference to bitfield 'f'
      35 |         bf(b.f);
         |             ^
+7 errors, 0 warnings

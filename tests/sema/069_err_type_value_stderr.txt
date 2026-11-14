@@ -13,3 +13,4 @@ tests/sema/069_err_type_value_src.r2:7:5: ERROR: 'Index' is a type, not a variab
 tests/sema/069_err_type_value_src.r2:8:5: ERROR: 'Index' is a type, not a function
       8 |     Index();
         |     ^~~~~
+5 errors, 0 warnings

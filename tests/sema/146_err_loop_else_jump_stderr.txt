@@ -7,3 +7,4 @@ tests/sema/146_err_loop_else_jump_src.r2:4:3: ERROR: 'break' is only valid insid
 tests/sema/146_err_loop_else_jump_src.r2:14:3: ERROR: 'continue' is only valid inside a loop
      14 |                 continue;
         |                 ^
+2 errors, 1 warnings

@@ -25,3 +25,4 @@ tests/parser/035_for_error_src.r2:22:31: ERROR: expected expression
 tests/parser/035_for_error_src.r2:23:36: ERROR: expected ';' at end of expression
      23 | for (i = 0; i < 10; i = i + 1) x = 1
         |                                    ^
+9 errors, 0 warnings

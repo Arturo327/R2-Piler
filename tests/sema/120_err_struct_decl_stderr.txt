@@ -7,3 +7,4 @@ tests/sema/120_err_struct_decl_src.r2:2:2: ERROR: field 'next' has incomplete ty
 tests/sema/120_err_struct_decl_src.r2:6:9: ERROR: a named struct cannot be declared inside another struct
       6 |         struct Named {
         |                ^~~~~
+3 errors, 0 warnings

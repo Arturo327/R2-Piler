@@ -4,3 +4,4 @@ tests/parser/074_err_multi_ret_src.r2:6:12: ERROR: a 'static' declaration cannot
 tests/parser/074_err_multi_ret_src.r2:10:5: ERROR: expected '=' after the assignment targets
      10 |     return c;
         |     ^~~~~~
+2 errors, 0 warnings

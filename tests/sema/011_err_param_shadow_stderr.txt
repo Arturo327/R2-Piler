@@ -7,3 +7,4 @@ tests/sema/011_err_param_shadow_src.r2:1:6: WARNING: unused parameter 'a'
 tests/sema/011_err_param_shadow_src.r2:1:4: WARNING: unused function 'f'
       1 | fn f(a : i64) : i64 {
         |    ^
+1 errors, 2 warnings

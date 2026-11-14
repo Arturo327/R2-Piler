@@ -25,3 +25,4 @@ tests/sema/061_enum_err_decl_src.r2:24:4: WARNING: unused function 'f'
 tests/sema/061_enum_err_decl_src.r2:35:5: WARNING: unused variable 'WithVar'
      35 | var WithVar : i64 = 1;
         |     ^~~~~~~
+7 errors, 2 warnings

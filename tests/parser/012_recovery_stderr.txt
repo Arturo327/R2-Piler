@@ -4,3 +4,4 @@ tests/parser/012_recovery_src.r2:1:5: ERROR: expected expression
 tests/parser/012_recovery_src.r2:4:5: ERROR: expected expression
       4 | 1 + ;
         |     ^
+2 errors, 0 warnings

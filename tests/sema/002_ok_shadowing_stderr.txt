@@ -7,3 +7,4 @@ tests/sema/002_ok_shadowing_src.r2:1:5: WARNING: unused variable 'x'
 tests/sema/002_ok_shadowing_src.r2:2:4: WARNING: unused function 'f'
       2 | fn f() : i64 {
         |    ^
+0 errors, 3 warnings

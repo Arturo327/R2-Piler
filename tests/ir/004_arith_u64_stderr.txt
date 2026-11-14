@@ -28,3 +28,4 @@ tests/ir/004_arith_u64_src.r2:15:7: WARNING: unused variable 'ls'
 tests/ir/004_arith_u64_src.r2:16:7: WARNING: unused variable 'rs'
      16 |   var rs : u64 = a >> b;
         |       ^~
+0 errors, 10 warnings

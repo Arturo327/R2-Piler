@@ -133,21 +133,35 @@ int compile (Compiler *c, CompilerOpts *opts)
 	parse(&c->parser);
 	if (opts->dump_ast) {
 		dump_ast(&c->parser.ast);
+		if (c->err.err_count || c->err.warn_count)
+			fprintf(stderr, "%d errors, %d warnings\n", c->err.err_count, c->err.warn_count);
 		return c->err.err_count ? 1 : 0;
 	}
-	if (c->err.err_count) return 1;
+	if (c->err.err_count) {
+		if (c->err.err_count || c->err.warn_count)
+			fprintf(stderr, "%d errors, %d warnings\n", c->err.err_count, c->err.warn_count);
+		return 1;
+	}
 
 	sema_run(&c->sema);
 	if (opts->dump_symbols) {
 		dump_symbols(&c->sema);
+		if (c->err.err_count || c->err.warn_count)
+			fprintf(stderr, "%d errors, %d warnings\n", c->err.err_count, c->err.warn_count);
 		return c->err.err_count ? 1 : 0;
 	}
-	if (c->err.err_count) return 1;
+	if (c->err.err_count) {
+		if (c->err.err_count || c->err.warn_count)
+			fprintf(stderr, "%d errors, %d warnings\n", c->err.err_count, c->err.warn_count);
+		return 1;
+	}
 
 	ir_init(&c->ir, &c->ir_arena, &c->sema, opts->opt_level == OPT_FULL && !opts->dump_ir);
 	ir_gen(&c->ir);
 	if (opts->dump_ir) {
 		dump_ir(&c->ir);
+		if (c->err.err_count || c->err.warn_count)
+			fprintf(stderr, "%d errors, %d warnings\n", c->err.err_count, c->err.warn_count);
 		return 0;
 	}
 	release_frontend(c);
@@ -157,9 +171,13 @@ int compile (Compiler *c, CompilerOpts *opts)
 
 	if (opts->dump_opt) {
 		dump_ir(&c->ir);
+		if (c->err.err_count || c->err.warn_count)
+			fprintf(stderr, "%d errors, %d warnings\n", c->err.err_count, c->err.warn_count);
 		return 0;
 	}
 
+	if (c->err.err_count || c->err.warn_count)
+		fprintf(stderr, "%d errors, %d warnings\n", c->err.err_count, c->err.warn_count);
 	return codegen_run(&c->codegen);
 }
 
@@ -172,5 +190,6 @@ void compiler_destroy (Compiler *comp)
 	arena_destroy(&comp->ir_arena);
 	arena_destroy(&comp->gen_arena);
 	arena_destroy(&comp->opt_arena);
+	free(comp->codegen.code);
 	memset(comp, 0, sizeof(*comp));
 }

@@ -7,3 +7,4 @@ tests/parser/010_error_decl_src.r2:2:9: ERROR: expected type
 tests/parser/010_error_decl_src.r2:3:9: ERROR: expected ';' at the end of the declaration
       3 | var z : i64
         |         ^~~
+3 errors, 0 warnings

@@ -61,3 +61,4 @@ tests/sema/123_err_multi_ret_src.r2:9:4: WARNING: unused function 'bad_void'
 tests/sema/123_err_multi_ret_src.r2:19:4: WARNING: unused function 'entry'
      19 | fn entry() : i64 {
         |    ^~~~~
+11 errors, 10 warnings

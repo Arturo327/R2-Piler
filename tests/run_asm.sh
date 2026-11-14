@@ -23,7 +23,7 @@
 # O1 = regalloc sin optimize_ir, O2 = basic+regalloc, O3 = full+regalloc.
 
 bin="$1"; dir="$2"
-command -v valgrind >/dev/null 2>&1 || { echo "valgrind not found in PATH"; exit 1; }
+if command -v valgrind >/dev/null 2>&1; then HAVE_VG=1; else HAVE_VG=0; fi
 passed=0; failed=0
 r0_tot=0; r1_tot=0; r2_tot=0; r3_tot=0
 tmp_out=$(mktemp); tmp_err=$(mktemp); tmp_gcc=$(mktemp); tmp_vg=$(mktemp)
@@ -32,9 +32,12 @@ trap 'rm -f "$tmp_out" "$tmp_err" "$tmp_gcc" "$tmp_vg" "$tmp_asm" "$tmp_exe"' EX
 
 fmt_irefs() { echo "$1" | sed ':a;s/\B[0-9]\{3\}\>/,&/;ta'; }
 vg_run() {
-	# Single callgrind run of $tmp_exe, collecting only inside __r2_main /
-	# __r2.init. Sets VG_COUNT to the raw Ir and returns the program exit
-	# code (valgrind propagates it).
+	if [ "$HAVE_VG" -eq 0 ]; then
+		"$tmp_exe" >/dev/null 2>/dev/null
+		code=$?
+		VG_COUNT=0
+		return $code
+	fi
 	valgrind --tool=callgrind --collect-atstart=no \
 		--toggle-collect=__r2_main --toggle-collect='__r2.init' \
 		--callgrind-out-file=/dev/null \

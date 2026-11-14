@@ -1,3 +1,4 @@
 tests/ir/029_enum_src.r2:12:5: WARNING: unused variable 'today'
      12 | var today : Dias = Dias.Martes;
         |     ^~~~~
+0 errors, 1 warnings

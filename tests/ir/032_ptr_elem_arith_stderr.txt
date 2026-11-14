@@ -13,3 +13,4 @@ tests/ir/032_ptr_elem_arith_src.r2:13:4: WARNING: unused function 'narrow'
 tests/ir/032_ptr_elem_arith_src.r2:17:4: WARNING: unused function 'bump'
      17 | fn bump (p : ptr i64, n : i64) : ptr i64 {
         |    ^~~~
+0 errors, 5 warnings

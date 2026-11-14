@@ -61,6 +61,7 @@ static int operand_named_info (Sema *s, ASTNode *n, OperandInfo *info, const cha
 			&& sym->kind != SYMBOL_TYPE && sym->kind != SYMBOL_ENUM)
 		return 0;
 
+	sym->read = 1;
 	info->type = sym->type;
 	if (sym->by_ref && type_kind(info->type) == TK_PTR)
 		info->type = types[info->type].base;
@@ -69,6 +70,7 @@ static int operand_named_info (Sema *s, ASTNode *n, OperandInfo *info, const cha
 
 static int operand_field_info (Sema *s, ASTNode *n, OperandInfo *info, const char *op);
 static int operand_ptr_info (Sema *s, ASTNode *n, OperandInfo *info, const char *op);
+static int operand_index_info (Sema *s, ASTNode *n, OperandInfo *info, const char *op);
 
 static int operand_expr_info (Sema *s, ASTNode *n, OperandInfo *info, const char *op)
 {
@@ -89,8 +91,9 @@ static int operand_expr_info (Sema *s, ASTNode *n, OperandInfo *info, const char
 	case NODE_LIT_u64: info_from_type(info, TYPE_u64); return 1;
 	case NODE_LIT_CHAR: info_from_type(info, TYPE_i8); return 1;
 	case NODE_DEREF:
-	case NODE_INDEX:
 		return operand_ptr_info(s, n, info, op);
+	case NODE_INDEX:
+		return operand_index_info(s, n, info, op);
 	case NODE_DOT:
 		return operand_field_info(s, n, info, op);
 	default:
@@ -127,6 +130,31 @@ static int operand_ptr_info (Sema *s, ASTNode *n, OperandInfo *info, const char 
 	}
 	info_from_type(info, types[base.type].base);
 	return 1;
+}
+
+static int operand_index_info (Sema *s, ASTNode *n, OperandInfo *info, const char *op)
+{
+	ASTNode *child = s->ast->nodes + n->child;
+
+	if (child->type == NODE_ID) {
+		uint32_t sym_idx = symtab_find(&s->table, child->str, child->len);
+		Symbol *sym = sym_idx == NO_SYMBOL ? 0 : s->table.symbols + sym_idx;
+
+		if (sym && (sym->kind == SYMBOL_TYPE || sym->kind == SYMBOL_ENUM)) {
+			uint32_t idx_node = child->next_bro;
+			uint64_t dim = 0;
+			TypeId base = sym->type;
+
+			if (idx_node == NO_NODE || !dim_value(s, idx_node, &dim)) {
+				error_report(s->err, ERR_ERROR, node_loc(n),
+						"operand of %s must be a constant size", op);
+				return 0;
+			}
+			info_from_type(info, type_array_of(base, (uint32_t)dim));
+			return 1;
+		}
+	}
+	return operand_ptr_info(s, n, info, op);
 }
 
 static int operand_field_info (Sema *s, ASTNode *n, OperandInfo *info, const char *op)
@@ -441,21 +469,26 @@ TypeId check_addr (Sema *s, uint32_t idx)
 	return check_addr_finish(s, idx, type);
 }
 
-int sema_array_slice_compat (TypeId arg, TypeId param)
+int sema_dims_match (TypeId arg, TypeId param)
 {
-	if (type_kind(param) != TK_ARRAY && type_kind(param) != TK_SLICE) return 0;
-	if (type_flat_element(arg) != type_flat_element(param)) return 0;
-
 	while (type_kind(param) == TK_ARRAY || type_kind(param) == TK_SLICE) {
-		if (type_kind(arg) != TK_ARRAY && type_kind(arg) != TK_SLICE) return 0;
-		if (type_kind(param) == TK_ARRAY
-				&& (type_kind(arg) != TK_ARRAY
+		int arr_like = type_kind(arg) == TK_ARRAY || type_kind(arg) == TK_SLICE;
+
+		if (!arr_like) return 0;
+		if (type_kind(param) == TK_ARRAY && (type_kind(arg) != TK_ARRAY
 				|| types[arg].count != types[param].count))
 			return 0;
 		arg = types[arg].base;
 		param = types[param].base;
 	}
 	return type_kind(arg) != TK_ARRAY && type_kind(arg) != TK_SLICE;
+}
+
+int sema_array_slice_compat (TypeId arg, TypeId param)
+{
+	if (type_kind(param) != TK_ARRAY && type_kind(param) != TK_SLICE) return 0;
+	if (type_flat_element(arg) != type_flat_element(param)) return 0;
+	return sema_dims_match(arg, param);
 }
 
 static uint32_t adapt_call_arg (Sema *s, uint32_t arg, TypeId arg_type, TypeId param_type)

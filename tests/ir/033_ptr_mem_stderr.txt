@@ -7,3 +7,4 @@ tests/ir/033_ptr_mem_src.r2:16:9: WARNING: unused variable 't'
 tests/ir/033_ptr_mem_src.r2:2:5: WARNING: unused variable 'gp'
       2 | var gp : ptr i64 = NULL;
         |     ^~
+0 errors, 3 warnings

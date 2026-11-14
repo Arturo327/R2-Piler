@@ -65,8 +65,7 @@ uint32_t gen_assign (IR *ir, ASTNode *n)
 	}
 
 	Symbol *s = ir->symtab->symbols + lhs->sym;
-	if (!s->depth || s->is_static) make_str_global(ir, s->ir_id, val, s->type);
-	else make_move(ir, s->ir_id, val, s->type);
+	store_var(ir, s, val);
 	return val;
 }
 
@@ -115,8 +114,7 @@ static void gen_multi_store (IR *ir, uint32_t target, uint32_t at, TypeId type)
 		return;
 	}
 	Symbol *s = ir->symtab->symbols + t->sym;
-	if (!s->depth || s->is_static) make_str_global(ir, s->ir_id, val, dst);
-	else make_move(ir, s->ir_id, val, dst);
+	store_var(ir, s, val);
 }
 
 void gen_multi_assign (IR *ir, ASTNode *n)

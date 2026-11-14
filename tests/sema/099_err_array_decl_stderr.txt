@@ -43,3 +43,4 @@ tests/sema/099_err_array_decl_src.r2:1:4: WARNING: unused function 'arr_param'
 tests/sema/099_err_array_decl_src.r2:5:4: WARNING: unused function 'arr_ret'
       5 | fn arr_ret() : i32[] {
         |    ^~~~~~~
+6 errors, 9 warnings

@@ -25,3 +25,4 @@ tests/parser/025_if_error_src.r2:16:7: ERROR: expected expression
 tests/parser/025_if_error_src.r2:18:1: ERROR: expected expression
      18 | 
         | ^
+9 errors, 0 warnings

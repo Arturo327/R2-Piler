@@ -223,15 +223,23 @@ static void mark_exits_ok (Shrink *s)
 	}
 }
 
+static void set_full (const Shrink *s, uint64_t *row)
+{
+	uint32_t left = s->blocks;
+
+	for (uint32_t w = 0; w < s->words; w++) {
+		row[w] = left >= 64 ? ~0ull : (1ull << left) - 1;
+		left = left >= 64 ? left - 64 : 0;
+	}
+}
+
 static void dom_init (Shrink *s)
 {
-	uint64_t full = s->blocks >= 64 ? ~0ull : (1ull << s->blocks) - 1;
-
 	for (uint32_t b = 0; b < s->blocks; b++) {
 		uint64_t *row = s->dom + (size_t)b * s->words;
 
-		for (uint32_t w = 0; w < s->words; w++)
-			row[w] = s->reach[b] ? full : 0;
+		if (s->reach[b]) set_full(s, row);
+		else memset(row, 0, s->words * sizeof(uint64_t));
 	}
 	for (uint32_t w = 0; w < s->words; w++)
 		s->dom[w] = 0;
@@ -240,14 +248,13 @@ static void dom_init (Shrink *s)
 
 static int dom_step (Shrink *s)
 {
-	uint64_t full = s->blocks >= 64 ? ~0ull : (1ull << s->blocks) - 1;
 	int changed = 0;
 
 	for (uint32_t b = 0; b < s->blocks; b++) {
 		uint64_t *row = s->ndom + (size_t)b * s->words;
 
-		for (uint32_t w = 0; w < s->words; w++)
-			row[w] = s->reach[b] ? full : 0;
+		if (s->reach[b]) set_full(s, row);
+		else memset(row, 0, s->words * sizeof(uint64_t));
 	}
 	for (uint32_t p = 0; p < s->blocks; p++) {
 		const uint64_t *src;
@@ -337,12 +344,10 @@ static uint32_t pick_save_block (Shrink *s, const uint64_t *common)
 static void plan_reg (Shrink *s, uint32_t r)
 {
 	uint64_t bit = 1ull << r;
-	uint64_t full = s->blocks >= 64 ? ~0ull : (1ull << s->blocks) - 1;
 	uint64_t *common = s->ndom;
 	uint32_t touched = 0;
 
-	for (uint32_t w = 0; w < s->words; w++)
-		common[w] = full;
+	set_full(s, common);
 	for (uint32_t b = 0; b < s->blocks; b++) {
 		const uint64_t *row = s->dom + (size_t)b * s->words;
 

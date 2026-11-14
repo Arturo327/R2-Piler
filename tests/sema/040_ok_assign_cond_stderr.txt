@@ -7,3 +7,4 @@ tests/sema/040_ok_assign_cond_src.r2:4:5: WARNING: value assigned to 'x' is not 
 tests/sema/040_ok_assign_cond_src.r2:3:7: WARNING: value assigned to 'y' is not used
       3 |   var y : i64 = 0;
         |       ^
+0 errors, 3 warnings

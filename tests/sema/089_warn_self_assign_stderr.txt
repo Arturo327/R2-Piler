@@ -4,3 +4,4 @@ tests/sema/089_warn_self_assign_src.r2:4:5: WARNING: 'x' is assigned to itself; 
 tests/sema/089_warn_self_assign_src.r2:3:9: WARNING: value assigned to 'y' is not used
       3 |     var y : i64 = 2;
         |         ^
+0 errors, 2 warnings

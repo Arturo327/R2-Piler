@@ -16,3 +16,4 @@ tests/ir/002_const_types_src.r2:7:7: WARNING: unused variable 'big'
 tests/ir/002_const_types_src.r2:8:7: WARNING: unused variable 'c'
       8 |   var c : char = 'a';
         |       ^
+0 errors, 6 warnings

@@ -1,3 +1,4 @@
 tests/asm/144_ref_struct_src.r2:14:9: WARNING: unused parameter 'dst'
      14 | fn copy(dst : &P, src : &P) {
         |         ^~~
+0 errors, 1 warnings

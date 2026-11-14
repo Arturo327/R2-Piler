@@ -52,3 +52,4 @@ tests/sema/073_err_pointers_src.r2:14:9: WARNING: unused variable 'h'
 tests/sema/073_err_pointers_src.r2:15:9: WARNING: unused variable 'i'
      15 |     var i : ptr i32 = n + NULL;  // cannot use NULL in pointer arithmetic
         |         ^
+9 errors, 9 warnings

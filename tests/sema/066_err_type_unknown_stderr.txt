@@ -19,3 +19,4 @@ tests/sema/066_err_type_unknown_src.r2:2:5: WARNING: unused variable 'x'
 tests/sema/066_err_type_unknown_src.r2:4:4: WARNING: unused function 'f'
       4 | fn f (p : Ghost) : Gone {
         |    ^
+4 errors, 3 warnings

@@ -43,3 +43,4 @@ tests/sema/124_warn_stack_return_src.r2:42:4: WARNING: unused function 'ok_param
 tests/sema/124_warn_stack_return_src.r2:46:4: WARNING: unused function 'ok_arr_param'
      46 | fn ok_arr_param(x : i64[3]) : i64[3] {
         |    ^~~~~~~~~~~~
+0 errors, 15 warnings

@@ -73,3 +73,4 @@ tests/sema/062_enum_err_use_src.r2:27:9: WARNING: unused variable 'm'
 tests/sema/062_enum_err_use_src.r2:28:9: WARNING: unused variable 'n'
      28 |     var n : i64 = Dias();
         |         ^
+14 errors, 11 warnings

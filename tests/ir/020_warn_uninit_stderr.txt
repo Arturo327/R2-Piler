@@ -1,3 +1,4 @@
 tests/ir/020_warn_uninit_src.r2:3:17: WARNING: 'x' is used without being assigned
       3 |   var y : i64 = x;
         |                 ^
+0 errors, 1 warnings

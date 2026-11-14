@@ -25,3 +25,4 @@ tests/sema/104_err_array_param_src.r2:13:18: ERROR: cannot add two pointers
 tests/sema/104_err_array_param_src.r2:5:4: WARNING: unused function 'bad'
       5 | fn bad(v : i32[], p : ptr i32, a : i32[2], b : i64[3], c : i32[3]) : i64 {
         |    ^~~
+7 errors, 2 warnings

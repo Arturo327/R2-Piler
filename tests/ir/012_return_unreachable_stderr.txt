@@ -7,3 +7,4 @@ tests/ir/012_return_unreachable_src.r2:1:4: WARNING: unused function 'v'
 tests/ir/012_return_unreachable_src.r2:4:4: WARNING: unused function 'f'
       4 | fn f() : i64 {
         |    ^
+0 errors, 3 warnings

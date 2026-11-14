@@ -4,3 +4,4 @@ tests/opt/004_dce_src.r2:2:7: WARNING: unused variable 'c'
 tests/opt/004_dce_src.r2:3:7: WARNING: unused variable 'q'
       3 |   var q : i64 = a / b;
         |       ^
+0 errors, 2 warnings

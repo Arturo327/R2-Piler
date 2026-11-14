@@ -1,3 +1,4 @@
 tests/sema/063_ok_type_alias_src.r2:9:4: WARNING: unused function 'f'
       9 | fn f (i : Alias) : Index {
         |    ^
+0 errors, 1 warnings

@@ -1,3 +1,4 @@
 tests/opt/005_unreachable_src.r2:5:3: WARNING: code will never be executed
       5 |   tick();
         |   ^~~~
+0 errors, 1 warnings

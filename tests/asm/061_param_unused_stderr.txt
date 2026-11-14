@@ -4,3 +4,4 @@ tests/asm/061_param_unused_src.r2:8:9: WARNING: unused parameter 'a'
 tests/asm/061_param_unused_src.r2:8:27: WARNING: unused parameter 'c'
       8 | fn keep(a : i64, b : i64, c : i64, d : i64) : i64 {
         |                           ^
+0 errors, 2 warnings

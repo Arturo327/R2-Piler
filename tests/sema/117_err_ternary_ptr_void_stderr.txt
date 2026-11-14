@@ -13,3 +13,4 @@ tests/sema/117_err_ternary_ptr_void_src.r2:8:6: WARNING: unused variable 'x'
 tests/sema/117_err_ternary_ptr_void_src.r2:9:6: WARNING: unused variable 'y'
       9 |         var y : i64 = (c ? v : p)[0];
         |             ^
+2 errors, 3 warnings

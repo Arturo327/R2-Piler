@@ -16,3 +16,4 @@ tests/sema/023_err_return_src.r2:4:4: WARNING: unused function 'b'
 tests/sema/023_err_return_src.r2:7:4: WARNING: unused function 'c'
       7 | fn c() : i64 {
         |    ^
+3 errors, 3 warnings

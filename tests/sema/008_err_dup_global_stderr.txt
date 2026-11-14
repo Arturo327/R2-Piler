@@ -7,3 +7,4 @@ tests/sema/008_err_dup_global_src.r2:1:5: WARNING: unused variable 'x'
 tests/sema/008_err_dup_global_src.r2:2:5: WARNING: unused variable 'x'
       2 | var x : i64 = 2;
         |     ^
+1 errors, 2 warnings

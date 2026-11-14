@@ -1,3 +1,4 @@
 tests/ir/019_err_sema_src.r2:6:21: ERROR: argument type u64 does not match parameter type i64; use an explicit cast with 'as'
       6 |   var x : i64 = add(u, 1);
         |                     ^
+1 errors, 0 warnings

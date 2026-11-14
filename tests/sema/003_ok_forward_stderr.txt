@@ -7,3 +7,4 @@ tests/sema/003_ok_forward_src.r2:3:5: WARNING: unused variable 'w'
 tests/sema/003_ok_forward_src.r2:7:4: WARNING: unused function 'fact'
       7 | fn fact(n : i64) : i64 {
         |    ^~~~
+0 errors, 3 warnings

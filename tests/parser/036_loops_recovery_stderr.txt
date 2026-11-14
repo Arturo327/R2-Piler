@@ -10,3 +10,4 @@ tests/parser/036_loops_recovery_src.r2:8:7: ERROR: expected expression
 tests/parser/036_loops_recovery_src.r2:12:1: ERROR: expected expression
      12 | }
         | ^
+4 errors, 0 warnings

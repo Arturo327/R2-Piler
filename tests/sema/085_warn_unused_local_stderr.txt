@@ -4,3 +4,4 @@ tests/sema/085_warn_unused_local_src.r2:2:9: WARNING: unused variable 'unused'
 tests/sema/085_warn_unused_local_src.r2:3:9: WARNING: unused variable 'written'
       3 |     var written : i64 = 2;
         |         ^~~~~~~
+0 errors, 2 warnings

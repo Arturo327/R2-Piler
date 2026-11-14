@@ -204,21 +204,6 @@ uint64_t needs_mask (const ArchDesc *arch, Reg *regs, IRInstr *in)
 			| fixed_mask(regs, &n->dst, in->dst);
 }
 
-static uint64_t block_reserved (Graph *g)
-{
-	ColorRegs *cr = g->cr;
-	uint64_t m = 0;
-
-	for (uint32_t b = g->cfg_first[g->blk]; b < g->cfg_first[g->blk + 1]; b++) {
-		CfgBlock *blk = cr->cfg->blocks + b;
-		IRInstr *code = cr->ir->instrs + blk->start;
-
-		for (uint32_t i = 0; i < blk->count; i++)
-			needs_mask(cr->ctx->arch, cr->regs, code + i);
-	}
-	return m;
-}
-
 static void forbid_live (Graph *g, uint64_t mask)
 {
 	for (uint32_t w = 0; w < g->stride; w++) {
@@ -419,7 +404,6 @@ static void finish_nodes (Graph *g)
 void build_graph (Graph *g)
 {
 	reset_graph(g);
-	g->rsv = block_reserved(g);
 	g->fpal = g->pal;
 	g->bpal = g->fpal;
 	g->k = (uint32_t)__builtin_popcountll(g->bpal);
@@ -434,7 +418,7 @@ void build_graph (Graph *g)
 
 static uint64_t scratch_regs (Graph *g, uint32_t n)
 {
-	uint64_t cand = g->fpal & g->cr->ctx->arch->caller_mask & ~g->rsv;
+	uint64_t cand = g->fpal & g->cr->ctx->arch->caller_mask;
 	uint64_t m = 0;
 
 	for (uint32_t i = 0; i < n && cand; i++) {

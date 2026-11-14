@@ -1,3 +1,4 @@
 tests/sema/052_warn_global_uninit_src.r2:4:10: WARNING: 'g' is used without being assigned
       4 |   return g + h;
         |          ^
+0 errors, 1 warnings

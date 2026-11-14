@@ -10,3 +10,4 @@ tests/sema/067_err_type_cycle_src.r2:3:6: ERROR: circular type definition 'Self'
 tests/sema/067_err_type_cycle_src.r2:5:9: ERROR: circular type definition 'NA'
       5 | newtype NA = NB;
         |         ^~
+4 errors, 0 warnings

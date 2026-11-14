@@ -13,3 +13,4 @@ tests/ir/021_cast_basic_src.r2:11:7: WARNING: unused variable 'f'
 tests/ir/021_cast_basic_src.r2:12:7: WARNING: unused variable 'g'
      12 |   var g : u64 = id_u64(c);
         |       ^
+0 errors, 5 warnings

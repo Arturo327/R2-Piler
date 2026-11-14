@@ -4,3 +4,4 @@ tests/parser/014_block_error_src.r2:1:5: ERROR: expected variable name
 tests/parser/014_block_error_src.r2:3:16: ERROR: expected '}' for block closing
       3 | var x : i64 = 1;
         |                ^
+2 errors, 0 warnings

@@ -4,3 +4,4 @@ tests/asm/019_logic_value_src.r2:4:25: WARNING: redundant cast to 'i64'; the val
 tests/asm/019_logic_value_src.r2:8:25: WARNING: redundant cast to 'i64'; the value already has that type
       8 |         var d : i64 = (a || b) as i64;
         |                                ^~
+0 errors, 2 warnings

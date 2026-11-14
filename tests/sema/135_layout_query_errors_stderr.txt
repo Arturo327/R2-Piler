@@ -55,3 +55,4 @@ tests/sema/135_layout_query_errors_src.r2:13:4: WARNING: unused function 'side'
 tests/sema/135_layout_query_errors_src.r2:17:4: WARNING: unused function 'nothing'
      17 | fn nothing () {
         |    ^~~~~~~
+17 errors, 2 warnings

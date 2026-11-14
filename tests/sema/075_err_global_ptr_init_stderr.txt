@@ -4,3 +4,4 @@ tests/sema/075_err_global_ptr_init_src.r2:3:5: ERROR: global pointer initializer
 tests/sema/075_err_global_ptr_init_src.r2:3:5: WARNING: unused variable 'p'
       3 | var p : ptr i64 = q;
         |     ^
+1 errors, 1 warnings

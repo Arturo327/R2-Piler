@@ -10,3 +10,4 @@ tests/ir/025_shift_narrow_src.r2:10:7: WARNING: unused variable 'c2'
 tests/ir/025_shift_narrow_src.r2:11:7: WARNING: unused variable 'd'
      11 |   var d : u64 = id_u64(b);
         |       ^
+0 errors, 4 warnings

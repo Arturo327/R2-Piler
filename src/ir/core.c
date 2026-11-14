@@ -5,12 +5,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "ir/ir.h"
-
-#include <assert.h>
-#include <stdio.h>
-#include <string.h>
-
 static uint32_t push_instr (IR *ir, IRInstr instr)
 {
 	if (ir->instr_count >= ir->instr_cap) {

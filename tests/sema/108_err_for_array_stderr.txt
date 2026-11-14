@@ -16,3 +16,4 @@ tests/sema/108_err_for_array_src.r2:15:8: ERROR: 'nada' is not declared
 tests/sema/108_err_for_array_src.r2:14:7: ERROR: 'nada' is not declared
      14 |         for (nada : lista)
         |              ^~~~
+6 errors, 0 warnings

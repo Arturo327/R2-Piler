@@ -4,3 +4,4 @@ tests/opt/029_static_data_src.r2:3:4: WARNING: unused function 'counter'
 tests/opt/029_static_data_src.r2:11:4: WARNING: unused function 'ptrstatic'
      11 | fn ptrstatic() : i64 {
         |    ^~~~~~~~~
+0 errors, 2 warnings

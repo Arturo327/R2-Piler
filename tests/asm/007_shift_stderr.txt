@@ -7,3 +7,4 @@ tests/asm/007_shift_src.r2:9:24: WARNING: redundant cast to 'i8'; the value alre
 tests/asm/007_shift_src.r2:14:24: WARNING: redundant cast to 'u8'; the value already has that type
      14 |         var f : u8 = (e >> n) as u8;
         |                               ^~
+0 errors, 3 warnings

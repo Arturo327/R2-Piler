@@ -70,7 +70,6 @@ typedef struct Graph {
 	uint64_t pal;
 	uint64_t bpal;
 	uint64_t fpal;
-	uint64_t rsv;
 
 	uint32_t k;
 	uint32_t cap;

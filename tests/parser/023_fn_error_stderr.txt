@@ -25,3 +25,4 @@ tests/parser/023_fn_error_src.r2:25:10: ERROR: expected type
 tests/parser/023_fn_error_src.r2:28:19: ERROR: expected '{' for block opening
      28 | fn noblock(a : i64)
         |                   ^
+9 errors, 0 warnings

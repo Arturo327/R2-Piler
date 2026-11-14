@@ -13,3 +13,4 @@ tests/sema/032_ok_flow_src.r2:1:4: WARNING: unused function 'k'
 tests/sema/032_ok_flow_src.r2:10:4: WARNING: unused function 'loop'
      10 | fn loop() : void {
         |    ^~~~
+0 errors, 5 warnings

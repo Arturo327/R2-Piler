@@ -10,3 +10,4 @@ tests/sema/020_err_assign_lhs_src.r2:1:4: WARNING: unused function 'id'
 tests/sema/020_err_assign_lhs_src.r2:4:4: WARNING: unused function 'f'
       4 | fn f() : i64 {
         |    ^
+2 errors, 2 warnings

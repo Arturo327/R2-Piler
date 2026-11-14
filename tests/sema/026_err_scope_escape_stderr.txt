@@ -13,3 +13,4 @@ tests/sema/026_err_scope_escape_src.r2:7:3: ERROR: 'i' is not declared
 tests/sema/026_err_scope_escape_src.r2:1:4: WARNING: unused function 'f'
       1 | fn f(x : i64) : i64 {
         |    ^
+2 errors, 3 warnings

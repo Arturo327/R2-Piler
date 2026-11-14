@@ -322,8 +322,7 @@ static uint32_t gen_compound_assign (IR *ir, ASTNode *n)
 	}
 
 	Symbol *s = ir->symtab->symbols + lhs->sym;
-	if (!s->depth || s->is_static) make_str_global(ir, s->ir_id, val, s->type);
-	else make_move(ir, s->ir_id, val, s->type);
+	store_var(ir, s, val);
 	return val;
 }
 
@@ -356,6 +355,36 @@ void gen_inc_dec (IR *ir, ASTNode *n)
 	}
 
 	Symbol *s = ir->symtab->symbols + target->sym;
+	store_var(ir, s, val);
+}
+
+static uint32_t gen_id (IR *ir, ASTNode *n)
+{
+	Symbol *s = ir->symtab->symbols + n->sym;
+	TypeId elem_ptr;
+
+	if (type_dyn_rank(s->type) > 0) {
+		elem_ptr = type_ptr_to(type_flat_element(s->type));
+		if (s->kind == SYMBOL_PARAM) return read_reg(ir, s->ir_id, elem_ptr);
+		return make_ld_ptr(ir, local_storage_addr(ir, s, s->type), elem_ptr);
+	}
+	if (type_kind(s->type) == TK_ARRAY || type_kind(s->type) == TK_STRUCT)
+		return gen_array_addr(ir, n);
+	return load_var(ir, s);
+}
+
+static uint32_t gen_dot (IR *ir, ASTNode *n)
+{
+	TypeId type = n->data_type;
+
+	if (type_kind(ir->ast->nodes[n->child].data_type) == TK_STRUCT)
+		return gen_field(ir, n);
+	if (type_kind(type) == TK_UNTYPED_INT) type = TYPE_i64;
+	return slice_dim_reg(ir, ir->ast->nodes + n->child, 0, type);
+}
+
+void store_var (IR *ir, Symbol *s, uint32_t val)
+{
 	if (!s->depth || s->is_static) make_str_global(ir, s->ir_id, val, s->type);
 	else make_move(ir, s->ir_id, val, s->type);
 }
@@ -368,32 +397,8 @@ uint32_t gen_expr (IR *ir, ASTNode *n)
 	case NODE_LIT_u64: return make_const(ir, (int64_t)n->u64, n->data_type);
 	case NODE_LIT_CHAR: return make_const(ir, (int8_t)n->chr, n->data_type);
 
-	case NODE_ID: {
-		Symbol *s = ir->symtab->symbols + n->sym;
-
-		if (type_dyn_rank(s->type) > 0) {
-			if (s->kind == SYMBOL_PARAM)
-				return read_reg(ir, s->ir_id,
-						type_ptr_to(type_flat_element(s->type)));
-			return make_ld_ptr(ir, local_storage_addr(ir, s, s->type),
-					type_ptr_to(type_flat_element(s->type)));
-		}
-		if (type_kind(s->type) == TK_ARRAY || type_kind(s->type) == TK_STRUCT)
-			return gen_array_addr(ir, n);
-		if (type_kind(s->type) == TK_SLICE)
-			return read_reg(ir, s->ir_id,
-					type_ptr_to(type_flat_element(s->type)));
-		return load_var(ir, s);
-	}
-	case NODE_DOT: {
-		TypeId type = n->data_type;
-
-		if (type_kind(ir->ast->nodes[n->child].data_type) == TK_STRUCT)
-			return gen_field(ir, n);
-
-		if (type_kind(type) == TK_UNTYPED_INT) type = TYPE_i64;
-		return slice_dim_reg(ir, ir->ast->nodes + n->child, 0, type);
-	}
+	case NODE_ID: return gen_id(ir, n);
+	case NODE_DOT: return gen_dot(ir, n);
 	case NODE_DEREF: return gen_deref(ir, n);
 	case NODE_INDEX:
 		if (type_is_aggregate(n->data_type))

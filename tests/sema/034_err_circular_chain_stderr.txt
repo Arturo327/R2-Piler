@@ -1,3 +1,4 @@
 tests/sema/034_err_circular_chain_src.r2:3:15: ERROR: 'a' cannot be used in a circular initialization
       3 | var c : i64 = a;
         |               ^
+1 errors, 0 warnings

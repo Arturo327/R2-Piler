@@ -64,3 +64,4 @@ tests/sema/101_err_array_ops_src.r2:21:6: WARNING: unused variable 'q'
 tests/sema/101_err_array_ops_src.r2:1:4: WARNING: unused function 'set_len'
       1 | fn set_len(v : i32[]) : void {
         |    ^~~~~~~
+15 errors, 7 warnings

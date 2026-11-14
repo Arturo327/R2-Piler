@@ -22,3 +22,4 @@ tests/sema/129_bitfield_errors_src.r2:18:2: ERROR: bitfield type must be an inte
 tests/sema/129_bitfield_errors_src.r2:23:2: ERROR: duplicate field 'a'
      23 |         a : u5;
         |         ^
+8 errors, 0 warnings

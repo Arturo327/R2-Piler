@@ -40,3 +40,4 @@ tests/ir/005_char_extend_src.r2:15:7: WARNING: unused variable 'nl'
 tests/ir/005_char_extend_src.r2:19:7: WARNING: unused variable 'c'
      19 |   var c : char = chars('a', 'b');
         |       ^
+0 errors, 14 warnings

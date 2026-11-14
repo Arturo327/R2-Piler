@@ -16,3 +16,4 @@ tests/ir/026_narrow_types_src.r2:12:7: WARNING: unused variable 'w'
 tests/ir/026_narrow_types_src.r2:13:7: WARNING: unused variable 'v'
      13 |   var v : u64 = a as u64;
         |       ^
+0 errors, 6 warnings

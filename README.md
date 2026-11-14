@@ -13,9 +13,9 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **318 dump fixtures** pass (`make test`): 49 lexer, 72 parser, 121 sema,
-  46 IR and 30 optimizer tests.
-- **117 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+- **384 dump fixtures** pass (`make test`): 50 lexer, 84 parser, 154 sema,
+  59 IR and 37 optimizer tests.
+- **146 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
@@ -49,9 +49,8 @@ tested:
   field access `.` (auto-deref on `ptr struct`), by-value copies, by-value
   arguments and `sret` returns, arrays of structs, globals/`static` structs
   (initialized at runtime in `__r2_init`) and `sizeof`.
-- Not implemented yet: modules/imports, classes, `pub`, `export`, optional
-  arguments, multiple returns, `break`/`continue`, floating point, slices
-  inside structs and general/positional struct literals.
+- Not implemented yet: modules/imports, classes, `pub`, `export`, floating
+  point, heap arrays and `defer`.
 
 ---
 
@@ -170,14 +169,28 @@ src/
 ├── sema/
 │   ├── sema.c/h     # Semantic driver: declarations, global inits, symbol dump
 │   ├── common.h     # Private cross-file declarations for sema/
-│   ├── expressions.c # Expression checking: ids, calls, assignment, operators
+│   ├── expr_core.c  # Expression checking core
+│   ├── expr_vars.c  # Variable/reference checking
+│   ├── expr_access.c # Field access, indexing, deref, address, sizeof
+│   ├── expr_ops.c   # Operator checking
 │   ├── literals.c   # Literal folding, flexible literals, casts, unification
 │   ├── statements.c # Blocks, if/elif/else, loops, return, main signature
 │   ├── types.c      # Enum/type/newtype declaration resolution
 │   ├── structs.c    # Struct/union declaration, layout, initializers
+│   ├── agg.c        # Aggregate helpers
 │   └── symbol.c/h   # Symbol and symbol-table definitions
 ├── ir/
-│   ├── ir.c/h       # IR definition, generation and dump
+│   ├── core.c/h     # IR definition, module/fn skeleton
+│   ├── stmt.c       # IR generation for statements/params
+│   ├── expr.c       # IR generation for expressions (incl. struct copies/sret)
+│   ├── expr_access.c # IR helpers for field/index/pointer access
+│   ├── expr_assign.c # IR generation for assignment/compound/multi
+│   ├── expr_call.c  # IR generation for calls
+│   ├── expr_agg.c   # IR generation for aggregates/struct init
+│   ├── abi.c        # ABI helpers
+│   ├── escape.c     # Escape analysis
+│   ├── fuse.c       # Fusion helpers
+│   ├── dump.c       # IR dump for --dump-ir/--dump-opt
 │   ├── cfg.c/h      # Shared CFG + liveness analysis (optimizer and regalloc)
 │   ├── opt.h        # Optimizer API: OptLevel, OptFn/Optimizer, CseEntry
 │   ├── opt.c        # Orchestrator: passes[], optimize_fn, compact_ir,
@@ -194,6 +207,9 @@ src/
 │       ├── cfg.c    # Unreachable blocks, jump threading/flip (BASIC)
 │       ├── extra.c  # Strength reduction, global forwarding, DSE (BASIC)
 │       ├── inline.c # Small leaf-function inlining (FULL, re-optimizes)
+│       ├── disp.c   # Displacement folding
+│       ├── fields.c # Field forwarding
+│       ├── sroa.c   # Small-struct SROA
 │       └── static.c # Static .data binding for constant global inits
 ├── codegen/
 │   ├── codegen.c/h  # Backend table, output buffer, shared codegen helpers
@@ -204,7 +220,8 @@ src/
 │   │   ├── color.c      # Loop weights + per-partition coloring driver
 │   │   ├── graph.c      # Interference graph, block reservations, scratch search
 │   │   ├── paint.c      # Graph simplification/coloring and spill selection
-│   │   └── verifiy.c    # Generic regalloc contract checks (filename as-is)
+│   │   ├── shrink.c    # Shrink-wrapping of callee-saved registers
+│   │   └── verify.c    # Generic regalloc contract checks (filename as-is)
 │   └── x86-64/
 │       ├── common.h   # Shared X86Fn state, masks, cross-file declarations
 │       ├── x86_64.c/h # Backend entry point (gen_x86_64)

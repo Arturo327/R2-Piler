@@ -7,3 +7,4 @@ tests/sema/071_err_newtype_enum_dot_src.r2:7:9: ERROR: can't initialize 'e' (Dia
 tests/sema/071_err_newtype_enum_dot_src.r2:8:26: ERROR: enum 'Dias' has no variant 'Nope'
       8 |     var q : Stamp = Stamp.Nope;
         |                          ^~~~
+3 errors, 0 warnings

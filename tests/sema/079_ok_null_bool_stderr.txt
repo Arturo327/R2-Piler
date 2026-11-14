@@ -10,3 +10,4 @@ tests/sema/079_ok_null_bool_src.r2:6:9: WARNING: constant operand of '&&' is alw
 tests/sema/079_ok_null_bool_src.r2:7:9: WARNING: constant operand of '||' is always false
       7 |     if (NULL || p) return 4;
         |         ^~~~
+0 errors, 4 warnings

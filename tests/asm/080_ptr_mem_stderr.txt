@@ -4,3 +4,4 @@ tests/asm/080_ptr_mem_src.r2:19:9: WARNING: unused variable 'pp'
 tests/asm/080_ptr_mem_src.r2:21:9: WARNING: unused variable 'qq'
      21 |     var qq : ptr i64 = @ppp;
         |         ^~
+0 errors, 2 warnings

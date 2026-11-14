@@ -25,3 +25,4 @@ tests/sema/022_err_void_src.r2:8:7: WARNING: unused variable 'd'
 tests/sema/022_err_void_src.r2:4:4: WARNING: unused function 'f'
       4 | fn f() : i64 {
         |    ^
+4 errors, 5 warnings

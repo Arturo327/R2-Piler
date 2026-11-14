@@ -28,3 +28,4 @@ tests/sema/048_err_lit_range_src.r2:5:7: WARNING: unused variable 'd'
 tests/sema/048_err_lit_range_src.r2:6:7: WARNING: unused variable 'e'
       6 |   var e : i64 = 9223372036854775808;
         |       ^
+5 errors, 5 warnings

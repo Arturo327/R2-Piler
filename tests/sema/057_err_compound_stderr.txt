@@ -10,3 +10,4 @@ tests/sema/057_err_compound_src.r2:4:7: WARNING: value assigned to 'a' is not us
 tests/sema/057_err_compound_src.r2:6:7: WARNING: value assigned to 'c' is not used
       6 |     c /= 0;
         |       ^~
+2 errors, 2 warnings

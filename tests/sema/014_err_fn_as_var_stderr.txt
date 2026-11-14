@@ -7,3 +7,4 @@ tests/sema/014_err_fn_as_var_src.r2:1:4: WARNING: unused function 'f'
 tests/sema/014_err_fn_as_var_src.r2:4:5: WARNING: unused variable 'x'
       4 | var x : i64 = f;
         |     ^
+1 errors, 2 warnings

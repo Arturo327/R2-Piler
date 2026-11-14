@@ -1,3 +1,4 @@
 tests/sema/097_err_index_offset_src.r2:4:10: ERROR: pointer indexing requires an integer index
       4 |         return p[s] as i64;
         |                 ^
+1 errors, 0 warnings

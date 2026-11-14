@@ -10,3 +10,4 @@ tests/sema/024_err_toplevel_src.r2:6:1: ERROR: only variable, function, enum and
 tests/sema/024_err_toplevel_src.r2:1:5: WARNING: unused variable 'x'
       1 | var x : i64 = 1;
         |     ^
+3 errors, 1 warnings

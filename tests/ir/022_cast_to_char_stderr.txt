@@ -13,3 +13,4 @@ tests/ir/022_cast_to_char_src.r2:8:7: WARNING: unused variable 'e'
 tests/ir/022_cast_to_char_src.r2:1:5: WARNING: unused variable 'y'
       1 | var y : u64 = x as u64;
         |     ^
+0 errors, 5 warnings

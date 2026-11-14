@@ -16,3 +16,4 @@ tests/sema/009_err_dup_fn_src.r2:7:5: WARNING: unused variable 'g'
 tests/sema/009_err_dup_fn_src.r2:8:4: WARNING: unused function 'g'
       8 | fn g() : void {
         |    ^
+2 errors, 4 warnings

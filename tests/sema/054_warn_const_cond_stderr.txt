@@ -25,3 +25,4 @@ tests/sema/054_warn_const_cond_src.r2:8:4: WARNING: unused function 'g'
 tests/sema/054_warn_const_cond_src.r2:20:4: WARNING: unused function 'h'
      20 | fn h(c : i64) : i64 {
         |    ^
+0 errors, 9 warnings

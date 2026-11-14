@@ -22,3 +22,4 @@ tests/sema/045_ok_mixed_arith_src.r2:9:7: WARNING: unused variable 'v'
 tests/sema/045_ok_mixed_arith_src.r2:1:4: WARNING: unused function 'mixed'
       1 | fn mixed(a : i64, b : u64, c : char) : i64 {
         |    ^~~~~
+0 errors, 8 warnings

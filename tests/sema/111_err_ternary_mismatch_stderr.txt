@@ -22,3 +22,4 @@ tests/sema/111_err_ternary_mismatch_src.r2:9:6: WARNING: unused variable 'd'
 tests/sema/111_err_ternary_mismatch_src.r2:10:6: WARNING: unused variable 'p'
      10 |         var p : ptr i64 = c ? $g : 1;
         |             ^
+4 errors, 4 warnings

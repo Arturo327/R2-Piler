@@ -1,3 +1,4 @@
 tests/sema/141_err_break_outside_src.r2:2:2: ERROR: 'break' is only valid inside a loop
       2 |         break;
         |         ^
+1 errors, 0 warnings

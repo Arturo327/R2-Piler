@@ -1,3 +1,4 @@
 tests/sema/059_enum_ok_src.r2:31:5: WARNING: unused variable 'today'
      31 | var today : Dias = Dias.Martes;
         |     ^~~~~
+0 errors, 1 warnings

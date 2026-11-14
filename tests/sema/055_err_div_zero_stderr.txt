@@ -31,3 +31,4 @@ tests/sema/055_err_div_zero_src.r2:16:4: WARNING: unused function 'ok_zero_num'
 tests/sema/055_err_div_zero_src.r2:19:4: WARNING: unused function 'ok_var_div'
      19 | fn ok_var_div(b : i64, c : i64) : i64 {
         |    ^~~~~~~~~~
+4 errors, 7 warnings

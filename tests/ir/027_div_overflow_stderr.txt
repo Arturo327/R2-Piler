@@ -22,3 +22,4 @@ tests/ir/027_div_overflow_src.r2:19:4: WARNING: unused function 'u8div'
 tests/ir/027_div_overflow_src.r2:22:4: WARNING: unused function 'rt'
      22 | fn rt(a : i16) : i16 {
         |    ^~
+0 errors, 8 warnings

@@ -4,3 +4,4 @@ tests/sema/078_ok_string_arith_src.r2:5:25: WARNING: subtracting two string lite
 tests/sema/078_ok_string_arith_src.r2:3:9: WARNING: unused variable 'q'
       3 |     var q : ptr i8 = 1 + "abc";
         |         ^
+0 errors, 2 warnings

@@ -13,3 +13,4 @@ tests/parser/024_call_return_error_src.r2:5:1: ERROR: expected ';' at end of exp
 tests/parser/024_call_return_error_src.r2:7:1: ERROR: expected ';' after return statement
       7 | }
         | ^
+5 errors, 0 warnings

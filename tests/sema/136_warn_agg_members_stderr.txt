@@ -16,3 +16,4 @@ tests/sema/136_warn_agg_members_src.r2:14:6: WARNING: unused variable 'unused_s'
 tests/sema/136_warn_agg_members_src.r2:15:6: WARNING: unused variable 'unused_a'
      15 |         var unused_a : i64[2];
         |             ^~~~~~~~
+0 errors, 6 warnings

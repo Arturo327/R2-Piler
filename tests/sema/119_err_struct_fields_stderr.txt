@@ -10,3 +10,4 @@ tests/sema/119_err_struct_fields_src.r2:14:32: ERROR: struct 'P' has no field 'z
 tests/sema/119_err_struct_fields_src.r2:15:24: ERROR: cannot initialize field 'y' of type i32 with a value of type string; use an explicit cast with 'as'
      15 |         var d : P = {.x = 1, .y = "hola"};
         |                               ^
+4 errors, 0 warnings

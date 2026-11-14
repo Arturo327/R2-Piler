@@ -25,3 +25,4 @@ tests/sema/004_ok_types_src.r2:6:4: WARNING: unused function 'chars'
 tests/sema/004_ok_types_src.r2:12:4: WARNING: unused function 'cmp'
      12 | fn cmp(a : i64, e : i64) : i64 {
         |    ^~~
+0 errors, 9 warnings

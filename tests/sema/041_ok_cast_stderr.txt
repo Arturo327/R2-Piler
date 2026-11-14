@@ -16,3 +16,4 @@ tests/sema/041_ok_cast_src.r2:14:7: WARNING: unused variable 'h2'
 tests/sema/041_ok_cast_src.r2:2:5: WARNING: unused variable 'h'
       2 | var h : u64 = g as u64;
         |     ^
+0 errors, 6 warnings

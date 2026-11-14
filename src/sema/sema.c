@@ -60,40 +60,25 @@ static uint64_t trunc_dim (uint64_t v, TypeId type)
 	return v;
 }
 
-static int dim_value (Sema *s, uint32_t idx, uint64_t *out)
+int dim_value (Sema *s, uint32_t idx, uint64_t *out);
+
+static int dim_unary (Sema *s, ASTNode *n, uint64_t *out)
 {
-	ASTNode *n = s->ast->nodes + idx;
 	uint64_t a;
-
-	switch (n->type)
-	{
-	case NODE_LIT_i64:
-	case NODE_LIT_u64: *out = n->u64; return 1;
-	case NODE_LIT_CHAR: *out = (uint64_t)(int64_t)n->chr; return 1;
-	case NODE_CAST:
-		if (!dim_value(s, n->child, &a)) return 0;
-		*out = trunc_dim(a, n->data_type);
-		return 1;
-	case NODE_NEG:
-		if (!dim_value(s, n->child, &a)) return 0;
-		*out = 0 - a;
-		return 1;
-	case NODE_NOT_A:
-		if (!dim_value(s, n->child, &a)) return 0;
-		*out = ~a;
-		return 1;
-	default:
-		break;
-	}
-
-	if (n->child == NO_NODE) return 0;
 	if (!dim_value(s, n->child, &a)) return 0;
+	if (n->type == NODE_CAST) *out = trunc_dim(a, n->data_type);
+	else if (n->type == NODE_NEG) *out = 0 - a;
+	else *out = ~a;
+	return 1;
+}
 
+static int dim_binary (Sema *s, ASTNode *n, uint64_t *out)
+{
 	uint32_t rhs = s->ast->nodes[n->child].next_bro;
 	if (rhs == NO_NODE) return 0;
-
+	uint64_t a;
 	uint64_t b;
-	if (!dim_value(s, rhs, &b)) return 0;
+	if (!dim_value(s, n->child, &a) || !dim_value(s, rhs, &b)) return 0;
 
 	switch (n->type)
 	{
@@ -108,6 +93,21 @@ static int dim_value (Sema *s, uint32_t idx, uint64_t *out)
 	case NODE_LS: if (b >= 64) return 0; *out = a << b; return 1;
 	case NODE_RS: if (b >= 64) return 0; *out = a >> b; return 1;
 	default: return 0;
+	}
+}
+
+int dim_value (Sema *s, uint32_t idx, uint64_t *out)
+{
+	ASTNode *n = s->ast->nodes + idx;
+
+	switch (n->type)
+	{
+	case NODE_LIT_i64: case NODE_LIT_u64: *out = n->u64; return 1;
+	case NODE_LIT_CHAR: *out = (uint64_t)(int64_t)n->chr; return 1;
+	case NODE_CAST: case NODE_NEG: case NODE_NOT_A:
+		return n->child != NO_NODE && dim_unary(s, n, out);
+	default:
+		return n->child != NO_NODE && dim_binary(s, n, out);
 	}
 }
 
@@ -473,6 +473,48 @@ void check_storage_decl (Sema *s, ASTNode *n)
 	}
 }
 
+
+static uint32_t check_array_scalar (Sema *s, TypeId elem, uint32_t item)
+{
+	TypeId type = check_expr(s, item);
+
+	if (type == TYPE_ERROR || type == elem) return item;
+	int ok;
+	uint32_t cast = force_cast(s, item, type, elem, &ok);
+	if (ok) return cast;
+
+	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + item),
+			"cannot initialize an array element of type %s"
+			" with a value of type %s; use an explicit cast with 'as'",
+			types[elem].name, type_display_name(type));
+	return item;
+}
+
+static uint32_t check_array_elem (Sema *s, TypeId elem, uint32_t item)
+{
+	ASTNode *node = s->ast->nodes + item;
+	TypeKind kind = type_kind(elem);
+	int is_list = node->type == NODE_ARRAY_INIT;
+
+	if (kind == TK_ARRAY && !is_list && node->type != NODE_LIT_STR)
+		error_report(s->err, ERR_ERROR, node_loc(node),
+				"array element of type %s requires a '{...}' initializer",
+				types[elem].name);
+	else if (kind == TK_ARRAY)
+		check_array_init_at(s, elem, item);
+	else if (kind == TK_STRUCT && (node->type == NODE_STRUCT_INIT || is_list))
+		check_struct_init(s, item, elem);
+	else if (is_list)
+		error_report(s->err, ERR_ERROR, node_loc(node),
+				"array element of type %s cannot be initialized"
+				" with a '{...}' list", types[elem].name);
+	else return check_array_scalar(s, elem, item);
+	return item;
+}
+
+static uint32_t check_array_scalar (Sema *s, TypeId elem, uint32_t item);
+static uint32_t check_array_elem (Sema *s, TypeId elem, uint32_t item);
+
 void check_array_init_at (Sema *s, TypeId arr, uint32_t init_idx)
 {
 	TypeId elem = types[arr].base;
@@ -503,44 +545,11 @@ void check_array_init_at (Sema *s, TypeId arr, uint32_t init_idx)
 
 	while (item != NO_NODE) {
 		uint32_t next = s->ast->nodes[item].next_bro;
-		ASTNode *item_node = s->ast->nodes + item;
+		uint32_t out = check_array_elem(s, elem, item);
 
-		if (type_kind(elem) == TK_ARRAY) {
-			if (item_node->type != NODE_ARRAY_INIT
-					&& item_node->type != NODE_LIT_STR)
-				error_report(s->err, ERR_ERROR, node_loc(item_node),
-						"array element of type %s requires a '{...}' initializer",
-						types[elem].name);
-			else
-				check_array_init_at(s, elem, item);
-		} else if (type_kind(elem) == TK_STRUCT && (item_node->type == NODE_STRUCT_INIT
-				|| item_node->type == NODE_ARRAY_INIT)) {
-			check_struct_init(s, item, elem);
-		} else if (item_node->type == NODE_ARRAY_INIT) {
-			error_report(s->err, ERR_ERROR, node_loc(item_node),
-					"array element of type %s cannot be initialized"
-					" with a '{...}' list", types[elem].name);
-		} else {
-			TypeId type = check_expr(s, item);
-
-			if (type != TYPE_ERROR && type != elem) {
-				int ok;
-				uint32_t cast = force_cast(s, item, type, elem, &ok);
-
-				if (!ok) {
-					error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + item),
-							"cannot initialize an array element of type %s"
-							" with a value of type %s; use an explicit cast with 'as'",
-							types[elem].name, type_display_name(type));
-				} else {
-					if (prev == NO_NODE) s->ast->nodes[init_idx].child = cast;
-					else s->ast->nodes[prev].next_bro = cast;
-					item = cast;
-				}
-			}
-		}
-
-		prev = item;
+		if (out != item && prev == NO_NODE) s->ast->nodes[init_idx].child = out;
+		else if (out != item) s->ast->nodes[prev].next_bro = out;
+		prev = out;
 		item = next;
 		n++;
 	}

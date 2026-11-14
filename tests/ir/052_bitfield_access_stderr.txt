@@ -4,3 +4,4 @@ tests/ir/052_bitfield_access_src.r2:19:6: WARNING: value assigned to field 'c' o
 tests/ir/052_bitfield_access_src.r2:23:7: WARNING: value assigned to field 'lo' of 'w' is not used
      23 |         w.lo = 3;
         |              ^
+0 errors, 2 warnings

@@ -1,3 +1,4 @@
 tests/sema/044_err_string_cast_src.r2:2:22: ERROR: cannot cast between pointer and non-pointer types; only pointer-to-pointer casts are supported
       2 |   var x : i64 = "hi" as i64;
         |                      ^~
+1 errors, 0 warnings
