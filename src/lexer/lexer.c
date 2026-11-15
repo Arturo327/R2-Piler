@@ -446,6 +446,7 @@ static const Keyword keywords[] = {
 	KW("break", TOK_BREAK),
 	KW("union", TOK_UNION),
 	KW("while", TOK_WHILE),
+	KW("export", TOK_EXPORT),
 	KW("extern", TOK_EXTERN),
 	KW("packed", TOK_PACKED),
 	KW("return", TOK_RET),
@@ -590,7 +591,7 @@ Token get_token (Lexer *l)
 #define TN(t) [t] = #t
 static const char *const token_names[TOK_COUNT] = {
 	TN(TOK_NONE), TN(TOK_INVALID), TN(TOK_EOF), TN(TOK_VAR), TN(TOK_ARR), TN(TOK_ID),
-	TN(TOK_FN), TN(TOK_ENUM), TN(TOK_TYPE), TN(TOK_NEWTYPE), TN(TOK_EXTERN),
+	TN(TOK_FN), TN(TOK_ENUM), TN(TOK_TYPE), TN(TOK_NEWTYPE), TN(TOK_EXTERN), TN(TOK_EXPORT),
 	TN(TOK_SEMCOL), TN(TOK_COMMA), TN(TOK_COL),
 	TN(TOK_DOT), TN(TOK_QUESTION), TN(TOK_LPAREN), TN(TOK_RPAREN),
 	TN(TOK_LKEY), TN(TOK_RKEY), TN(TOK_STATIC),

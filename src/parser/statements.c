@@ -942,23 +942,55 @@ static int pub_target (TokenType type)
 	}
 }
 
+static uint32_t mark_visibility (Parser *p, uint32_t node, uint8_t flags)
+{
+	for (uint32_t k = node; k != NO_NODE; k = p->ast.nodes[k].next_bro)
+		p->ast.nodes[k].flags |= flags;
+	return node;
+}
+
 static uint32_t parse_pub (Parser *p)
 {
 	Token pub = p->curr;
 	const char *msg = "expected a declaration after 'pub'";
 
 	advance(p);
-	if (!pub_target(p->curr.type)) {
-		if (p->curr.type == TOK_EXTERN) msg = "'extern' declarations cannot be 'pub'";
-		else if (p->curr.type == TOK_STATIC) msg = "'static' cannot be 'pub'";
+	int ok = pub_target(p->curr.type);
+	if (p->curr.type == TOK_EXPORT) {
+		msg = "'pub' cannot be combined with 'export'";
+		ok = 0;
+	} else if (!ok && p->curr.type == TOK_EXTERN) {
+		msg = "'extern' declarations cannot be 'pub'";
+	} else if (!ok && p->curr.type == TOK_STATIC) {
+		msg = "'static' cannot be 'pub'";
+	}
+	if (!ok) {
 		if (!p->panic_mode) error_report(p->err, ERR_ERROR, token_loc(pub), "%s", msg);
 		p->panic_mode = 1;
 		return new_node(p, NODE_ERROR, pub.line, pub.col);
 	}
-	uint32_t node = parse_statement_inner(p);
-	for (uint32_t k = node; k != NO_NODE; k = p->ast.nodes[k].next_bro)
-		p->ast.nodes[k].flags |= NODE_FLAG_PUB;
-	return node;
+	return mark_visibility(p, parse_statement_inner(p), NODE_FLAG_PUB);
+}
+
+static uint32_t parse_export (Parser *p)
+{
+	Token exp = p->curr;
+	const char *msg = "expected 'fn', 'var' or 'arr' after 'export'";
+
+	advance(p);
+	int ok = p->curr.type == TOK_FN || p->curr.type == TOK_VAR
+			|| p->curr.type == TOK_ARR;
+	if (p->curr.type == TOK_PUB) {
+		msg = "'export' cannot be combined with 'pub'";
+		ok = 0;
+	}
+	if (!ok) {
+		if (!p->panic_mode) error_report(p->err, ERR_ERROR, token_loc(exp), "%s", msg);
+		p->panic_mode = 1;
+		return new_node(p, NODE_ERROR, exp.line, exp.col);
+	}
+	return mark_visibility(p, parse_statement_inner(p),
+			NODE_FLAG_PUB | NODE_FLAG_EXPORT);
 }
 
 static uint32_t parse_statement_inner (Parser *p)
@@ -968,6 +1000,7 @@ static uint32_t parse_statement_inner (Parser *p)
 	case TOK_VAR: return parse_decl(p, 0);
 	case TOK_STATIC: return parse_static_decl(p);
 	case TOK_PUB: return parse_pub(p);
+	case TOK_EXPORT: return parse_export(p);
 	case TOK_ARR: return parse_decl(p, 1);
 	case TOK_LKEY: return parse_block(p);
 	case TOK_FN: return parse_fn_decl(p);

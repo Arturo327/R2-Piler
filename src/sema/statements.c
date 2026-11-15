@@ -254,7 +254,9 @@ static void check_main_signature (Sema *s, uint32_t idx)
 
 	if (n->len != 4 || memcmp(n->str, "main", 4) != 0)
 		return;
-	if (!(n->flags & NODE_FLAG_PUB) || bad_params || bad_ret)
+	if (n->flags & NODE_FLAG_EXPORT)
+		error_report(s->err, ERR_ERROR, node_loc(n), "'main' cannot be exported");
+	else if (!(n->flags & NODE_FLAG_PUB) || bad_params || bad_ret)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"'main' must be declared as 'pub fn main() : i64'");
 }
@@ -302,6 +304,46 @@ static void check_signature_types (Sema *s, uint32_t idx, int is_extern)
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
 					"extern functions cannot take structs by value yet");
 
+		p = s->ast->nodes[p].next_bro;
+	}
+}
+
+static void check_export_ret (Sema *s, uint32_t ret)
+{
+	ASTNode *n = s->ast->nodes + ret;
+	TypeId t = n->data_type;
+
+	if (t == TYPE_ERROR) return;
+	if (type_kind(t) == TK_STRUCT)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"export functions cannot return structs by value yet");
+	else if (type_kind(t) == TK_ARRAY || type_dyn_rank(t) > 0)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"export functions cannot return arrays or slices yet");
+}
+
+static void check_export_fn (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	uint32_t args = n->child;
+	uint32_t ret = s->ast->nodes[args].next_bro;
+
+	if (!(n->flags & NODE_FLAG_EXPORT)) return;
+	if (s->ast->nodes[ret].child != NO_NODE)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"export functions cannot return multiple values yet");
+	else check_export_ret(s, ret);
+
+	uint32_t p = s->ast->nodes[args].child;
+	while (p != NO_NODE) {
+		TypeId type = s->ast->nodes[p].data_type;
+
+		if (type_kind(type) == TK_STRUCT)
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
+					"export functions cannot take structs by value yet");
+		else if (type_dyn_rank(type) > 0)
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
+					"export functions cannot take slice parameters");
 		p = s->ast->nodes[p].next_bro;
 	}
 }
@@ -378,6 +420,7 @@ void check_fn_dec (Sema *s, uint32_t idx)
 {
 	resolve_fn_types(s, idx);
 	check_signature_types(s, idx, 0);
+	check_export_fn(s, idx);
 	check_main_signature(s, idx);
 	uint32_t args = s->ast->nodes[idx].child;
 	uint32_t ret = s->ast->nodes[args].next_bro;
@@ -1040,7 +1083,10 @@ static void check_statement (Sema *s, uint32_t idx)
 	switch (n->type)
 	{
 	case NODE_VAR_DEC: case NODE_ARR_DEC:
-		if (n->flags & NODE_FLAG_PUB)
+		if (n->flags & NODE_FLAG_EXPORT)
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"'export' is only valid on top-level declarations");
+		else if (n->flags & NODE_FLAG_PUB)
 			error_report(s->err, ERR_ERROR, node_loc(n),
 					"'pub' is only valid on top-level declarations");
 		check_var_dec(s, idx); return;
@@ -1055,7 +1101,13 @@ static void check_statement (Sema *s, uint32_t idx)
 	case NODE_INC: case NODE_DEC: check_inc_dec(s, idx); return;
 	case NODE_EMPTY: n->data_type = TYPE_VOID; return;
 	case NODE_FN_DEC:
-		error_report(s->err, ERR_ERROR, node_loc(n),
+		if (n->flags & NODE_FLAG_EXPORT)
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"'export' is only valid on top-level declarations");
+		else if (n->flags & NODE_FLAG_PUB)
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"'pub' is only valid on top-level declarations");
+		else error_report(s->err, ERR_ERROR, node_loc(n),
 				"functions can only be declared at the top level");
 		return;
 	case NODE_ENUM_DEC:

@@ -247,7 +247,8 @@ static char *decl_symbol (IR *ir, ASTNode *n, int is_extern,
 {
 	MangleName m = { .mod = ir->mod, .a = n->str, .alen = n->len };
 
-	if (is_extern) return mangle_plain(ir->arena, n->str, n->len);
+	if (is_extern || (n->flags & NODE_FLAG_EXPORT))
+		return mangle_plain(ir->arena, n->str, n->len);
 	m.kind = (n->flags & NODE_FLAG_PUB) ? pub_kind : priv_kind;
 	return mangle_symbol(ir->arena, &m);
 }
@@ -267,6 +268,7 @@ static uint32_t declare_fn (IR *ir, ASTNode *n, Symbol *sym)
 
 	fn.param_count = param_slots(ir, n);
 	fn.is_extern = n->type == NODE_EXTERN_FN_DEC;
+	fn.is_pub = (n->flags & NODE_FLAG_PUB) != 0;
 	fn.sym = decl_symbol(ir, n, fn.is_extern, "pf", "f");
 	return push_fn(ir, fn);
 }
@@ -278,6 +280,7 @@ static uint32_t declare_global (IR *ir, ASTNode *n, Symbol *sym)
 	global.len = n->len;
 	global.type = sym->type;
 	global.is_extern = n->type == NODE_EXTERN_VAR_DEC;
+	global.is_pub = (n->flags & NODE_FLAG_PUB) != 0;
 	global.sym = decl_symbol(ir, n, global.is_extern, "pv", "v");
 	return push_global(ir, global);
 }

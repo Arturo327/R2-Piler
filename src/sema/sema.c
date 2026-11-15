@@ -5,6 +5,8 @@
 
 #define RESERVED_PREFIX "__r2_"
 #define RESERVED_PREFIX_LEN (sizeof(RESERVED_PREFIX) - 1)
+#define RESERVED_MANGLE_PREFIX "_r2_"
+#define RESERVED_MANGLE_LEN (sizeof(RESERVED_MANGLE_PREFIX) - 1)
 
 ErrorLoc node_loc (ASTNode *n)
 {
@@ -301,15 +303,22 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	symtab_init(&s->table, arena);
 }
 
+static const char *reserved_prefix (char *name, uint16_t len)
+{
+	if (len >= RESERVED_PREFIX_LEN && memcmp(name, RESERVED_PREFIX, RESERVED_PREFIX_LEN) == 0)
+		return RESERVED_PREFIX;
+	if (len >= RESERVED_MANGLE_LEN && memcmp(name, RESERVED_MANGLE_PREFIX, RESERVED_MANGLE_LEN) == 0)
+		return RESERVED_MANGLE_PREFIX;
+	return NULL;
+}
+
 static void check_reserved_name (Sema *s, char *name, uint16_t len, uint32_t decl_node)
 {
-	if (s->depth != 0 || len < RESERVED_PREFIX_LEN)
-		return;
-	if (memcmp(name, RESERVED_PREFIX, RESERVED_PREFIX_LEN) != 0)
-		return;
+	const char *prefix = s->depth == 0 ? reserved_prefix(name, len) : NULL;
 
+	if (!prefix) return;
 	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + decl_node),
-			"identifiers starting with '%s' are reserved", RESERVED_PREFIX);
+			"identifiers starting with '%s' are reserved", prefix);
 }
 
 uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,

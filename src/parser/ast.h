@@ -16,6 +16,7 @@
 #define NODE_FLAG_REF 64
 #define NODE_FLAG_REF_LOWERED 128
 #define NODE_FLAG_PAREN 1
+#define NODE_FLAG_EXPORT 64
 #define NODE_FLAG_PUB 128
 
 typedef enum {
