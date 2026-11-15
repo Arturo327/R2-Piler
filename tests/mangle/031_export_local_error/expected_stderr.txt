@@ -1,0 +1,4 @@
+export_local.r2:1:35: ERROR: 'export' is only valid on top-level declarations
+      1 | pub fn main () : i64 { export var x : i64 = 1; return x; }
+        |                                   ^
+1 error, 0 warnings

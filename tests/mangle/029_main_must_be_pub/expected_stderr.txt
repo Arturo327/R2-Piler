@@ -1,0 +1,4 @@
+main_private.r2:1:4: ERROR: 'main' must be declared as 'pub fn main() : i64'
+      1 | fn main () : i64 { return 0; }
+        |    ^~~~
+1 error, 0 warnings

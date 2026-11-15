@@ -1,0 +1,4 @@
+export_multi.r2:1:11: ERROR: export functions cannot return multiple values yet
+      1 | export fn f () : i64, i64 { return 1, 2; }
+        |           ^
+1 error, 0 warnings

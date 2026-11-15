@@ -1,0 +1,10 @@
+reserved.r2:3:6: ERROR: identifiers starting with '__r2_' are reserved
+      3 | enum __r2_e { A }
+        |      ^~~~~~
+reserved.r2:1:4: ERROR: identifiers starting with '__r2_' are reserved
+      1 | fn __r2_bad () : i64 { return 0; }
+        |    ^~~~~~~~
+reserved.r2:2:5: ERROR: identifiers starting with '_r2_' are reserved
+      2 | var _r2_bad : i64 = 0;
+        |     ^~~~~~~
+3 errors, 0 warnings

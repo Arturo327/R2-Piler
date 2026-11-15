@@ -1,0 +1,4 @@
+pub_static.r2:1:1: ERROR: 'static' cannot be 'pub'
+      1 | pub static var x : i64 = 1;
+        | ^~~
+1 error, 0 warnings

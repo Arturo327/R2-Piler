@@ -1,0 +1,10 @@
+statics.r2:2:16: WARNING: unused variable 'x'
+      2 |   { static var x : i64 = 2; }
+        |                ^
+statics.r2:3:16: WARNING: unused variable 'x'
+      3 |   { static var x : i64 = 3; }
+        |                ^
+statics.r2:4:16: WARNING: unused variable 'x'
+      4 |   { static var x : i64 = 4; }
+        |                ^
+0 errors, 3 warnings

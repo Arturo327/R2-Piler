@@ -1,0 +1,4 @@
+export_pub.r2:1:1: ERROR: 'export' cannot be combined with 'pub'
+      1 | export pub fn f () : i64 { return 0; }
+        | ^~~~~~
+1 error, 0 warnings

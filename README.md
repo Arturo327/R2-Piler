@@ -14,7 +14,7 @@ R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
 - **399 dump fixtures** pass (`make test`): 51 lexer, 87 parser, 161 sema,
-  61 IR and 39 optimizer tests, plus 6 mangling/visibility checks.
+  61 IR and 39 optimizer tests, plus 43 mangling/visibility/export cases.
 - **151 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and

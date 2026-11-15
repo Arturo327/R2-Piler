@@ -1,0 +1,7 @@
+export_slice.r2:1:14: ERROR: export functions cannot take slice parameters
+      1 | export fn f (a : i64[]) : i64 { return 0; }
+        |              ^
+export_slice.r2:1:14: WARNING: unused parameter 'a'
+      1 | export fn f (a : i64[]) : i64 { return 0; }
+        |              ^
+1 error, 1 warning

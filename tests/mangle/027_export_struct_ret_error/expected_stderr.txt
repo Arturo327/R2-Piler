@@ -1,0 +1,4 @@
+export_struct.r2:2:16: ERROR: export functions cannot return structs by value yet
+      2 | export fn f () : S { var s : S = {}; return s; }
+        |                ^
+1 error, 0 warnings

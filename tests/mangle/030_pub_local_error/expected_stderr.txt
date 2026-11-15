@@ -1,0 +1,4 @@
+pub_local.r2:1:32: ERROR: 'pub' is only valid on top-level declarations
+      1 | pub fn main () : i64 { pub var x : i64 = 1; return x; }
+        |                                ^
+1 error, 0 warnings

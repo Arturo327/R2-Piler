@@ -43,7 +43,7 @@ test_opt: $(TARGET)
 	@tests/run_suite.sh $(TARGET) --dump-opt tests/opt
 
 test_mangle: $(TARGET)
-	@tests/run_mangle.sh $(TARGET)
+	@tests/run_mangle.sh $(TARGET) tests/mangle
 
 bench: $(TARGET)
 	@tests/run_asm.sh $(TARGET) tests/asm

@@ -1,0 +1,1 @@
+export fn f (a : i64[]) : i64 { return 0; }
