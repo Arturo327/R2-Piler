@@ -1,4 +1,10 @@
+tests/ir/029_enum_src.r2:4:5: WARNING: unused variant 'Miercoles' of enum 'Dias'
+      4 |     Miercoles,
+        |     ^~~~~~~~~
+tests/ir/029_enum_src.r2:9:5: WARNING: unused variant 'Zero' of enum 'Signed'
+      9 |     Zero,
+        |     ^~~~
 tests/ir/029_enum_src.r2:12:5: WARNING: unused variable 'today'
      12 | var today : Dias = Dias.Martes;
         |     ^~~~~
-0 errors, 1 warning
+0 errors, 3 warnings

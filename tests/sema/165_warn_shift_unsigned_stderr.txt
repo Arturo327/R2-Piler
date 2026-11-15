@@ -1,0 +1,19 @@
+tests/sema/165_warn_shift_unsigned_src.r2:9:8: WARNING: comparison of an unsigned value with 0 is always false
+      9 |         if (u < 0) wide = 1;
+        |               ^
+tests/sema/165_warn_shift_unsigned_src.r2:10:8: WARNING: comparison of an unsigned value with 0 is always true
+     10 |         if (u >= 0) wide = wide + 1;
+        |               ^~
+tests/sema/165_warn_shift_unsigned_src.r2:11:8: WARNING: comparison of an unsigned value with 0 is always false
+     11 |         if (0 > u) wide = 2;
+        |               ^
+tests/sema/165_warn_shift_unsigned_src.r2:17:29: WARNING: shift count 8 is out of range for type u8 (8 bits)
+     17 |         var bad_width : u8 = small << 8;
+        |                                    ^~
+tests/sema/165_warn_shift_unsigned_src.r2:18:30: WARNING: negative shift count
+     18 |         var bad_neg : i64 = wide << -1;
+        |                                     ^~
+tests/sema/165_warn_shift_unsigned_src.r2:19:24: WARNING: shift count 64 is out of range for a 64-bit value
+     19 |         var bad_lit : i64 = 1 << 64;
+        |                               ^~
+0 errors, 6 warnings

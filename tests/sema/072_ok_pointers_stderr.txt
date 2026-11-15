@@ -37,4 +37,7 @@ tests/sema/072_ok_pointers_src.r2:24:9: WARNING: unused variable 'i'
 tests/sema/072_ok_pointers_src.r2:25:9: WARNING: unused variable 'j'
      25 |     var j : u64 = sizeof("abc");
         |         ^
-0 errors, 13 warnings
+tests/sema/072_ok_pointers_src.r2:2:6: WARNING: unused type 'Q'
+      2 | type Q = ptr P;
+        |      ^
+0 errors, 14 warnings

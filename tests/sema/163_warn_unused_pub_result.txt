@@ -1,0 +1,20 @@
+struct PubStruct [10:12] depth=0 size=8 align=8
+  field unused type=i64 offset=0
+enum PubEnum [11:10] depth=0 type=PubEnum base=u8
+  variant Only = 0
+type PubAlias [12:10] depth=0 type=PubAlias base=i64
+newtype PubNew [13:13] depth=0 type=PubNew base=i64
+struct PrivateStruct [17:8] depth=0 size=8 align=8
+  field a type=i64 offset=0
+fn exported_fn [4:8] depth=0 type=void
+var exported_var [5:9] depth=0 type=i64
+fn c_fn [6:11] depth=0 type=i64
+var c_var [7:12] depth=0 type=i64
+var c_arr [8:12] depth=0 type=i64[2]
+fn private_fn [15:4] depth=0 type=void
+var private_var [16:5] depth=0 type=i64
+fn _muted_fn [19:4] depth=0 type=void
+fn main [21:8] depth=0 type=i64
+param x [6:17] depth=1 type=i64
+param _muted [19:15] depth=1 type=i64
+var _muted [22:6] depth=1 type=i64

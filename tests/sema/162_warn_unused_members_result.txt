@@ -1,0 +1,33 @@
+struct S [5:8] depth=0 size=24 align=8
+  field read type=i64 offset=0
+  field written type=i64 offset=8
+  field dead type=i64 offset=16
+struct Nested [11:8] depth=0 size=24 align=8
+  field head type=i64 offset=0
+  field x type=i64 offset=8
+  field y type=i64 offset=16
+union U [16:7] depth=0 size=8 align=8
+  field big type=i64 offset=0
+  field small type=u32 offset=0
+enum E [21:6] depth=0 type=E base=u8
+  variant Used = 0
+  variant Dead = 1
+struct Muted [23:8] depth=0 size=16 align=8
+  field used type=i64 offset=0
+  field _ignored type=i64 offset=8
+enum MutedEnum [28:6] depth=0 type=MutedEnum base=u8
+  variant _Skipped = 0
+  variant Taken = 1
+struct Queries [30:8] depth=0 size=8 align=4
+  field a type=i32 offset=0
+  field b type=i32 offset=4
+fn main [35:8] depth=0 type=i64
+var s [36:6] depth=1 type=S
+var n [37:6] depth=1 type=Nested
+var u [38:6] depth=1 type=U
+var e [39:6] depth=1 type=E
+var q [40:6] depth=1 type=Queries
+var m [41:6] depth=1 type=Muted
+var me [42:6] depth=1 type=MutedEnum
+var off [43:6] depth=1 type=i64
+var size [44:6] depth=1 type=i64

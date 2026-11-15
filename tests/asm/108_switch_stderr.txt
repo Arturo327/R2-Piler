@@ -1,0 +1,4 @@
+tests/asm/108_switch_src.r2:3:2: WARNING: unused variant 'Martes' of enum 'Dias'
+      3 |         Martes = 2,
+        |         ^~~~~~
+0 errors, 1 warning

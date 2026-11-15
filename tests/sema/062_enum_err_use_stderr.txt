@@ -73,4 +73,10 @@ tests/sema/062_enum_err_use_src.r2:27:9: WARNING: unused variable 'm'
 tests/sema/062_enum_err_use_src.r2:28:9: WARNING: unused variable 'n'
      28 |     var n : i64 = Dias();
         |         ^
-14 errors, 11 warnings
+tests/sema/062_enum_err_use_src.r2:3:5: WARNING: unused variant 'Martes' of enum 'Dias'
+      3 |     Martes,
+        |     ^~~~~~
+tests/sema/062_enum_err_use_src.r2:7:5: WARNING: unused variant 'A' of enum 'Other'
+      7 |     A,
+        |     ^
+14 errors, 13 warnings

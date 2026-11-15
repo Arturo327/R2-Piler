@@ -1,0 +1,19 @@
+tests/ir/051_partial_init_src.r2:9:2: WARNING: unused field 'n' of struct 'Q'
+      9 |         n : i32;
+        |         ^
+tests/ir/051_partial_init_src.r2:13:19: WARNING: unused field 'b' of union 'V'
+     13 |         struct { a : u8; b : u8; };
+        |                          ^
+tests/ir/051_partial_init_src.r2:19:2: WARNING: unused field 'hi' of struct 'Bits'
+     19 |         hi : u5;
+        |         ^~
+tests/ir/051_partial_init_src.r2:23:2: WARNING: unused field 'a' of struct 'WithArr'
+     23 |         a : i32[3];
+        |         ^
+tests/ir/051_partial_init_src.r2:28:2: WARNING: unused field 'head' of struct 'Big'
+     28 |         head : i64;
+        |         ^~~~
+tests/ir/051_partial_init_src.r2:29:2: WARNING: unused field 'body' of struct 'Big'
+     29 |         body : u8[61];
+        |         ^~~~
+0 errors, 6 warnings

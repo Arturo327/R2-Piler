@@ -16,10 +16,4 @@ tests/sema/161_err_export_position_src.r2:7:9: ERROR: 'pub' is only valid on top
 tests/sema/161_err_export_position_src.r2:6:13: WARNING: unused variable 'v'
       6 |         export var v : i64 = 2;
         |                    ^
-tests/sema/161_err_export_position_src.r2:1:11: WARNING: unused function '_r2_foo'
-      1 | export fn _r2_foo () : i64 { return 0; }
-        |           ^~~~~~~
-tests/sema/161_err_export_position_src.r2:2:12: WARNING: unused variable '__r2_bar'
-      2 | export var __r2_bar : i64 = 1;
-        |            ^~~~~~~~
-5 errors, 3 warnings
+5 errors, 1 warning

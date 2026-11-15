@@ -1,0 +1,7 @@
+tests/sema/138_optional_args_src.r2:1:16: WARNING: unused variant 'A' of enum 'E'
+      1 | enum E : i32 { A = 1, B = 2 }
+        |                ^
+tests/sema/138_optional_args_src.r2:2:8: WARNING: unused struct 'P'
+      2 | struct P { x : i64; y : i64; }
+        |        ^
+0 errors, 2 warnings

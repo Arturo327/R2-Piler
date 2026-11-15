@@ -1,4 +1,4 @@
 tests/asm/035_opt_dce_hot_src.r2:9:7: WARNING: unused variable 'dead'
       9 |                 var dead : i64 = i * 12345;
         |                     ^~~~
-0 errors, 1 warnings
+0 errors, 1 warning

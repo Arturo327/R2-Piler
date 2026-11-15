@@ -1,0 +1,13 @@
+tests/sema/125_partial_init_src.r2:4:2: WARNING: unused field 'z' of struct 'P'
+      4 |         z : i8;
+        |         ^
+tests/sema/125_partial_init_src.r2:9:2: WARNING: unused field 'n' of struct 'Q'
+      9 |         n : i32;
+        |         ^
+tests/sema/125_partial_init_src.r2:13:2: WARNING: unused field 'a' of struct 'WithArr'
+     13 |         a : i32[3];
+        |         ^
+tests/sema/125_partial_init_src.r2:28:2: WARNING: unused field 'tag' of struct 'Tagged'
+     28 |         tag : u8;
+        |         ^~~
+0 errors, 4 warnings

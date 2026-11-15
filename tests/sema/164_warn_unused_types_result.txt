@@ -1,0 +1,17 @@
+struct Used [4:8] depth=0 size=16 align=8
+  field a type=i64 offset=0
+  field b type=i64 offset=8
+struct Dead [5:8] depth=0 size=16 align=8
+  field x type=i64 offset=0
+  field y type=i64 offset=8
+union DeadUnion [6:7] depth=0 size=8 align=8
+  field i type=i64 offset=0
+  field f type=u32 offset=0
+enum DeadEnum [7:6] depth=0 type=DeadEnum base=u8
+  variant One = 0
+  variant Two = 1
+type DeadAlias [8:6] depth=0 type=DeadAlias base=i64
+newtype DeadNew [9:9] depth=0 type=DeadNew base=i64
+type _MutedAlias [10:6] depth=0 type=_MutedAlias base=i64
+fn main [12:8] depth=0 type=i64
+var u [13:6] depth=1 type=Used

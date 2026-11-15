@@ -1,0 +1,10 @@
+struct Foreign [4:8] depth=0 size=16 align=8
+  field used type=i64 offset=0
+  field filled_by_c type=i64 offset=8
+struct ByValue [9:8] depth=0 size=8 align=8
+  field also_c type=i64 offset=0
+fn init_foreign [13:11] depth=0 type=void
+fn touch [14:11] depth=0 type=void
+fn main [16:8] depth=0 type=i64
+param _p [14:18] depth=1 type=ptr ByValue
+var f [17:6] depth=1 type=Foreign

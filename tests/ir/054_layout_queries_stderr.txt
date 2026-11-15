@@ -1,0 +1,19 @@
+tests/ir/054_layout_queries_src.r2:2:2: WARNING: unused field 'a' of struct 'Inner'
+      2 |         a : u8;
+        |         ^
+tests/ir/054_layout_queries_src.r2:7:2: WARNING: unused field 'c' of struct 'Outer'
+      7 |         c : i8;
+        |         ^
+tests/ir/054_layout_queries_src.r2:9:2: WARNING: unused field 'v' of struct 'Outer'
+      9 |         v : u16[3];
+        |         ^
+tests/ir/054_layout_queries_src.r2:13:2: WARNING: unused field 'x' of union 'U'
+     13 |         x : i32;
+        |         ^
+tests/ir/054_layout_queries_src.r2:18:2: WARNING: unused field 'a' of struct 'Pk'
+     18 |         a : u8;
+        |         ^
+tests/ir/054_layout_queries_src.r2:23:2: WARNING: unused field 'lo' of struct 'Bits'
+     23 |         lo : u8 : 3;
+        |         ^~
+0 errors, 6 warnings

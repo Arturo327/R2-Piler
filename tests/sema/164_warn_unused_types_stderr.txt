@@ -1,0 +1,16 @@
+tests/sema/164_warn_unused_types_src.r2:5:8: WARNING: unused struct 'Dead'
+      5 | struct Dead { x : i64; y : i64; }
+        |        ^~~~
+tests/sema/164_warn_unused_types_src.r2:6:7: WARNING: unused union 'DeadUnion'
+      6 | union DeadUnion { i : i64; f : u32; }
+        |       ^~~~~~~~~
+tests/sema/164_warn_unused_types_src.r2:7:6: WARNING: unused enum 'DeadEnum'
+      7 | enum DeadEnum : u8 { One, Two }
+        |      ^~~~~~~~
+tests/sema/164_warn_unused_types_src.r2:8:6: WARNING: unused type 'DeadAlias'
+      8 | type DeadAlias = i64;
+        |      ^~~~~~~~~
+tests/sema/164_warn_unused_types_src.r2:9:9: WARNING: unused newtype 'DeadNew'
+      9 | newtype DeadNew = i64;
+        |         ^~~~~~~
+0 errors, 5 warnings

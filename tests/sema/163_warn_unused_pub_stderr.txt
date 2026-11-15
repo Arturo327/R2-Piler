@@ -1,0 +1,10 @@
+tests/sema/163_warn_unused_pub_src.r2:17:8: WARNING: unused struct 'PrivateStruct'
+     17 | struct PrivateStruct { a : i64; }
+        |        ^~~~~~~~~~~~~
+tests/sema/163_warn_unused_pub_src.r2:15:4: WARNING: unused function 'private_fn'
+     15 | fn private_fn () : void {}
+        |    ^~~~~~~~~~
+tests/sema/163_warn_unused_pub_src.r2:16:5: WARNING: unused variable 'private_var'
+     16 | var private_var : i64 = 3;
+        |     ^~~~~~~~~~~
+0 errors, 3 warnings

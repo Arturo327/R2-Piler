@@ -1,0 +1,4 @@
+tests/asm/132_optional_args_src.r2:1:16: WARNING: unused variant 'A' of enum 'E'
+      1 | enum E : i32 { A = 10, B = 20 }
+        |                ^
+0 errors, 1 warning

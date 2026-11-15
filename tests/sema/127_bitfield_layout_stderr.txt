@@ -1,0 +1,7 @@
+tests/sema/127_bitfield_layout_src.r2:37:2: WARNING: unused field 'hi' of union 'Over'
+     37 |         hi : u16 : 16;
+        |         ^~
+tests/sema/127_bitfield_layout_src.r2:42:10: WARNING: unused field 'small' of struct 'HasUnion'
+     42 |         union { small : u8; pair : u16; };
+        |                 ^~~~~
+0 errors, 2 warnings

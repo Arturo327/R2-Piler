@@ -1,0 +1,7 @@
+tests/asm/130_layout_queries_src.r2:18:2: WARNING: unused field 'a' of struct 'Pk'
+     18 |         a : u8;
+        |         ^
+tests/asm/130_layout_queries_src.r2:34:2: WARNING: unused field 'hi' of struct 'Bits'
+     34 |         hi : u8 : 5;
+        |         ^~
+0 errors, 2 warnings

@@ -22,4 +22,19 @@ tests/sema/129_bitfield_errors_src.r2:18:2: ERROR: bitfield type must be an inte
 tests/sema/129_bitfield_errors_src.r2:23:2: ERROR: duplicate field 'a'
      23 |         a : u5;
         |         ^
-8 errors, 0 warnings
+tests/sema/129_bitfield_errors_src.r2:1:8: WARNING: unused struct 'TooWide'
+      1 | struct TooWide {
+        |        ^~~~~~~
+tests/sema/129_bitfield_errors_src.r2:8:8: WARNING: unused struct 'NotInt'
+      8 | struct NotInt {
+        |        ^~~~~~
+tests/sema/129_bitfield_errors_src.r2:14:2: WARNING: unused field 's' of struct 'Plain'
+     14 |         s : i32;
+        |         ^
+tests/sema/129_bitfield_errors_src.r2:17:8: WARNING: unused struct 'StructType'
+     17 | struct StructType {
+        |        ^~~~~~~~~~
+tests/sema/129_bitfield_errors_src.r2:21:8: WARNING: unused struct 'Dup'
+     21 | struct Dup {
+        |        ^~~
+8 errors, 5 warnings

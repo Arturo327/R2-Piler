@@ -1,0 +1,4 @@
+tests/sema/155_untyped_var_src.r2:2:15: WARNING: unused variant 'A' of enum 'E'
+      2 | enum E : u8 { A = 1, B = 2 }
+        |               ^
+0 errors, 1 warning

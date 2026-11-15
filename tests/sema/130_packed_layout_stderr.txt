@@ -1,0 +1,7 @@
+tests/sema/130_packed_layout_src.r2:8:2: WARNING: unused field 'parts' of union 'Bits'
+      8 |         parts : u8[4];
+        |         ^~~~~
+tests/sema/130_packed_layout_src.r2:9:2: WARNING: unused field 'half' of union 'Bits'
+      9 |         half : u16;
+        |         ^~~~
+0 errors, 2 warnings

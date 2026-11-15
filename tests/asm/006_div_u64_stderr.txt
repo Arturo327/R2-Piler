@@ -1,4 +1,4 @@
 tests/asm/006_div_u64_src.r2:4:24: WARNING: redundant cast to 'u64'; the value already has that type
       4 |         var c : u64 = (a / b) as u64;
         |                               ^~
-0 errors, 1 warnings
+0 errors, 1 warning

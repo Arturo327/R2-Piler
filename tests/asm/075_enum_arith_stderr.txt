@@ -1,0 +1,7 @@
+tests/asm/075_enum_arith_src.r2:2:5: WARNING: unused variant 'None' of enum 'Flags'
+      2 |     None = 0,
+        |     ^~~~
+tests/asm/075_enum_arith_src.r2:11:5: WARNING: unused variant 'Zero' of enum 'Small'
+     11 |     Zero = 0,
+        |     ^~~~
+0 errors, 2 warnings

@@ -1,0 +1,13 @@
+tests/sema/162_warn_unused_members_src.r2:8:2: WARNING: unused field 'dead' of struct 'S'
+      8 |         dead : i64;
+        |         ^~~~
+tests/sema/162_warn_unused_members_src.r2:13:20: WARNING: unused field 'y' of struct 'Nested'
+     13 |         struct { x : i64; y : i64; };
+        |                           ^
+tests/sema/162_warn_unused_members_src.r2:18:2: WARNING: unused field 'small' of union 'U'
+     18 |         small : u32;
+        |         ^~~~~
+tests/sema/162_warn_unused_members_src.r2:21:21: WARNING: unused variant 'Dead' of enum 'E'
+     21 | enum E : u8 { Used, Dead }
+        |                     ^~~~
+0 errors, 4 warnings

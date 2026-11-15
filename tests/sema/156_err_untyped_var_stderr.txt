@@ -31,7 +31,10 @@ tests/sema/156_err_untyped_var_src.r2:11:6: WARNING: unused variable 'd'
 tests/sema/156_err_untyped_var_src.r2:12:6: WARNING: unused variable 'q'
      12 |         arr q = {1, 2};
         |             ^
+tests/sema/156_err_untyped_var_src.r2:1:8: WARNING: unused struct 'P'
+      1 | struct P { a : i64; }
+        |        ^
 tests/sema/156_err_untyped_var_src.r2:3:5: WARNING: unused variable 'g'
       3 | var g = 5;
         |     ^
-6 errors, 6 warnings
+6 errors, 7 warnings

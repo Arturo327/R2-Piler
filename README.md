@@ -13,9 +13,9 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **384 dump fixtures** pass (`make test`): 50 lexer, 84 parser, 154 sema,
-  59 IR and 37 optimizer tests.
-- **146 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+- **399 dump fixtures** pass (`make test`): 51 lexer, 87 parser, 161 sema,
+  61 IR and 39 optimizer tests, plus 6 mangling/visibility checks.
+- **151 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
@@ -42,15 +42,31 @@ tested:
   body or initializer, calls are type-checked like normal functions, and the
   emitted symbol keeps its plain C name (`call puts`, `optind(%rip)`) with
   `gcc` resolving it at link time. `%al` is zeroed before every extern call
-  (SysV variadic ABI).
+  (SysV variadic ABI). The reverse direction is `export fn` / `export var` /
+  `export arr`: a plain `.globl` C symbol for R2 definitions (no mangling),
+  restricted to C-representable signatures (no structs by value, slices,
+  arrays/slices in returns or multi-return). A C host calls `__r2_init_<mod>`
+  once per module that has runtime global initializers, but the symbol only
+  exists when that function is non-empty (a module whose globals are all
+  constant, the usual `-O2` case, emits none).
+- Top-level symbols are file-private by default and mangled
+  (`_r2_f_<mod>_<len><name>`, `.local` in assembly); `pub` makes them public
+  (`_r2_pf_...` / `_r2_pv_...`, `.globl`) and `fn main` must be
+  `pub fn main() : i64`. The module name is derived from the canonical source
+  directory plus the file name as written (so a file symlink keeps its own
+  name), relative to the deepest common ancestor of the current directory and
+  the file (basename if only `/` is shared): `src/math.r2` → `3src4math`,
+  with unsafe path bytes escaped as `$xx`. The generated-symbol prefixes
+  `__r2_` and `_r2_` are reserved for top-level names.
 - Multidimensional arrays and slices of any rank are supported
   (`arr m : i32[R][C]`, `i32[][]` slice parameters), and structs/unions
   with C-like layout, designated `{.field = ...}` exhaustive initializers,
   field access `.` (auto-deref on `ptr struct`), by-value copies, by-value
   arguments and `sret` returns, arrays of structs, globals/`static` structs
-  (initialized at runtime in `__r2_init`) and `sizeof`.
-- Not implemented yet: modules/imports, classes, `pub`, `export`, floating
-  point, heap arrays and `defer`.
+  (constant initializers become a `.data` image at any level; pointer/slice/
+  bitfield initializers are written from `__r2_init`) and `sizeof`.
+- Not implemented yet: modules/imports, classes, floating point, heap arrays
+  and `defer`.
 
 ---
 
@@ -75,6 +91,9 @@ tested:
   per dimension (`for (var i : i64, j : i64 : mat)`), desugared by the parser
   into ordinary `for`s bounded by `a.len`, `a[i].len`, ...
 - String literals, typed as `string` and usable wherever `ptr i8` is expected.
+- Top-level visibility: private by default, `pub` for public symbols (`.globl`,
+  `_r2_pf_...`/`_r2_pv_...`) and `export` for plain C-linkable definitions;
+  module names come from the canonical source path with `$xx`-escaped bytes.
 - Top-level globals with well-defined initialization order; cyclic initializers
   are diagnosed.
 - Short-circuit `&&` and `||`, and the ternary `cond ? a : b` (lowered to
@@ -114,7 +133,7 @@ target; `-` for stdout). Assemble with gcc and run it.
 A minimal program:
 
 ```r2
-fn main () : i64
+pub fn main () : i64
 {
 	return 42;
 }

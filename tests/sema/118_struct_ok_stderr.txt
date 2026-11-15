@@ -1,0 +1,7 @@
+tests/sema/118_struct_ok_src.r2:12:8: WARNING: unused struct 'Cpu'
+     12 | struct Cpu {
+        |        ^~~
+tests/sema/118_struct_ok_src.r2:23:7: WARNING: unused union 'Value'
+     23 | union Value {
+        |       ^~~~~
+0 errors, 2 warnings

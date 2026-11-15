@@ -19,10 +19,19 @@ tests/sema/061_enum_err_decl_src.r2:17:6: ERROR: enum 'Empty' must have at least
 tests/sema/061_enum_err_decl_src.r2:25:10: ERROR: enums can only be declared at the top level
      25 |     enum Nested {
         |          ^~~~~~
+tests/sema/061_enum_err_decl_src.r2:2:5: WARNING: unused variant 'Lunes' of enum 'Dias'
+      2 |     Lunes,
+        |     ^~~~~
+tests/sema/061_enum_err_decl_src.r2:17:6: WARNING: unused enum 'Empty'
+     17 | enum Empty {
+        |      ^~~~~
+tests/sema/061_enum_err_decl_src.r2:31:6: WARNING: unused enum 'WithVar'
+     31 | enum WithVar {
+        |      ^~~~~~~
 tests/sema/061_enum_err_decl_src.r2:24:4: WARNING: unused function 'f'
      24 | fn f () : i64 {
         |    ^
 tests/sema/061_enum_err_decl_src.r2:35:5: WARNING: unused variable 'WithVar'
      35 | var WithVar : i64 = 1;
         |     ^~~~~~~
-7 errors, 2 warnings
+7 errors, 5 warnings

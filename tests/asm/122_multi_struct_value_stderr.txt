@@ -1,0 +1,4 @@
+tests/asm/122_multi_struct_value_src.r2:2:19: WARNING: unused field 'z' of struct 'Q'
+      2 | struct Q { p : P; z : i64; }
+        |                   ^
+0 errors, 1 warning
