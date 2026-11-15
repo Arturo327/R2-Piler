@@ -1,7 +1,7 @@
 #include "ir/ir.h"
 #include "ir/internal.h"
+#include "mangle/mangle.h"
 
-#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -108,9 +108,10 @@ static TypeId result_type (uint8_t op, TypeId type)
 	return type;
 }
 
-void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select)
+void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select, const char *mod)
 {
 	ir->arena = arena;
+	ir->mod = mod ? mod : "";
 	ir->ast = sema->ast;
 	ir->symtab = &sema->table;
 	ir->init_order = sema->init_order;
@@ -241,20 +242,32 @@ static uint32_t param_slots (IR *ir, ASTNode *n)
 	return count;
 }
 
+static char *decl_symbol (IR *ir, ASTNode *n, int is_extern,
+		const char *pub_kind, const char *priv_kind)
+{
+	MangleName m = { .mod = ir->mod, .a = n->str, .alen = n->len };
+
+	if (is_extern) return mangle_plain(ir->arena, n->str, n->len);
+	m.kind = (n->flags & NODE_FLAG_PUB) ? pub_kind : priv_kind;
+	return mangle_symbol(ir->arena, &m);
+}
+
 static uint32_t declare_fn (IR *ir, ASTNode *n, Symbol *sym)
 {
 	IRFn fn = {0};
 	uint32_t ret = ir->ast->nodes[n->child].next_bro;
-
 	fn.name = n->str;
 	fn.len = n->len;
+
 	if (fn_uses_sret(ir, ret)) fn.ret_type = TYPE_VOID;
 	else if (type_kind(sym->type) == TK_ARRAY)
 		fn.ret_type = type_ptr_to(type_flat_element(sym->type));
 	else if (struct_eightbytes(sym->type)) fn.ret_type = TYPE_u64;
 	else fn.ret_type = sym->type;
+
 	fn.param_count = param_slots(ir, n);
 	fn.is_extern = n->type == NODE_EXTERN_FN_DEC;
+	fn.sym = decl_symbol(ir, n, fn.is_extern, "pf", "f");
 	return push_fn(ir, fn);
 }
 
@@ -265,21 +278,44 @@ static uint32_t declare_global (IR *ir, ASTNode *n, Symbol *sym)
 	global.len = n->len;
 	global.type = sym->type;
 	global.is_extern = n->type == NODE_EXTERN_VAR_DEC;
+	global.sym = decl_symbol(ir, n, global.is_extern, "pv", "v");
 	return push_global(ir, global);
+}
+
+static uint32_t static_dups (IR *ir, uint32_t k)
+{
+	ASTNode *n = ir->ast->nodes + ir->statics[k];
+	uint32_t owner = ir->symtab->symbols[n->sym].owner;
+	uint32_t dups = 0;
+
+	for (uint32_t i = 0; i < k; i++) {
+		ASTNode *o = ir->ast->nodes + ir->statics[i];
+
+		if (ir->symtab->symbols[o->sym].owner != owner) continue;
+		if (o->len == n->len && !memcmp(o->str, n->str, n->len)) dups++;
+	}
+	return dups;
 }
 
 static uint32_t declare_static (IR *ir, uint32_t node_idx, uint32_t k)
 {
 	ASTNode *n = ir->ast->nodes + node_idx;
 	Symbol *sym = ir->symtab->symbols + n->sym;
+	Symbol *owner = ir->symtab->symbols + sym->owner;
+
 	size_t cap = (size_t)n->len + 24;
 	char *name = arena_alloc(ir->arena, cap);
 	int len = snprintf(name, cap, "sv.%u.%.*s", k, (int)n->len, n->str);
+
+	MangleName m = { .kind = "sv", .mod = ir->mod, .a = owner->name,
+			.alen = owner->len, .b = n->str, .blen = n->len,
+			.dup = static_dups(ir, k) };
 	IRGlobal global = {0};
 
 	global.name = name;
 	global.len = (uint16_t)len;
 	global.type = sym->type;
+	global.sym = mangle_symbol(ir->arena, &m);
 	return push_global(ir, global);
 }
 
@@ -580,8 +616,7 @@ uint32_t make_rethi (IR *ir)
 	return i.dst;
 }
 
-void make_select (IR *ir, uint32_t dst, uint32_t a,
-		uint32_t b, uint32_t c, TypeId type)
+void make_select (IR *ir, uint32_t dst, uint32_t a, uint32_t b, uint32_t c, TypeId type)
 {
 	IRInstr i = blank_instr;
 

@@ -1,7 +1,7 @@
 #include "ir/ir.h"
 #include "ir/internal.h"
+#include "mangle/mangle.h"
 
-#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -597,8 +597,10 @@ void ir_gen (IR *ir)
 {
 	IRFn init_fn = {
 		.name = INIT_FN_NAME,
+		.sym = mangle_init(ir->arena, ir->mod),
 		.len = sizeof(INIT_FN_NAME) - 1,
-		.ret_type = TYPE_VOID
+		.ret_type = TYPE_VOID,
+		.is_pub = 1
 	};
 
 	ir->init_fn = push_fn(ir, init_fn);

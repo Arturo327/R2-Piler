@@ -9,6 +9,7 @@
 #include "codegen/codegen.h"
 #include "ir/ir.h"
 #include "ir/opt.h"
+#include "mangle/mangle.h"
 
 typedef struct CompilerOpts {
 	char *path;
@@ -40,6 +41,7 @@ typedef struct Compiler {
 	CodeGen codegen;
 
 	char *src;
+	const char *mod;
 } Compiler;
 
 void compiler_init (Compiler *comp);

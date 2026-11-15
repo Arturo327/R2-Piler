@@ -45,6 +45,7 @@ typedef struct IRInstr {
 
 typedef struct IRFn {
 	char *name;
+	char *sym;
 	TypeId *reg_types;
 	uint8_t *addressed;
 
@@ -59,6 +60,7 @@ typedef struct IRFn {
 	uint16_t len;
 	TypeId ret_type;
 	uint8_t is_extern;
+	uint8_t is_pub;
 	uint8_t no_tail;
 } IRFn;
 
@@ -71,6 +73,7 @@ enum {
 
 typedef struct IRGlobal {
 	char *name;
+	char *sym;
 	int64_t init;
 	uint16_t len;
 	TypeId type;
@@ -78,6 +81,7 @@ typedef struct IRGlobal {
 	uint8_t written;
 	uint8_t init_kind;
 	uint8_t is_extern;
+	uint8_t is_pub;
 	uint32_t init_ref;
 	uint8_t *image;
 } IRGlobal;
@@ -154,6 +158,7 @@ typedef struct IR {
 	uint32_t temp_cap;
 
 	Arena *arena;
+	const char *mod;
 	AST *ast;
 	SymbolTable *symtab;
 } IR;
@@ -183,7 +188,7 @@ static inline int same_rep (IRFn *fn, uint32_t a, uint32_t b)
 
 extern const uint8_t is_deletable[IR_COUNT];
 
-void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select);
+void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select, const char *mod);
 void ir_gen (IR *ir);
 void dump_ir (IR *ir);
 

@@ -129,6 +129,7 @@ static void check_static_decl (Sema *s, uint32_t idx)
 
 	s->table.symbols[sym].is_static = 1;
 	s->table.symbols[sym].assigned = 1;
+	s->table.symbols[sym].owner = s->curr_fn;
 	if (has_init) record_init_order(s, idx);
 	record_static(s, idx);
 }
@@ -1038,7 +1039,11 @@ static void check_statement (Sema *s, uint32_t idx)
 
 	switch (n->type)
 	{
-	case NODE_VAR_DEC: case NODE_ARR_DEC: check_var_dec(s, idx); return;
+	case NODE_VAR_DEC: case NODE_ARR_DEC:
+		if (n->flags & NODE_FLAG_PUB)
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"'pub' is only valid on top-level declarations");
+		check_var_dec(s, idx); return;
 	case NODE_BLOCK: check_block(s, idx); return;
 	case NODE_RET: check_return(s, idx); return;
 	case NODE_BREAK: case NODE_CONTINUE: check_loop_jump(s, idx); return;

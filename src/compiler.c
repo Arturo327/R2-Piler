@@ -124,9 +124,11 @@ int compile (Compiler *c, CompilerOpts *opts)
 			|| opts->dump_symbols || opts->dump_ir || opts->dump_opt;
 
 	if (compiler_load_file(c, opts->path)) return 1;
+	if (!dumping && mangle_module(&c->arena, opts->path, &c->mod)) return 1;
 	if (!dumping && init_codegen(&c->codegen, opts->arch, &c->gen_arena,
 			&c->ir, opts->out, opts->opt_level))
 		return 1;
+
 	if (opts->dump_tokens)
 		return dump_tokens(&c->lexer) ? 1 : 0;
 
@@ -156,7 +158,7 @@ int compile (Compiler *c, CompilerOpts *opts)
 		return 1;
 	}
 
-	ir_init(&c->ir, &c->ir_arena, &c->sema, opts->opt_level == OPT_FULL && !opts->dump_ir);
+	ir_init(&c->ir, &c->ir_arena, &c->sema, opts->opt_level == OPT_FULL && !opts->dump_ir, c->mod);
 	ir_gen(&c->ir);
 	if (opts->dump_ir) {
 		dump_ir(&c->ir);
