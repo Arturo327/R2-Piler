@@ -1,0 +1,16 @@
+tests/sema/168_err_variadic_src.r2:5:4: ERROR: variadic parameters ('...') are only allowed in extern functions
+      5 | fn bad (a : i64, ...) : i64 { return a; }
+        |    ^~~
+tests/sema/168_err_variadic_src.r2:8:9: ERROR: argument type i64 does not match parameter type ptr i8; use an explicit cast with 'as'
+      8 |         printf(1);
+        |                ^
+tests/sema/168_err_variadic_src.r2:9:9: ERROR: a variadic call cannot use named arguments
+      9 |         printf(fmt = "x", 2);
+        |                ^~~
+tests/sema/168_err_variadic_src.r2:9:20: ERROR: argument type i64 does not match parameter type ptr i8; use an explicit cast with 'as'
+      9 |         printf(fmt = "x", 2);
+        |                           ^
+tests/sema/168_err_variadic_src.r2:5:4: WARNING: unused function 'bad'
+      5 | fn bad (a : i64, ...) : i64 { return a; }
+        |    ^~~
+4 errors, 1 warning

@@ -111,7 +111,7 @@ uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest)
 	TypeId rtype = ir->ast->nodes[ret].data_type;
 	int sret = fn_uses_sret(ir, ret);
 	uint32_t argc = count_bros(ir, n->child);
-	uint32_t regs[ir->fns[fn->ir_id].param_count + 1];
+	uint32_t regs[ir->fns[fn->ir_id].param_count + argc + 1];
 	uint32_t params = ir->ast->nodes[fn->decl].child;
 	uint32_t param = ir->ast->nodes[params].child;
 	uint32_t arg = n->child;

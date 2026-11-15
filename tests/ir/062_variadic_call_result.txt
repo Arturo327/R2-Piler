@@ -1,0 +1,28 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+extern fn printf(1 params, 0 regs) : i32
+
+fn main(0 params, 11 regs) : i64
+    r0 = str_lit.string .LC0
+    r1 = const.untyped int 1
+    r2 = const.untyped int 2
+    r3 = const.untyped int 3
+    r4 = const.untyped int 4
+    r5 = const.untyped int 5
+    r6 = const.untyped int 6
+    r7 = const.untyped int 7
+    arg r0 #0
+    arg r1 #1
+    arg r2 #2
+    arg r3 #3
+    arg r4 #4
+    arg r5 #5
+    arg r6 #6
+    arg r7 #7
+    r8 = call.i32 printf
+    r9 = move.i32 r8
+    r10 = extend.i64 r9
+    ret.i64 r10
+    ret
+

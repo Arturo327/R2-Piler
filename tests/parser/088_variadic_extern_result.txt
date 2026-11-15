@@ -1,0 +1,14 @@
+NODE_ROOT [0:0]
+  NODE_EXTERN_FN_DEC [2:11] name="printf"
+    NODE_ARGS_DEC [2:18] variadic
+      NODE_VAR_DEC [2:19] name="fmt" type=ptr i8
+    NODE_RET_DEC [2:38] type=i32
+  NODE_EXTERN_FN_DEC [3:11] name="trace"
+    NODE_ARGS_DEC [3:17] variadic
+    NODE_RET_DEC [3:22] type=void
+  NODE_EXTERN_FN_DEC [4:11] name="memset"
+    NODE_ARGS_DEC [4:18]
+      NODE_VAR_DEC [4:19] name="s" type=ptr void
+      NODE_VAR_DEC [4:33] name="c" type=i32
+      NODE_VAR_DEC [4:42] name="n" type=u64
+    NODE_RET_DEC [4:51] type=ptr void

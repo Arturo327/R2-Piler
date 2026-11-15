@@ -731,16 +731,71 @@ static void link_call_args (Sema *s, uint32_t call_idx, uint32_t *arg_at, uint32
 	if (prev == NO_NODE) s->ast->nodes[call_idx].child = NO_NODE;
 }
 
+static int collect_variadic_args (Sema *s, uint32_t call_idx, uint32_t params_node,
+		uint32_t *arg_at, uint32_t count, uint32_t *extra)
+{
+	uint32_t arg = s->ast->nodes[call_idx].child;
+	uint32_t last = NO_NODE;
+	uint32_t pos = 0;
+	int bad = 0;
+
+	*extra = NO_NODE;
+	while (arg != NO_NODE) {
+		uint32_t next = s->ast->nodes[arg].next_bro;
+		int named = s->ast->nodes[arg].type == NODE_NAMED_ARG;
+		uint32_t expr = named ? s->ast->nodes[arg].child : arg;
+		uint32_t param = named || pos >= count
+				? NO_NODE : param_at(s, params_node, pos);
+
+		if (named) {
+			bad = 1;
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + arg),
+					"a variadic call cannot use named arguments");
+		}
+		uint32_t val = check_arg_value(s, expr, param);
+		arg = next;
+		if (param != NO_NODE) { arg_at[pos++] = val; continue; }
+		s->ast->nodes[val].next_bro = NO_NODE;
+		if (last == NO_NODE) *extra = val;
+		else s->ast->nodes[last].next_bro = val;
+		last = val;
+	}
+	return bad;
+}
+
+static void link_variadic_args (Sema *s, uint32_t call_idx, uint32_t *arg_at,
+		uint32_t count, uint32_t extra)
+{
+	link_call_args(s, call_idx, arg_at, count);
+	if (extra == NO_NODE) return;
+
+	if (s->ast->nodes[call_idx].child == NO_NODE) {
+		s->ast->nodes[call_idx].child = extra;
+		return;
+	}
+	uint32_t prev = s->ast->nodes[call_idx].child;
+
+	while (s->ast->nodes[prev].next_bro != NO_NODE)
+		prev = s->ast->nodes[prev].next_bro;
+	s->ast->nodes[prev].next_bro = extra;
+}
+
 static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 {
 	uint32_t params_node = s->ast->nodes[fn_idx].child;
 	uint32_t count = count_params(s, params_node);
 	uint32_t arg_at[count + 1];
+	uint32_t extra = NO_NODE;
+	int variadic = (s->ast->nodes[params_node].flags & NODE_FLAG_VARARG) != 0;
 
 	for (uint32_t i = 0; i <= count; i++) arg_at[i] = NO_NODE;
-	int bad = collect_call_args(s, call_idx, fn_idx, arg_at, count);
+
+	int bad;
+	if (variadic) bad = collect_variadic_args(s, call_idx, params_node, arg_at, count, &extra);
+	else bad = collect_call_args(s, call_idx, fn_idx, arg_at, count);
 	if (fill_call_defaults(s, fn_idx, arg_at, count)) bad |= 4;
-	link_call_args(s, call_idx, arg_at, count);
+	if (variadic) link_variadic_args(s, call_idx, arg_at, count, extra);
+	else link_call_args(s, call_idx, arg_at, count);
 
 	if ((bad & 6) && !(bad & 1))
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + call_idx),

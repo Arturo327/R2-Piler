@@ -1,0 +1,4 @@
+fn printf [3:11] depth=0 type=i32
+fn bad [5:4] depth=0 type=i64
+fn main [7:8] depth=0 type=i64
+param a [5:9] depth=1 type=i64

@@ -35,6 +35,7 @@ static uint32_t parse_args_dec (Parser *p)
 	uint16_t col = p->curr.col;
 	uint32_t args = new_node(p, NODE_ARGS_DEC, line, col);
 	uint32_t last = NO_NODE;
+	int variadic = 0;
 
 	consume(p, TOK_LPAREN, "expected '(' after function name");
 
@@ -44,7 +45,13 @@ static uint32_t parse_args_dec (Parser *p)
 
 		if (p->curr.type != TOK_COMMA) break;
 		advance(p);
+		if (p->curr.type == TOK_ELLIPSIS) { variadic = 1; advance(p); break; }
 	}
+	if (last == NO_NODE && p->curr.type == TOK_ELLIPSIS) {
+		variadic = 1;
+		advance(p);
+	}
+	if (variadic) p->ast.nodes[args].flags |= NODE_FLAG_VARARG;
 
 	consume(p, TOK_RPAREN, "expected ')' after parameters");
 	return args;

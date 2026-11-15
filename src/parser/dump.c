@@ -144,6 +144,9 @@ static void dump_node_value (ASTNode *n)
 	case NODE_DOT: case NODE_FIELD_INIT: case NODE_NAMED_ARG:
 		printf(" field=\"%.*s\"", (int)n->len, n->str);
 		break;
+	case NODE_ARGS_DEC:
+		if (n->flags & NODE_FLAG_VARARG) printf(" variadic");
+		break;
 	case NODE_CAST:
 		if (n->flags & NODE_FLAG_LITERAL) printf(" literal");
 		break;

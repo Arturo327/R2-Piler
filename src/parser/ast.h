@@ -18,6 +18,7 @@
 #define NODE_FLAG_PAREN 1
 #define NODE_FLAG_EXPORT 64
 #define NODE_FLAG_PUB 128
+#define NODE_FLAG_VARARG 1
 
 typedef enum {
 	NODE_ERROR = 0, NODE_EMPTY,

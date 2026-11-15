@@ -293,6 +293,9 @@ static void check_signature_types (Sema *s, uint32_t idx, int is_extern)
 		check_ret_type(s, item, is_extern, 1);
 		item = s->ast->nodes[item].next_bro;
 	}
+	if (!is_extern && (s->ast->nodes[args].flags & NODE_FLAG_VARARG))
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"variadic parameters ('...') are only allowed in extern functions");
 
 	uint32_t p = s->ast->nodes[args].child;
 	while (p != NO_NODE) {

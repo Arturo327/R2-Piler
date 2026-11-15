@@ -494,7 +494,8 @@ typedef struct TwoCharOp {
 
 static const ThreeCharOp three_char_ops[] = {
 	{'<', '<', '=', TOK_LS_ASSIGN},
-	{'>', '>', '=', TOK_RS_ASSIGN}
+	{'>', '>', '=', TOK_RS_ASSIGN},
+	{'.', '.', '.', TOK_ELLIPSIS}
 };
 
 static const TwoCharOp two_char_ops[] = {
@@ -593,7 +594,7 @@ static const char *const token_names[TOK_COUNT] = {
 	TN(TOK_NONE), TN(TOK_INVALID), TN(TOK_EOF), TN(TOK_VAR), TN(TOK_ARR), TN(TOK_ID),
 	TN(TOK_FN), TN(TOK_ENUM), TN(TOK_TYPE), TN(TOK_NEWTYPE), TN(TOK_EXTERN), TN(TOK_EXPORT),
 	TN(TOK_SEMCOL), TN(TOK_COMMA), TN(TOK_COL),
-	TN(TOK_DOT), TN(TOK_QUESTION), TN(TOK_LPAREN), TN(TOK_RPAREN),
+	TN(TOK_DOT), TN(TOK_QUESTION), TN(TOK_ELLIPSIS), TN(TOK_LPAREN), TN(TOK_RPAREN),
 	TN(TOK_LKEY), TN(TOK_RKEY), TN(TOK_STATIC),
 	TN(TOK_LBRACE), TN(TOK_RBRACE), TN(TOK_STRUCT), TN(TOK_UNION),
 	TN(TOK_LIT_i64), TN(TOK_LIT_u64), TN(TOK_LIT_CHAR), TN(TOK_LIT_STR),
