@@ -62,6 +62,9 @@ static int operand_named_info (Sema *s, ASTNode *n, OperandInfo *info, const cha
 		return 0;
 
 	sym->read = 1;
+	if (sym->type != TYPE_ERROR
+			&& (sym->kind == SYMBOL_TYPE || sym->kind == SYMBOL_ENUM))
+		types[sym->type].used = 1;
 	info->type = sym->type;
 	if (sym->by_ref && type_kind(info->type) == TK_PTR)
 		info->type = types[info->type].base;
@@ -150,6 +153,7 @@ static int operand_index_info (Sema *s, ASTNode *n, OperandInfo *info, const cha
 						"operand of %s must be a constant size", op);
 				return 0;
 			}
+			if (base != TYPE_ERROR) types[base].used = 1;
 			info_from_type(info, type_array_of(base, (uint32_t)dim));
 			return 1;
 		}

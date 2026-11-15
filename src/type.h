@@ -48,18 +48,22 @@ typedef enum {
 typedef struct EnumVariant {
 	const char *name;
 	uint64_t value;
+	uint32_t decl;
 	uint16_t len;
+	uint8_t used;
 } EnumVariant;
 
 typedef struct StructField {
 	const char *name;
 	uint32_t offset;
+	uint32_t decl;
 	TypeId type;
 	uint16_t len;
 	uint16_t grp;
 	uint16_t alt;
 	uint8_t bits;
 	uint8_t bit_off;
+	uint8_t used;
 } StructField;
 
 typedef struct TypeDesc {
@@ -70,6 +74,8 @@ typedef struct TypeDesc {
 	uint8_t sign;
 	uint8_t kind;
 	uint8_t builtin;
+	uint8_t used;
+	uint8_t exposed;
 
 	TypeId base;
 	uint16_t variant_count;

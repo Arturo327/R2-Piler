@@ -362,6 +362,67 @@ static void warn_self_compare (Sema *s, uint32_t idx, uint32_t left, uint32_t ri
 			" did you mean to compare two different values?", result);
 }
 
+static void warn_shift_count (Sema *s, uint32_t idx, TypeId type, uint32_t count)
+{
+	TypeKind kind = type_kind(type);
+	TypeId count_type = s->ast->nodes[count].data_type;
+
+	if (kind != TK_INT && kind != TK_ENUM && kind != TK_UNTYPED_INT) return;
+	uint64_t bits;
+	if (!lit_node_bits(s, s->ast->nodes + count, &bits)) return;
+
+	if (types[count_type].sign && (int64_t)bits < 0) {
+		error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + count),
+				"negative shift count");
+		return;
+	}
+	uint32_t width = types[type].size * 8u;
+	if (bits < width) return;
+	if (kind == TK_UNTYPED_INT)
+		error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + idx),
+				"shift count %llu is out of range for a %u-bit value",
+				(unsigned long long)bits, width);
+	else error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + idx),
+			"shift count %llu is out of range for type %s (%u bits)",
+			(unsigned long long)bits, types[type].name, width);
+}
+
+static int zero_literal (Sema *s, uint32_t idx)
+{
+	uint64_t bits;
+
+	return lit_node_bits(s, s->ast->nodes + idx, &bits) && bits == 0;
+}
+
+static void warn_unsigned_zero (Sema *s, uint32_t idx, uint32_t left, uint32_t right, TypeId type)
+{
+	uint8_t op = s->ast->nodes[idx].type;
+	TypeKind kind = type_kind(type);
+
+	if (kind != TK_INT && kind != TK_ENUM && kind != TK_NEWTYPE) return;
+	if (types[type].sign) return;
+	if (op != NODE_LT && op != NODE_LE && op != NODE_GT && op != NODE_GE) return;
+
+	int zero_left = zero_literal(s, left);
+	int zero_right = zero_literal(s, right);
+	if (zero_left == zero_right) return;
+
+	int always_true;
+	if (zero_right) {
+		if (op == NODE_GE) always_true = 1;
+		else if (op == NODE_LT) always_true = 0;
+		else return;
+	} else {
+		if (op == NODE_LE) always_true = 1;
+		else if (op == NODE_GT) always_true = 0;
+		else return;
+	}
+
+	error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + idx),
+			"comparison of an unsigned value with 0 is always %s",
+			always_true ? "true" : "false");
+}
+
 TypeId check_binary (Sema *s, uint32_t idx)
 {
 	uint8_t op_type = s->ast->nodes[idx].type;
@@ -405,6 +466,7 @@ TypeId check_binary (Sema *s, uint32_t idx)
 		finalize_type(s, right, r);
 		if (!is_literal_node(s, right))
 			l = finalize_type(s, left, l);
+		warn_shift_count(s, idx, l, right);
 	}
 
 	if (l != r && needs_common_type(op_type)
@@ -412,6 +474,7 @@ TypeId check_binary (Sema *s, uint32_t idx)
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+	if (l == r) warn_unsigned_zero(s, idx, left, right, l);
 
 	s->ast->nodes[idx].child = left;
 	s->ast->nodes[left].next_bro = right;

@@ -135,6 +135,8 @@ TypeId add_type (const char *name, uint16_t len, TypeKind kind, TypeId base)
 	t->sign = types[base].sign;
 	t->kind = (uint8_t)kind;
 	t->builtin = 0;
+	t->used = 0;
+	t->exposed = 0;
 	t->base = base;
 	t->variant_count = 0;
 	t->variants = NULL;
@@ -380,8 +382,10 @@ TypeId find_type (const char *name, uint16_t len)
 	if (*slot) {
 		const Type *t = types + *slot;
 
-		if (t->len == len && memcmp(t->name, name, len) == 0)
+		if (t->len == len && memcmp(t->name, name, len) == 0) {
+			types[*slot].used = 1;
 			return *slot;
+		}
 	}
 	return TYPE_ERROR;
 }
@@ -394,7 +398,9 @@ int bind_enum_type (TypeId id, const EnumVariant *vars, uint16_t count)
 	for (uint16_t i = 0; i < count; i++) {
 		copy[i].name = copy_name(vars[i].name, vars[i].len);
 		copy[i].value = vars[i].value;
+		copy[i].decl = vars[i].decl;
 		copy[i].len = vars[i].len;
+		copy[i].used = vars[i].used;
 	}
 
 	types[id].variants = copy;
@@ -408,7 +414,10 @@ EnumVariant *find_variant (TypeId id, const char *name, uint16_t len)
 
 	for (uint16_t i = 0; i < types[id].variant_count; i++) {
 		EnumVariant *v = types[id].variants + i;
-		if (v->len == len && memcmp(v->name, name, len) == 0) return v;
+		if (v->len != len || memcmp(v->name, name, len) != 0) continue;
+		v->used = 1;
+		types[id].used = 1;
+		return v;
 	}
 	return NULL;
 }
@@ -436,7 +445,10 @@ StructField *find_field (TypeId id, const char *name, uint16_t len)
 
 	for (uint16_t i = 0; i < types[id].field_count; i++) {
 		StructField *f = types[id].fields + i;
-		if (f->len == len && memcmp(f->name, name, len) == 0) return f;
+		if (f->len != len || memcmp(f->name, name, len) != 0) continue;
+		f->used = 1;
+		types[id].used = 1;
+		return f;
 	}
 	return NULL;
 }

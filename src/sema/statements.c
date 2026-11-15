@@ -52,6 +52,7 @@ static void warn_unused (Sema *s, uint32_t idx, Symbol *sym)
 		warn_dead_writes(s, idx, sym);
 		return;
 	}
+	if (sym->name[0] == '_') return;
 
 	ErrorLoc loc = { .line = sym->line, .col = sym->col, .len = sym->len };
 

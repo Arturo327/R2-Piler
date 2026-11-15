@@ -193,6 +193,8 @@ static void add_field (StructLayout *l, uint32_t idx, TypeId type, uint64_t off,
 	}
 	f->name = m->str;
 	f->len = m->len;
+	f->decl = idx;
+	f->used = 0;
 	f->type = type;
 	f->offset = (uint32_t)off;
 	f->grp = l->grp;

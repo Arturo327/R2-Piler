@@ -820,6 +820,8 @@ static void bind_enum (Sema *s, uint32_t idx)
 
 		vars[count].name = v->str;
 		vars[count].len = v->len;
+		vars[count].decl = var;
+		vars[count].used = 0;
 		vars[count].value = ok ? value : 0;
 		prev = vars[count].value;
 		count++;
@@ -907,13 +909,134 @@ static int is_extern_decl (Sema *s, Symbol *sym)
 			&& (n->type == NODE_EXTERN_FN_DEC || n->type == NODE_EXTERN_VAR_DEC);
 }
 
+static void mark_exposed_type (TypeId type);
+
+static void mark_exposed_struct (TypeId id)
+{
+	Type *t = types + id;
+
+	if (t->exposed || t->layout != 2) return;
+	t->exposed = 1;
+	for (uint16_t i = 0; i < t->field_count; i++)
+		mark_exposed_type(t->fields[i].type);
+}
+
+static void mark_exposed_type (TypeId type)
+{
+	for (int i = 0; i < TYPE_MAX; i++) {
+		TypeKind kind = type_kind(type);
+
+		if (kind != TK_PTR && kind != TK_ARRAY && kind != TK_SLICE
+				&& kind != TK_ALIAS)
+			break;
+		type = types[type].base;
+	}
+	if (type_kind(type) == TK_STRUCT) mark_exposed_struct(type);
+}
+
+static void mark_exposed_sig (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	uint32_t args = n->child;
+	uint32_t ret = s->ast->nodes[args].next_bro;
+	uint32_t p = s->ast->nodes[args].child;
+
+	while (p != NO_NODE) {
+		mark_exposed_type(s->ast->nodes[p].data_type);
+		p = s->ast->nodes[p].next_bro;
+	}
+	mark_exposed_type(s->ast->nodes[ret].data_type);
+	for (uint32_t item = s->ast->nodes[ret].child; item != NO_NODE;
+			item = s->ast->nodes[item].next_bro)
+		mark_exposed_type(s->ast->nodes[item].data_type);
+}
+
+static void mark_exposed_decls (Sema *s)
+{
+	uint32_t idx = s->ast->nodes[0].child;
+
+	while (idx != NO_NODE) {
+		ASTNode *n = s->ast->nodes + idx;
+		int exported = (n->flags & NODE_FLAG_EXPORT) != 0;
+
+		if (n->type == NODE_EXTERN_FN_DEC || (n->type == NODE_FN_DEC && exported))
+			mark_exposed_sig(s, idx);
+		else if (n->type == NODE_EXTERN_VAR_DEC
+				|| ((n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC) && exported))
+			mark_exposed_type(n->data_type);
+		idx = n->next_bro;
+	}
+}
+
+static const char *type_decl_kind (ASTNode *n)
+{
+	switch (n->type)
+	{
+	case NODE_STRUCT_DEC: return (n->flags & NODE_FLAG_UNION) ? "union" : "struct";
+	case NODE_ENUM_DEC: return "enum";
+	case NODE_NEWTYPE_DEC: return "newtype";
+	case NODE_TYPE_DEC: return "type";
+	default: return NULL;
+	}
+}
+
+static void warn_unused_fields (Sema *s, Type *t)
+{
+	if (t->layout != 2) return;
+
+	for (uint16_t i = 0; i < t->field_count; i++) {
+		StructField *f = t->fields + i;
+
+		if (f->used || f->name[0] == '_') continue;
+		error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + f->decl),
+				"unused field '%.*s' of %s '%s'", (int)f->len, f->name,
+				t->is_union ? "union" : "struct", t->name);
+	}
+}
+
+static void warn_unused_variants (Sema *s, Type *t)
+{
+	for (uint16_t i = 0; i < t->variant_count; i++) {
+		EnumVariant *v = t->variants + i;
+
+		if (v->used || v->name[0] == '_') continue;
+		error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + v->decl),
+				"unused variant '%.*s' of enum '%s'", (int)v->len, v->name, t->name);
+	}
+}
+
+static void warn_unused_type (Sema *s, Symbol *sym)
+{
+	if (sym->decl == NO_NODE) return;
+	ASTNode *decl = s->ast->nodes + sym->decl;
+	const char *kind = type_decl_kind(decl);
+	Type *t = types + sym->type;
+	if (!kind || (decl->flags & NODE_FLAG_PUB) || t->exposed) return;
+	if (!t->used) {
+		if (sym->name[0] == '_') return;
+		error_report(s->err, ERR_WARNING, node_loc(decl), "unused %s '%.*s'",
+				kind, (int)sym->len, sym->name);
+		return;
+	}
+	if (decl->type == NODE_STRUCT_DEC) warn_unused_fields(s, t);
+	else if (decl->type == NODE_ENUM_DEC) warn_unused_variants(s, t);
+}
+
 static void warn_unused_top (Sema *s)
 {
 	for (uint32_t i = 0; i < s->table.count; i++) {
 		Symbol *sym = s->table.symbols + i;
 		ErrorLoc loc = { .line = sym->line, .col = sym->col, .len = sym->len };
 
-		if (sym->depth != 0 || sym->read || is_extern_decl(s, sym)) continue;
+		if (sym->depth != 0) continue;
+		if (sym->decl != NO_NODE && (s->ast->nodes[sym->decl].flags
+				& (NODE_FLAG_PUB | NODE_FLAG_EXPORT)))
+			continue;
+		if (sym->kind == SYMBOL_TYPE || sym->kind == SYMBOL_ENUM) {
+			if (sym->type != TYPE_ERROR) warn_unused_type(s, sym);
+			continue;
+		}
+		if (sym->read || is_extern_decl(s, sym) || sym->name[0] == '_') continue;
 
 		if (sym->kind == SYMBOL_FN && !(sym->len == 4
 				&& memcmp(sym->name, "main", 4) == 0))
@@ -939,6 +1062,7 @@ void sema_run (Sema *s)
 
 	check_fn_defaults_all(s);
 	check_root(s);
+	mark_exposed_decls(s);
 	warn_unused_top(s);
 }
 
