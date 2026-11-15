@@ -227,18 +227,52 @@ static void lower_ref_param (Sema *s, uint32_t idx)
 	p->data_type = ptr;
 }
 
+static void lower_variadic_param (Sema *s, uint32_t idx)
+{
+	ASTNode *p = s->ast->nodes + idx;
+	TypeId elem = p->data_type;
+
+	if (elem == TYPE_ERROR) return;
+	if (p->flags & NODE_FLAG_REF_LOWERED) {
+		error_report(s->err, ERR_ERROR, node_loc(p),
+				"a variadic parameter cannot be a reference");
+		p->data_type = TYPE_ERROR;
+		return;
+	}
+	if (type_dyn_rank(elem) > 0) {
+		error_report(s->err, ERR_ERROR, node_loc(p),
+				"a variadic parameter cannot have a slice element type");
+		p->data_type = TYPE_ERROR;
+		return;
+	}
+	TypeId slice = type_slice_of(elem);
+	if (slice == TYPE_ERROR) {
+		error_report(s->err, ERR_ERROR, node_loc(p),
+				"the element type of a variadic parameter cannot be void");
+		p->data_type = TYPE_ERROR;
+		return;
+	}
+	p->data_type = slice;
+}
+
 void resolve_fn_types (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
 	uint32_t args = n->child;
 	uint32_t ret = s->ast->nodes[args].next_bro;
 	uint32_t param = s->ast->nodes[args].child;
+	int typed = (s->ast->nodes[args].flags & NODE_FLAG_VARARG_TYPED) != 0;
+	int lowered = (s->ast->nodes[args].flags & NODE_FLAG_VARARG_LOWERED) != 0;
 
 	while (param != NO_NODE) {
+		uint32_t next = s->ast->nodes[param].next_bro;
+
 		resolve_type_node(s, s->ast->nodes + param);
 		lower_ref_param(s, param);
-		param = s->ast->nodes[param].next_bro;
+		if (typed && !lowered && next == NO_NODE) lower_variadic_param(s, param);
+		param = next;
 	}
+	if (typed) s->ast->nodes[args].flags |= NODE_FLAG_VARARG_LOWERED;
 	resolve_type_node(s, s->ast->nodes + ret);
 	for (uint32_t item = s->ast->nodes[ret].child; item != NO_NODE;
 			item = s->ast->nodes[item].next_bro)

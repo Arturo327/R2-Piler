@@ -1,0 +1,31 @@
+NODE_ROOT [0:0]
+  NODE_FN_DEC [4:4] name="sum"
+    NODE_ARGS_DEC [4:8] typed variadic
+      NODE_VAR_DEC [4:9] name="rest" type=i64
+    NODE_RET_DEC [4:24] type=i64
+    NODE_BLOCK [4:30]
+      NODE_RET [4:32]
+        NODE_DOT [4:43] field="len"
+          NODE_ID [4:39] str="rest"
+  NODE_FN_DEC [6:4] name="show"
+    NODE_ARGS_DEC [6:9] typed variadic
+      NODE_VAR_DEC [6:10] name="tag" type=ptr i8
+      NODE_VAR_DEC [6:24] name="count" type=i32
+      NODE_VAR_DEC [6:37] name="rest" type=ptr i8
+    NODE_RET_DEC [6:55] type=i64
+    NODE_BLOCK [6:61]
+      NODE_RET [6:63]
+        NODE_CAST [6:76] type=i64
+          NODE_ID [6:70] str="count"
+  NODE_EXTERN_FN_DEC [8:11] name="printf"
+    NODE_ARGS_DEC [8:18] variadic
+      NODE_VAR_DEC [8:19] name="fmt" type=ptr i8
+    NODE_RET_DEC [8:38] type=i32
+  NODE_FN_DEC [10:8] name="main" pub
+    NODE_ARGS_DEC [10:13]
+    NODE_RET_DEC [10:16] type=i64
+    NODE_BLOCK [10:22]
+      NODE_RET [10:24]
+        NODE_FN_CALL [10:31] name="sum"
+          NODE_LIT_i64 [10:35] i64=1
+          NODE_LIT_i64 [10:38] i64=2

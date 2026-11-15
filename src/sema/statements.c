@@ -293,14 +293,20 @@ static void check_signature_types (Sema *s, uint32_t idx, int is_extern)
 		check_ret_type(s, item, is_extern, 1);
 		item = s->ast->nodes[item].next_bro;
 	}
+	int typed = (s->ast->nodes[args].flags & NODE_FLAG_VARARG_TYPED) != 0;
+
 	if (!is_extern && (s->ast->nodes[args].flags & NODE_FLAG_VARARG))
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"variadic parameters ('...') are only allowed in extern functions");
+	if (is_extern && typed)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"typed variadic parameters ('name : ...T') are only allowed in non-extern functions");
 
 	uint32_t p = s->ast->nodes[args].child;
 	while (p != NO_NODE) {
 		TypeId type = s->ast->nodes[p].data_type;
 
+		if (typed && s->ast->nodes[p].next_bro == NO_NODE) break;
 		if (is_extern && type_dyn_rank(type) > 0)
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
 					"extern functions cannot take slice parameters");
@@ -333,6 +339,11 @@ static void check_export_fn (Sema *s, uint32_t idx)
 	uint32_t ret = s->ast->nodes[args].next_bro;
 
 	if (!(n->flags & NODE_FLAG_EXPORT)) return;
+	if (s->ast->nodes[args].flags & NODE_FLAG_VARARG_TYPED) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"export functions cannot be variadic");
+		return;
+	}
 	if (s->ast->nodes[ret].child != NO_NODE)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"export functions cannot return multiple values yet");
@@ -392,6 +403,16 @@ static void check_fn_defaults (Sema *s, uint32_t idx)
 	uint32_t args = s->ast->nodes[idx].child;
 	uint32_t param = s->ast->nodes[args].child;
 	int seen = 0;
+
+	if (s->ast->nodes[idx].type == NODE_FN_DEC
+			&& (s->ast->nodes[args].flags & NODE_FLAG_VARARG_TYPED)) {
+		while (param != NO_NODE && s->ast->nodes[param].child == NO_NODE)
+			param = s->ast->nodes[param].next_bro;
+		if (param != NO_NODE)
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + param),
+					"a variadic function cannot have default arguments");
+		return;
+	}
 
 	while (param != NO_NODE) {
 		ASTNode *p = s->ast->nodes + param;

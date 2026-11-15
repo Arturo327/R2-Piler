@@ -1,6 +1,6 @@
 #include "parser/common.h"
 
-static uint32_t parse_param (Parser *p)
+static uint32_t parse_param (Parser *p, int *typed)
 {
 	uint16_t line = p->curr.line;
 	uint16_t col = p->curr.col;
@@ -12,6 +12,11 @@ static uint32_t parse_param (Parser *p)
 	}
 
 	consume(p, TOK_COL, "expected ':' followed by the parameter type");
+	*typed = 0;
+	if (p->curr.type == TOK_ELLIPSIS) {
+		*typed = 1;
+		advance(p);
+	}
 	if (p->curr.type == TOK_AND_A) {
 		p->ast.nodes[node].flags |= NODE_FLAG_REF;
 		advance(p);
@@ -40,16 +45,31 @@ static uint32_t parse_args_dec (Parser *p)
 	consume(p, TOK_LPAREN, "expected '(' after function name");
 
 	while (p->curr.type == TOK_ID) {
-		uint32_t param = parse_param(p);
-		append_child(p, args, &last, param);
+		int typed = 0;
+		uint32_t param = parse_param(p, &typed);
 
+		append_child(p, args, &last, param);
+		if (typed) p->ast.nodes[args].flags |= NODE_FLAG_VARARG_TYPED;
 		if (p->curr.type != TOK_COMMA) break;
 		advance(p);
-		if (p->curr.type == TOK_ELLIPSIS) { variadic = 1; advance(p); break; }
+		if (p->curr.type == TOK_ELLIPSIS) {
+			variadic = 1;
+			advance(p);
+			if (p->curr.type != TOK_RPAREN && !p->panic_mode)
+				error_report(p->err, ERR_ERROR, token_loc(p->prev),
+						"a typed variadic parameter must be named ('name : ...Type')");
+			break;
+		}
+		if (typed && !p->panic_mode)
+			error_report(p->err, ERR_ERROR, token_loc(p->prev),
+					"the variadic parameter must be the last parameter");
 	}
 	if (last == NO_NODE && p->curr.type == TOK_ELLIPSIS) {
 		variadic = 1;
 		advance(p);
+		if (p->curr.type != TOK_RPAREN && !p->panic_mode)
+			error_report(p->err, ERR_ERROR, token_loc(p->prev),
+					"a typed variadic parameter must be named ('name : ...Type')");
 	}
 	if (variadic) p->ast.nodes[args].flags |= NODE_FLAG_VARARG;
 

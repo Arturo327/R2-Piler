@@ -104,6 +104,33 @@ static uint32_t call_struct_regs (IR *ir, uint32_t fn_idx, uint32_t argc, TypeId
 	return dest;
 }
 
+static uint32_t push_varargs (IR *ir, uint32_t arg, TypeId slice, uint32_t *regs, uint32_t k)
+{
+	TypeId elem = types[slice].base;
+	TypeKind kind = type_kind(elem);
+	uint32_t count = count_bros(ir, arg);
+
+	if (!count) {
+		regs[k++] = make_const(ir, 0, type_ptr_to(elem));
+		regs[k++] = make_const(ir, 0, TYPE_i64);
+		return k;
+	}
+	uint32_t base = new_struct_temp(ir, type_array_of(elem, count));
+	uint32_t at = base;
+
+	for (; arg != NO_NODE; arg = ir->ast->nodes[arg].next_bro) {
+		ASTNode *e = ir->ast->nodes + arg;
+
+		if (kind == TK_STRUCT) gen_struct_into(ir, at, arg, elem, 1);
+		else if (kind == TK_ARRAY) gen_copy(ir, at, gen_expr(ir, e), elem);
+		else make_str_ptr(ir, at, gen_expr(ir, e), elem);
+		at = add_offset(ir, at, types[elem].size);
+	}
+	regs[k++] = base;
+	regs[k++] = make_const(ir, count, TYPE_i64);
+	return k;
+}
+
 uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest)
 {
 	Symbol *fn = ir->symtab->symbols + n->sym;
@@ -118,10 +145,19 @@ uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest)
 	uint32_t k = 0;
 
 	if (sret) regs[k++] = dest != NO_REG ? dest : new_struct_temp(ir, ret_buf_type(ir, ret));
-	for (uint32_t i = 0; i < argc; i++) {
-		k = push_arg(ir, n, arg, param, regs, k);
-		arg = ir->ast->nodes[arg].next_bro;
-		if (param != NO_NODE) param = ir->ast->nodes[param].next_bro;
+	if (ir->ast->nodes[params].flags & NODE_FLAG_VARARG_TYPED) {
+		while (param != NO_NODE && ir->ast->nodes[param].next_bro != NO_NODE) {
+			k = push_arg(ir, n, arg, param, regs, k);
+			arg = ir->ast->nodes[arg].next_bro;
+			param = ir->ast->nodes[param].next_bro;
+		}
+		k = push_varargs(ir, arg, ir->ast->nodes[param].data_type, regs, k);
+	} else {
+		for (uint32_t i = 0; i < argc; i++) {
+			k = push_arg(ir, n, arg, param, regs, k);
+			arg = ir->ast->nodes[arg].next_bro;
+			if (param != NO_NODE) param = ir->ast->nodes[param].next_bro;
+		}
 	}
 
 	for (uint32_t i = 0; i < k; i++)

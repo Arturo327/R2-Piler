@@ -1,0 +1,40 @@
+tests/sema/170_err_variadic_typed_src.r2:8:16: ERROR: a variadic parameter cannot have a slice element type
+      8 | fn slice_elem (_x : ...i64[]) : i64 { return 0; }
+        |                ^~
+tests/sema/170_err_variadic_typed_src.r2:9:14: ERROR: a variadic parameter cannot be a reference
+      9 | fn ref_elem (_x : ...&i64) : i64 { return 0; }
+        |              ^~
+tests/sema/170_err_variadic_typed_src.r2:10:10: ERROR: a variadic function cannot have default arguments
+     10 | fn defs (a : i64 = 1, _rest : ...i64) : i64 { return a; }
+        |          ^
+tests/sema/170_err_variadic_typed_src.r2:4:11: ERROR: typed variadic parameters ('name : ...T') are only allowed in non-extern functions
+      4 | extern fn bad (x : ...i64) : i64;
+        |           ^~~
+tests/sema/170_err_variadic_typed_src.r2:6:11: ERROR: export functions cannot be variadic
+      6 | export fn expo (_x : ...i64) : i64 { return 0; }
+        |           ^~~~
+tests/sema/170_err_variadic_typed_src.r2:22:6: ERROR: variadic argument type string does not match the element type i64; use an explicit cast with 'as'
+     22 |         sum("x");
+        |             ^
+tests/sema/170_err_variadic_typed_src.r2:23:9: ERROR: variadic argument type string does not match the element type i64; use an explicit cast with 'as'
+     23 |         sum(1, "x");
+        |                ^
+tests/sema/170_err_variadic_typed_src.r2:24:6: ERROR: a variadic call cannot use named arguments
+     24 |         sum(rest = 1);
+        |             ^~~~
+tests/sema/170_err_variadic_typed_src.r2:25:2: ERROR: wrong number of arguments in call to 'need'
+     25 |         need();
+        |         ^~~~
+tests/sema/170_err_variadic_typed_src.r2:26:6: ERROR: variadic argument type i64[3] does not match the element type i64; use an explicit cast with 'as'
+     26 |         sum(av);
+        |             ^~
+tests/sema/170_err_variadic_typed_src.r2:8:4: WARNING: unused function 'slice_elem'
+      8 | fn slice_elem (_x : ...i64[]) : i64 { return 0; }
+        |    ^~~~~~~~~~
+tests/sema/170_err_variadic_typed_src.r2:9:4: WARNING: unused function 'ref_elem'
+      9 | fn ref_elem (_x : ...&i64) : i64 { return 0; }
+        |    ^~~~~~~~
+tests/sema/170_err_variadic_typed_src.r2:10:4: WARNING: unused function 'defs'
+     10 | fn defs (a : i64 = 1, _rest : ...i64) : i64 { return a; }
+        |    ^~~~
+10 errors, 3 warnings

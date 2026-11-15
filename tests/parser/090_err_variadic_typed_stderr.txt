@@ -1,0 +1,10 @@
+tests/parser/090_err_variadic_typed_src.r2:2:36: ERROR: the variadic parameter must be the last parameter
+      2 | fn not_last (x : i64, rest : ...i64, y : i64) : i64 { return x; }
+        |                                    ^
+tests/parser/090_err_variadic_typed_src.r2:3:22: ERROR: a typed variadic parameter must be named ('name : ...Type')
+      3 | fn unnamed (x : i64, ...i64) : i64 { return x; }
+        |                      ^~~
+tests/parser/090_err_variadic_typed_src.r2:3:25: ERROR: expected ')' after parameters
+      3 | fn unnamed (x : i64, ...i64) : i64 { return x; }
+        |                         ^~~
+3 errors, 0 warnings

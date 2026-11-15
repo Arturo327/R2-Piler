@@ -1,0 +1,24 @@
+NODE_ROOT [0:0]
+  NODE_FN_DEC [2:4] name="not_last"
+    NODE_ARGS_DEC [2:13] typed variadic
+      NODE_VAR_DEC [2:14] name="x" type=i64
+      NODE_VAR_DEC [2:23] name="rest" type=i64
+      NODE_VAR_DEC [2:38] name="y" type=i64
+    NODE_RET_DEC [2:47] type=i64
+    NODE_BLOCK [2:53]
+      NODE_RET [2:55]
+        NODE_ID [2:62] str="x"
+  NODE_FN_DEC [3:4] name="unnamed"
+    NODE_ARGS_DEC [3:12] variadic
+      NODE_VAR_DEC [3:13] name="x" type=i64
+    NODE_RET_DEC [3:25] type=void
+    NODE_BLOCK [3:25]
+      NODE_ERROR [3:25]
+      NODE_RET [3:38]
+        NODE_ID [3:45] str="x"
+  NODE_FN_DEC [5:8] name="main" pub
+    NODE_ARGS_DEC [5:13]
+    NODE_RET_DEC [5:16] type=i64
+    NODE_BLOCK [5:22]
+      NODE_RET [5:24]
+        NODE_LIT_i64 [5:31] i64=0

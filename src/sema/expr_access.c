@@ -601,6 +601,25 @@ static uint32_t check_arg_value (Sema *s, uint32_t arg, uint32_t param)
 	return out;
 }
 
+static uint32_t check_vararg_value (Sema *s, uint32_t arg, TypeId elem)
+{
+	TypeId arg_type = check_expr(s, arg);
+	uint32_t out = arg;
+
+	if (arg_type != TYPE_ERROR && elem != TYPE_ERROR && arg_type != elem
+			&& !sema_array_slice_compat(arg_type, elem)) {
+		int ok;
+		out = force_cast(s, arg, arg_type, elem, &ok);
+		if (!ok)
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + out),
+					"variadic argument type %s does not match the element type %s; use an explicit cast with 'as'",
+					type_display_name(arg_type), types[elem].name);
+	}
+	if (type_kind(arg_type) == TK_ARRAY || type_kind(arg_type) == TK_SLICE)
+		agg_untrack_root(s, out);
+	return out;
+}
+
 typedef struct CallArgs {
 	Sema *s;
 	uint32_t call_idx;
@@ -780,21 +799,61 @@ static void link_variadic_args (Sema *s, uint32_t call_idx, uint32_t *arg_at,
 	s->ast->nodes[prev].next_bro = extra;
 }
 
+static int collect_typed_variadic_args (Sema *s, uint32_t call_idx, uint32_t params_node,
+		uint32_t *arg_at, uint32_t count, uint32_t *extra)
+{
+	uint32_t fixed = count - 1;
+	TypeId slice = s->ast->nodes[param_at(s, params_node, fixed)].data_type;
+	TypeId elem = types[slice].base;
+	uint32_t arg = s->ast->nodes[call_idx].child;
+	uint32_t last = NO_NODE;
+	uint32_t pos = 0;
+	int bad = 0;
+
+	*extra = NO_NODE;
+	while (arg != NO_NODE) {
+		uint32_t next = s->ast->nodes[arg].next_bro;
+		int named = s->ast->nodes[arg].type == NODE_NAMED_ARG;
+		uint32_t expr = named ? s->ast->nodes[arg].child : arg;
+		uint32_t param = named || pos >= fixed
+				? NO_NODE : param_at(s, params_node, pos);
+		if (named) {
+			bad = 1;
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + arg),
+					"a variadic call cannot use named arguments");
+		}
+		uint32_t val = param != NO_NODE ? check_arg_value(s, expr, param)
+				: check_vararg_value(s, expr, elem);
+		arg = next;
+		if (param != NO_NODE) { arg_at[pos++] = val; continue; }
+		s->ast->nodes[val].next_bro = NO_NODE;
+		if (last == NO_NODE) *extra = val;
+		else s->ast->nodes[last].next_bro = val;
+		last = val;
+	}
+	return bad;
+}
+
 static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 {
 	uint32_t params_node = s->ast->nodes[fn_idx].child;
+	uint32_t flags = s->ast->nodes[params_node].flags;
 	uint32_t count = count_params(s, params_node);
+	uint32_t fixed = (flags & NODE_FLAG_VARARG_TYPED) ? count - 1 : count;
 	uint32_t arg_at[count + 1];
 	uint32_t extra = NO_NODE;
-	int variadic = (s->ast->nodes[params_node].flags & NODE_FLAG_VARARG) != 0;
+	int variadic = (flags & NODE_FLAG_VARARG) != 0;
+	int typed = (flags & NODE_FLAG_VARARG_TYPED) != 0;
 
 	for (uint32_t i = 0; i <= count; i++) arg_at[i] = NO_NODE;
 
 	int bad;
 	if (variadic) bad = collect_variadic_args(s, call_idx, params_node, arg_at, count, &extra);
+	else if (typed) bad = collect_typed_variadic_args(s, call_idx, params_node, arg_at, count, &extra);
 	else bad = collect_call_args(s, call_idx, fn_idx, arg_at, count);
-	if (fill_call_defaults(s, fn_idx, arg_at, count)) bad |= 4;
+	if (fill_call_defaults(s, fn_idx, arg_at, fixed)) bad |= 4;
 	if (variadic) link_variadic_args(s, call_idx, arg_at, count, extra);
+	else if (typed) link_variadic_args(s, call_idx, arg_at, fixed, extra);
 	else link_call_args(s, call_idx, arg_at, count);
 
 	if ((bad & 6) && !(bad & 1))
