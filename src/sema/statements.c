@@ -254,9 +254,9 @@ static void check_main_signature (Sema *s, uint32_t idx)
 
 	if (n->len != 4 || memcmp(n->str, "main", 4) != 0)
 		return;
-	if (bad_params || bad_ret)
+	if (!(n->flags & NODE_FLAG_PUB) || bad_params || bad_ret)
 		error_report(s->err, ERR_ERROR, node_loc(n),
-				"'main' must be declared as 'fn main() : i64'");
+				"'main' must be declared as 'pub fn main() : i64'");
 }
 
 static void check_ret_type (Sema *s, uint32_t ret, int is_extern, int multi)

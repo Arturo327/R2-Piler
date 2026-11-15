@@ -80,8 +80,7 @@ static void load_global (X86Fn *f, uint8_t reg, uint32_t vreg)
 	uint8_t w;
 	const char *op = x86_load_op(f->fn->reg_types[vreg], &w);
 
-	cg_printf(f->cg, "\t%s %s%.*s(%%rip), %s\n", op,
-			GLOBAL_PREFIX(g), (int)g->len, g->name, reg_name(reg, w));
+	cg_printf(f->cg, "\t%s %s(%%rip), %s\n", op, g->sym, reg_name(reg, w));
 }
 
 void x86_load_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
@@ -204,8 +203,7 @@ void x86_op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg, uint8_t siz
 				reg_name(p, size), reg_name(w, size));
 	} else if (s == size && f->regs[vreg].cstate == VR_GLOBAL) {
 		IRGlobal *g = f->cg->ir->globals + f->regs[vreg].cval;
-		cg_printf(f->cg, "\t%s%c %s%.*s(%%rip), %s\n", op, x86_mem_suf[size],
-				GLOBAL_PREFIX(g), (int)g->len, g->name, reg_name(w, size));
+		cg_printf(f->cg, "\t%s%c %s(%%rip), %s\n", op, x86_mem_suf[size], g->sym, reg_name(w, size));
 	} else if (s == size && !is_const) {
 		cg_printf(f->cg, "\t%s%c %d(%s), %s\n", op, x86_mem_suf[size],
 				x86_slot_off(f, f->regs[vreg].slot), f->base, reg_name(w, size));

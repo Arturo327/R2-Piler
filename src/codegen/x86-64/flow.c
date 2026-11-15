@@ -131,7 +131,7 @@ int x86_make_call (X86Fn *f, IRInstr *i)
 	if (c->ir->fns[i->target].is_extern)
 		cg_printf(c, "\txorl %%eax, %%eax\n");
 	cg_printf(c, "\tcall ");
-	x86_print_fn_name(c, c->ir->fns + i->target);
+	cg_printf(c, "%s", c->ir->fns[i->target].sym);
 	cg_printf(c, "\n");
 
 	if (pair) store_call_pair(f, i, hi);
@@ -207,7 +207,7 @@ int x86_make_tail_call (X86Fn *f, IRInstr *i)
 		if (c->ir->fns[i->target].is_extern)
 			cg_printf(c, "\txorl %%eax, %%eax\n");
 		cg_printf(c, "\tjmp ");
-		x86_print_fn_name(c, c->ir->fns + i->target);
+		cg_printf(c, "%s", c->ir->fns[i->target].sym);
 		cg_printf(c, "\n");
 		if (f->frame) cg_printf(c, "\t.cfi_restore_state\n");
 	}

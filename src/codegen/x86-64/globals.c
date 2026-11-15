@@ -30,8 +30,8 @@ static void make_global_data (CodeGen *c, uint32_t i)
 	IRGlobal *g = c->ir->globals + i;
 	uint32_t size = types[g->type].size;
 
-	cg_printf(c, "\t.balign %u\n%s%.*s:\t", type_align(g->type),
-			GLOBAL_PREFIX(g), (int)g->len, g->name);
+	cg_printf(c, "\t%s %s\n\t.balign %u\n%s:\t", g->is_pub ? ".globl" : ".local",
+			g->sym, type_align(g->type), g->sym);
 	if (g->init_kind == IR_INIT_STR) {
 		cg_printf(c, ".quad .LC%u\n", g->init_ref);
 		return;
@@ -39,7 +39,7 @@ static void make_global_data (CodeGen *c, uint32_t i)
 	if (g->init_kind == IR_INIT_ADDR) {
 		IRGlobal *ref = c->ir->globals + g->init_ref;
 
-		cg_printf(c, ".quad %s%.*s\n", GLOBAL_PREFIX(ref), (int)ref->len, ref->name);
+		cg_printf(c, ".quad %s\n", ref->sym);
 		return;
 	}
 	if (g->init_kind == IR_INIT_IMAGE) {
@@ -57,8 +57,8 @@ static void make_global_bss (CodeGen *c, uint32_t i)
 	IRGlobal *g = c->ir->globals + i;
 	uint32_t size = types[g->type].size;
 
-	cg_printf(c, "\t.balign %u\n%s%.*s:\t", type_align(g->type),
-			GLOBAL_PREFIX(g), (int)g->len, g->name);
+	cg_printf(c, "\t%s %s\n\t.balign %u\n%s:\t", g->is_pub ? ".globl" : ".local",
+			g->sym, type_align(g->type), g->sym);
 	cg_printf(c, ".zero %u\n", size);
 }
 
@@ -96,8 +96,7 @@ void x86_make_ld_global (X86Fn *f, IRInstr *i)
 	const char *op = x86_load_op(g->type, &size);
 
 	x86_clobber(f, w);
-	cg_printf(c, "\t%s %s%.*s(%%rip), %s\n", op,
-			GLOBAL_PREFIX(g), (int)g->len, g->name, reg_name(w, size));
+	cg_printf(c, "\t%s %s(%%rip), %s\n", op, g->sym, reg_name(w, size));
 	if (p < 0) x86_store_reg(f, w, i->dst);
 }
 
@@ -115,15 +114,13 @@ void x86_make_str_global (X86Fn *f, IRInstr *i)
 			uint8_t w = x86_grab(f);
 			cg_printf(c, "\tmovabsq $0x%llx, %s\n",
 					(unsigned long long)v, reg_name(w, 8));
-			cg_printf(c, "\tmovq %s, %s%.*s(%%rip)\n",
-					reg_name(w, 8), GLOBAL_PREFIX(g), (int)g->len, g->name);
+			cg_printf(c, "\tmovq %s, %s(%%rip)\n", reg_name(w, 8), g->sym);
 			return;
 		}
 		if (s == 4) v = (int32_t)v;
 		else if (s == 2) v = (int16_t)v;
 		else if (s == 1) v = (int8_t)v;
-		cg_printf(c, "\tmov%c $%lld, %s%.*s(%%rip)\n", x86_mem_suf[s],
-				(long long)v, GLOBAL_PREFIX(g), (int)g->len, g->name);
+		cg_printf(c, "\tmov%c $%lld, %s(%%rip)\n", x86_mem_suf[s], (long long)v, g->sym);
 		return;
 	}
 	if (p < 0) {
@@ -131,8 +128,7 @@ void x86_make_str_global (X86Fn *f, IRInstr *i)
 		x86_load_reg(f, (uint8_t)p, i->src1);
 	}
 	x86_clobber(f, (uint8_t)p);
-	cg_printf(c, "\tmov%c %s, %s%.*s(%%rip)\n", x86_mem_suf[s],
-			reg_name(p, s), GLOBAL_PREFIX(g), (int)g->len, g->name);
+	cg_printf(c, "\tmov%c %s, %s(%%rip)\n", x86_mem_suf[s], reg_name(p, s), g->sym);
 }
 
 uint32_t x86_str_global_scratch (X86Fn *f, IRInstr *i, const int8_t *h)

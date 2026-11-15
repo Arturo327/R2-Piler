@@ -39,7 +39,7 @@ vg_run() {
 		return $code
 	fi
 	valgrind --tool=callgrind --collect-atstart=no \
-		--toggle-collect=__r2_main --toggle-collect='__r2.init' \
+		--toggle-collect='_r2_pf_*_4main' --toggle-collect='__r2_init_*' \
 		--callgrind-out-file=/dev/null \
 		"$tmp_exe" >/dev/null 2>"$tmp_vg"
 	code=$?

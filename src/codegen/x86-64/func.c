@@ -1,12 +1,5 @@
 #include "codegen/x86-64/common.h"
 
-void x86_print_fn_name (CodeGen *c, IRFn *fn)
-{
-	if (fn == c->ir->fns + c->ir->init_fn) cg_printf(c, INIT_SYM);
-	else if (fn->is_extern) cg_printf(c, "%.*s", (int)fn->len, fn->name);
-	else cg_printf(c, SYM_PREFIX "%.*s", (int)fn->len, fn->name);
-}
-
 static int make_instr (X86Fn *f, IRInstr *i)
 {
 	uint32_t at = (uint32_t)(i - (f->cg->ir->instrs + f->fn->start));
@@ -106,12 +99,12 @@ void x86_make_fn (X86Fn *f)
 	CodeGen *c = f->cg;
 	IRFn *fn = f->fn;
 
-	cg_printf(c, "\t.p2align 4\n\t.globl ");
-	x86_print_fn_name(c, fn);
+	cg_printf(c, "\t.p2align 4\n\t%s ", fn->is_pub ? ".globl" : ".local");
+	cg_printf(c, "%s", fn->sym);
 	cg_printf(c, "\n\t.type ");
-	x86_print_fn_name(c, fn);
+	cg_printf(c, "%s", fn->sym);
 	cg_printf(c, ", @function\n\t.cfi_startproc\n");
-	x86_print_fn_name(c, fn);
+	cg_printf(c, "%s", fn->sym);
 
 	cg_printf(c, ":\n");
 	if (f->frame) {
@@ -126,8 +119,8 @@ void x86_make_fn (X86Fn *f)
 	x86_make_stubs(f);
 
 	cg_printf(c, "\t.cfi_endproc\n\t.size ");
-	x86_print_fn_name(c, fn);
+	cg_printf(c, "%s", fn->sym);
 	cg_printf(c, ", .-");
-	x86_print_fn_name(c, fn);
+	cg_printf(c, "%s", fn->sym);
 	cg_printf(c, "\n");
 }

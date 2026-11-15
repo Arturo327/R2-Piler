@@ -10,17 +10,18 @@ static uint32_t find_main (IR *ir)
 
 static void make_entry (CodeGen *c, int run_init)
 {
-	if (find_main(c->ir) == NO_REG) return;
+	IR *ir = c->ir;
+	uint32_t main_fn = find_main(ir);
+
+	if (main_fn == NO_REG) return;
+	cg_printf(c, "\t.globl main\nmain:\n\t.cfi_startproc\n");
+	cg_printf(c, "\t.cfi_def_cfa %%rsp, 8\n");
 	if (run_init) {
-		cg_printf(c, "\t.globl main\nmain:\n\t.cfi_startproc\n");
-		cg_printf(c, "\t.cfi_def_cfa %%rsp, 8\n\tsubq $8, %%rsp\n");
-		cg_printf(c, "\t.cfi_def_cfa_offset 16\n\tcall " INIT_SYM "\n");
+		cg_printf(c, "\tsubq $8, %%rsp\n\t.cfi_def_cfa_offset 16\n");
+		cg_printf(c, "\tcall %s\n", ir->fns[ir->init_fn].sym);
 		cg_printf(c, "\taddq $8, %%rsp\n\t.cfi_def_cfa_offset 8\n");
-		cg_printf(c, "\tjmp " SYM_PREFIX "main\n\t.cfi_endproc\n");
-		return;
 	}
-	cg_printf(c, "\t.globl main\nmain:\n\t.cfi_startproc\n\t.cfi_def_cfa %%rsp, 8\n");
-	cg_printf(c, "\tjmp " SYM_PREFIX "main\n\t.cfi_endproc\n");
+	cg_printf(c, "\tjmp %s\n\t.cfi_endproc\n", ir->fns[main_fn].sym);
 }
 
 static void gen_fn (X86Fn *f, uint32_t i, uint8_t *state, int init_empty)

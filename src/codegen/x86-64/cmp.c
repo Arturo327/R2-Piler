@@ -142,8 +142,7 @@ static void test_zero (X86Fn *f, uint32_t vreg)
 	}
 	if (f->regs[vreg].cstate == VR_GLOBAL) {
 		IRGlobal *g = f->cg->ir->globals + f->regs[vreg].cval;
-		cg_printf(f->cg, "\tcmp%c $0, %s%.*s(%%rip)\n",
-				x86_mem_suf[s], GLOBAL_PREFIX(g), (int)g->len, g->name);
+		cg_printf(f->cg, "\tcmp%c $0, %s(%%rip)\n", x86_mem_suf[s], g->sym);
 		return;
 	}
 	if (p >= 0) cg_printf(f->cg, "\ttest%c %s, %s\n", x86_mem_suf[s],

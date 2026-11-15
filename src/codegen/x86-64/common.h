@@ -8,10 +8,6 @@
 #include "codegen/parallel.h"
 #include "ir/opts/common.h"
 
-#define SYM_PREFIX "__r2_"
-#define INIT_SYM "__r2.init"
-#define GLOBAL_PREFIX(g) ((g)->is_extern ? "" : SYM_PREFIX)
-
 #define RED_ZONE 128
 #define X86_REG_NUM 14
 #define X86_CALLEE_MASK 0x3E00ull
@@ -139,7 +135,6 @@ void x86_make_ret (X86Fn *f, IRInstr *i);
 int x86_make_rmw (X86Fn *f, IRInstr *a);
 int x86_try_rmw_inplace (X86Fn *f, IRInstr *i);
 
-void x86_print_fn_name (CodeGen *c, IRFn *fn);
 void x86_make_fn (X86Fn *f);
 
 int x86_op_reg_tmp (X86Fn *f, uint32_t vreg, uint8_t size);
