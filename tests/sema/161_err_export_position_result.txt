@@ -1,0 +1,4 @@
+fn _r2_foo [1:11] depth=0 type=i64
+var __r2_bar [2:12] depth=0 type=i64
+fn main [4:8] depth=0 type=i64
+var v [6:13] depth=1 type=i64

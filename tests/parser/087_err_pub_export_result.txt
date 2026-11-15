@@ -1,0 +1,12 @@
+NODE_ROOT [0:0]
+  NODE_ERROR [1:1]
+  NODE_FN_DEC [1:15] name="f" export
+    NODE_ARGS_DEC [1:17]
+    NODE_RET_DEC [1:20] type=void
+    NODE_BLOCK [1:27]
+  NODE_FN_DEC [3:8] name="main" pub
+    NODE_ARGS_DEC [3:13]
+    NODE_RET_DEC [3:16] type=i64
+    NODE_BLOCK [3:22]
+      NODE_RET [4:2]
+        NODE_LIT_i64 [4:9] i64=0

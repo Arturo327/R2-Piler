@@ -1,0 +1,28 @@
+tests/sema/160_err_export_src.r2:3:14: ERROR: export functions cannot take structs by value yet
+      3 | export fn s (p : P) : i64 { return p.x; }
+        |              ^
+tests/sema/160_err_export_src.r2:4:15: ERROR: export functions cannot take slice parameters
+      4 | export fn sl (a : i64[]) : i64 { return a[0]; }
+        |               ^
+tests/sema/160_err_export_src.r2:5:11: ERROR: export functions cannot return multiple values yet
+      5 | export fn multi () : i64, i64 { return 1, 2; }
+        |           ^~~~~
+tests/sema/160_err_export_src.r2:6:19: ERROR: export functions cannot return structs by value yet
+      6 | export fn rets () : P { return {.x = 1} as P; }
+        |                   ^
+tests/sema/160_err_export_src.r2:7:11: ERROR: 'main' cannot be exported
+      7 | export fn main () : i64 { return 0; }
+        |           ^~~~
+tests/sema/160_err_export_src.r2:3:11: WARNING: unused function 's'
+      3 | export fn s (p : P) : i64 { return p.x; }
+        |           ^
+tests/sema/160_err_export_src.r2:4:11: WARNING: unused function 'sl'
+      4 | export fn sl (a : i64[]) : i64 { return a[0]; }
+        |           ^~
+tests/sema/160_err_export_src.r2:5:11: WARNING: unused function 'multi'
+      5 | export fn multi () : i64, i64 { return 1, 2; }
+        |           ^~~~~
+tests/sema/160_err_export_src.r2:6:11: WARNING: unused function 'rets'
+      6 | export fn rets () : P { return {.x = 1} as P; }
+        |           ^~~~
+5 errors, 4 warnings

@@ -1,0 +1,9 @@
+struct P [1:8] depth=0 size=8 align=8
+  field x type=i64 offset=0
+fn s [3:11] depth=0 type=i64
+fn sl [4:11] depth=0 type=i64
+fn multi [5:11] depth=0 type=i64, i64
+fn rets [6:11] depth=0 type=P
+fn main [7:11] depth=0 type=i64
+param p [3:14] depth=1 type=P
+param a [4:15] depth=1 type=i64[]

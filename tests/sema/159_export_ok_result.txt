@@ -1,0 +1,5 @@
+fn cb [1:11] depth=0 type=i64
+var g [2:12] depth=0 type=i64
+var a [3:12] depth=0 type=i64[2]
+fn main [5:8] depth=0 type=i64
+param x [1:15] depth=1 type=i64
