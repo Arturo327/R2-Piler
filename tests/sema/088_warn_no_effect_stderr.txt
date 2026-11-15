@@ -1,4 +1,4 @@
 tests/sema/088_warn_no_effect_src.r2:7:7: WARNING: expression has no effect; its result is discarded
       7 |     x + 1;
         |       ^
-0 errors, 1 warnings
+0 errors, 1 warning

@@ -1,4 +1,4 @@
 tests/opt/020_enum_static_src.r2:8:5: WARNING: unused variable 'count'
       8 | var count : i64 = 3;
         |     ^~~~~
-0 errors, 1 warnings
+0 errors, 1 warning

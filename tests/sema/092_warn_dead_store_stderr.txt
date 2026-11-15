@@ -1,4 +1,4 @@
 tests/sema/092_warn_dead_store_src.r2:2:6: WARNING: value assigned to 'x' is not used
       2 |         var x : i32 = 7;
         |             ^
-0 errors, 1 warnings
+0 errors, 1 warning

@@ -1,4 +1,4 @@
 tests/sema/043_err_cast_lhs_src.r2:3:12: ERROR: left side of '=' must be a variable
       3 |   x as i64 = 2;
         |            ^
-1 errors, 0 warnings
+1 error, 0 warnings

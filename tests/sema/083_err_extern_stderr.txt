@@ -16,4 +16,4 @@ tests/sema/083_err_extern_src.r2:6:9: ERROR: 'x' is not declared
 tests/sema/083_err_extern_src.r2:4:4: WARNING: unused function 'f'
       4 | fn f () : i64 {
         |    ^
-5 errors, 1 warnings
+5 errors, 1 warning

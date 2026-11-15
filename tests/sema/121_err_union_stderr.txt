@@ -1,4 +1,4 @@
 tests/sema/121_err_union_src.r2:18:43: ERROR: field 'lo' overlaps another initialized member of the same union
      18 |         var a : Tagged = {.tag = 1, .whole = 2, .lo = 3};
         |                                                  ^~
-1 errors, 0 warnings
+1 error, 0 warnings

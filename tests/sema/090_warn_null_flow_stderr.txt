@@ -1,4 +1,4 @@
 tests/sema/090_warn_null_flow_src.r2:14:9: WARNING: null pointer dereference: 'n' is NULL here
      14 |     if (@n == 0) { sum = sum + 2; }
         |         ^
-0 errors, 1 warnings
+0 errors, 1 warning

@@ -4,4 +4,4 @@ tests/sema/116_err_switch_dup_default_src.r2:7:2: ERROR: duplicate default claus
 tests/sema/116_err_switch_dup_default_src.r2:9:2: WARNING: code will never be executed
       9 |         return 0;
         |         ^
-1 errors, 1 warnings
+1 error, 1 warning

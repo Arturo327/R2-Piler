@@ -1,4 +1,4 @@
 tests/sema/148_err_loop_else_nested_break_src.r2:1:4: ERROR: function may reach the end without returning
       1 | fn f() : i64 {
         |    ^
-1 errors, 0 warnings
+1 error, 0 warnings

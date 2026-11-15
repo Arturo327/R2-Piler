@@ -16,4 +16,4 @@ tests/sema/058_err_lvalues_src.r2:11:13: ERROR: left side of compound assignment
 tests/sema/058_err_lvalues_src.r2:1:4: WARNING: unused function 'f'
       1 | fn f() : i64 {
         |    ^
-5 errors, 1 warnings
+5 errors, 1 warning

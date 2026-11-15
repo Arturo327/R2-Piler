@@ -4,4 +4,4 @@ tests/sema/027_err_use_before_decl_src.r2:2:3: ERROR: 'x' is not declared
 tests/sema/027_err_use_before_decl_src.r2:1:4: WARNING: unused function 'f'
       1 | fn f() : i64 {
         |    ^
-1 errors, 1 warnings
+1 error, 1 warning

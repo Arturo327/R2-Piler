@@ -1,4 +1,4 @@
 tests/sema/153_ref_warn_src.r2:6:6: WARNING: unused parameter 'x'
       6 | fn a(x : &i64) {
         |      ^
-0 errors, 1 warnings
+0 errors, 1 warning

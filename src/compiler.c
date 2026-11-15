@@ -118,6 +118,14 @@ static void release_frontend (Compiler *c)
 	c->ir.static_count = 0;
 }
 
+static inline void print_err_count (Compiler *c)
+{
+	if (!c->err.err_count && !c->err.warn_count) return;
+	fprintf(stderr, "%d error%s, %d warning%s\n",
+			c->err.err_count, c->err.err_count == 1 ? "" : "s",
+			c->err.warn_count, c->err.warn_count == 1 ? "" : "s");
+}
+
 int compile (Compiler *c, CompilerOpts *opts)
 {
 	int dumping = opts->dump_tokens || opts->dump_ast
@@ -135,26 +143,22 @@ int compile (Compiler *c, CompilerOpts *opts)
 	parse(&c->parser);
 	if (opts->dump_ast) {
 		dump_ast(&c->parser.ast);
-		if (c->err.err_count || c->err.warn_count)
-			fprintf(stderr, "%d errors, %d warnings\n", c->err.err_count, c->err.warn_count);
+		print_err_count(c);
 		return c->err.err_count ? 1 : 0;
 	}
 	if (c->err.err_count) {
-		if (c->err.err_count || c->err.warn_count)
-			fprintf(stderr, "%d errors, %d warnings\n", c->err.err_count, c->err.warn_count);
+		print_err_count(c);
 		return 1;
 	}
 
 	sema_run(&c->sema);
 	if (opts->dump_symbols) {
 		dump_symbols(&c->sema);
-		if (c->err.err_count || c->err.warn_count)
-			fprintf(stderr, "%d errors, %d warnings\n", c->err.err_count, c->err.warn_count);
+		print_err_count(c);
 		return c->err.err_count ? 1 : 0;
 	}
 	if (c->err.err_count) {
-		if (c->err.err_count || c->err.warn_count)
-			fprintf(stderr, "%d errors, %d warnings\n", c->err.err_count, c->err.warn_count);
+		print_err_count(c);
 		return 1;
 	}
 
@@ -162,8 +166,7 @@ int compile (Compiler *c, CompilerOpts *opts)
 	ir_gen(&c->ir);
 	if (opts->dump_ir) {
 		dump_ir(&c->ir);
-		if (c->err.err_count || c->err.warn_count)
-			fprintf(stderr, "%d errors, %d warnings\n", c->err.err_count, c->err.warn_count);
+		print_err_count(c);
 		return 0;
 	}
 	release_frontend(c);
@@ -173,13 +176,11 @@ int compile (Compiler *c, CompilerOpts *opts)
 
 	if (opts->dump_opt) {
 		dump_ir(&c->ir);
-		if (c->err.err_count || c->err.warn_count)
-			fprintf(stderr, "%d errors, %d warnings\n", c->err.err_count, c->err.warn_count);
+		print_err_count(c);
 		return 0;
 	}
 
-	if (c->err.err_count || c->err.warn_count)
-		fprintf(stderr, "%d errors, %d warnings\n", c->err.err_count, c->err.warn_count);
+	print_err_count(c);
 	return codegen_run(&c->codegen);
 }
 

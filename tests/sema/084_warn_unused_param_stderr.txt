@@ -1,4 +1,4 @@
 tests/sema/084_warn_unused_param_src.r2:1:8: WARNING: unused parameter 'a'
       1 | fn add(a : i64, b : i64) : i64 {
         |        ^
-0 errors, 1 warnings
+0 errors, 1 warning

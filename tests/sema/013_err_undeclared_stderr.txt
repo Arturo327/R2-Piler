@@ -7,4 +7,4 @@ tests/sema/013_err_undeclared_src.r2:2:7: WARNING: unused variable 'x'
 tests/sema/013_err_undeclared_src.r2:1:4: WARNING: unused function 'f'
       1 | fn f() : i64 {
         |    ^
-1 errors, 2 warnings
+1 error, 2 warnings

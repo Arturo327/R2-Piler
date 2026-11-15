@@ -10,4 +10,4 @@ tests/sema/065_err_type_dup_src.r2:8:5: ERROR: 'Dias' already declared in this s
 tests/sema/065_err_type_dup_src.r2:8:5: WARNING: unused variable 'Dias'
       8 | var Dias : i8 = 0;
         |     ^~~~
-3 errors, 1 warnings
+3 errors, 1 warning

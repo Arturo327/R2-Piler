@@ -1,4 +1,4 @@
 tests/sema/033_err_circular_pair_src.r2:2:15: ERROR: 'y' cannot be used in a circular initialization
       2 | var x : i64 = y;
         |               ^
-1 errors, 0 warnings
+1 error, 0 warnings

@@ -1,4 +1,4 @@
 tests/sema/005_ok_returns_src.r2:4:4: WARNING: unused function 'h'
       4 | fn h() : void {
         |    ^
-0 errors, 1 warnings
+0 errors, 1 warning

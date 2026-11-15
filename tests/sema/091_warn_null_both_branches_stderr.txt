@@ -1,4 +1,4 @@
 tests/sema/091_warn_null_both_branches_src.r2:6:19: WARNING: null pointer dereference: 'p' is NULL here
       6 |     var v : i64 = @p;
         |                   ^
-0 errors, 1 warnings
+0 errors, 1 warning
