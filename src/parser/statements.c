@@ -927,12 +927,47 @@ static uint32_t parse_multi_assign (Parser *p, uint32_t first)
 	return node;
 }
 
+static uint32_t parse_statement_inner (Parser *p);
+
+static int pub_target (TokenType type)
+{
+	switch (type)
+	{
+	case TOK_FN: case TOK_VAR: case TOK_ARR: case TOK_ENUM:
+	case TOK_STRUCT: case TOK_UNION: case TOK_PACKED:
+	case TOK_TYPE: case TOK_NEWTYPE:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+static uint32_t parse_pub (Parser *p)
+{
+	Token pub = p->curr;
+	const char *msg = "expected a declaration after 'pub'";
+
+	advance(p);
+	if (!pub_target(p->curr.type)) {
+		if (p->curr.type == TOK_EXTERN) msg = "'extern' declarations cannot be 'pub'";
+		else if (p->curr.type == TOK_STATIC) msg = "'static' cannot be 'pub'";
+		if (!p->panic_mode) error_report(p->err, ERR_ERROR, token_loc(pub), "%s", msg);
+		p->panic_mode = 1;
+		return new_node(p, NODE_ERROR, pub.line, pub.col);
+	}
+	uint32_t node = parse_statement_inner(p);
+	for (uint32_t k = node; k != NO_NODE; k = p->ast.nodes[k].next_bro)
+		p->ast.nodes[k].flags |= NODE_FLAG_PUB;
+	return node;
+}
+
 static uint32_t parse_statement_inner (Parser *p)
 {
 	switch (p->curr.type)
 	{
 	case TOK_VAR: return parse_decl(p, 0);
 	case TOK_STATIC: return parse_static_decl(p);
+	case TOK_PUB: return parse_pub(p);
 	case TOK_ARR: return parse_decl(p, 1);
 	case TOK_LKEY: return parse_block(p);
 	case TOK_FN: return parse_fn_decl(p);

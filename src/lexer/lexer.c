@@ -430,6 +430,7 @@ static const Keyword keywords[] = {
 	KW("i32", TOK_i32),
 	KW("i64", TOK_i64),
 	KW("ptr", TOK_PTR),
+	KW("pub", TOK_PUB),
 	KW("u16", TOK_u16),
 	KW("u32", TOK_u32),
 	KW("u64", TOK_u64),
@@ -609,7 +610,7 @@ static const char *const token_names[TOK_COUNT] = {
 	TN(TOK_AND_A_ASSIGN), TN(TOK_OR_A_ASSIGN), TN(TOK_XOR_ASSIGN),
 	TN(TOK_LS_ASSIGN), TN(TOK_RS_ASSIGN),
 	TN(TOK_PTR), TN(TOK_NULL), TN(TOK_SIZEOF), TN(TOK_AT), TN(TOK_DOLLAR),
-	TN(TOK_PACKED), TN(TOK_ALIGNOF), TN(TOK_OFFSETOF)
+	TN(TOK_PACKED), TN(TOK_ALIGNOF), TN(TOK_OFFSETOF), TN(TOK_PUB)
 };
 
 static const char *token_type_to_string (TokenType type)
