@@ -7,7 +7,7 @@ fn swap(p : ptr i64, q : ptr i64) {
     @q = t;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
     var x : i64 = 3;
     var y : i64 = 4;
     var p : ptr i64 = $x;

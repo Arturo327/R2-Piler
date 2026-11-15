@@ -8,7 +8,7 @@ fn pure() : i64 {
 var g1 : i64 = 42;
 var h : i64 = pure();
 var g2 : i64 = 99;
-fn main() : i64 {
+pub fn main() : i64 {
 	if (g1 != 42) {
 		return 1;
 	}

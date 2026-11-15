@@ -13,9 +13,9 @@ tests/sema/123_err_multi_ret_src.r2:10:5: ERROR: cannot return i64 from a functi
 tests/sema/123_err_multi_ret_src.r2:13:17: ERROR: extern functions cannot return arrays or slices yet
      13 | extern fn ext() : i64[];
         |                 ^
-tests/sema/123_err_multi_ret_src.r2:15:4: ERROR: 'main' must be declared as 'fn main() : i64'
-     15 | fn main() : i64, i64 {
-        |    ^~~~
+tests/sema/123_err_multi_ret_src.r2:15:8: ERROR: 'main' must be declared as 'pub fn main() : i64'
+     15 | pub fn main() : i64, i64 {
+        |        ^~~~
 tests/sema/123_err_multi_ret_src.r2:25:5: ERROR: this function returns 2 values, but 3 are assigned
      25 |     a, b, c = two(1);
         |     ^

@@ -11,7 +11,7 @@ fn f(x : i64) : i64 {
 	var c : i64 = g(a);
 	return a + c * 3 + c;
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	if (f(4) != 76) {
 		return 1;
 	}

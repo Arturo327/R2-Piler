@@ -1,3 +1,3 @@
-fn main() : void {
+pub fn main() : void {
   return;
 }

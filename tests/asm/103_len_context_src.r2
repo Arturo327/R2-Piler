@@ -34,7 +34,7 @@ fn loops(v : i32[]) : i64 {
 
 fn indexes(v : i32[]) : i64 { return v[v.len - 1] as i64; }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr big : i32[300];
 	arr small : i32[3] = {10, 20, 30};
 	var t : i64 = 0;

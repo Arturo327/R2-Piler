@@ -22,7 +22,7 @@ fn en (e : E = E.B) : i64 {
 	return e as i64;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var r : i64 = 0;
 	r += sum(10);
 	r += sum(10, 20);

@@ -1,6 +1,6 @@
 fn take_u64 [1:4] depth=0 type=u64
 fn take_i64 [4:4] depth=0 type=i64
-fn main [7:4] depth=0 type=i64
+fn main [7:8] depth=0 type=i64
 param x [1:13] depth=1 type=u64
 param x [4:13] depth=1 type=i64
 var a [8:7] depth=1 type=i64

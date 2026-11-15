@@ -4,6 +4,6 @@ fn f() : i64 {
   var v : i64 = u + 8;
   return v;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   return f();
 }

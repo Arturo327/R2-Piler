@@ -8,7 +8,7 @@ struct P {
 	y: i32;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : P = {.x = 1, .x = 2, .y = 3};
 	var b : P = {.x = 1};
 	var c : P = {.x = 1, .y = 2, .z = 3};

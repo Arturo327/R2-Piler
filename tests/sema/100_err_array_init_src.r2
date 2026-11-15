@@ -2,7 +2,7 @@ fn val() : i32 {
 	return 1;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr a : i32[2] = {1};
 	arr b : i32[2] = {1, 2, 3};
 	arr c : i32[2] = 5;

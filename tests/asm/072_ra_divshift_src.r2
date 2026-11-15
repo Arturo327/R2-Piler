@@ -1,7 +1,7 @@
 // presion de registros con div/mod/shift variables y una llamada dentro del bucle
 fn mix (a : i64, b : i64) : i64 { return (a * 31 + b) & 1048575; }
 
-fn main () : i64
+pub fn main () : i64
 {
 	var a : i64 = 7;
 	var b : i64 = 11;

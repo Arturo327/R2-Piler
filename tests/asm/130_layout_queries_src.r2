@@ -46,7 +46,7 @@ fn round_up (v : i64, a : i64) : i64
 	return (v + a - 1) / a * a;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var o : Outer = {};
 	var p : ptr Outer = $o;
 	var st : ptr i8 = "abc";

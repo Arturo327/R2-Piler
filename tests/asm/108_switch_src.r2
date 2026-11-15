@@ -45,7 +45,7 @@ fn classify(n : i64) : i64 {
 	return r;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	if (day(Dias.Viernes) != 10) { return 1; }
 	if (day(Dias.Sabado) != 20) { return 2; }
 	if (day(Dias.Domingo) != 20) { return 3; }

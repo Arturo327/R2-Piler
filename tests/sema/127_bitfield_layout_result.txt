@@ -31,7 +31,7 @@ struct HasUnion [40:8] depth=0 size=6 align=2
   field small type=u8 offset=2
   field pair type=u16 offset=2
   field last type=u8 offset=4 bits=2 bit_off=0
-fn main [46:4] depth=0 type=i64
+fn main [46:8] depth=0 type=i64
 var f [47:6] depth=1 type=Flags
 var c [48:6] depth=1 type=Closed
 var n [49:6] depth=1 type=Nested

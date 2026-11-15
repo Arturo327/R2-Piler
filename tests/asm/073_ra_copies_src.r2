@@ -8,7 +8,7 @@ fn pick (c : i64, a : i64, b : i64) : i64
 	return r;
 }
 
-fn main () : i64
+pub fn main () : i64
 {
 	var x : i64 = 5;
 	var y : i64 = x;

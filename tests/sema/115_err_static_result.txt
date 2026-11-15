@@ -1,7 +1,7 @@
 fn f [1:4] depth=0 type=i64
 var g [5:5] depth=0 type=i64
 var top [7:12] depth=0 type=i64
-fn main [9:4] depth=0 type=i64
+fn main [9:8] depth=0 type=i64
 var l [10:6] depth=1 type=i64
 static var a [12:13] depth=1 type=i64
 static var b [13:13] depth=1 type=i64

@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
 	arr m : i64[2][2] = {{1, 2}, {3, 4}};
 	var e : i64 = 0;
 

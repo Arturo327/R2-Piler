@@ -11,7 +11,7 @@ fn bump(v : i64) : i64 {
 	return v;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var x : i64 = 10;
 	x += 5;
 	x -= 3;

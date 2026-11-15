@@ -3,7 +3,7 @@ fn get() : i64 {
 }
 var a : i64 = get();
 var b : i64 = 1;
-fn main() : i64 {
+pub fn main() : i64 {
 	if (a == 42) {
 		if (b == 1) {
 			return 0;

@@ -16,7 +16,7 @@ fn make () : P {
 	return {.x = 1, .y = 2} as P;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var a : P = {.x = 1};
 	var b : P = {.y = 2} as P;
 	var c : P = {} as P;

@@ -18,7 +18,7 @@ fn factorial(n: i64) : i64 {
     return result;
 }
 
-fn main() {
+pub fn main() {
     var x: i64 = 10;
     var y: i64 = 20;
     var m: i64 = max(x, y);

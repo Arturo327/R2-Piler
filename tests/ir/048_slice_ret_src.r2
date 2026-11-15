@@ -13,7 +13,7 @@ fn level() : i64[4] {
     return g;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
     var s : i64[] = pick(g);
     var t : i64[] = pick(m[1]);
     var n : i64 = pick(g).len;

@@ -34,7 +34,7 @@ fn desc2(m : i32[][]) : i64 {
 	return sizeof(m) + sizeof(m[0]) + m.len + m[0].len;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr m : i32[2][3] = {{1, 2, 3}, {4, 5, 6}};
 	arr b : i32[3][2] = {{1, 2}, {3, 4}, {5, 6}};
 	arr s : i8[2][4] = {"ab", "cd"};

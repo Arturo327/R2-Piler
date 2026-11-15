@@ -1,4 +1,4 @@
-fn main [1:4] depth=0 type=i64
+fn main [1:8] depth=0 type=i64
 var a [2:6] depth=1 type=i64[2]
 var p [3:6] depth=1 type=ptr i64
 var v [4:6] depth=1 type=ptr void

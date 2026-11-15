@@ -10,6 +10,6 @@ fn cmp(a : i64, b : i64) : i64 {
   var nt : i64 = !a;
   return e + n + g + ge + l + le + al + ol + nt;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   return cmp(1, 2);
 }

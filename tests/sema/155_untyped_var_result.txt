@@ -5,7 +5,7 @@ enum E [2:6] depth=0 type=E base=u8
   variant A = 1
   variant B = 2
 fn pair [4:4] depth=0 type=i64, u32
-fn main [6:4] depth=0 type=i64
+fn main [6:8] depth=0 type=i64
 var a [7:6] depth=1 type=i64
 var b [8:6] depth=1 type=i64
 var s [9:6] depth=1 type=ptr i8

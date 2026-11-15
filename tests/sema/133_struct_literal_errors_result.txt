@@ -2,7 +2,7 @@ struct P [1:8] depth=0 size=8 align=4
   field x type=i32 offset=0
   field y type=i32 offset=4
 fn naked [6:4] depth=0 type=P
-fn main [10:4] depth=0 type=i64
+fn main [10:8] depth=0 type=i64
 var a [11:6] depth=1 type=P
 var b [12:6] depth=1 type=P
 var g [13:6] depth=1 type=P

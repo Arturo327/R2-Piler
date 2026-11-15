@@ -12,7 +12,7 @@ fn sum(v : i32[]) : i64 {
 	return (v[0] as i64) + v.len;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr a : i32[4] = {1, 2, 3, 4};
 	var p : ptr i32 = a;
 	var q : ptr i32 = a;

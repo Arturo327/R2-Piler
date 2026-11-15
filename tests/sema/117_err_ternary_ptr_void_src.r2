@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
 	arr a : i64[2] = {1, 2};
 	var p : ptr i64 = a;
 	var v : ptr void = p;

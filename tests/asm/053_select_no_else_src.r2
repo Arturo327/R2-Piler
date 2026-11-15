@@ -25,7 +25,7 @@ fn keepc(a : i64, b : i64, v : i64) : i64 {
 	}
 	return r;
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	if (keep(1, 5) != 10) {
 		return 1;
 	}

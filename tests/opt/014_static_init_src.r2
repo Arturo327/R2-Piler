@@ -1,4 +1,4 @@
 var g : i64 = 42;
-fn main() : i64 {
+pub fn main() : i64 {
   return g;
 }

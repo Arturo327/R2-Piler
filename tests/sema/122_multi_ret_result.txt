@@ -6,7 +6,7 @@ fn row [12:4] depth=0 type=i32[2][3][]
 fn shape [16:4] depth=0 type=i64[3]
 fn take [20:4] depth=0 type=i64
 fn relay [24:4] depth=0 type=i64
-fn main [28:4] depth=0 type=i64
+fn main [28:8] depth=0 type=i64
 param a [4:10] depth=1 type=i64
 param x [8:9] depth=1 type=i64[]
 param m [12:8] depth=1 type=i32[2][3][]

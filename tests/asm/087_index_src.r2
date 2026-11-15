@@ -1,7 +1,7 @@
 extern fn malloc (size : u64) : ptr i8;
 extern fn free (p : ptr i8) : void;
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var raw : ptr i8 = malloc(40);
 	var p : ptr i64 = raw as ptr i64;
 	var i : i64 = 0;

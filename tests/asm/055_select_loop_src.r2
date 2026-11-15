@@ -6,7 +6,7 @@
 // fewer Ir than O0/O1 with the same exit code.
 // grep O2 loop body: `cmove` present, no `je .L` between `andq` and `addq`;
 // grep O0/O1 loop body: `je` + `jmp` present, no `cmov`.
-fn main() : i64 {
+pub fn main() : i64 {
 	var s : i64 = 0;
 	for (var i : i64 = 0; i < 800; i = i + 1) {
 		var v : i64 = 0;

@@ -26,6 +26,6 @@ packed struct Bad {
 
 packed var g : i64 = 0;
 
-fn main () : i64 {
+pub fn main () : i64 {
 	return 0;
 }

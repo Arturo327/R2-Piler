@@ -4,6 +4,6 @@ fn f(a : i64, b : i64) : i64 {
   t = 99;
   return t;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   return f(1, 2);
 }

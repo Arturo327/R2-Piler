@@ -18,7 +18,7 @@ fn choose(c : i64, a : i64, b : i64) : i64 {
 	return q + w + n + (e as i64);
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var p : ptr i64 = $g;
 	var q : ptr i64 = 1 ? p : $g;
 

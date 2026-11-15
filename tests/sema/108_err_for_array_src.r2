@@ -1,4 +1,4 @@
-fn main () : i64
+pub fn main () : i64
 {
 	arr lista : i32[3] = { 1, 2, 3 };
 	arr big : i32[300];

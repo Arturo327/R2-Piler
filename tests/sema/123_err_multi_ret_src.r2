@@ -12,7 +12,7 @@ fn bad_void() : void, i64 {
 
 extern fn ext() : i64[];
 
-fn main() : i64, i64 {
+pub fn main() : i64, i64 {
     return 1, 2;
 }
 

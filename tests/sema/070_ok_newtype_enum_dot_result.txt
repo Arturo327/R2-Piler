@@ -8,7 +8,7 @@ newtype Deep [4:9] depth=0 type=Deep base=Stamp
 type DeepAlias [5:6] depth=0 type=DeepAlias base=Deep
 var first [7:5] depth=0 type=Stamp
 fn pick [9:4] depth=0 type=i64
-fn main [11:4] depth=0 type=i64
+fn main [11:8] depth=0 type=i64
 param s [9:10] depth=1 type=Stamp
 var s [12:9] depth=1 type=Stamp
 var d [13:9] depth=1 type=Dias

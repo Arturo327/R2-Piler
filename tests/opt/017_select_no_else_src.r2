@@ -5,6 +5,6 @@ fn f(c : i64) : i64 {
   }
   return x;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   return f(1);
 }

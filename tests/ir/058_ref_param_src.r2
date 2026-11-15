@@ -10,7 +10,7 @@ fn addr(x : &i64) : ptr i64 {
 	return $x;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var n : i64 = 3;
 	inc(n, 4);
 	var m : i64 = get(n);

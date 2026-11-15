@@ -5,7 +5,7 @@
 // Without the cache+alias each MOVE would be load+store (extra loads/iter).
 // grep loop body: one `movq %rax, -X(%rsp)` pair with a single reload between
 // (alias chain `t->u->v` collapses one level; see comp_pending A1/A2 limits).
-fn main() : i64 {
+pub fn main() : i64 {
 	var s : i64 = 0;
 	for (var i : i64 = 0; i < 1000; i = i + 1) {
 		var t : i64 = i;

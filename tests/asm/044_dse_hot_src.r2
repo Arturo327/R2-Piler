@@ -3,7 +3,7 @@
 // O1 emits no multiply while O0 computes `i * 3` via `lea` every iteration.
 // s = sum (i + 1), i in 0..999 = 500500.
 // grep: no `lea` in the O1 .s at all.
-fn main() : i64 {
+pub fn main() : i64 {
 	var s : i64 = 0;
 	for (var i : i64 = 0; i < 1000; i = i + 1) {
 		var t : i64 = i * 3;

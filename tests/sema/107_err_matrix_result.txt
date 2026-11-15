@@ -1,7 +1,7 @@
 fn total [1:4] depth=0 type=i64
 fn sum [5:4] depth=0 type=i64
 fn bad [9:4] depth=0 type=i64
-fn main [22:4] depth=0 type=i64
+fn main [22:8] depth=0 type=i64
 param v [1:10] depth=1 type=i32[]
 param m [5:8] depth=1 type=i32[][]
 param p [9:8] depth=1 type=ptr i32

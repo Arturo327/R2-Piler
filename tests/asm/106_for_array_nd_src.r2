@@ -94,7 +94,7 @@ fn sub (c : i32[2][3][2]) : i64
 	return t;
 }
 
-fn main () : i64
+pub fn main () : i64
 {
 	var esperado : i64 = manual();
 	var n : i64 = 12;

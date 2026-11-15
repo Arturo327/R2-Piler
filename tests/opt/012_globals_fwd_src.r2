@@ -12,6 +12,6 @@ fn h() : i64 {
   var y : i64 = g;
   return y;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   return f() + h();
 }

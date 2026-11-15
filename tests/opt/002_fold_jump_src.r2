@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
   if (1) {
     return 10;
   } else {

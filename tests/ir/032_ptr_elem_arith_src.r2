@@ -20,6 +20,6 @@ fn bump (p : ptr i64, n : i64) : ptr i64 {
     return p;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
     return 0;
 }

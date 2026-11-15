@@ -6,7 +6,7 @@ var g : i64 = 3;
 
 static var top : i64 = 1;
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var l : i64 = 2;
 
 	static var a : i64 = f();

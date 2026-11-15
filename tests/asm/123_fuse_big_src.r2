@@ -7,7 +7,7 @@ fn make (k : i64) : Big
 	return r;
 }
 
-fn main () : i64
+pub fn main () : i64
 {
 	var x : Big = make(1);
 	var t : i64 = x.b;

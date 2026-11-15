@@ -17,7 +17,7 @@ var n16 : u32 = 16;
 var n17 : u32 = 17;
 var n18 : u32 = 18;
 
-fn main () : i64
+pub fn main () : i64
 {
 	var a1 : i8 = n1;
 	var a2 : i8 = n2;

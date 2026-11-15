@@ -10,7 +10,7 @@ fn add (a : Seconds, b : Seconds) : Seconds {
     return a + b;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
     var s : Seconds = 7;
     var e : FromEnum = E.B as FromEnum;
     var small : Small = -2;

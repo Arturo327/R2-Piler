@@ -10,7 +10,7 @@ fn classify(n : i64) : i64 {
 	}
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	if (classify(1) != 10) { return 1; }
 	if (classify(2) != 20) { return 2; }
 	if (classify(3) != 30) { return 3; }

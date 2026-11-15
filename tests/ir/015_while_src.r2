@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
   var i : i64 = 0;
   while (i < 5) {
     i = i + 1;

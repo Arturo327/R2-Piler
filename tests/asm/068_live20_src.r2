@@ -3,7 +3,7 @@ fn id (x : i64) : i64
 	return x;
 }
 
-fn main () : i64
+pub fn main () : i64
 {
 	var a : i64 = id(1);
 	var b : i64 = id(2);

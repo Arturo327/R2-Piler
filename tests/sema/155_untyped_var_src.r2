@@ -3,7 +3,7 @@ enum E : u8 { A = 1, B = 2 }
 
 fn pair() : i64, u32 { return 3, 4; }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var a = 33;
 	var b = pair();
 	var s = "hola";

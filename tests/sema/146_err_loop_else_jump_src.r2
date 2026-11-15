@@ -15,7 +15,7 @@ fn g() : void {
 	}
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	f();
 	g();
 	return 0;

@@ -13,7 +13,7 @@ fn take (d : Dias) : i64 {
     return d as i64;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
     var a : Dias = Dias.Nope;
     var b : Dias = v.Dias;
     var c : Dias = (1 + 2).Lunes;

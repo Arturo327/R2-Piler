@@ -13,7 +13,7 @@ fn g(a : i64, b : i64, c : i64, d : i64, e : i64, f : i64, h : i64) : i64 {
 fn spread(v1 : i64, v2 : i64, v3 : i64, v4 : i64, v5 : i64, v6 : i64, v7 : i64) : i64 {
 	return g(v7, v1, v2, v3, v4, v5, v6);
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	if (spread(1, 2, 3, 4, 5, 6, 7) == 28) {
 		return 0;
 	}

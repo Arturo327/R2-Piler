@@ -4,7 +4,7 @@ enum Dias : u8 {
     Miercoles,
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
     var d : Dias = Dias.Martes;
     var r : i64 = 0;
 

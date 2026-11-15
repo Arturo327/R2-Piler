@@ -14,7 +14,7 @@ fn advance(p : &ptr i64) {
 	p = p + 1;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var n : i64 = 10;
 	bump(n);
 	if (n != 11) return 1;

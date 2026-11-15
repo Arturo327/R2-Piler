@@ -4,7 +4,7 @@ arr g : i32[4] = {7, 8, 9, 10};
 arr gs : i8[8] = "hi";
 arr gz : i64[3];
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr a : i32[4] = {1, 2, 3, 4};
 	arr s : i8[8] = "ok";
 	var i : i64 = 0;

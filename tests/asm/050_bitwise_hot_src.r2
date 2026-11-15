@@ -2,7 +2,7 @@
 // `i & -1`, `| 0`, `^ 0`, `<< 0`, `>> 0` all simplify to MOVE at O1, so the
 // loop keeps only `s = s + i`; O0 emits and/or/xor/shl/shr per iteration.
 // s = sum 0..999 = 499500.
-fn main() : i64 {
+pub fn main() : i64 {
 	var s : i64 = 0;
 	for (var i : i64 = 0; i < 1000; i = i + 1) {
 		var a : i64 = i & -1;

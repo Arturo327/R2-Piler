@@ -12,7 +12,7 @@ enum Small : i8 {
     Two = 2,
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
     var f : Flags = Flags.A;
     var g : Flags = Flags.B;
     var s : Small = Small.Min;

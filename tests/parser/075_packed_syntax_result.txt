@@ -21,9 +21,9 @@ NODE_ROOT [0:0]
   NODE_ERROR [27:8]
   NODE_VAR_DEC [27:12] name="g" type=i64
     NODE_LIT_i64 [27:22] i64=0
-  NODE_FN_DEC [29:4] name="main"
-    NODE_ARGS_DEC [29:9]
-    NODE_RET_DEC [29:12] type=i64
-    NODE_BLOCK [29:18]
+  NODE_FN_DEC [29:8] name="main" pub
+    NODE_ARGS_DEC [29:13]
+    NODE_RET_DEC [29:16] type=i64
+    NODE_BLOCK [29:22]
       NODE_RET [30:2]
         NODE_LIT_i64 [30:9] i64=0

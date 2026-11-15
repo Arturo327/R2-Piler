@@ -9,6 +9,6 @@ fn f(x : i64) : i64 {
     return 4;
   }
 }
-fn main() : i64 {
+pub fn main() : i64 {
   return f(2);
 }

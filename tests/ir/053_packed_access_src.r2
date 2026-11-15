@@ -27,7 +27,7 @@ fn make (t : u8, v : u32) : Header {
 	return h;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var h : Header = {.tag = 7, .value = 287454020};
 	var c : Header = make(1, 2);
 	var hp : ptr Header = $h;

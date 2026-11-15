@@ -46,7 +46,7 @@ fn many(a : i32[3], b : i32[3], c : i32[3], d : i32[3], e : i32[3],
 		+ (e[0] as i64) + (f[0] as i64) + (h[0] as i64) + n;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr a : i32[3] = {1, 2, 3};
 	arr b : i32[3] = {4, 5, 6};
 	arr c : i32[4] = {0, 0, 0, 0};

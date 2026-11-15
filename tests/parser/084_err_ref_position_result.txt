@@ -5,10 +5,10 @@ NODE_ROOT [0:0]
     NODE_RET_DEC [1:11] type=void
     NODE_BLOCK [1:11]
       NODE_ERROR [1:11]
-  NODE_FN_DEC [4:4] name="main"
-    NODE_ARGS_DEC [4:8]
-    NODE_RET_DEC [4:11] type=i64
-    NODE_BLOCK [4:17]
+  NODE_FN_DEC [4:8] name="main" pub
+    NODE_ARGS_DEC [4:12]
+    NODE_RET_DEC [4:15] type=i64
+    NODE_BLOCK [4:21]
       NODE_VAR_DEC [5:6] name="r" type=error
       NODE_VAR_DEC [6:6] name="p" type=ptr error
       NODE_RET [7:2]

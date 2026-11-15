@@ -20,7 +20,7 @@ fn by (p : ptr i64, n : i16) : ptr i64 {
     return p;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
     var b : ptr i64 = base;
     var bytes : ptr i8 = b as ptr i8;
     var eight : ptr i64 = (bytes + 8) as ptr i64;

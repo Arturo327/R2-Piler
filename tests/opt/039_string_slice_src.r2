@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
 	var s : char[] = "Hello, world";
 	var i : i64 = 0;
 	var acc : i64 = 0;

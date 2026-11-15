@@ -1,7 +1,7 @@
 fn id16(x : i16) : i16 {
   return x;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   var a : u8 = 200u;
   var b : i16 = 1000;
   var c : u32 = 3000000000u;

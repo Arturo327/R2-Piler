@@ -11,7 +11,7 @@ fn suma (v : i32[]) : i32
 	return total;
 }
 
-fn main () : i64
+pub fn main () : i64
 {
 	arr local : i32[5] = { 10, 20, 30, 40, 50 };
 	var t : i64 = 0;

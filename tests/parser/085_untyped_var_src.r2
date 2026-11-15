@@ -2,7 +2,7 @@ struct P { x : i64; }
 
 fn f() : i64, u32 { return 1, 2; }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var a = 33;
 	var s = "hola";
 	var e = {.x = 5} as P;

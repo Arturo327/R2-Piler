@@ -41,7 +41,7 @@ fn pickm(c : i64, a : i64) : i64 {
 	}
 	return r;
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	if (pickv(1, 10, 20) != 10) {
 		return 1;
 	}

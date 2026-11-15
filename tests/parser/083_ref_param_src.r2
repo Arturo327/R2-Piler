@@ -15,7 +15,7 @@ fn field(p : &P) : i64 {
 	return p.x;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var n : i64 = 0;
 	inc(n);
 	var q : ptr i64 = $n;

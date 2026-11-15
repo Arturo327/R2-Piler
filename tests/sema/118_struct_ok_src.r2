@@ -35,7 +35,7 @@ fn take(v : Outer) : Outer {
 	return v;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var o : Outer = g;
 	var p : ptr Outer = $o;
 	arr ps : Outer[2] = {g, g};

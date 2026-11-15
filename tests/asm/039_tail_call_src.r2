@@ -26,7 +26,7 @@ fn wrap6(n : i64) : i64 {
 	}
 	return add6(1, 1, 1, 1, 1, n);
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	if (count(1000, 0) != 1000) {
 		return 1;
 	}

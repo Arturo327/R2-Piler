@@ -4,7 +4,7 @@ fn fact(n : i64) : i64 {
 	}
 	return n * fact(n - 1);
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	if (fact(5) == 120) {
 		return 0;
 	}

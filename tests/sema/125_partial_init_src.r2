@@ -34,7 +34,7 @@ packed struct PB {
 	w : u32;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var a : P = {};
 	var b : P = {.x = 1};
 	var c : Q = {.p = {.x = 2}};

@@ -60,7 +60,7 @@ fn picku16(a : u16, b : u16, x : u16, y : u16) : u16 {
 	}
 	return r;
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	if (pickgt(9, 3, 11, 22) != 11) {
 		return 1;
 	}

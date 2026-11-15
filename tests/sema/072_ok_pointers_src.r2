@@ -6,7 +6,7 @@ fn bump(p : ptr i64) : ptr i64 {
     return p;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
     var x : i32 = 42;
     var p : ptr i32 = $x;
     var q : ptr ptr i64;

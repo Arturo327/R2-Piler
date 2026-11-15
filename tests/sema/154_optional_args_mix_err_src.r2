@@ -2,7 +2,7 @@ fn foo (a : i64, b : i64 = 4, c : i64 = 6) : i64 {
 	return a * 100 + b * 10 + c;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var x : i64 = 1;
 	var r : i64 = 0;
 	r += foo(x, 2, c = 4);

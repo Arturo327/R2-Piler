@@ -10,7 +10,7 @@ fn greet() {
     c = '\'';
 }
 
-fn main() {
+pub fn main() {
     // Greet and show escapes.
     greet();
     var sep: char = ':';

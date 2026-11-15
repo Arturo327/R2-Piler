@@ -3,7 +3,7 @@
 // fuse EQ/LT+JZ into a single `cmpq $imm, %rax` + `jge`.
 // Without fusion each would materialize 0/1 via `setcc; movzbl; movq` + reload.
 // grep: `cmpq $500, %rax` + `jge` present, no `sete` in loop.
-fn main() : i64 {
+pub fn main() : i64 {
 	var cnt : i64 = 0;
 	for (var i : i64 = 0; i < 1000; i = i + 1) {
 		if (i < 500) {

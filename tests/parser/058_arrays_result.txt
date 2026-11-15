@@ -18,10 +18,10 @@ NODE_ROOT [0:0]
           NODE_INDEX [5:18]
             NODE_ID [5:17] str="v"
             NODE_LIT_i64 [5:19] i64=0
-  NODE_FN_DEC [8:4] name="main"
-    NODE_ARGS_DEC [8:8]
-    NODE_RET_DEC [8:11] type=i64
-    NODE_BLOCK [8:17]
+  NODE_FN_DEC [8:8] name="main" pub
+    NODE_ARGS_DEC [8:12]
+    NODE_RET_DEC [8:15] type=i64
+    NODE_BLOCK [8:21]
       NODE_ARR_DEC [9:6] name="a" type=i32[2]
         NODE_ARRAY_INIT [9:19]
           NODE_LIT_i64 [9:20] i64=4

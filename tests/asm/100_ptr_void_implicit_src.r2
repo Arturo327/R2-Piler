@@ -7,7 +7,7 @@ fn store(p : ptr i32, v : i32) : i32 {
     return @p;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
     var p : ptr i32 = malloc(4);
     var q : ptr i32 = malloc(4);
     var v : ptr void = p;

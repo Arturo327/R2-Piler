@@ -42,7 +42,7 @@ fn squeeze() : i64 {
 		+ v10 + v10 + v11 + v11 + v12 + v12 + v13 + v13 + t;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	if (squeeze() == 513) {
 		return 0;
 	}

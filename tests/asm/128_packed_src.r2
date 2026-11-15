@@ -37,7 +37,7 @@ fn hmake (t : u8, v : u32) : Header {
 	return h;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var h : Header = {.tag = 7, .value = 287454020};
 	var p : ptr u8 = $h as ptr u8;
 	var m : Bitmix = {.a = 1, .lo = 5, .hi = 1023, .c = 2, .d = 1000, .e = 9};

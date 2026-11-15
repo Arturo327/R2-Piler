@@ -26,7 +26,7 @@ fn bf(x : &u8) {
 	x += 1;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var n : i64 = 0;
 	inc(5);
 	var m : i32 = 0;

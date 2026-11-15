@@ -7,7 +7,7 @@ fn f(x : i64, y : i64) : i64 {
 	var b : i64 = x * y;
 	return a + b;
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	var s : i64 = 0;
 	for (var i : i64 = 1; i < 501; i = i + 1) {
 		s = s + f(i, 7);

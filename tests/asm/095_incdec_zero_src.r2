@@ -2,7 +2,7 @@
 // `incq`/`decq` sustituyen add/sub $1 (mismo número de instrucciones, menos
 // bytes), incluido el RMW en sitio del bucle. El edge condicional del bucle
 // no necesita stub `.LE` (no hay moves).
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : i64 = 0;
 	var b : i64 = 10;
 	var i : i64 = 0;

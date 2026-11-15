@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
   var a : i64 = 20;
   var b : i64 = 6;
   var s : i64 = a + b;

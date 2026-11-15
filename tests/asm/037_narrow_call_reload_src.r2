@@ -6,7 +6,7 @@ fn get() : i8 {
 	n = n + 1;
 	return n;
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : i8 = get();
 	var t : i8 = a;
 	var b : i8 = get();

@@ -8,10 +8,10 @@ NODE_ROOT [0:0]
       NODE_VAR_DEC [2:16] name="x" type=i32
     NODE_RET_DEC [2:25] type=i32
   NODE_EXTERN_VAR_DEC [3:12] name="optind" type=i32
-  NODE_FN_DEC [5:4] name="main"
-    NODE_ARGS_DEC [5:9]
-    NODE_RET_DEC [5:12] type=i64
-    NODE_BLOCK [5:18]
+  NODE_FN_DEC [5:8] name="main" pub
+    NODE_ARGS_DEC [5:13]
+    NODE_RET_DEC [5:16] type=i64
+    NODE_BLOCK [5:22]
       NODE_VAR_DEC [6:6] name="n" type=i32
         NODE_FN_CALL [6:16] name="abs"
           NODE_NEG [6:20]

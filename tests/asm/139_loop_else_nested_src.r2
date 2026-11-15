@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
 	var inner : i64 = 0;
 	var outer : i64 = 0;
 

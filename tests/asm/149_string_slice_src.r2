@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
 	var s : char[] = "Hello, world";
 	var n : i64 = s.len;
 	if (s[0] != 'H') return 1;

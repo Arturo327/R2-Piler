@@ -1,5 +1,5 @@
 type P [1:6] depth=0 type=P base=ptr i64
-fn main [3:4] depth=0 type=i64
+fn main [3:8] depth=0 type=i64
 var a [4:9] depth=1 type=i64
 var b [5:9] depth=1 type=u64
 var c [6:9] depth=1 type=i8

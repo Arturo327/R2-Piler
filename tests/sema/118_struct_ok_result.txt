@@ -15,7 +15,7 @@ union Value [23:7] depth=0 size=8 align=8
   field b type=u8[8] offset=0
 var g [28:5] depth=0 type=Outer
 fn take [34:4] depth=0 type=Outer
-fn main [38:4] depth=0 type=i64
+fn main [38:8] depth=0 type=i64
 param v [34:9] depth=1 type=Outer
 var o [39:6] depth=1 type=Outer
 var p [40:6] depth=1 type=ptr Outer

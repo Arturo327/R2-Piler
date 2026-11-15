@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : u8 = 1;
 	var n : i64 = 9;
 	var b : u8 = (a << n) as u8;

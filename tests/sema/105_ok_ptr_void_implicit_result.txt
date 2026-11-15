@@ -4,7 +4,7 @@ fn memset [3:11] depth=0 type=ptr void
 fn take [5:4] depth=0 type=i32
 fn make [9:4] depth=0 type=ptr i16
 fn wipe [13:4] depth=0 type=i32
-fn main [18:4] depth=0 type=i64
+fn main [18:8] depth=0 type=i64
 param p [5:9] depth=1 type=ptr i32
 param s [13:9] depth=1 type=i32[]
 param n [13:20] depth=1 type=u64

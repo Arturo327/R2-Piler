@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
 	static var a : i64 = 1, b : i64 = 2;
 	static arr s : i8[4] = "abc";
 

@@ -21,7 +21,7 @@ fn by_deref() : i64 {
 	return s + v[1];
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	if (by_index() != 18) { return 1; }
 	if (by_deref() != 27) { return 2; }
 	return 0;

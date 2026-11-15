@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : u64 = 18446744073709551615;
 	var b : u64 = 0;
 	if (a > b) {

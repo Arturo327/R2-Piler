@@ -4,7 +4,7 @@ fn bump(p : ptr i64) : void {
 	@p = 3;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var p : P = {.x = 1, .y = 2};
 	p.x = p.x + 1;
 	var a : i64[4] = {1, 2, 3, 4};

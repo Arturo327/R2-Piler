@@ -27,7 +27,7 @@ fn set(p : &P, v : i64) {
 	p.y = v;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var n : i64 = 10;
 	inc(n, 5);
 	twice(n);

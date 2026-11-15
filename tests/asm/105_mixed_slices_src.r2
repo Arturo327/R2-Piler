@@ -68,7 +68,7 @@ fn descriptor (m : i32[][3], n : i32[2][], s : i32[][]) : i64
 			+ m[0][0] as i64 + n[0][0] as i64 + s[0][0] as i64;
 }
 
-fn main () : i64
+pub fn main () : i64
 {
 	arr a : i32[2][3][2] = {
 		{ {1,2}, {3,4}, {5,6} },

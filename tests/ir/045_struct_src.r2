@@ -21,7 +21,7 @@ fn take(p : Point) : i32 {
 	return p.x + p.y;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : Point = {.x = 1, .y = 2};
 	var l : Line = {.a = {.x = 3, .y = 4}, .b = a};
 	var m : Point = make(l.a.x);

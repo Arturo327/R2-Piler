@@ -9,6 +9,6 @@ fn row(i : i64) : i64[3] {
     return m[i];
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
     return shape()[0] + row(1)[2];
 }

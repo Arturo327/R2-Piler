@@ -14,7 +14,7 @@ fn wrap7(n : i64) : i64 {
 	}
 	return add7(1, 1, 1, 1, 1, 1, n);
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	if (wrap7(7) == 13) {
 		return 0;
 	}

@@ -3,7 +3,7 @@ fn inc(v : i64) : i64 {
 	cnt = cnt + 1;
 	return v;
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : i64 = (inc(0) && inc(1)) as i64;
 	if (cnt != 1) {
 		return 1;

@@ -17,7 +17,7 @@ fn side () : i32 {
 fn nothing () {
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var p : P = {};
 	var v : i32 = 0;
 	var a : i64 = alignof(void);

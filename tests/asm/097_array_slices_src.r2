@@ -23,7 +23,7 @@ fn spread(a : i32[], b : i32[], c : i32[], d : i32[], x : i64, y : i64) : i64 {
 		+ (a[0] as i64) + (b[0] as i64) + (c[0] as i64) + (d[0] as i64));
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr a : i32[3] = {1, 2, 3};
 	arr b : i32[2] = {4, 5};
 	arr c : i32[1] = {6};

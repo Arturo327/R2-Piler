@@ -7,7 +7,7 @@ fn f() : i64 {
 	return s + t;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	if (g != 11) { return 1; }
 	return 0;
 }

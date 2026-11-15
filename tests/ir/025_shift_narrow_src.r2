@@ -1,7 +1,7 @@
 fn id_u64(x : u64) : u64 {
   return x;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   var a : i64 = 1;
   var b : u64 = 2u;
   var s : i64 = a << b;

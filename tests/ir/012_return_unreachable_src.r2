@@ -6,6 +6,6 @@ fn f() : i64 {
   var x : i64 = 2;
   return x;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   return 0;
 }

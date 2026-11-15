@@ -20,7 +20,7 @@ fn mix (a : Small, b : Byte) : i64 {
     return (q as i64) + (m as i64) + (r as i64);
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
     var s : Small = 50;
     var u : Byte = 250;
     var x : i64 = mix(s, u);

@@ -5,4 +5,4 @@ enum Seconds [5:6] depth=0 type=error
 enum Dias [7:6] depth=0 type=Dias base=u8
   variant Lunes = 0
 var Dias [8:5] depth=0 type=i8
-fn main [10:4] depth=0 type=i64
+fn main [10:8] depth=0 type=i64

@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : i64 = 300;
 	var b : u8 = (a as u8) as u8;
 	if ((b as i64) != 44) {

@@ -22,7 +22,7 @@ fn sized(e : E[2], n : N[2]) : i64 {
 	return (e[1] as i64) + (n[1] as i64) + e.len;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr a : i32[27];
 	arr b : i32[3] = {1, 2, 3};
 	arr e : E[2] = {E.A, E.B};

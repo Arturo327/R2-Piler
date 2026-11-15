@@ -7,7 +7,7 @@ fn get [14:4] depth=0 type=i64
 fn addr [18:4] depth=0 type=ptr i64
 fn field [22:4] depth=0 type=i64
 fn set [26:4] depth=0 type=void
-fn main [30:4] depth=0 type=i64
+fn main [30:8] depth=0 type=i64
 param x [6:8] depth=1 type=ptr i64
 param d [6:18] depth=1 type=i64
 param x [10:10] depth=1 type=ptr i64

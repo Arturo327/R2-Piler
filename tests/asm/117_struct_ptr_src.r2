@@ -3,7 +3,7 @@ struct Node {
 	next: ptr Node;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : Node = {.value = 10, .next = NULL};
 	var b : Node = {.value = 20, .next = $a};
 	var p : ptr Node = $b;

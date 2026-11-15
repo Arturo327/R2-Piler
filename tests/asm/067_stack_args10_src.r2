@@ -8,7 +8,7 @@ fn sum10 (a : i64, b : i64, c : i64, d : i64, e : i64, f : i64, g : i64, h : i64
 	return a + b + c + d + e + f + g + h + i + j;
 }
 
-fn main () : i64
+pub fn main () : i64
 {
 	var a : i64 = id(1);
 	var b : i64 = id(2);

@@ -14,7 +14,7 @@ var g1 : i64 = 5;
 var g2 : i64 = 6;
 var g3 : i64 = 7;
 
-fn main() : i64 {
+pub fn main() : i64 {
 	if (x1 != 0) { return 1; }
 	if (x2 != 0) { return 2; }
 	if (x3 != 0) { return 3; }

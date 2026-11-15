@@ -2,7 +2,7 @@ fn two [1:4] depth=0 type=i64, u32
 fn one [5:4] depth=0 type=i64
 fn bad_void [9:4] depth=0 type=void, i64
 fn ext [13:11] depth=0 type=i64[]
-fn main [15:4] depth=0 type=i64, i64
+fn main [15:8] depth=0 type=i64, i64
 fn entry [19:4] depth=0 type=i64
 param a [1:8] depth=1 type=i64
 param a [5:8] depth=1 type=i64

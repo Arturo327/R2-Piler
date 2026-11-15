@@ -44,6 +44,6 @@ fn blockstat() : i64 {
 	return r;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	return counter() + zero() + other() + arrsum() + ptrstatic() + blockstat();
 }

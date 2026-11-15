@@ -13,7 +13,7 @@ fn twice(v : i32) : i32 {
 	return v * 2;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : Point = {.x = 1, .y = 2};
 	var b : Point = {.x = 3, .y = 4};
 	var c : Point = add(a, b);

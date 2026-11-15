@@ -43,7 +43,7 @@ struct HasUnion {
 	last : u2;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var f : Flags = {.a = 1, .b = 2, .c = 3, .d = 4};
 	var c : Closed = {.a = 1, .b = 2, .c = 3};
 	var n : Nested = {.head = 1, .lo = 2, .hi = 3, .tail = 1};

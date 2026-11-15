@@ -20,7 +20,7 @@ fn pair () : P, i64 {
 	return {.x = 3, .y = 4} as P, 5;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var a : P = {.x = 6};
 	var b : P = {.y = 7} as P;
 	var c : P = {} as P;

@@ -3,7 +3,7 @@ newtype Byte = u8;
 
 var clock : Seconds = 10;
 
-fn main () : i64 {
+pub fn main () : i64 {
     var s : Seconds = 7;
     var b : Byte = 200;
     s = s * 8;

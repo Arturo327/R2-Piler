@@ -11,7 +11,7 @@ fn keep(a : i64, b : i64, c : i64, d : i64) : i64 {
 fn call_keep(a : i64, b : i64, c : i64, d : i64) : i64 {
 	return keep(d, c, b, a);
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	if (call_keep(1, 2, 3, 4) == 4) {
 		return 0;
 	}

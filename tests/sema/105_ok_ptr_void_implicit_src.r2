@@ -15,7 +15,7 @@ fn wipe(s : i32[], n : u64) : i32 {
     return s.len as i32;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
     var a : ptr i32 = malloc(4);
     var b : ptr u8 = malloc(1);
     var c : ptr i16 = make();

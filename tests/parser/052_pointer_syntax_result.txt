@@ -14,10 +14,10 @@ NODE_ROOT [0:0]
           NODE_LIT_i64 [4:15] i64=1
       NODE_RET [5:5]
         NODE_ID [5:12] str="p"
-  NODE_FN_DEC [8:4] name="main"
-    NODE_ARGS_DEC [8:8]
-    NODE_RET_DEC [8:11] type=i64
-    NODE_BLOCK [8:17]
+  NODE_FN_DEC [8:8] name="main" pub
+    NODE_ARGS_DEC [8:12]
+    NODE_RET_DEC [8:15] type=i64
+    NODE_BLOCK [8:21]
       NODE_VAR_DEC [9:9] name="x" type=i32
         NODE_LIT_i64 [9:19] i64=42
       NODE_VAR_DEC [10:9] name="p" type=ptr i32

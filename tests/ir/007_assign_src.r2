@@ -1,5 +1,5 @@
 var g : i64 = 0;
-fn main() : i64 {
+pub fn main() : i64 {
   var x : i64 = 1;
   var y : i64 = 2;
   x = y = 5;

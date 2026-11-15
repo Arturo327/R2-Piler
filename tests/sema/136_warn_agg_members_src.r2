@@ -1,6 +1,6 @@
 struct P { x : i64; y : i64; }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var p : P;
 	var s : i64 = p.x;
 	var a : i64[4];

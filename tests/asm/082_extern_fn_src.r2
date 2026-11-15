@@ -5,7 +5,7 @@ fn measure (s : ptr char) : u64 {
 	return strlen(s);
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var n : u64 = measure("hola mundo");
 	var d : i32 = abs(-7);
 	if (n != 10) { return 1; }

@@ -24,7 +24,7 @@ fn suma(p : Punto) : i32 {
 	return p.x + p.y;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var p : Punto = {.x = 1, .y = 2, .tags = {3, 4, 5}};
 	var c : Cpu = {.tag = 0, .whole = 7};
 	var llamada : i32 = suma(p);

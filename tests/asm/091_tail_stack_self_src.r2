@@ -9,7 +9,7 @@ fn sum7(n : i64, a : i64, b : i64, c : i64, d : i64, e : i64, acc : i64) : i64 {
 	return sum7(n - 1, a, b, c, d, e, acc + n);
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	// sum(1..1000) = 500500, más a+b+c+d+e = 15.
 	if (sum7(1000, 1, 2, 3, 4, 5, 0) != 500515) { return 1; }
 	return 0;

@@ -29,7 +29,7 @@ struct Uses [42:8] depth=0 size=24 align=4
   field h type=Header offset=0
   field p type=Held offset=8
   field t type=Header offset=16
-fn main [48:4] depth=0 type=i64
+fn main [48:8] depth=0 type=i64
 var h [49:6] depth=1 type=Header
 var b [50:6] depth=1 type=Bits
 var m [51:6] depth=1 type=Bitmix

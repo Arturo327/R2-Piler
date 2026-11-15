@@ -21,7 +21,7 @@ fn sum(p : Point) : i32 {
 	return p.x + p.y;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : Point = {.x = 1, .y = 2};
 	var r : i32 = bump(a);
 

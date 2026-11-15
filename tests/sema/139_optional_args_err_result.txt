@@ -3,7 +3,7 @@ fn bad [3:4] depth=0 type=i64
 fn opt [4:4] depth=0 type=i64
 fn req [5:4] depth=0 type=i64
 fn noconst [6:4] depth=0 type=i64
-fn main [8:4] depth=0 type=i64
+fn main [8:8] depth=0 type=i64
 param x [3:9] depth=1 type=i64
 param y [3:22] depth=1 type=i64
 param x [4:9] depth=1 type=i64

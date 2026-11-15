@@ -1,6 +1,6 @@
 var g [1:5] depth=0 type=i64
 fn v [3:4] depth=0 type=void
-fn main [5:4] depth=0 type=i64
+fn main [5:8] depth=0 type=i64
 var c [6:6] depth=1 type=i64
 var a [7:6] depth=1 type=i64
 var b [8:6] depth=1 type=i64

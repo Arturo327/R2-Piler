@@ -30,7 +30,7 @@ struct Bits {
 var g_off : i64 = offsetof(Outer, inner.b);
 var g_align : i64 = alignof(Alias);
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var o : Outer = {};
 	var u : U = {};
 	var pk : Pk = {};

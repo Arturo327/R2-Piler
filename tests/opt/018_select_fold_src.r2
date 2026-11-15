@@ -7,6 +7,6 @@ fn f() : i64 {
   }
   return x;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   return f();
 }

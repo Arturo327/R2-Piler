@@ -47,6 +47,6 @@ fn ok_arr_param(x : i64[3]) : i64[3] {
     return x;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
     return 0;
 }

@@ -21,7 +21,7 @@ struct Tagged [27:8] depth=0 size=4 align=2
 struct PB [32:15] depth=0 size=5 align=1 packed
   field tag type=u8 offset=0
   field w type=u32 offset=1
-fn main [37:4] depth=0 type=i64
+fn main [37:8] depth=0 type=i64
 var a [38:6] depth=1 type=P
 var b [39:6] depth=1 type=P
 var c [40:6] depth=1 type=Q

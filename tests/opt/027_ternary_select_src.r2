@@ -10,6 +10,6 @@ fn impure(c : i64, a : i64, b : i64) : i64 {
 	return c ? imp(a) : imp(b);
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	return 0;
 }

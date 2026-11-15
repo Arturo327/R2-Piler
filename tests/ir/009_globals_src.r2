@@ -10,7 +10,7 @@ fn set(v : i64) : void {
   b = v + 1;
   return;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   set(10);
   return get();
 }

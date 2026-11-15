@@ -9,7 +9,7 @@ fn pick(c : i64, a : i64, b : i64) : i64 {
 	return c ? a : b;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var t : i64 = 1;
 	var f : i64 = 0;
 	var a : i64 = 10;

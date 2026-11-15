@@ -23,7 +23,7 @@ union Over {
 	half : u16 : 16;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var f : Flags = {.a = 5, .b = -3, .c = 171, .d = 4660};
 	var p : ptr u8 = $f as ptr u8;
 	var n : Nested = {.hdr = 17, .lo = 10, .hi = 5, .tail = 2};

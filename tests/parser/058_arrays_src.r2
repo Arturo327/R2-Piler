@@ -5,7 +5,7 @@ fn sum(v : i32[]) : i64 {
 	return v.len + v[0];
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr a : i32[2] = {4, 5};
 	var n : i64 = a.len;
 	return sum(a) + n;

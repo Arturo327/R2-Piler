@@ -12,7 +12,7 @@ fn take(p : P) : i64 {
     return p.x + p.y;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
     var a : P = mk(5);          // only the first value; buffer is bigger than P
     var q : Q;
     q.p = mk(7);                // struct assignment from a multi call

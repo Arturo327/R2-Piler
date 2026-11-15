@@ -6,7 +6,7 @@ struct P [2:8] depth=0 size=16 align=8
   field y type=i64 offset=8
 var g [3:5] depth=0 type=i64
 fn mix [5:4] depth=0 type=i64
-fn main [9:4] depth=0 type=i64
+fn main [9:8] depth=0 type=i64
 param a [5:9] depth=1 type=i64
 param b [5:18] depth=1 type=i64
 param s [5:31] depth=1 type=ptr i8

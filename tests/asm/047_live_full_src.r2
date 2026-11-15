@@ -13,7 +13,7 @@ fn f(a : i64, b : i64, c : i64) : i64 {
 	}
 	return x;
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	var s : i64 = 0;
 	for (var i : i64 = 0; i < 500; i = i + 1) {
 		s = s + f(i, 7, i & 1);

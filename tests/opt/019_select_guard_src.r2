@@ -44,6 +44,6 @@ fn f_elif(c : i64, d : i64) : i64 {
   }
   return x;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   return f_global(1) + f_arith(1, 2, 3) + f_call(1, 4) + f_elif(1, 0);
 }

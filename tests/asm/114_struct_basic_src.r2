@@ -11,7 +11,7 @@ struct Box {
 
 var base : Point = {.x = 100, .y = 200};
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var b : Box = {.tag = 1, .p = {.x = 10, .y = 20}, .size = 4};
 	arr ps : Point[3] = {{.x = 1, .y = 2}, {.x = 3, .y = 4}, {.x = 5, .y = 6}};
 	var acc : i64 = 0;

@@ -11,7 +11,7 @@ fn wrap8(n : i64, a : i64, b : i64, c : i64, d : i64, e : i64, f : i64) : i64 {
 	return add8(1, a, b, c, d, e, f, n);
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	if (wrap8(3, 10, 20, 30, 40, 50, 60) != 214) { return 1; }
 	if (wrap8(0, 10, 20, 30, 40, 50, 60) != 0) { return 2; }
 	return 0;

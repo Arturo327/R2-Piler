@@ -10,10 +10,10 @@ NODE_ROOT [0:0]
         NODE_CAST [6:13] type=i64
           NODE_DOT [6:10] field="x"
             NODE_ID [6:9] str="p"
-  NODE_FN_DEC [9:4] name="main"
-    NODE_ARGS_DEC [9:9]
-    NODE_RET_DEC [9:12] type=i64
-    NODE_BLOCK [9:18]
+  NODE_FN_DEC [9:8] name="main" pub
+    NODE_ARGS_DEC [9:13]
+    NODE_RET_DEC [9:16] type=i64
+    NODE_BLOCK [9:22]
       NODE_VAR_DEC [10:6] name="n" type=i64
         NODE_LIT_i64 [10:16] i64=0
       NODE_IF [12:2]

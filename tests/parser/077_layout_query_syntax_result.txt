@@ -10,10 +10,10 @@ NODE_ROOT [0:0]
     NODE_FIELD_DEC [13:2] name="x" type=i32
     NODE_FIELD_DEC [14:2] name="y" type=i64
   NODE_TYPE_DEC [17:6] name="Alias" type=Outer
-  NODE_FN_DEC [19:4] name="main"
-    NODE_ARGS_DEC [19:9]
-    NODE_RET_DEC [19:12] type=i64
-    NODE_BLOCK [19:18]
+  NODE_FN_DEC [19:8] name="main" pub
+    NODE_ARGS_DEC [19:13]
+    NODE_RET_DEC [19:16] type=i64
+    NODE_BLOCK [19:22]
       NODE_VAR_DEC [20:6] name="n" type=i64
         NODE_ALIGNOF [20:16]
           NODE_ID [20:24] str="Outer"

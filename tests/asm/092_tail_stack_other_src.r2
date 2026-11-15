@@ -10,7 +10,7 @@ fn wrap7(n : i64, a : i64, b : i64, c : i64, d : i64, e : i64, g : i64) : i64 {
 	return add7(n, a, b, c, d, e, g + n);
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	if (wrap7(5, 1, 2, 3, 4, 5, 0) != 25) { return 1; }
 	if (wrap7(1, 10, 20, 30, 40, 50, 60) != 212) { return 2; }
 	return 0;

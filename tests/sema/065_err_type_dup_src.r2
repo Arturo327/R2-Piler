@@ -7,6 +7,6 @@ enum Seconds : u8 { A }
 enum Dias : u8 { Lunes }
 var Dias : i8 = 0;
 
-fn main () : i64 {
+pub fn main () : i64 {
     return 0;
 }

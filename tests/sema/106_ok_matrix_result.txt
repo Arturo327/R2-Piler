@@ -6,7 +6,7 @@ var gm [4:5] depth=0 type=i32[2][3]
 fn total [6:4] depth=0 type=i64
 fn sum [10:4] depth=0 type=i64
 fn fixed [15:4] depth=0 type=i64
-fn main [21:4] depth=0 type=i64
+fn main [21:8] depth=0 type=i64
 param v [6:10] depth=1 type=i32[]
 param m [10:8] depth=1 type=i32[][]
 param m [15:10] depth=1 type=i32[2][3]

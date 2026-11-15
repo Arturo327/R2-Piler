@@ -4,7 +4,7 @@
 // A single `idivq`/`divq` is ~20-40 cycles; the loop is several times slower
 // without it. Complements 031/040 (pow2) for the magic path.
 // grep: `mulq`/`imulq` with `movabsq $0x...` present, no `idiv`/`divq` in loop.
-fn main() : i64 {
+pub fn main() : i64 {
 	var s : i64 = 0;
 	for (var i : i64 = 0; i < 300; i = i + 1) {
 		var a : i64 = i / 7;

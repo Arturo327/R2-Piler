@@ -14,10 +14,10 @@ NODE_ROOT [0:0]
             NODE_ID [2:9] str="a"
             NODE_ID [2:13] str="b"
           NODE_ID [2:17] str="c"
-  NODE_FN_DEC [5:4] name="main"
-    NODE_ARGS_DEC [5:9]
-    NODE_RET_DEC [5:12] type=i64
-    NODE_BLOCK [5:18]
+  NODE_FN_DEC [5:8] name="main" pub
+    NODE_ARGS_DEC [5:13]
+    NODE_RET_DEC [5:16] type=i64
+    NODE_BLOCK [5:22]
       NODE_RET [6:2]
         NODE_ADD [6:44]
           NODE_ADD [6:28]

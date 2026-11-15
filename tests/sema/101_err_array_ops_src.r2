@@ -2,7 +2,7 @@ fn set_len(v : i32[]) : void {
 	v.len = 3;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr a : i32[3] = {1, 2, 3};
 	arr b : i32[3] = {4, 5, 6};
 	var x : i64 = 0;

@@ -1,7 +1,7 @@
 type P [1:6] depth=0 type=P base=ptr i64
 type Q [2:6] depth=0 type=Q base=ptr ptr i64
 fn bump [4:4] depth=0 type=ptr i64
-fn main [9:4] depth=0 type=i64
+fn main [9:8] depth=0 type=i64
 param p [4:9] depth=1 type=ptr i64
 var x [10:9] depth=1 type=i32
 var p [11:9] depth=1 type=ptr i32

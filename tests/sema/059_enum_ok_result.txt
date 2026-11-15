@@ -21,7 +21,7 @@ enum Casts [25:6] depth=0 type=Casts base=u8
 var today [31:5] depth=0 type=Dias
 fn next [33:4] depth=0 type=Dias
 fn first [37:4] depth=0 type=Flags
-fn main [41:4] depth=0 type=i64
+fn main [41:8] depth=0 type=i64
 param d [33:10] depth=1 type=Dias
 param f [37:11] depth=1 type=Flags
 var d [42:9] depth=1 type=Dias

@@ -14,7 +14,7 @@ fn q(v : i64) : P, i64[] {
     return p, g;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
     var s : S;
     arr v : i64[4];
     s.a, s.b = two(10);

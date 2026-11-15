@@ -15,7 +15,7 @@ fn gety(p : &P) : i64 {
 	return p.y;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : P = {.x = 1, .y = 2};
 	var b : P = {.x = 0, .y = 0};
 	movep(a, 3);

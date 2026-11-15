@@ -19,7 +19,7 @@ fn sum(m : i32[][]) : i64 {
 	return s;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr a : i32[2][3] = {{1, 2, 3}, {4, 5, 6}};
 
 	return sum(a) + sum(g) + first(a);

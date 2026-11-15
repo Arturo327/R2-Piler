@@ -31,4 +31,4 @@ enum E {
   A = 1 as u8 as u16 as u32,
   B,
 }
-fn main() : i64 { return E.A as i64; }
+pub fn main() : i64 { return E.A as i64; }

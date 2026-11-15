@@ -18,7 +18,7 @@ fn mult (a:i64, b:i64) : i64
 	return result;
 }
 
-fn main ()
+pub fn main ()
 {
 	var letra : char;
 	letra = 'a';

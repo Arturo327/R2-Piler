@@ -6,7 +6,7 @@ fn step(x : i64) : i64 {
 	return x * 3 + 1;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : i64 = 1;
 	var b : i64 = 2;
 	var c : i64 = 3;

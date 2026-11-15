@@ -1,4 +1,4 @@
-fn main [1:4] depth=0 type=i64
+fn main [1:8] depth=0 type=i64
 var u [2:6] depth=1 type=u8[]
 var m [3:6] depth=1 type=i8[][]
 var x [4:6] depth=1 type=i32[]

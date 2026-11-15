@@ -14,6 +14,6 @@ fn ptrstatic() : i64 {
 	return @p;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	return 0;
 }

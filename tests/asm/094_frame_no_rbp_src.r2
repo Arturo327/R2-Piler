@@ -11,7 +11,7 @@ fn fwd7(a : i64, b : i64, c : i64, d : i64, e : i64, f : i64, g : i64) : i64 {
 	return s + c + d + e + f + g;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	if (fwd7(1, 2, 3, 4, 5, 6, 7) != 28) { return 1; }
 	return 0;
 }

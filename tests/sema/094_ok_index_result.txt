@@ -1,4 +1,4 @@
-fn main [1:4] depth=0 type=i64
+fn main [1:8] depth=0 type=i64
 var x [2:6] depth=1 type=i64
 var y [3:6] depth=1 type=i64
 var p [4:6] depth=1 type=ptr i64

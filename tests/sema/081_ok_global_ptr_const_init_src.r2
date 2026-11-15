@@ -5,7 +5,7 @@ var v : ptr void = $g as ptr void;
 var n : ptr i64 = NULL;
 var n2 : ptr i32 = NULL as ptr i32;
 
-fn main () : i64 {
+pub fn main () : i64 {
     var r : i64 = @s as i64;
     @p = @p + 1;
     if (n == NULL) { r = r + 1; }

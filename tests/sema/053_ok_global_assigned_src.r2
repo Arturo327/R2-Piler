@@ -3,7 +3,7 @@ fn init() : void {
   g = 1;
   return;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   init();
   return g;
 }

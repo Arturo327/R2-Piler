@@ -8,7 +8,7 @@ fn fact(n : i64) : i64 {
   return r;
 }
 var start : i64 = 5;
-fn main() : i64 {
+pub fn main() : i64 {
   var f : i64 = fact(start);
   if (f == 120) {
     return 0;

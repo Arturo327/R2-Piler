@@ -9,7 +9,7 @@ var z [7:5] depth=0 type=i64[2]
 var e [8:5] depth=0 type=E[2]
 var nn [9:5] depth=0 type=N[2]
 fn sum [11:4] depth=0 type=i64
-fn main [15:4] depth=0 type=i64
+fn main [15:8] depth=0 type=i64
 param v [11:8] depth=1 type=i32[]
 var a [16:6] depth=1 type=i32[4]
 var p [17:6] depth=1 type=ptr i32

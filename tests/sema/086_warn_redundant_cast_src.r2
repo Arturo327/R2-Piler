@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
     var a : i64 = 1;
     var same : i64 = a as i64;
     var wide : u64 = a as u64;

@@ -3,7 +3,7 @@
 // Making `dead` live (e.g. `s = s + i + (dead - dead)`) forces the `imulq`
 // back (extra multiply per iter for 1000 iterations).
 // grep: no `imulq` in the .s at all.
-fn main() : i64 {
+pub fn main() : i64 {
 	var s : i64 = 0;
 	for (var i : i64 = 0; i < 1000; i = i + 1) {
 		var dead : i64 = i * 12345;

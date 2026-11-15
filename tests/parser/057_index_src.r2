@@ -1,4 +1,4 @@
-fn main () : i64 {
+pub fn main () : i64 {
 	var i : i64 = 1;
 	var p : ptr i64 = NULL;
 	var pp : ptr ptr i64 = NULL;

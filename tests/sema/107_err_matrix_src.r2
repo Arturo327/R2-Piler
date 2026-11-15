@@ -19,7 +19,7 @@ fn bad(p : ptr i32, a : i32[2], m : i32[2][3], s : i32[]) : i64 {
 	return t + u + w + x + y + z + o + q;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr a : i32[2][];
 	arr b : i32[][3];
 	arr c : i32[][][];

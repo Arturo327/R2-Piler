@@ -15,7 +15,7 @@ fn apply_mask(a: i64, b: i64) : i64 {
     return ok;
 }
 
-fn main() {
+pub fn main() {
     var r: i64 = apply_mask(12, 34);
     var s: i64 = r ^ 170 & 85 | r;
 }

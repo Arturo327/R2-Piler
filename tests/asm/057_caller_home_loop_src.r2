@@ -15,7 +15,7 @@ fn chain(n : i64) : i64 {
 	}
 	return acc;
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	if (chain(20) != 650) {
 		return 1;
 	}

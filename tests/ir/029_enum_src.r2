@@ -15,7 +15,7 @@ fn next (d : Dias) : Dias {
     return d + 1;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
     var d : Dias = Dias.Lunes;
     var s : Signed = Signed.Neg;
     var u : u8 = d as u8;

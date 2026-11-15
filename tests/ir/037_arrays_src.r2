@@ -10,7 +10,7 @@ fn relay(v : i32[]) : i64 {
 	return sum(v);
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr a : i32[2] = {4, 5};
 	var p : ptr i32 = a;
 	var n : i64 = a.len;

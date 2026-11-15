@@ -16,7 +16,7 @@ fn shape() : i64[3] {
     return g;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
     var a : i64;
     var b : u32;
     a, b = split(1, 2);

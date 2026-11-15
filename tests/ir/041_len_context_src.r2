@@ -6,7 +6,7 @@ fn f(v : i32[]) : i64 {
 	return (a as i64) + (b as i64) + c;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr m : i32[7] = {1, 2, 3, 4, 5, 6, 7};
 	return f(m);
 }

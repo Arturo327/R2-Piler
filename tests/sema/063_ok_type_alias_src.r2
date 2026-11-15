@@ -10,7 +10,7 @@ fn f (i : Alias) : Index {
     return i + 1;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
     var x : Index = 2;
     var d : Day = Day.Martes;
     var e : Dias = Dias.Lunes;

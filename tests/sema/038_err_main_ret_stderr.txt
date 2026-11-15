@@ -1,4 +1,4 @@
-tests/sema/038_err_main_ret_src.r2:1:4: ERROR: 'main' must be declared as 'fn main() : i64'
-      1 | fn main() : void {
-        |    ^~~~
+tests/sema/038_err_main_ret_src.r2:1:8: ERROR: 'main' must be declared as 'pub fn main() : i64'
+      1 | pub fn main() : void {
+        |        ^~~~
 1 errors, 0 warnings

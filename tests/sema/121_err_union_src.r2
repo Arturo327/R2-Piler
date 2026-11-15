@@ -14,7 +14,7 @@ union Pair {
 	b: i64;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : Tagged = {.tag = 1, .whole = 2, .lo = 3};
 	var b : Tagged = {.tag = 1};
 	var c : Pair = {.a = 1};

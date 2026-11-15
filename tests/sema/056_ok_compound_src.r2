@@ -1,7 +1,7 @@
 var g : i64 = 1;
 var h : i64 = (g += 2);
 
-fn main() : i64 {
+pub fn main() : i64 {
     var a : i8 = 1;
     var b : i8 = 2;
     a += b;

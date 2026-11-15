@@ -2,7 +2,7 @@ struct P [1:8] depth=0 size=16 align=8
   field x type=i64 offset=0
   field y type=i64 offset=8
 fn bump [3:4] depth=0 type=void
-fn main [7:4] depth=0 type=i64
+fn main [7:8] depth=0 type=i64
 param p [3:9] depth=1 type=ptr i64
 var p [8:6] depth=1 type=P
 var a [10:6] depth=1 type=i64[4]

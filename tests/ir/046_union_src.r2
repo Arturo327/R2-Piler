@@ -3,7 +3,7 @@ union Number {
 	parts: i32[2];
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var n : Number = {.i = 0};
 
 	n.parts[0] = 1;

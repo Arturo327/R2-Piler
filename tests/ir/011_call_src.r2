@@ -4,7 +4,7 @@ fn add(a : i64, b : i64) : i64 {
 fn noval() : void {
   return;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   var x : i64 = add(1, 2);
   var y : i64 = add(add(1, 2), 3);
   noval();

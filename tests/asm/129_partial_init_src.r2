@@ -45,7 +45,7 @@ var g : P = {.y = 21};
 var gq : Q = {.p = {.z = 5}};
 var gv : V = {};
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var a : P = {};
 	var b : P = {.x = 1};
 	var c : P = {.x = 2, .y = 3, .z = 4};

@@ -31,7 +31,7 @@ fn work(n : i64) : i64 {
 	return s & 255;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	if (work(0) != 7) { return 1; }
 	if (work(5) != 110) { return 2; }
 	return 0;

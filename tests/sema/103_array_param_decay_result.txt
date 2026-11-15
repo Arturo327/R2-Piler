@@ -6,7 +6,7 @@ fn take27 [4:4] depth=0 type=i64
 fn relay [8:4] depth=0 type=i64
 fn first [12:4] depth=0 type=i64
 fn sized [21:4] depth=0 type=i64
-fn main [25:4] depth=0 type=i64
+fn main [25:8] depth=0 type=i64
 param x [4:11] depth=1 type=i32[27]
 param x [8:10] depth=1 type=i32[27]
 param v [12:10] depth=1 type=i32[]

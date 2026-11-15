@@ -35,10 +35,10 @@ NODE_ROOT [0:0]
     NODE_BLOCK [15:21]
       NODE_RET [16:5]
         NODE_ID [16:12] str="g"
-  NODE_FN_DEC [19:4] name="main"
-    NODE_ARGS_DEC [19:8]
-    NODE_RET_DEC [19:11] type=i64
-    NODE_BLOCK [19:17]
+  NODE_FN_DEC [19:8] name="main" pub
+    NODE_ARGS_DEC [19:12]
+    NODE_RET_DEC [19:15] type=i64
+    NODE_BLOCK [19:21]
       NODE_VAR_DEC [20:9] name="a" type=i64
       NODE_VAR_DEC [21:9] name="b" type=u32
       NODE_MULTI_ASSIGN [22:5]

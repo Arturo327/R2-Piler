@@ -24,10 +24,10 @@ NODE_ROOT [0:0]
             NODE_ID [24:9] str="p"
           NODE_DOT [24:16] field="y"
             NODE_ID [24:15] str="p"
-  NODE_FN_DEC [27:4] name="main"
-    NODE_ARGS_DEC [27:8]
-    NODE_RET_DEC [27:11] type=i64
-    NODE_BLOCK [27:17]
+  NODE_FN_DEC [27:8] name="main" pub
+    NODE_ARGS_DEC [27:12]
+    NODE_RET_DEC [27:15] type=i64
+    NODE_BLOCK [27:21]
       NODE_VAR_DEC [28:6] name="p" type=Punto
         NODE_STRUCT_INIT [28:18]
           NODE_FIELD_INIT [28:20] field="x"

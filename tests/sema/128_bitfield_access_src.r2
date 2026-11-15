@@ -8,7 +8,7 @@ fn read (x : ptr Bits) : i64 {
 	return (@x).a as i64 + (@x).b as i64 + (@x).c as i64;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var v : Bits = {.a = 1, .b = 2, .c = 3};
 	var p : ptr Bits = $v;
 	var s : u8;

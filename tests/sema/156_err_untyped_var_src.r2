@@ -4,7 +4,7 @@ var g = 5;
 
 fn nothing() { }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var x;
 	var p = NULL;
 	var v = nothing();

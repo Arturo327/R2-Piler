@@ -1,7 +1,7 @@
 // P3: representación raw de tipos estrechos. Las operaciones de ancho nativo
 // (add/sub/and/cmp) no re-extienden la imagen en cada iteración; la extensión
 // a 64 bits ocurre solo en el consumidor (los `as i64` de la suma).
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : i8 = 1;
 	var b : i16 = 300;
 	var c : i32 = 70000;

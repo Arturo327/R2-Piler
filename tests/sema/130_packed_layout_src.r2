@@ -45,7 +45,7 @@ struct Uses {
 	t : Alias;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var h : Header = {.tag = 1, .value = 2};
 	var b : Bits = {.whole = 3};
 	var m : Bitmix = {.a = 1, .b = 2, .c = 3, .d = 4};

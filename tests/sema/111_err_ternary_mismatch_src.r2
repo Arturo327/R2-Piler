@@ -2,7 +2,7 @@ var g : i64 = 5;
 
 fn v() : void { }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var c : i64 = 1;
 	var a : i64 = c ? 1 : "x";
 	var b : i64 = c ? v() : 1;

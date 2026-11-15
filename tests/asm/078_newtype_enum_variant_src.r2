@@ -5,7 +5,7 @@ newtype Shade = Paint;
 
 fn value (p : Paint) : i64 { return p as i64; }
 
-fn main () : i64 {
+pub fn main () : i64 {
     var p : Paint = Paint.Green;
     var t : Tint = Tint.Red;
     var s : Shade = Shade.Blue;

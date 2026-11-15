@@ -1,3 +1,3 @@
-fn main(x : i64) : i64 {
+pub fn main(x : i64) : i64 {
   return x;
 }

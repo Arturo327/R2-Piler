@@ -10,7 +10,7 @@ fn pick(a : i64, b : i64, c : i64) : i64 {
 fn rot(a : i64, b : i64, c : i64) : i64 {
 	return pick(b, c, a);
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	if (rot(1, 2, 3) == 1431) {
 		return 0;
 	}

@@ -13,6 +13,6 @@ fn f(x : i8) : i64 {
 	}
 	return t;
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	return f(3);
 }

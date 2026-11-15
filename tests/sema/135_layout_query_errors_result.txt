@@ -6,7 +6,7 @@ struct P [1:8] depth=0 size=24 align=8
 struct Bad [8:8] depth=0 size=0 align=1
 fn side [13:4] depth=0 type=i32
 fn nothing [17:4] depth=0 type=void
-fn main [20:4] depth=0 type=i64
+fn main [20:8] depth=0 type=i64
 var p [21:6] depth=1 type=P
 var v [22:6] depth=1 type=i32
 var a [23:6] depth=1 type=i64

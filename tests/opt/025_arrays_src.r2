@@ -1,6 +1,6 @@
 arr g : i32[2] = {3, 4};
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr a : i32[3] = {1, 2, 3};
 	var p : ptr i32 = a;
 	var n : i64 = a.len;

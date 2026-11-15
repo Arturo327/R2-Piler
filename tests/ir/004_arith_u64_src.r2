@@ -1,7 +1,7 @@
 fn usum(a : u64, b : u64) : u64 {
   return a + b;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   var a : u64 = 20u;
   var b : u64 = 6u;
   var s : u64 = usum(a, b);

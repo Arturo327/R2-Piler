@@ -15,7 +15,7 @@ fn chars(a : char, b : char) : char {
   var nl : i64 = !a;
   return s;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   var c : char = chars('a', 'b');
   return 0;
 }

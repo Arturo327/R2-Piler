@@ -13,6 +13,6 @@ fn zero() : i64 {
 	return z;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	return counter() + zero();
 }

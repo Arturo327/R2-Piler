@@ -3,7 +3,7 @@ struct Bits [1:8] depth=0 size=2 align=1
   field b type=i8 offset=0 bits=5 bit_off=3
   field c type=u8 offset=1
 fn read [7:4] depth=0 type=i64
-fn main [11:4] depth=0 type=i64
+fn main [11:8] depth=0 type=i64
 param x [7:10] depth=1 type=ptr Bits
 var v [12:6] depth=1 type=Bits
 var p [13:6] depth=1 type=ptr Bits

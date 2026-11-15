@@ -38,7 +38,7 @@ fn first (f : Flags) : Flags {
     return f;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
     var d : Dias = Dias.Lunes;
     var lit : Dias = 1;
     var s : Signed = Signed.Neg;

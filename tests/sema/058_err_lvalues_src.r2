@@ -2,7 +2,7 @@ fn f() : i64 {
     return 1;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
     var a : i64 = 1;
     f += 1;
     f++;

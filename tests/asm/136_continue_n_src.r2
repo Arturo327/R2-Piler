@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
 	var total : i64 = 0;
 
 	for (var i : i64 = 0; i < 4; i++) {

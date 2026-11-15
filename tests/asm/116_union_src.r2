@@ -15,7 +15,7 @@ struct Cpu {
 	}
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var n : Number = {.i = 0};
 
 	n.pair[0] = 1;

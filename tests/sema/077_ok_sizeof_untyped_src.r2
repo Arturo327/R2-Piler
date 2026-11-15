@@ -1,6 +1,6 @@
 type P = ptr i64;
 
-fn main() : i64 {
+pub fn main() : i64 {
     var a : i64 = sizeof(i64);
     var b : u64 = sizeof(i32);
     var c : i8 = sizeof(i8);

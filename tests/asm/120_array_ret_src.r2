@@ -13,7 +13,7 @@ fn len_of(x : i64[3]) : i64 {
     return x[0] + x[2];
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
     var s : i64[] = shape();
     var t : i64[] = row(1);
     var u : ptr i64 = row(0);

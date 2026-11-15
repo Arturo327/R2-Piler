@@ -6,7 +6,7 @@ fn mix (a : i64, b : i64 = 2, s : ptr i8 = "z", p : ptr i64 = $g, e : E = E.B) :
 	return a + b + e as i64 + @s + @p;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var x : i64 = mix(1);
 	x += mix(1, 2, "a");
 	x += mix(1, s = "b", b = 4);

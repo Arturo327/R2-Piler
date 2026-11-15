@@ -15,7 +15,7 @@ fn bad(v : i32[], p : ptr i32, a : i32[2], b : i64[3], c : i32[3]) : i64 {
 	return t + u + w + y + z + m + n + o;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr g : i32[3] = {1, 2, 3};
 
 	return take(g);

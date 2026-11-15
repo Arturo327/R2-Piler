@@ -3,7 +3,7 @@ struct P {
 	y : i32;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var a : P = {1, 2};
 	var b : i64 = {};
 	var c : P = {.x = 1, .y = 2};

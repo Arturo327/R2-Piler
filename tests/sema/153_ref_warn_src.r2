@@ -23,7 +23,7 @@ fn r(p : &P) : i64 {
 	return p.y;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var n : i64 = 0;
 	a(n);
 	b(n);

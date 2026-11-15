@@ -30,7 +30,7 @@ fn mix (x : u8, y : i8) : i64 {
 	return f.a as i64 + f.b as i64;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var v : Bits = {.a = 7, .b = -16, .c = 15, .d = 200};
 	var w : Wide = {.lo = 65535, .hi = 4294967295, .big = 1};
 	var u : Pack = {.part = 4095};

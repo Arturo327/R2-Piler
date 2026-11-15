@@ -3,7 +3,7 @@ enum E : i64 {
 	B = 2,
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var d : i64 = 1;
 
 	switch (d) {

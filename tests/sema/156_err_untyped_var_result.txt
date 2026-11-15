@@ -2,7 +2,7 @@ struct P [1:8] depth=0 size=8 align=8
   field a type=i64 offset=0
 var g [3:5] depth=0 type=error
 fn nothing [5:4] depth=0 type=void
-fn main [7:4] depth=0 type=i64
+fn main [7:8] depth=0 type=i64
 var x [8:6] depth=1 type=error
 var p [9:6] depth=1 type=error
 var v [10:6] depth=1 type=error

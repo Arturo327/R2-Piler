@@ -2,7 +2,7 @@ type main = u8;
 type Index = u32;
 type __r2_bad = u8;
 
-fn main () : i64 {
+pub fn main () : i64 {
     type Inner = u8;
     Index = 1;
     Index();

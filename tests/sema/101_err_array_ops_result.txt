@@ -1,5 +1,5 @@
 fn set_len [1:4] depth=0 type=void
-fn main [5:4] depth=0 type=i64
+fn main [5:8] depth=0 type=i64
 param v [1:12] depth=1 type=i32[]
 var a [6:6] depth=1 type=i32[3]
 var b [7:6] depth=1 type=i32[3]

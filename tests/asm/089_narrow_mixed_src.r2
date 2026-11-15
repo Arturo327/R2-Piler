@@ -14,7 +14,7 @@ fn mix(a : i8, b : u8, n : i64) : i64 {
 	return s;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	if (mix(0 - 3, 250, 4) != 750) { return 1; }
 	if (mix(0 - 128, 0, 1) != (0 - 128)) { return 2; }
 	return 0;

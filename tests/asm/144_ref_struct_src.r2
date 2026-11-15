@@ -15,7 +15,7 @@ fn copy(dst : &P, src : &P) {
 	dst = src;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var a : P = {.x = 1, .y = 2};
 	movep(a, 4);
 	if (a.x != 5) return 1;

@@ -5,7 +5,7 @@ fn bump (s : Seconds) : Seconds {
     return s + 1;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
     var s : Seconds = 7;
     var t : Seconds = bump(s);
     var n : Tiny = -2;

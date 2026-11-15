@@ -4,7 +4,7 @@ newtype Millis = u32;
 fn take (u : u32) : u32 { return u; }
 fn give () : Seconds { return 1; }
 
-fn main () : i64 {
+pub fn main () : i64 {
     var s : Seconds = 3;
     var m : Millis = 4;
     var u : u32 = 5;

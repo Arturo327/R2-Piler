@@ -4,7 +4,7 @@
 // `s = s + i` while O0 emits add/imul plus idivq for /1 and %1.
 // s = sum 0..999 = 499500.
 // grep O0: `idivq` present in loop; O1: no `idivq`/`imulq` in loop.
-fn main() : i64 {
+pub fn main() : i64 {
 	var s : i64 = 0;
 	for (var i : i64 = 0; i < 1000; i = i + 1) {
 		var t : i64 = i + 0;

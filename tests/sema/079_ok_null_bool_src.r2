@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
     var p : ptr i64 = NULL;
     if (NULL) return 1;
     while (NULL) { }

@@ -11,7 +11,7 @@ struct Packed32 {
 	sign : i32 : 5;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var v : Bits = {.a = 5, .b = -3, .c = 9, .d = 7};
 	var w : Packed32 = {.lo = 31, .hi = 4095, .sign = -3};
 

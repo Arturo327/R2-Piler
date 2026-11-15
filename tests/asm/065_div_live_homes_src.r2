@@ -22,7 +22,7 @@ fn mix(a : i64, b : i64, n : i64) : i64 {
 	return s + x + y + z + w;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	if (mix(17, 3, 9) == 175949) {
 		return 0;
 	}

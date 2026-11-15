@@ -7,7 +7,7 @@ fn naked () : P {
 	return {.x = 1};
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var a : P = {.x = 1};
 	var b : P = {.y = 2} as P;
 	var g : P = {3, 4} as P;

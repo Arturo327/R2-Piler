@@ -5,6 +5,6 @@ fn rows(v : i32[][]) : i64 {
 	return (v[0][1] as i64) + v.len + v[1].len;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	return rows(m) + (m[1][2] as i64);
 }

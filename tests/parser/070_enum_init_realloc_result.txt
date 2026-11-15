@@ -64,11 +64,11 @@ NODE_ROOT [0:0]
           NODE_CAST [31:9] type=u8
             NODE_LIT_i64 [31:7] i64=1
     NODE_ENUM_VAL [32:3] name="B"
-  NODE_FN_DEC [34:4] name="main"
-    NODE_ARGS_DEC [34:8]
-    NODE_RET_DEC [34:11] type=i64
-    NODE_BLOCK [34:17]
-      NODE_RET [34:19]
-        NODE_CAST [34:30] type=i64
-          NODE_DOT [34:27] field="A"
-            NODE_ID [34:26] str="E"
+  NODE_FN_DEC [34:8] name="main" pub
+    NODE_ARGS_DEC [34:12]
+    NODE_RET_DEC [34:15] type=i64
+    NODE_BLOCK [34:21]
+      NODE_RET [34:23]
+        NODE_CAST [34:34] type=i64
+          NODE_DOT [34:31] field="A"
+            NODE_ID [34:30] str="E"

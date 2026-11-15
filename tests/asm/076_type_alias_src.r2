@@ -11,7 +11,7 @@ fn sum (n : Index) : Index {
     return acc;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
     var total : Index = sum(100);
     return (total as i64) % 256;
 }

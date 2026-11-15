@@ -8,7 +8,7 @@ fn arr_ret() : i32[] {
 
 extern fn ext(v : i32[2], s : i32[]) : void;
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var x : i32[3];
 	arr y : i64;
 	arr z : i32[];

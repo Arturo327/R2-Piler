@@ -76,7 +76,7 @@ fn strstat() : i64 {
 	return r;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	if (counter() != 1) { return 1; }
 	if (counter() != 2) { return 2; }
 	if (counter() != 3) { return 3; }

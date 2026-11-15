@@ -15,7 +15,7 @@ fn f(a : i8, n : i64) : i64 {
 	}
 	return id(s);
 }
-fn main() : i64 {
+pub fn main() : i64 {
 	if (f((0 - 3) as i8, 5) == (0 - 15)) {
 		return 0;
 	}

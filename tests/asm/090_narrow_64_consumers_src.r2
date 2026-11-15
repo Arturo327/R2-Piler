@@ -1,7 +1,7 @@
 // P3: consumidores de 64 bits sobre valores estrechos raw: shift con contador
 // variable (se materializa el valor extendido), división por constante con
 // signo (magia a 64 bits) y shift/ mod sin signo de u16.
-fn main() : i64 {
+pub fn main() : i64 {
 	var x : i32 = 0 - 12345;
 	var sh : i32 = 3;
 	var y : i32 = x >> sh;

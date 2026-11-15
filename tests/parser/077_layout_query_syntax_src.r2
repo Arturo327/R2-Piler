@@ -16,7 +16,7 @@ union U {
 
 type Alias = Outer;
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var n : i64 = alignof(Outer);
 	var m : i64 = alignof(n);
 	var k : i64 = alignof("abc");

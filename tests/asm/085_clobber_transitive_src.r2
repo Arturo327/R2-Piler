@@ -21,7 +21,7 @@ fn a(x : i64) : i64 {
 	return b(x) + 1;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var s : i64 = 0;
 	var i : i64 = 0;
 	var k : i64 = 7;

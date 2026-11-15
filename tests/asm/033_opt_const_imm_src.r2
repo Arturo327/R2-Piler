@@ -4,7 +4,7 @@
 // single-CONST regs have no stack home.
 // Without it each constant would be loaded from its slot via `movq mem, %rcx`.
 // grep: `addq $5, -` and `andq $255, -` present, no `movq mem, %rcx` for consts.
-fn main() : i64 {
+pub fn main() : i64 {
 	var s : i64 = 0;
 	for (var i : i64 = 0; i < 1000; i = i + 1) {
 		s = s + 5;

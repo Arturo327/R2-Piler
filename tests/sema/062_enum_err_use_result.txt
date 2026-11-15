@@ -5,7 +5,7 @@ enum Other [6:6] depth=0 type=Other base=u8
   variant A = 0
 var v [10:5] depth=0 type=i64
 fn take [12:4] depth=0 type=i64
-fn main [16:4] depth=0 type=i64
+fn main [16:8] depth=0 type=i64
 param d [12:10] depth=1 type=Dias
 var a [17:9] depth=1 type=Dias
 var b [18:9] depth=1 type=Dias

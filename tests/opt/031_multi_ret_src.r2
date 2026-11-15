@@ -8,7 +8,7 @@ fn pick(x : i64[]) : i64[] {
     return x;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
     var a : i64;
     var b : u32;
     a, b = split(9);

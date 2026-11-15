@@ -5,7 +5,7 @@
 // s = sum (12345 + 12345 + i), i in 0..999 = 25189500.
 // grep O1 loop: single `g(%rip)` load per iter.
 var g : i64 = 12345;
-fn main() : i64 {
+pub fn main() : i64 {
 	var s : i64 = 0;
 	for (var i : i64 = 0; i < 1000; i = i + 1) {
 		var a : i64 = g;

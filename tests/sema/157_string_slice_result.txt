@@ -4,7 +4,7 @@ struct P [1:8] depth=0 size=24 align=8
 var g [2:5] depth=0 type=i8[]
 fn take [4:4] depth=0 type=i64
 fn give [5:4] depth=0 type=i8[]
-fn main [7:4] depth=0 type=i64
+fn main [7:8] depth=0 type=i64
 param s [4:9] depth=1 type=i8[]
 static var sg [8:13] depth=1 type=i8[]
 var s [9:6] depth=1 type=i8[]

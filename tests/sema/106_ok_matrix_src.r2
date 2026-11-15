@@ -18,7 +18,7 @@ fn fixed(m : i32[2][3]) : i64 {
 	return (p[0] as i64) + m.len + m[0].len;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr a : i32[2][3] = {{1, 2, 3}, {4, 5, 6}};
 	arr s : i8[2][4] = {"ab", "cd"};
 	arr e : E[2][2] = {{E.A, E.B}, {E.B, E.A}};

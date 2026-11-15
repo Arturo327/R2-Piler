@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
 	var x : i64 = 5;
 	if (x > 10) {
 		return 1;

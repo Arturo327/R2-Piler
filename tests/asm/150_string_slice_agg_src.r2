@@ -4,7 +4,7 @@ var g : char[] = "global";
 fn take(s : char[]) : i64 { return s.len; }
 fn give() : char[] { return "returned"; }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	static var sg : char[] = "static!";
 	var s : char[] = "Hello";
 	var p : P = {.n = 1, .name = "field"};

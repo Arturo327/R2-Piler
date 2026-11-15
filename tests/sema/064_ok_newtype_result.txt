@@ -6,7 +6,7 @@ enum E [4:6] depth=0 type=E base=u8
 newtype FromEnum [5:9] depth=0 type=FromEnum base=E
 var clock [7:5] depth=0 type=Seconds
 fn add [9:4] depth=0 type=Seconds
-fn main [13:4] depth=0 type=i64
+fn main [13:8] depth=0 type=i64
 param a [9:9] depth=1 type=Seconds
 param b [9:22] depth=1 type=Seconds
 var s [14:9] depth=1 type=Seconds

@@ -4,6 +4,6 @@ fn f() : i64 {
 	}
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	return f();
 }

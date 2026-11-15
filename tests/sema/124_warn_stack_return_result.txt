@@ -11,7 +11,7 @@ fn w_addr [33:4] depth=0 type=ptr i64
 fn ok_global [38:4] depth=0 type=i64[]
 fn ok_param [42:4] depth=0 type=i64[]
 fn ok_arr_param [46:4] depth=0 type=i64[3]
-fn main [50:4] depth=0 type=i64
+fn main [50:8] depth=0 type=i64
 var x [6:9] depth=1 type=i64[3]
 var x [11:9] depth=1 type=i64[3]
 var s [12:9] depth=1 type=i64[]

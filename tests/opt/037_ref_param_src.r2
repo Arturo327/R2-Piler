@@ -6,7 +6,7 @@ fn get(x : &i64) : i64 {
 	return x;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	var n : i64 = 3;
 	inc(n, 4);
 	return get(n) + n;

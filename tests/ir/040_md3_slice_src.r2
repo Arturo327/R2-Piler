@@ -14,7 +14,7 @@ fn cube(c : i32[][][]) : i64 {
 	return c.len + c[1].len + c[1][0].len + (r as i64) + (x as i64);
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr m : i32[2][2][3] = {{{1, 2, 3}, {4, 5, 6}}, {{7, 8, 9}, {10, 11, 12}}};
 	return cube(m) + (m[1][1][2] as i64);
 }

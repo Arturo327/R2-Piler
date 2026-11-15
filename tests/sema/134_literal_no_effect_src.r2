@@ -7,7 +7,7 @@ fn side () : i32 {
 	return 1;
 }
 
-fn main () : i64 {
+pub fn main () : i64 {
 	var p : P = {.x = 1};
 	var n : i64 = p.x as i64;
 

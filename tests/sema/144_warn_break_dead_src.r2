@@ -5,7 +5,7 @@ fn f() : void {
 	}
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	f();
 	return 0;
 }

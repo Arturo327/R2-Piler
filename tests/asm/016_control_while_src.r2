@@ -1,4 +1,4 @@
-fn main() : i64 {
+pub fn main() : i64 {
 	var s : i64 = 0;
 	var i : i64 = 1;
 	while (i <= 10) {

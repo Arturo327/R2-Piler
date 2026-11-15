@@ -1,8 +1,8 @@
 NODE_ROOT [0:0]
-  NODE_FN_DEC [1:4] name="main"
-    NODE_ARGS_DEC [1:9]
-    NODE_RET_DEC [1:12] type=i64
-    NODE_BLOCK [1:18]
+  NODE_FN_DEC [1:8] name="main" pub
+    NODE_ARGS_DEC [1:13]
+    NODE_RET_DEC [1:16] type=i64
+    NODE_BLOCK [1:22]
       NODE_VAR_DEC [2:6] name="i" type=i64
         NODE_LIT_i64 [2:16] i64=1
       NODE_VAR_DEC [3:6] name="p" type=ptr i64

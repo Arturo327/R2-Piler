@@ -5,6 +5,6 @@ fn f(a : i64) : i64 {
   var w : i64 = z | 0;
   return w;
 }
-fn main() : i64 {
+pub fn main() : i64 {
   return f(5);
 }

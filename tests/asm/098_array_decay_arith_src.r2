@@ -16,7 +16,7 @@ fn tail(v : i32[]) : i64 {
 	return (p[0] as i64) + (q[0] as i64) + (r[1] as i64) + d;
 }
 
-fn main() : i64 {
+pub fn main() : i64 {
 	arr a : i32[4] = {1, 2, 3, 4};
 	var i : i64 = 0;
 	var sum : i64 = 0;

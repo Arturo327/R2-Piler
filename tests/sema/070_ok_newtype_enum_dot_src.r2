@@ -8,7 +8,7 @@ var first : Stamp = Stamp.Lunes;
 
 fn pick (s : Stamp) : i64 { return s as i64; }
 
-fn main () : i64 {
+pub fn main () : i64 {
     var s : Stamp = Stamp.Martes;
     var d : Day = Day.Lunes;
     var x : Deep = Deep.Miercoles;
