@@ -873,7 +873,7 @@ static int check_spread_arg (Sema *s, uint32_t arg, uint32_t next,
 				"a spread argument must be the last argument");
 		bad = 1;
 	}
-	if (got != TYPE_ERROR && got != slice) {
+	if (got != TYPE_ERROR && got != slice && !sema_array_slice_compat(got, slice)) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"spread argument type %s does not match the variadic type %s",
 				type_display_name(got), types[slice].name);

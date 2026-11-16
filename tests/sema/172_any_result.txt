@@ -1,0 +1,15 @@
+struct P [1:8] depth=0 size=8 align=8
+  field x type=i64 offset=0
+fn take [3:4] depth=0 type=any
+fn main [5:8] depth=0 type=i64
+param a [3:10] depth=1 type=any
+var a [6:6] depth=1 type=any
+var b [7:6] depth=1 type=any
+var c [8:6] depth=1 type=any
+var d [9:6] depth=1 type=any
+var x [10:6] depth=1 type=P
+var e [11:6] depth=1 type=i64
+var f [12:6] depth=1 type=any
+var g [13:6] depth=1 type=P
+var h [14:6] depth=1 type=i64
+var i [15:6] depth=1 type=u8

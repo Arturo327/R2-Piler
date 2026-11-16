@@ -1,0 +1,25 @@
+tests/sema/171_spread_errors_src.r2:11:9: ERROR: a spread argument cannot be passed to a fixed parameter
+     11 |         fixed(s...);
+        |                ^~~
+tests/sema/171_spread_errors_src.r2:12:9: ERROR: a spread argument must be the last argument
+     12 |         typed(s..., 1);
+        |                ^~~
+tests/sema/171_spread_errors_src.r2:13:12: ERROR: a spread argument cannot be combined with other variadic arguments
+     13 |         typed(1, s...);
+        |                   ^~~
+tests/sema/171_spread_errors_src.r2:14:8: ERROR: a spread argument cannot be named
+     14 |         typed(rest = s...);
+        |               ^~~~
+tests/sema/171_spread_errors_src.r2:15:11: ERROR: spread argument type i64[] does not match the variadic type i32[]
+     15 |         typed32(s...);
+        |                  ^~~
+tests/sema/171_spread_errors_src.r2:16:9: ERROR: spread arguments ('...') are only allowed in a typed variadic call
+     16 |         plain(s...);
+        |                ^~~
+tests/sema/171_spread_errors_src.r2:16:8: ERROR: argument type i64[] does not match parameter type i64; use an explicit cast with 'as'
+     16 |         plain(s...);
+        |               ^
+tests/sema/171_spread_errors_src.r2:17:16: ERROR: spread arguments ('...') are only allowed in a typed variadic call
+     17 |         printf("%d", s...);
+        |                       ^~~
+8 errors, 0 warnings

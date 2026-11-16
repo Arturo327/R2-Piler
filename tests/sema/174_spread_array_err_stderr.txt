@@ -1,0 +1,7 @@
+tests/sema/174_spread_array_err_src.r2:8:11: ERROR: spread argument type i32[3] does not match the variadic type i64[]
+      8 |         typed64(x...);
+        |                  ^~~
+tests/sema/174_spread_array_err_src.r2:9:9: ERROR: spread argument type i32[2][3] does not match the variadic type i32[]
+      9 |         typed(m...);
+        |                ^~~
+2 errors, 0 warnings

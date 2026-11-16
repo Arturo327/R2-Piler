@@ -1,0 +1,13 @@
+tests/sema/173_module_src.r2:1:1: ERROR: module name cannot be empty
+      1 | module "";
+        | ^
+tests/sema/173_module_src.r2:2:1: ERROR: duplicate 'module' declaration
+      2 | module "one";
+        | ^~~
+tests/sema/173_module_src.r2:3:1: ERROR: duplicate 'module' declaration
+      3 | module "two";
+        | ^~~
+tests/sema/173_module_src.r2:6:2: ERROR: 'module' can only be declared at the top level
+      6 |         module "inner";
+        |         ^~~~~
+4 errors, 0 warnings

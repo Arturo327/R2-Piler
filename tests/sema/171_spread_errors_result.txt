@@ -1,0 +1,14 @@
+var ga [1:5] depth=0 type=i64[2]
+fn plain [3:4] depth=0 type=i64
+fn printf [4:11] depth=0 type=i32
+fn typed [5:4] depth=0 type=i64
+fn typed32 [6:4] depth=0 type=i64
+fn fixed [7:4] depth=0 type=i64
+fn run [9:4] depth=0 type=i64
+fn main [21:8] depth=0 type=i64
+param a [3:11] depth=1 type=i64
+param rest [5:11] depth=1 type=i64[]
+param rest [6:13] depth=1 type=i32[]
+param a [7:11] depth=1 type=i64
+param rest [7:20] depth=1 type=i64[]
+param s [9:9] depth=1 type=i64[]

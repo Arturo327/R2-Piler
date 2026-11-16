@@ -1,0 +1,45 @@
+NODE_ROOT [0:0]
+  NODE_MODULE_DEC [1:1] name="m$x"
+  NODE_FN_DEC [3:4] name="f"
+    NODE_ARGS_DEC [3:6]
+      NODE_VAR_DEC [3:7] name="a" type=any
+    NODE_RET_DEC [3:16] type=any
+    NODE_BLOCK [3:22]
+      NODE_RET [3:24]
+        NODE_ID [3:31] str="a"
+  NODE_FN_DEC [4:4] name="g"
+    NODE_ARGS_DEC [4:6] typed variadic
+      NODE_VAR_DEC [4:7] name="rest" type=any
+    NODE_RET_DEC [4:22] type=i64
+    NODE_BLOCK [4:28]
+      NODE_RET [4:30]
+        NODE_DOT [4:41] field="len"
+          NODE_ID [4:37] str="rest"
+  NODE_FN_DEC [5:4] name="h"
+    NODE_ARGS_DEC [5:6]
+      NODE_VAR_DEC [5:7] name="s" type=any[]
+      NODE_VAR_DEC [5:18] name="n" type=i64
+    NODE_RET_DEC [5:27] type=i64
+    NODE_BLOCK [5:33]
+      NODE_RET [5:35]
+        NODE_FN_CALL [5:42] name="g"
+          NODE_SPREAD [5:49]
+            NODE_NAMED_ARG [5:44] field="s"
+              NODE_ID [5:48] str="s"
+  NODE_FN_DEC [6:4] name="k"
+    NODE_ARGS_DEC [6:6]
+      NODE_VAR_DEC [6:7] name="s" type=any[]
+    NODE_RET_DEC [6:18] type=i64
+    NODE_BLOCK [6:24]
+      NODE_RET [6:26]
+        NODE_FN_CALL [6:33] name="h"
+          NODE_ID [6:35] str="s"
+          NODE_LIT_i64 [6:38] i64=1
+          NODE_SPREAD [6:42]
+            NODE_ID [6:41] str="s"
+  NODE_FN_DEC [8:8] name="main" pub
+    NODE_ARGS_DEC [8:13]
+    NODE_RET_DEC [8:16] type=i64
+    NODE_BLOCK [8:22]
+      NODE_RET [8:24]
+        NODE_LIT_i64 [8:31] i64=0

@@ -1,0 +1,108 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn first(2 params, 10 regs) : i64
+    r0 = param.ptr any #0
+    r1 = param.i64 #1
+    r2 = move.ptr any r0
+    r3 = const.i64 0
+    r4 = const.i64 16
+    r5 = mul.i64 r3, r4
+    r6 = add.i64 r2, r5
+    r7 = const.i64 8
+    r8 = add.i64 r6, r7
+    r9 = ld_ptr.i64 r8
+    ret.i64 r9
+    ret
+
+fn tag(2 params, 12 regs) : i64
+    r0 = param.u64 #0
+    r1 = param.u64 #1
+    r3 = addr_local.any r2
+    str_ptr.ptr i8 r3, r0
+    r4 = const.i64 8
+    r5 = add.i64 r3, r4
+    str_ptr.i64 r5, r1
+    r6 = move.ptr any r3
+    r7 = ld_ptr.ptr i8 r6
+    r8 = str_lit.string .LC0
+    r9 = eq.ptr i8 r7, r8
+    jz r9 -> L0
+    r10 = const.i64 1
+    ret.i64 r10
+  L0:
+    r11 = const.i64 0
+    ret.i64 r11
+    ret
+
+fn main(0 params, 53 regs) : i64
+    r1 = addr_local.any r0
+    r2 = const.i64 5
+    r4 = addr_local.any r3
+    r5 = str_lit.ptr i8 .LC0
+    str_ptr.ptr i8 r4, r5
+    r6 = const.i64 8
+    r7 = add.i64 r4, r6
+    str_ptr.i64 r7, r2
+    r8 = ld_ptr.ptr i8 r4
+    str_ptr.ptr i8 r1, r8
+    r9 = const.i64 8
+    r10 = add.i64 r4, r9
+    r11 = ld_ptr.i64 r10
+    r12 = const.i64 8
+    r13 = add.i64 r1, r12
+    str_ptr.i64 r13, r11
+    r14 = addr_local.any r0
+    r15 = ld_ptr.ptr i8 r14
+    r16 = const.i64 8
+    r17 = add.i64 r14, r16
+    r18 = ld_ptr.i64 r17
+    arg r15 #0
+    arg r18 #1
+    r19 = call.i64 tag
+    r20 = const.i64 1
+    r21 = ne.i64 r19, r20
+    jz r21 -> L1
+    r22 = const.i64 1
+    ret.i64 r22
+  L1:
+    r23 = addr_local.any r0
+    r24 = const.i64 7
+    r25 = addr_local.any r3
+    r26 = str_lit.ptr i8 .LC0
+    str_ptr.ptr i8 r25, r26
+    r27 = const.i64 8
+    r28 = add.i64 r25, r27
+    str_ptr.i64 r28, r24
+    r29 = ld_ptr.ptr i8 r25
+    str_ptr.ptr i8 r23, r29
+    r30 = const.i64 8
+    r31 = add.i64 r25, r30
+    r32 = ld_ptr.i64 r31
+    r33 = const.i64 8
+    r34 = add.i64 r23, r33
+    str_ptr.i64 r34, r32
+    r36 = addr_local.any[1] r35
+    r37 = addr_local.any r0
+    r38 = ld_ptr.ptr i8 r37
+    str_ptr.ptr i8 r36, r38
+    r39 = const.i64 8
+    r40 = add.i64 r37, r39
+    r41 = ld_ptr.i64 r40
+    r42 = const.i64 8
+    r43 = add.i64 r36, r42
+    str_ptr.i64 r43, r41
+    r44 = const.i64 16
+    r45 = add.i64 r36, r44
+    r46 = const.i64 1
+    arg r36 #0
+    arg r46 #1
+    r47 = call.i64 first
+    r48 = addr_local.any r0
+    r49 = const.i64 8
+    r50 = add.i64 r48, r49
+    r51 = ld_ptr.i64 r50
+    r52 = add.i64 r47, r51
+    ret.i64 r52
+    ret
+

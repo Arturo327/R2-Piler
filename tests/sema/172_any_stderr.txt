@@ -1,0 +1,19 @@
+tests/sema/172_any_src.r2:11:6: ERROR: can't initialize 'e' (i64) with a value of type any; use an explicit cast with 'as'
+     11 |         var e : i64 = a;
+        |             ^
+tests/sema/172_any_src.r2:12:6: ERROR: can't initialize 'f' (any) with a value of type P; use an explicit cast with 'as'
+     12 |         var f : any = x;
+        |             ^
+tests/sema/172_any_src.r2:13:16: ERROR: cannot cast to or from a struct type
+     13 |         var g : P = a as P;
+        |                       ^~
+tests/sema/172_any_src.r2:11:6: WARNING: unused variable 'e'
+     11 |         var e : i64 = a;
+        |             ^
+tests/sema/172_any_src.r2:12:6: WARNING: unused variable 'f'
+     12 |         var f : any = x;
+        |             ^
+tests/sema/172_any_src.r2:13:6: WARNING: unused variable 'g'
+     13 |         var g : P = a as P;
+        |             ^
+3 errors, 3 warnings

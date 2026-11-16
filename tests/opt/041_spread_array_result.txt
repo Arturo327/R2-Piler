@@ -1,0 +1,71 @@
+global ga : i32[3]
+
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn add(2 params, 19 regs) : i32
+    r0 = param.ptr i32 #0
+    r1 = param.i64 #1
+    r2 = const.i32 0
+    r3 = const.i64 0
+    jmp -> L1
+  L0:
+    r7 = const.i64 4
+    r8 = mul.i64 r3, r7
+    r9 = add.i64 r0, r8
+    r10 = ld_ptr.i32 r9
+    r2 = add.i32 r2, r10
+    r13 = const.i64 1
+    r3 = add.i64 r3, r13
+  L1:
+    r17 = lt.i64 r3, r1
+    jnz r17 -> L0
+    ret.i32 r2
+    ret
+
+fn fwd(1 params, 23 regs) : i32
+    r0 = param.ptr i32 #0
+    r4 = move.ptr i32 r0
+    r5 = const.i64 3
+    r6 = const.i32 0
+    r7 = const.i64 0
+    jmp -> L3
+  L2:
+    r11 = const.i64 4
+    r12 = mul.i64 r7, r11
+    r13 = add.i64 r4, r12
+    r14 = ld_ptr.i32 r13
+    r6 = add.i32 r6, r14
+    r17 = const.i64 1
+    r7 = add.i64 r7, r17
+  L3:
+    r21 = lt.i64 r7, r5
+    jnz r21 -> L2
+    ret.i32 r6
+    ret
+
+fn main(0 params, 26 regs) : i64
+    r7 = addr_global.i32[3] @ga
+    r8 = const.i64 3
+    r9 = const.i32 0
+    r10 = const.i64 0
+    jmp -> L6
+  L5:
+    r14 = const.i64 4
+    r15 = mul.i64 r10, r14
+    r16 = add.i64 r7, r15
+    r17 = ld_ptr.i32 r16
+    r9 = add.i32 r9, r17
+    r20 = const.i64 1
+    r10 = add.i64 r10, r20
+  L6:
+    r24 = lt.i64 r10, r8
+    jnz r24 -> L5
+    r3 = addr_global.i32[3] @ga
+    arg r3 #0
+    r4 = call.i32 fwd
+    r5 = add.i32 r9, r4
+    r6 = extend.i64 r5
+    ret.i64 r6
+    ret
+

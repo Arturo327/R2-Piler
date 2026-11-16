@@ -1,0 +1,8 @@
+fn typed [1:4] depth=0 type=i64
+fn typed64 [2:4] depth=0 type=i64
+fn run [4:4] depth=0 type=i64
+fn main [13:8] depth=0 type=i64
+param rest [1:11] depth=1 type=i32[]
+param rest [2:13] depth=1 type=i64[]
+var x [5:6] depth=1 type=i32[3]
+var m [6:6] depth=1 type=i32[2][3]
