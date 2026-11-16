@@ -203,6 +203,7 @@ static void check_var_dec (Sema *s, uint32_t idx)
 	int has_init = n->child != NO_NODE;
 	int is_null = has_init && is_null_value(s, n->child);
 
+	if (has_init) infer_array_dims(s, idx);
 	resolve_type_node(s, n);
 	n = s->ast->nodes + idx;
 	if (untyped) check_inferred_decl(s, idx);

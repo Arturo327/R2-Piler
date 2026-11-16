@@ -1,0 +1,13 @@
+tests/sema/176_err_infer_array_dims_src.r2:1:13: ERROR: array size must be greater than zero
+      1 | arr _x : i32[] = {};
+        |             ^
+tests/sema/176_err_infer_array_dims_src.r2:1:18: ERROR: a '{...}' literal needs an explicit type; write '{...} as T'
+      1 | arr _x : i32[] = {};
+        |                  ^
+tests/sema/176_err_infer_array_dims_src.r2:4:13: ERROR: array size must be greater than zero
+      4 |         arr _y : i8[] = {};
+        |                    ^
+tests/sema/176_err_infer_array_dims_src.r2:4:18: ERROR: '{...}' initializer requires an array type
+      4 |         arr _y : i8[] = {};
+        |                         ^
+4 errors, 0 warnings

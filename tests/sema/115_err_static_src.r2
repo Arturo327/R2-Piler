@@ -15,7 +15,7 @@ pub fn main() : i64 {
 	static var ok : i64 = 1 + 2;
 	static var d : i64 = ok;
 	static var q : ptr i64 = $l;
-	static arr sl : i64[] = {1};
+	static arr sl : i64 = {1};
 	static var e : i64 = 5;
 	static var e : i64 = 6;
 	return 0;

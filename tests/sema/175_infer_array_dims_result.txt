@@ -1,0 +1,12 @@
+var _g1 [1:5] depth=0 type=i32[4]
+var _g2 [2:5] depth=0 type=i32[3][2]
+var _g3 [3:5] depth=0 type=i32[3][2]
+var _g4 [4:5] depth=0 type=i32[2][3]
+var _g5 [5:5] depth=0 type=i8[5]
+fn main [7:8] depth=0 type=i64
+var _l1 [8:6] depth=1 type=i32[3]
+var _l2 [9:6] depth=1 type=i32[2][2]
+var _l3 [10:6] depth=1 type=i32[2][1]
+var _l4 [11:6] depth=1 type=i32[3][2]
+var _l5 [12:6] depth=1 type=i8[3]
+static var _sl [13:13] depth=1 type=i64[4]

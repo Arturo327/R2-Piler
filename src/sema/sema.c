@@ -561,6 +561,81 @@ static uint32_t check_array_elem (Sema *s, TypeId elem, uint32_t item)
 static uint32_t check_array_scalar (Sema *s, TypeId elem, uint32_t item);
 static uint32_t check_array_elem (Sema *s, TypeId elem, uint32_t item);
 
+static uint32_t init_count (Sema *s, uint32_t init_idx)
+{
+	uint32_t count = 0;
+
+	for (uint32_t item = s->ast->nodes[init_idx].child; item != NO_NODE;
+			item = s->ast->nodes[item].next_bro)
+		count++;
+	return count;
+}
+
+static void patch_array_dim (Sema *s, uint32_t ref_idx, uint32_t count)
+{
+	ASTNode lit = {0};
+
+	lit.type = NODE_LIT_i64;
+	lit.line = s->ast->nodes[ref_idx].line;
+	lit.col = s->ast->nodes[ref_idx].col;
+	lit.len = 1;
+	lit.u64 = count;
+	lit.child = NO_NODE;
+	lit.next_bro = NO_NODE;
+	lit.sym = NO_SYMBOL;
+	lit.type_node = NO_TYPE_NODE;
+	lit.data_type = TYPE_UNTYPED_INT;
+
+	uint32_t lit_idx = sema_new_node(s, lit);
+
+	s->ast->nodes[ref_idx].type = NODE_TYPE_ARRAY;
+	s->ast->nodes[ref_idx].child = lit_idx;
+}
+
+static void infer_str_dim (Sema *s, uint32_t ref_idx, uint32_t init_idx)
+{
+	ASTNode *ref = s->ast->nodes + ref_idx;
+	TypeId elem = ref->data_type;
+
+	if (ref->type != NODE_TYPE_SLICE || ref->type_node != NO_TYPE_NODE)
+		return;
+	if (elem != TYPE_i8 && elem != TYPE_u8) return;
+	patch_array_dim(s, ref_idx, (uint32_t)s->ast->nodes[init_idx].len + 1);
+}
+
+static void infer_init_level (Sema *s, uint32_t ref_idx, uint32_t init_idx)
+{
+	ASTNode *ref = s->ast->nodes + ref_idx;
+	ASTNode *init = s->ast->nodes + init_idx;
+
+	if (ref->type != NODE_TYPE_ARRAY && ref->type != NODE_TYPE_SLICE) return;
+	if (init->type == NODE_LIT_STR) {
+		infer_str_dim(s, ref_idx, init_idx);
+		return;
+	}
+	if (init->type != NODE_ARRAY_INIT) return;
+
+	if (ref->type == NODE_TYPE_SLICE)
+		patch_array_dim(s, ref_idx, init_count(s, init_idx));
+
+	ref = s->ast->nodes + ref_idx;
+	if (ref->type_node == NO_TYPE_NODE) return;
+	uint32_t next = ref_idx + ref->type_node;
+	for (uint32_t item = s->ast->nodes[init_idx].child; item != NO_NODE;
+			item = s->ast->nodes[item].next_bro)
+		infer_init_level(s, next, item);
+}
+
+void infer_array_dims (Sema *s, uint32_t decl_idx)
+{
+	ASTNode *decl = s->ast->nodes + decl_idx;
+
+	if (decl->type != NODE_ARR_DEC || decl->type_node == NO_TYPE_NODE
+			|| decl->child == NO_NODE)
+		return;
+	infer_init_level(s, decl_idx + decl->type_node, decl->child);
+}
+
 void check_array_init_at (Sema *s, TypeId arr, uint32_t init_idx)
 {
 	TypeId elem = types[arr].base;
@@ -943,6 +1018,7 @@ static void decl_globals (Sema *s)
 					s->ast->nodes[ret].data_type, idx);
 		} else if (n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC
 				|| n->type == NODE_EXTERN_VAR_DEC) {
+			if (n->child != NO_NODE) infer_array_dims(s, idx);
 			resolve_type_node(s, n);
 			check_storage_decl(s, n);
 			reject_untyped_global(s, n);

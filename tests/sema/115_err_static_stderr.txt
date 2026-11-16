@@ -17,11 +17,11 @@ tests/sema/115_err_static_src.r2:17:27: ERROR: a 'static' initializer must be a 
      17 |         static var q : ptr i64 = $l;
         |                                  ^
 tests/sema/115_err_static_src.r2:18:13: ERROR: 'arr' declarations must have an array type
-     18 |         static arr sl : i64[] = {1};
+     18 |         static arr sl : i64 = {1};
         |                    ^~
-tests/sema/115_err_static_src.r2:18:26: ERROR: '{...}' initializer requires an array type
-     18 |         static arr sl : i64[] = {1};
-        |                                 ^
+tests/sema/115_err_static_src.r2:18:24: ERROR: '{...}' initializer requires an array type
+     18 |         static arr sl : i64 = {1};
+        |                               ^
 tests/sema/115_err_static_src.r2:20:13: ERROR: 'e' already declared in this scope
      20 |         static var e : i64 = 6;
         |                    ^
@@ -41,7 +41,7 @@ tests/sema/115_err_static_src.r2:17:13: WARNING: unused variable 'q'
      17 |         static var q : ptr i64 = $l;
         |                    ^
 tests/sema/115_err_static_src.r2:18:13: WARNING: unused variable 'sl'
-     18 |         static arr sl : i64[] = {1};
+     18 |         static arr sl : i64 = {1};
         |                    ^~
 tests/sema/115_err_static_src.r2:19:13: WARNING: unused variable 'e'
      19 |         static var e : i64 = 5;
