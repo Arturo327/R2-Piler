@@ -47,6 +47,7 @@ typedef enum {
 	NODE_STRUCT_DEC, NODE_FIELD_DEC, NODE_STRUCT_INIT, NODE_FIELD_INIT,	// struct
 	NODE_RET_ITEM, NODE_MULTI_ASSIGN, NODE_NAMED_ARG,			// several
 	NODE_ALIGNOF, NODE_OFFSETOF, NODE_SIZEOF, 				// layout queries
+	NODE_MODULE_DEC,							// modules
 	NODE_COUNT
 } NodeType;
 

@@ -993,12 +993,36 @@ static uint32_t parse_export (Parser *p)
 			NODE_FLAG_PUB | NODE_FLAG_EXPORT);
 }
 
+static uint32_t parse_module (Parser *p)
+{
+	Token kw = p->curr;
+
+	advance(p);
+	if (p->curr.type != TOK_LIT_STR) {
+		if (!p->panic_mode)
+			error_report(p->err, ERR_ERROR, token_loc(p->curr),
+					"expected a module name string after 'module'");
+		p->panic_mode = 1;
+		return new_node(p, NODE_ERROR, kw.line, kw.col);
+	}
+	Token name = p->curr;
+
+	advance(p);
+	consume(p, TOK_SEMCOL, "expected ';' after the module name");
+	uint32_t node = new_node(p, NODE_MODULE_DEC, kw.line, kw.col);
+
+	p->ast.nodes[node].str = name.str;
+	p->ast.nodes[node].len = name.len;
+	return node;
+}
+
 static uint32_t parse_statement_inner (Parser *p)
 {
 	switch (p->curr.type)
 	{
 	case TOK_VAR: return parse_decl(p, 0);
 	case TOK_STATIC: return parse_static_decl(p);
+	case TOK_MODULE: return parse_module(p);
 	case TOK_PUB: return parse_pub(p);
 	case TOK_EXPORT: return parse_export(p);
 	case TOK_ARR: return parse_decl(p, 1);

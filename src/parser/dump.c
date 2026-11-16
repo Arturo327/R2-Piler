@@ -91,6 +91,7 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_ALIGNOF] = "NODE_ALIGNOF",
 	[NODE_OFFSETOF] = "NODE_OFFSETOF",
 	[NODE_NAMED_ARG] = "NODE_NAMED_ARG",
+	[NODE_MODULE_DEC] = "NODE_MODULE_DEC",
 };
 
 static inline void indent (int depth)
@@ -125,7 +126,7 @@ static void dump_node_value (ASTNode *n)
 	case NODE_ENUM_DEC: case NODE_ENUM_VAL:
 	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
-	case NODE_STRUCT_DEC: case NODE_FIELD_DEC:
+	case NODE_STRUCT_DEC: case NODE_FIELD_DEC: case NODE_MODULE_DEC:
 		if (n->str) printf(" name=\"%.*s\"", (int)n->len, n->str);
 		if (n->flags & NODE_FLAG_STATIC) printf(" static");
 		if (n->flags & NODE_FLAG_PUB) {

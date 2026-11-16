@@ -16,6 +16,7 @@ typedef struct MangleName {
 } MangleName;
 
 int mangle_module (Arena *arena, const char *path, const char **out);
+int mangle_module_name (Arena *arena, const char *name, uint16_t len, const char **out);
 char *mangle_symbol (Arena *arena, const MangleName *m);
 char *mangle_init (Arena *arena, const char *mod);
 char *mangle_plain (Arena *arena, const char *name, uint16_t len);

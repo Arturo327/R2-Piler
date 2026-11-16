@@ -127,6 +127,20 @@ int mangle_module (Arena *arena, const char *path, const char **out)
 	return 0;
 }
 
+int mangle_module_name (Arena *arena, const char *name, uint16_t len, const char **out)
+{
+	if (!len) return 1;
+
+	size_t cap = (size_t)len * 4 + 32;
+	char *buf = arena_alloc(arena, cap);
+	int n = snprintf(buf, cap, "%zu", escaped_len(name, len));
+
+	if (n <= 0) return 1;
+	escape_segment(buf + n, name, len);
+	*out = buf;
+	return 0;
+}
+
 char *mangle_symbol (Arena *arena, const MangleName *m)
 {
 	size_t cap = strlen(m->kind) + strlen(m->mod) + (size_t)m->alen + m->blen + 64;

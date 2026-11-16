@@ -162,6 +162,13 @@ int compile (Compiler *c, CompilerOpts *opts)
 		return 1;
 	}
 
+	if (c->sema.mod_seen && c->sema.mod_len
+			&& mangle_module_name(&c->arena, c->sema.mod_name,
+					c->sema.mod_len, &c->mod)) {
+		fprintf(stderr, "Error: invalid module name\n");
+		return 1;
+	}
+
 	ir_init(&c->ir, &c->ir_arena, &c->sema, opts->opt_level == OPT_FULL && !opts->dump_ir, c->mod);
 	ir_gen(&c->ir);
 	if (opts->dump_ir) {

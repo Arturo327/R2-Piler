@@ -330,6 +330,9 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->expr_depth = 0;
 	s->too_deep = 0;
 	s->ref_arg = 0;
+	s->mod_name = NULL;
+	s->mod_len = 0;
+	s->mod_seen = 0;
 	s->flag_stack = NULL;
 	s->flag_cap = 0;
 	s->flag_top = 0;
@@ -874,6 +877,23 @@ static void bind_enums (Sema *s)
 	}
 }
 
+static void check_module_decl (Sema *s, ASTNode *n)
+{
+	if (s->mod_seen) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"duplicate 'module' declaration");
+		return;
+	}
+	s->mod_seen = 1;
+	if (!n->len) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"module name cannot be empty");
+		return;
+	}
+	s->mod_name = n->str;
+	s->mod_len = n->len;
+}
+
 static void check_root (Sema *s)
 {
 	uint32_t idx = s->ast->nodes[0].child;
@@ -888,6 +908,7 @@ static void check_root (Sema *s)
 		}
 		else if (n->type == NODE_FN_DEC) check_fn_dec(s, idx);
 		else if (n->type == NODE_EXTERN_FN_DEC) check_extern_fn(s, idx);
+		else if (n->type == NODE_MODULE_DEC) check_module_decl(s, n);
 		else if (n->type != NODE_ENUM_DEC && n->type != NODE_TYPE_DEC
 				&& n->type != NODE_NEWTYPE_DEC && n->type != NODE_EXTERN_VAR_DEC
 				&& n->type != NODE_STRUCT_DEC)

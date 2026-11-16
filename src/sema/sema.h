@@ -60,6 +60,10 @@ typedef struct Sema {
 	uint8_t too_deep;
 	uint8_t ref_arg;
 
+	const char *mod_name;
+	uint16_t mod_len;
+	uint8_t mod_seen;
+
 	uint8_t *flag_stack;
 	uint32_t flag_cap;
 	uint32_t flag_top;
