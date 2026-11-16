@@ -50,6 +50,11 @@ static TypeId check_expr_node (Sema *s, uint32_t idx)
 				"a '{...}' literal needs an explicit type; write '{...} as T'");
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
+	case NODE_SPREAD:
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"spread arguments ('...') are only allowed in a typed variadic call");
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
 	case NODE_ERROR: n->data_type=TYPE_ERROR; return TYPE_ERROR;
 	default: return check_binary(s, idx);
 	}

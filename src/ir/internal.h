@@ -45,6 +45,7 @@ void make_addr_global (IR *ir, uint32_t dst, uint32_t global, TypeId type);
 uint32_t make_ld_ptr (IR *ir, uint32_t ptr, TypeId type);
 void make_str_ptr (IR *ir, uint32_t ptr, uint32_t val, TypeId type);
 uint32_t make_str_lit (IR *ir, ASTNode *n);
+uint32_t make_str_bytes (IR *ir, const char *data, uint32_t len, TypeId type);
 uint32_t make_call (IR *ir, uint32_t idx, uint16_t argc, TypeId ret_type);
 void make_move (IR *ir, uint32_t dst, uint32_t src, TypeId type);
 uint32_t make_op (IR *ir, uint8_t op, uint32_t a, uint32_t b, TypeId type);

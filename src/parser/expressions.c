@@ -118,6 +118,17 @@ static uint32_t parse_call_args (Parser *p, uint32_t call)
 
 	while (p->curr.type != TOK_RPAREN && p->curr.type != TOK_EOF) {
 		uint32_t arg = parse_named_arg(p, parse_expr(p, 0));
+
+		if (p->curr.type == TOK_ELLIPSIS) {
+			Token dots = p->curr;
+
+			advance(p);
+			uint32_t spread = new_node(p, NODE_SPREAD, dots.line, dots.col);
+
+			p->ast.nodes[spread].child = arg;
+			p->ast.nodes[spread].len = dots.len;
+			arg = spread;
+		}
 		append_child(p, call, &last, arg);
 
 		if (p->curr.type != TOK_COMMA) break;

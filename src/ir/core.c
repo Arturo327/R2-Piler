@@ -475,7 +475,7 @@ static void string_tab_grow (IR *ir, uint32_t new_cap)
 	ir->string_tab_cap = new_cap;
 }
 
-static uint32_t intern_string (IR *ir, ASTNode *n)
+static uint32_t intern_bytes (IR *ir, const char *data, uint32_t len)
 {
 	if (ir->string_tab_cap == 0 || ir->string_count * 2 >= ir->string_tab_cap) {
 		uint32_t new_cap = ir->string_tab_cap ? ir->string_tab_cap << 1 : 16;
@@ -484,28 +484,40 @@ static uint32_t intern_string (IR *ir, ASTNode *n)
 	}
 
 	uint32_t cap = ir->string_tab_cap;
-	uint32_t h = fnv_string(n->str, n->len) & (cap - 1);
+	uint32_t h = fnv_string(data, len) & (cap - 1);
 
 	while (ir->string_tab[h]) {
 		uint32_t idx = ir->string_tab[h] - 1;
 		IRString *s = ir->strings + idx;
 
-		if (s->len == n->len && !memcmp(s->data, n->str, n->len)) return idx;
+		if (s->len == len && !memcmp(s->data, data, len)) return idx;
 		h = (h + 1) & (cap - 1);
 	}
 
 	IRString string;
-	string.data = arena_alloc(ir->arena, (size_t)n->len + 1);
-	memcpy(string.data, n->str, n->len);
-	string.data[n->len] = '\0';
-	string.len = n->len;
+	string.data = arena_alloc(ir->arena, (size_t)len + 1);
+	memcpy(string.data, data, len);
+	string.data[len] = '\0';
+	string.len = len;
 
 	uint32_t idx = push_string(ir, string);
 
-	h = fnv_string(n->str, n->len) & (ir->string_tab_cap - 1);
+	h = fnv_string(data, len) & (ir->string_tab_cap - 1);
 	while (ir->string_tab[h]) h = (h + 1) & (ir->string_tab_cap - 1);
 	ir->string_tab[h] = idx + 1;
 	return idx;
+}
+
+uint32_t make_str_bytes (IR *ir, const char *data, uint32_t len, TypeId type)
+{
+	IRInstr i = blank_instr;
+
+	i.op = IR_STR_LIT;
+	i.dst = new_reg(ir, type);
+	i.target = intern_bytes(ir, data, len);
+	i.data_type = type;
+	push_instr(ir, i);
+	return i.dst;
 }
 
 uint32_t make_str_lit (IR *ir, ASTNode *n)
@@ -513,7 +525,7 @@ uint32_t make_str_lit (IR *ir, ASTNode *n)
 	IRInstr i = blank_instr;
 	i.op = IR_STR_LIT;
 	i.dst = new_reg(ir, n->data_type);
-	i.target = intern_string(ir, n);
+	i.target = intern_bytes(ir, n->str, n->len);
 	i.data_type = n->data_type;
 	push_instr(ir, i);
 	return i.dst;

@@ -6,6 +6,7 @@ TypeId check_index (Sema *s, uint32_t idx);
 static TypeId check_len_field (Sema *s, uint32_t idx, uint32_t left, TypeId type);
 static TypeId check_dot_value (Sema *s, uint32_t idx);
 static TypeId check_field (Sema *s, uint32_t idx, TypeId st);
+static uint32_t reject_spread (Sema *s, uint32_t arg);
 
 static TypeId check_member_base (Sema *s, uint32_t child)
 {
@@ -708,6 +709,10 @@ static int collect_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx, uint3
 				? s->ast->nodes[arg].child : arg;
 		uint32_t param = pi == NO_NODE ? NO_NODE
 				: param_at(s, c.params_node, pi);
+		if (s->ast->nodes[expr].type == NODE_SPREAD) {
+			c.bad = 1;
+			expr = reject_spread(s, expr);
+		}
 		uint32_t val = check_arg_value(s, expr, param);
 
 		if (pi != NO_NODE) arg_at[pi] = val;
@@ -750,6 +755,21 @@ static void link_call_args (Sema *s, uint32_t call_idx, uint32_t *arg_at, uint32
 	if (prev == NO_NODE) s->ast->nodes[call_idx].child = NO_NODE;
 }
 
+static uint32_t reject_spread (Sema *s, uint32_t arg)
+{
+	ASTNode *n = s->ast->nodes + arg;
+	uint32_t child = n->child;
+
+	error_report(s->err, ERR_ERROR, node_loc(n),
+			"spread arguments ('...') are only allowed in a typed variadic call");
+	if (child != NO_NODE && s->ast->nodes[child].type == NODE_NAMED_ARG) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + child),
+				"a spread argument cannot be named");
+		child = s->ast->nodes[child].child;
+	}
+	return child == NO_NODE ? arg : child;
+}
+
 static int collect_variadic_args (Sema *s, uint32_t call_idx, uint32_t params_node,
 		uint32_t *arg_at, uint32_t count, uint32_t *extra)
 {
@@ -770,6 +790,10 @@ static int collect_variadic_args (Sema *s, uint32_t call_idx, uint32_t params_no
 			bad = 1;
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + arg),
 					"a variadic call cannot use named arguments");
+		}
+		if (!named && s->ast->nodes[expr].type == NODE_SPREAD) {
+			bad = 1;
+			expr = reject_spread(s, expr);
 		}
 		uint32_t val = check_arg_value(s, expr, param);
 		arg = next;
@@ -799,39 +823,111 @@ static void link_variadic_args (Sema *s, uint32_t call_idx, uint32_t *arg_at,
 	s->ast->nodes[prev].next_bro = extra;
 }
 
+typedef struct TypedVarargs {
+	Sema *s;
+	uint32_t params_node;
+	uint32_t fixed;
+	TypeId elem;
+	uint32_t *arg_at;
+	uint32_t pos;
+	uint32_t last;
+	uint32_t extra;
+	int bad;
+} TypedVarargs;
+
+static void push_extra (Sema *s, uint32_t val, uint32_t *last, uint32_t *extra)
+{
+	s->ast->nodes[val].next_bro = NO_NODE;
+	if (*last == NO_NODE) *extra = val;
+	else s->ast->nodes[*last].next_bro = val;
+	*last = val;
+}
+
+static int check_spread_arg (Sema *s, uint32_t arg, uint32_t next,
+		uint32_t pos, uint32_t fixed, TypeId slice)
+{
+	ASTNode *n = s->ast->nodes + arg;
+	uint32_t child = n->child;
+	TypeId got;
+	int bad = 0;
+
+	if (child != NO_NODE && s->ast->nodes[child].type == NODE_NAMED_ARG) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + child),
+				"a spread argument cannot be named");
+		child = s->ast->nodes[child].child;
+		bad = 1;
+	}
+	if (child == NO_NODE) {
+		n->data_type = TYPE_ERROR;
+		return 1;
+	}
+	got = check_expr(s, child);
+	n->data_type = got == TYPE_ERROR ? TYPE_ERROR : slice;
+	if (pos < fixed) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"a spread argument cannot be passed to a fixed parameter");
+		bad = 1;
+	}
+	if (next != NO_NODE) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"a spread argument must be the last argument");
+		bad = 1;
+	}
+	if (got != TYPE_ERROR && got != slice) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"spread argument type %s does not match the variadic type %s",
+				type_display_name(got), types[slice].name);
+		bad = 1;
+	}
+	return bad;
+}
+
+static void typed_vararg_arg (TypedVarargs *v, uint32_t arg, uint32_t next, TypeId slice)
+{
+	Sema *s = v->s;
+	ASTNode *n = s->ast->nodes + arg;
+	int named = n->type == NODE_NAMED_ARG;
+	uint32_t expr = named ? n->child : arg;
+	uint32_t param = named || v->pos >= v->fixed
+			? NO_NODE : param_at(s, v->params_node, v->pos);
+
+	if (n->type == NODE_SPREAD) {
+		if (v->last != NO_NODE) {
+			v->bad = 1;
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"a spread argument cannot be combined with other variadic arguments");
+		}
+		v->bad |= check_spread_arg(s, arg, next, v->pos, v->fixed, slice);
+		if (v->last == NO_NODE) push_extra(s, arg, &v->last, &v->extra);
+		return;
+	}
+	if (named) {
+		v->bad = 1;
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"a variadic call cannot use named arguments");
+	}
+	uint32_t val = param != NO_NODE ? check_arg_value(s, expr, param)
+			: check_vararg_value(s, expr, v->elem);
+	if (param != NO_NODE) { v->arg_at[v->pos++] = val; return; }
+	push_extra(s, val, &v->last, &v->extra);
+}
+
 static int collect_typed_variadic_args (Sema *s, uint32_t call_idx, uint32_t params_node,
 		uint32_t *arg_at, uint32_t count, uint32_t *extra)
 {
 	uint32_t fixed = count - 1;
 	TypeId slice = s->ast->nodes[param_at(s, params_node, fixed)].data_type;
-	TypeId elem = types[slice].base;
+	TypedVarargs v = { s, params_node, fixed, types[slice].base, arg_at,
+			0, NO_NODE, NO_NODE, 0 };
 	uint32_t arg = s->ast->nodes[call_idx].child;
-	uint32_t last = NO_NODE;
-	uint32_t pos = 0;
-	int bad = 0;
 
-	*extra = NO_NODE;
 	while (arg != NO_NODE) {
 		uint32_t next = s->ast->nodes[arg].next_bro;
-		int named = s->ast->nodes[arg].type == NODE_NAMED_ARG;
-		uint32_t expr = named ? s->ast->nodes[arg].child : arg;
-		uint32_t param = named || pos >= fixed
-				? NO_NODE : param_at(s, params_node, pos);
-		if (named) {
-			bad = 1;
-			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + arg),
-					"a variadic call cannot use named arguments");
-		}
-		uint32_t val = param != NO_NODE ? check_arg_value(s, expr, param)
-				: check_vararg_value(s, expr, elem);
+		typed_vararg_arg(&v, arg, next, slice);
 		arg = next;
-		if (param != NO_NODE) { arg_at[pos++] = val; continue; }
-		s->ast->nodes[val].next_bro = NO_NODE;
-		if (last == NO_NODE) *extra = val;
-		else s->ast->nodes[last].next_bro = val;
-		last = val;
 	}
-	return bad;
+	*extra = v.extra;
+	return v.bad;
 }
 
 static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)

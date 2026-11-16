@@ -104,12 +104,24 @@ static uint32_t call_struct_regs (IR *ir, uint32_t fn_idx, uint32_t argc, TypeId
 	return dest;
 }
 
+static uint32_t push_spread (IR *ir, uint32_t arg, uint32_t *regs, uint32_t k)
+{
+	ASTNode *n = ir->ast->nodes + arg;
+	ASTNode *src = ir->ast->nodes + n->child;
+
+	regs[k++] = gen_expr(ir, src);
+	regs[k++] = slice_dim_reg(ir, src, 0, TYPE_i64);
+	return k;
+}
+
 static uint32_t push_varargs (IR *ir, uint32_t arg, TypeId slice, uint32_t *regs, uint32_t k)
 {
 	TypeId elem = types[slice].base;
 	TypeKind kind = type_kind(elem);
 	uint32_t count = count_bros(ir, arg);
 
+	if (arg != NO_NODE && ir->ast->nodes[arg].type == NODE_SPREAD)
+		return push_spread(ir, arg, regs, k);
 	if (!count) {
 		regs[k++] = make_const(ir, 0, type_ptr_to(elem));
 		regs[k++] = make_const(ir, 0, TYPE_i64);
