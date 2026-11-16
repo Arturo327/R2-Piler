@@ -86,6 +86,7 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_FIELD_DEC] = "NODE_FIELD_DEC",
 	[NODE_STRUCT_INIT] = "NODE_STRUCT_INIT",
 	[NODE_FIELD_INIT] = "NODE_FIELD_INIT",
+	[NODE_INDEX_INIT] = "NODE_INDEX_INIT",
 	[NODE_RET_ITEM] = "NODE_RET_ITEM",
 	[NODE_MULTI_ASSIGN] = "NODE_MULTI_ASSIGN",
 	[NODE_ALIGNOF] = "NODE_ALIGNOF",
@@ -145,6 +146,9 @@ static void dump_node_value (ASTNode *n)
 		break;
 	case NODE_DOT: case NODE_FIELD_INIT: case NODE_NAMED_ARG:
 		printf(" field=\"%.*s\"", (int)n->len, n->str);
+		break;
+	case NODE_INDEX_INIT:
+		printf(" indices=%u", n->sym);
 		break;
 	case NODE_ARGS_DEC:
 		if (n->flags & NODE_FLAG_VARARG_TYPED) printf(" typed variadic");
@@ -278,6 +282,8 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 
 		printf("\n");
 		dump_node(ast, child, depth + 1);
+		if (n->type == NODE_INDEX_INIT)
+			dump_node(ast, (uint32_t)n->u64, depth + 1);
 		idx = next;
 	}
 }

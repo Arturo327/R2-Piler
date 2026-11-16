@@ -96,6 +96,8 @@ static int is_static_const (Sema *s, uint32_t idx)
 		return 1;
 	case NODE_CAST: case NODE_FIELD_INIT:
 		return n->child != NO_NODE && is_static_const(s, n->child);
+	case NODE_INDEX_INIT:
+		return is_static_const(s, (uint32_t)n->u64);
 	case NODE_ARRAY_INIT: case NODE_STRUCT_INIT: {
 		uint32_t item = n->child;
 

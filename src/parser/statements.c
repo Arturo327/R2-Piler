@@ -19,6 +19,49 @@ static uint32_t parse_field_init (Parser *p)
 	return node;
 }
 
+enum {
+	INIT_POSITIONAL = 0,
+	INIT_FIELD,
+	INIT_INDEX
+};
+
+static int init_item_mode (Parser *p)
+{
+	if (p->curr.type == TOK_DOT) return INIT_FIELD;
+	if (p->curr.type == TOK_LBRACE) return INIT_INDEX;
+	return INIT_POSITIONAL;
+}
+
+static uint32_t parse_index_init (Parser *p)
+{
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	uint32_t node = new_node(p, NODE_INDEX_INIT, line, col);
+	uint32_t first = NO_NODE;
+	uint32_t last = NO_NODE;
+	uint32_t count = 0;
+
+	while (p->curr.type == TOK_LBRACE && !p->panic_mode) {
+		uint32_t dim;
+
+		advance(p);
+		dim = parse_expr(p, 0);
+		consume(p, TOK_RBRACE, "expected ']' after the initializer index");
+		if (last == NO_NODE) first = dim;
+		else p->ast.nodes[last].next_bro = dim;
+		last = dim;
+		count++;
+	}
+	consume(p, TOK_ASSIGN, "expected '=' after the initializer index");
+
+	uint32_t value = parse_expr(p, 0);
+
+	p->ast.nodes[node].child = first;
+	p->ast.nodes[node].sym = count;
+	p->ast.nodes[node].u64 = value;
+	return node;
+}
+
 uint32_t parse_brace_init (Parser *p)
 {
 	uint16_t line = p->curr.line;
@@ -27,18 +70,19 @@ uint32_t parse_brace_init (Parser *p)
 	uint32_t last = NO_NODE;
 
 	consume(p, TOK_LKEY, "expected '{' for array initializer");
-	int desig = p->curr.type == TOK_DOT;
-	if (desig) p->ast.nodes[node].type = NODE_STRUCT_INIT;
+	int mode = init_item_mode(p);
+	if (mode == INIT_FIELD) p->ast.nodes[node].type = NODE_STRUCT_INIT;
 
 	while (p->curr.type != TOK_RKEY && p->curr.type != TOK_EOF) {
-		if ((p->curr.type == TOK_DOT) != desig) {
+		if (init_item_mode(p) != mode) {
 			error_report(p->err, ERR_ERROR, token_loc(p->curr),
-					"cannot mix '.field = value' and positional initializers");
+					"cannot mix '.field = value', '[index] = value' and positional initializers");
 			p->panic_mode = 1;
 			break;
 		}
 		uint32_t item;
-		if (desig) item = parse_field_init(p);
+		if (mode == INIT_FIELD) item = parse_field_init(p);
+		else if (mode == INIT_INDEX) item = parse_index_init(p);
 		else item = parse_expr(p, 0);
 
 		append_child(p, node, &last, item);

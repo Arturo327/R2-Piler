@@ -33,6 +33,8 @@ int const_tree (IR *ir, uint32_t idx)
 		return 1;
 	case NODE_CAST:
 		return ir->ast->nodes[n->child].type == NODE_LIT_NULL;
+	case NODE_INDEX_INIT:
+		return const_tree(ir, (uint32_t)n->u64);
 	case NODE_ARRAY_INIT: case NODE_STRUCT_INIT: case NODE_FIELD_INIT:
 		break;
 	default:
@@ -68,12 +70,36 @@ static void put_string (Fuse *f, ASTNode *lit, TypeId arr, uint32_t off)
 	memset(f->st + off, ST_CONST, count);
 }
 
+static void put_designated (Fuse *f, uint32_t item, TypeId arr, uint32_t off)
+{
+	ASTNode *nodes = f->ir->ast->nodes;
+	ASTNode *it = nodes + item;
+	TypeId level = arr;
+	uint32_t node = it->child;
+
+	for (uint32_t k = 0; k < it->sym; k++) {
+		TypeId elem = types[level].base;
+
+		off += (uint32_t)nodes[node].u64 * types[elem].size;
+		level = elem;
+		node = nodes[node].next_bro;
+	}
+	put_value(f, (uint32_t)it->u64, level, off);
+}
+
 static void put_array (Fuse *f, uint32_t idx, TypeId arr, uint32_t off)
 {
 	ASTNode *nodes = f->ir->ast->nodes;
 	TypeId elem = types[arr].base;
 	uint32_t item = nodes[idx].child;
 
+	if (item != NO_NODE && nodes[item].type == NODE_INDEX_INIT) {
+		while (item != NO_NODE) {
+			put_designated(f, item, arr, off);
+			item = nodes[item].next_bro;
+		}
+		return;
+	}
 	while (item != NO_NODE) {
 		put_value(f, item, elem, off);
 		off += types[elem].size;

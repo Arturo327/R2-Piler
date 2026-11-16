@@ -35,11 +35,46 @@ static void zero_fill (IR *ir, uint32_t base, uint32_t from, uint32_t count, Typ
 	make_label(ir, end);
 }
 
+static void gen_zero_range (IR *ir, uint32_t base, uint64_t size);
+
+static void gen_array_elem (IR *ir, uint32_t at, uint32_t item, TypeId elem, int zero)
+{
+	if (type_kind(elem) == TK_ARRAY) {
+		gen_array_init(ir, at, item, elem, zero);
+	} else if (type_kind(elem) == TK_STRUCT) {
+		gen_struct_into(ir, at, item, elem, 1);
+	} else if (type_kind(elem) == TK_SLICE) {
+		gen_slice_desc(ir, at, ir->ast->nodes + item, elem);
+	} else {
+		uint32_t val = gen_expr(ir, ir->ast->nodes + item);
+
+		make_str_ptr(ir, at, val, elem);
+	}
+}
+
+static uint32_t designated_addr (IR *ir, uint32_t base, ASTNode *item, TypeId arr, TypeId *target)
+{
+	TypeId level = arr;
+	uint32_t node = item->child;
+
+	for (uint32_t k = 0; k < item->sym; k++) {
+		ASTNode *dim = ir->ast->nodes + node;
+		TypeId elem = types[level].base;
+
+		base = add_offset(ir, base, dim->u64 * types[elem].size);
+		level = elem;
+		node = dim->next_bro;
+	}
+	*target = level;
+	return base;
+}
+
 void gen_array_init (IR *ir, uint32_t base, uint32_t init_idx, TypeId arr, int zero)
 {
 	ASTNode *init = ir->ast->nodes + init_idx;
 	TypeId elem = types[arr].base;
 	uint32_t elem_size = types[elem].size;
+	uint32_t item = init->child;
 
 	if (init->type == NODE_LIT_STR) {
 		store_string(ir, base, init, elem);
@@ -47,9 +82,20 @@ void gen_array_init (IR *ir, uint32_t base, uint32_t init_idx, TypeId arr, int z
 			zero_fill(ir, base, (uint32_t)init->len + 1, types[arr].count, elem);
 		return;
 	}
+	if (item != NO_NODE && ir->ast->nodes[item].type == NODE_INDEX_INIT) {
+		if (zero) gen_zero_range(ir, base, types[arr].size);
+		while (item != NO_NODE) {
+			TypeId target;
+			uint32_t at = designated_addr(ir, base, ir->ast->nodes + item, arr, &target);
+			uint32_t value = (uint32_t)ir->ast->nodes[item].u64;
+
+			gen_array_elem(ir, at, value, target, 0);
+			item = ir->ast->nodes[item].next_bro;
+		}
+		return;
+	}
 
 	uint32_t i = 0;
-	uint32_t item = init->child;
 
 	while (item != NO_NODE) {
 		if (type_kind(elem) == TK_ARRAY) {
@@ -316,10 +362,12 @@ static int group_needs_zero (IR *ir, ASTNode *init, const Type *t, uint16_t grp)
 static int arr_needs_zero (IR *ir, ASTNode *init, TypeId type)
 {
 	TypeId elem = types[type].base;
+	uint32_t item = init->child;
 
 	if (init->type == NODE_LIT_STR) return 0;
-	for (uint32_t it = init->child; it != NO_NODE; it = ir->ast->nodes[it].next_bro) {
-		if (init_needs_zero(ir, it, elem)) return 1;
+	if (item != NO_NODE && ir->ast->nodes[item].type == NODE_INDEX_INIT) return 1;
+	for (; item != NO_NODE; item = ir->ast->nodes[item].next_bro) {
+		if (init_needs_zero(ir, item, elem)) return 1;
 	}
 	return 0;
 }

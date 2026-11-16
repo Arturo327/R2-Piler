@@ -561,6 +561,13 @@ static uint32_t check_array_elem (Sema *s, TypeId elem, uint32_t item)
 static uint32_t check_array_scalar (Sema *s, TypeId elem, uint32_t item);
 static uint32_t check_array_elem (Sema *s, TypeId elem, uint32_t item);
 
+static int array_init_designated (Sema *s, uint32_t init_idx)
+{
+	uint32_t item = s->ast->nodes[init_idx].child;
+
+	return item != NO_NODE && s->ast->nodes[item].type == NODE_INDEX_INIT;
+}
+
 static uint32_t init_count (Sema *s, uint32_t init_idx)
 {
 	uint32_t count = 0;
@@ -603,6 +610,90 @@ static void infer_str_dim (Sema *s, uint32_t ref_idx, uint32_t init_idx)
 	patch_array_dim(s, ref_idx, (uint32_t)s->ast->nodes[init_idx].len + 1);
 }
 
+static uint32_t type_next (Sema *s, uint32_t ref_idx)
+{
+	ASTNode *ref = s->ast->nodes + ref_idx;
+
+	if (ref->type_node == NO_TYPE_NODE) return NO_NODE;
+	return ref_idx + ref->type_node;
+}
+
+static int designated_item_index (Sema *s, uint32_t item_idx, uint32_t depth, uint64_t *out)
+{
+	ASTNode *it = s->ast->nodes + item_idx;
+	uint32_t node = it->child;
+
+	if (it->sym <= depth) return 0;
+	for (uint32_t k = 0; k < depth; k++)
+		node = s->ast->nodes[node].next_bro;
+	return dim_value(s, node, out);
+}
+
+static uint32_t designated_level_count (Sema *s, uint32_t init_idx, uint32_t depth)
+{
+	uint32_t item = s->ast->nodes[init_idx].child;
+	uint64_t max = 0;
+	int any = 0;
+
+	while (item != NO_NODE) {
+		uint64_t v;
+
+		if (designated_item_index(s, item, depth, &v)) {
+			if (!any || v > max) max = v;
+			any = 1;
+		}
+		item = s->ast->nodes[item].next_bro;
+	}
+	if (!any) return 0;
+	if (max >= UINT32_MAX) return UINT32_MAX;
+	return (uint32_t)(max + 1);
+}
+
+static void infer_designated_levels (Sema *s, uint32_t ref_idx, uint32_t init_idx)
+{
+	uint32_t ref = ref_idx;
+	uint32_t depth = 0;
+
+	while (1) {
+		ASTNode *node = s->ast->nodes + ref;
+		uint32_t count;
+
+		if (node->type != NODE_TYPE_ARRAY && node->type != NODE_TYPE_SLICE) return;
+		count = designated_level_count(s, init_idx, depth);
+		if (count && node->type == NODE_TYPE_SLICE)
+			patch_array_dim(s, ref, count);
+		node = s->ast->nodes + ref;
+		if (node->type_node == NO_TYPE_NODE) return;
+		ref += node->type_node;
+		depth++;
+	}
+}
+
+static void infer_init_level (Sema *s, uint32_t ref_idx, uint32_t init_idx);
+
+static void infer_designated_values (Sema *s, uint32_t ref_idx, uint32_t init_idx)
+{
+	uint32_t item = s->ast->nodes[init_idx].child;
+	uint32_t elem = type_next(s, ref_idx);
+
+	if (elem == NO_NODE) return;
+	while (item != NO_NODE) {
+		ASTNode *it = s->ast->nodes + item;
+		uint32_t ref = elem;
+
+		for (uint32_t k = 1; k < it->sym && ref != NO_NODE; k++)
+			ref = type_next(s, ref);
+		if (ref != NO_NODE) infer_init_level(s, ref, (uint32_t)it->u64);
+		item = it->next_bro;
+	}
+}
+
+static void infer_designated (Sema *s, uint32_t ref_idx, uint32_t init_idx)
+{
+	infer_designated_levels(s, ref_idx, init_idx);
+	infer_designated_values(s, ref_idx, init_idx);
+}
+
 static void infer_init_level (Sema *s, uint32_t ref_idx, uint32_t init_idx)
 {
 	ASTNode *ref = s->ast->nodes + ref_idx;
@@ -614,6 +705,10 @@ static void infer_init_level (Sema *s, uint32_t ref_idx, uint32_t init_idx)
 		return;
 	}
 	if (init->type != NODE_ARRAY_INIT) return;
+	if (array_init_designated(s, init_idx)) {
+		infer_designated(s, ref_idx, init_idx);
+		return;
+	}
 
 	if (ref->type == NODE_TYPE_SLICE)
 		patch_array_dim(s, ref_idx, init_count(s, init_idx));
@@ -636,6 +731,106 @@ void infer_array_dims (Sema *s, uint32_t decl_idx)
 	infer_init_level(s, decl_idx + decl->type_node, decl->child);
 }
 
+static void fold_index_lit (Sema *s, uint32_t idx, uint64_t value)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	uint32_t next = n->next_bro;
+
+	n->type = NODE_LIT_i64;
+	n->i64 = (int64_t)value;
+	n->data_type = TYPE_UNTYPED_INT;
+	n->child = NO_NODE;
+	n->type_node = NO_TYPE_NODE;
+	n->sym = NO_SYMBOL;
+	n->next_bro = next;
+}
+
+static int designated_target (Sema *s, TypeId arr, uint32_t item_idx, TypeId *target)
+{
+	ASTNode *item = s->ast->nodes + item_idx;
+	uint32_t node = item->child;
+	TypeId level = arr;
+	uint32_t k;
+
+	for (k = 0; k < item->sym; k++) {
+		ASTNode *dim = s->ast->nodes + node;
+		uint64_t v;
+
+		if (type_kind(level) != TK_ARRAY) break;
+		if (!dim_value(s, node, &v)) {
+			error_report(s->err, ERR_ERROR, node_loc(dim),
+					"array initializer index must be a constant integer expression");
+			return 0;
+		}
+		if (v >= types[level].count) {
+			error_report(s->err, ERR_ERROR, node_loc(dim),
+					"array initializer index %lld is out of bounds for an array of size %u",
+					(long long)(int64_t)v, types[level].count);
+			return 0;
+		}
+		uint32_t next = dim->next_bro;
+
+		fold_index_lit(s, node, v);
+		node = next;
+		level = types[level].base;
+	}
+	if (k != item->sym) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + item_idx),
+				"array initializer has too many indices");
+		return 0;
+	}
+	*target = level;
+	return 1;
+}
+
+static int designated_overlap (Sema *s, uint32_t a, uint32_t b)
+{
+	ASTNode *ia = s->ast->nodes + a;
+	ASTNode *ib = s->ast->nodes + b;
+	uint32_t x = ia->child;
+	uint32_t y = ib->child;
+	uint32_t n = ia->sym < ib->sym ? ia->sym : ib->sym;
+
+	for (uint32_t k = 0; k < n; k++) {
+		uint64_t vx;
+		uint64_t vy;
+
+		if (!dim_value(s, x, &vx) || !dim_value(s, y, &vy)) return 0;
+		if (vx != vy) return 0;
+		x = s->ast->nodes[x].next_bro;
+		y = s->ast->nodes[y].next_bro;
+	}
+	return 1;
+}
+
+static void check_designated_init (Sema *s, TypeId arr, uint32_t init_idx)
+{
+	uint32_t item = s->ast->nodes[init_idx].child;
+
+	while (item != NO_NODE) {
+		uint32_t next = s->ast->nodes[item].next_bro;
+		TypeId target;
+		int dup = 0;
+
+		for (uint32_t prev = s->ast->nodes[init_idx].child; prev != item;
+				prev = s->ast->nodes[prev].next_bro) {
+			if (designated_overlap(s, prev, item)) {
+				error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + item),
+						"duplicate array initializer index");
+				dup = 1;
+				break;
+			}
+		}
+		if (!dup && designated_target(s, arr, item, &target)) {
+			uint32_t old = (uint32_t)s->ast->nodes[item].u64;
+			uint32_t out = check_array_elem(s, target, old);
+
+			if (out != old) s->ast->nodes[item].u64 = out;
+		}
+		item = next;
+	}
+}
+
 void check_array_init_at (Sema *s, TypeId arr, uint32_t init_idx)
 {
 	TypeId elem = types[arr].base;
@@ -656,6 +851,15 @@ void check_array_init_at (Sema *s, TypeId arr, uint32_t init_idx)
 	if (init->type != NODE_ARRAY_INIT) {
 		error_report(s->err, ERR_ERROR, node_loc(init),
 				"array initializer must be a '{...}' list or a string literal");
+		return;
+	}
+	if (type_dyn_rank(arr) > 0) {
+		error_report(s->err, ERR_ERROR, node_loc(init),
+				"an array type with '[]' dimensions cannot be initialized with '{...}'");
+		return;
+	}
+	if (array_init_designated(s, init_idx)) {
+		check_designated_init(s, arr, init_idx);
 		return;
 	}
 	ErrorLoc init_loc = node_loc(init);
