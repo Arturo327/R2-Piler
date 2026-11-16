@@ -18,7 +18,7 @@ typedef enum {
 	TOK_LIT_i64, TOK_LIT_u64, TOK_LIT_CHAR, TOK_LIT_STR,			// Literals
 
 	TOK_i8, TOK_u8, TOK_i16, TOK_u16, TOK_i32, TOK_u32,
-	TOK_i64, TOK_u64, TOK_CHAR, TOK_VOID,					// Types
+	TOK_i64, TOK_u64, TOK_CHAR, TOK_VOID, TOK_ANY,				// Types
 
 	TOK_IF, TOK_ELSE, TOK_ELIF, TOK_WHILE, TOK_FOR, TOK_RET, TOK_AS,	// Control, Branching
 	TOK_BREAK, TOK_CONTINUE,						// loop control

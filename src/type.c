@@ -29,7 +29,8 @@ static const Type builtin_types[TYPE_COUNT] = {
 	[TYPE_UNTYPED_CHAR] = { .name = "untyped char", .size = 1, .sign = 1 },
 	[TYPE_ERROR] = { .name = "error", .size = 0, .sign = 0 },
 	[TYPE_NULL] = { .name = "nil", .size = 8, .sign = 0 },
-	[TYPE_STR] = { .name = "string", .size = 8, .sign = 0 }
+	[TYPE_STR] = { .name = "string", .size = 8, .sign = 0 },
+	[TYPE_ANY] = { .name = "any", .size = 16, .sign = 0 }
 };
 
 static const uint8_t builtin_kind[TYPE_COUNT] = {
@@ -43,8 +44,11 @@ static const uint8_t builtin_kind[TYPE_COUNT] = {
 	[TYPE_UNTYPED_CHAR] = TK_UNTYPED_INT,
 	[TYPE_ERROR] = TK_ERROR,
 	[TYPE_NULL] = TK_NULL,
-	[TYPE_STR] = TK_STR
+	[TYPE_STR] = TK_STR,
+	[TYPE_ANY] = TK_STRUCT
 };
+
+static StructField any_fields[2];
 
 static uint16_t *derived_slot (uint8_t kind, TypeId base, uint32_t count)
 {
@@ -98,6 +102,15 @@ void init_types (void)
 		types[i].base = (TypeId)i;
 	}
 	type_count = TYPE_COUNT;
+
+	any_fields[0] = (StructField){ .name = "tag", .len = 3,
+			.type = type_ptr_to(TYPE_i8), .offset = 0 };
+	any_fields[1] = (StructField){ .name = "value", .len = 5,
+			.type = TYPE_i64, .offset = 8 };
+	types[TYPE_ANY].fields = any_fields;
+	types[TYPE_ANY].field_count = 2;
+	types[TYPE_ANY].align = 8;
+	types[TYPE_ANY].layout = 2;
 }
 
 void types_destroy (void)

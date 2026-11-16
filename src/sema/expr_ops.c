@@ -565,6 +565,9 @@ static int cast_types_ok (Sema *s, ASTNode *n, TypeId from, TypeId to)
 				"cannot cast a value of type void");
 		return 0;
 	}
+	if ((to == TYPE_ANY && (from == TYPE_ANY || sema_any_packable(from)))
+			|| (from == TYPE_ANY && sema_any_packable(to)))
+		return 1;
 	if ((is_pointer_operand(from) || is_pointer_operand(to))
 			&& !(is_pointer_operand(from) && is_pointer_operand(to))) {
 		error_report(s->err, ERR_ERROR, node_loc(n),

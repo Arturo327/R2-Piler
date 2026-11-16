@@ -278,11 +278,41 @@ static uint32_t gen_logic (IR *ir, ASTNode *n)
 	return res;
 }
 
+static uint32_t gen_any_pack (IR *ir, uint32_t src, TypeId from)
+{
+	uint32_t addr = new_struct_temp(ir, TYPE_ANY);
+	TypeId ptr = type_ptr_to(TYPE_i8);
+	uint32_t tag = make_str_bytes(ir, types[from].name, types[from].len, ptr);
+	int narrow = types[from].size < 8;
+	uint32_t value = narrow ? make_op(ir, IR_EXTEND, src, NO_REG, TYPE_i64) : src;
+
+	make_str_ptr(ir, addr, tag, ptr);
+	make_str_ptr(ir, add_offset(ir, addr, 8), value, narrow ? TYPE_i64 : from);
+	return addr;
+}
+
+static uint32_t gen_any_unbox (IR *ir, uint32_t addr, TypeId to)
+{
+	uint32_t value = make_ld_ptr(ir, add_offset(ir, addr, 8), TYPE_i64);
+
+	if (types[to].size == 8) {
+		ir->reg_types[value] = to;
+		return value;
+	}
+	return make_op(ir, IR_EXTEND, value, NO_REG, to);
+}
+
 static uint32_t gen_cast (IR *ir, ASTNode *n)
 {
 	ASTNode *operand = ir->ast->nodes + n->child;
-	uint32_t src = gen_expr(ir, operand);
+	TypeId from = operand->data_type;
 
+	if (n->data_type == TYPE_ANY && from != TYPE_ANY)
+		return gen_any_pack(ir, gen_expr(ir, operand), from);
+	if (from == TYPE_ANY && n->data_type != TYPE_ANY)
+		return gen_any_unbox(ir, gen_expr(ir, operand), n->data_type);
+
+	uint32_t src = gen_expr(ir, operand);
 	if (operand->data_type == TYPE_STR && type_kind(n->data_type) == TK_SLICE)
 		return src;
 	if (type_kind(operand->data_type) == TK_ARRAY

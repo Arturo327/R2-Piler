@@ -37,6 +37,7 @@ static TypeId tok_to_datatype (TokenType t)
 	case TOK_i64: return TYPE_i64;
 	case TOK_u64: return TYPE_u64;
 	case TOK_CHAR: return TYPE_CHAR;
+	case TOK_ANY: return TYPE_ANY;
 	default: return TYPE_VOID;
 	}
 }
@@ -47,7 +48,7 @@ static int is_type_token (TokenType type)
 	{
 	case TOK_i8: case TOK_u8: case TOK_i16: case TOK_u16:
 	case TOK_i32: case TOK_u32: case TOK_i64: case TOK_u64:
-	case TOK_CHAR: case TOK_VOID: case TOK_PTR:
+	case TOK_CHAR: case TOK_VOID: case TOK_PTR: case TOK_ANY:
 		return 1;
 	default:
 		return 0;

@@ -1,10 +1,23 @@
 #include "sema/common.h"
 
+int sema_any_packable (TypeId type)
+{
+	TypeKind kind = type_kind(type);
+
+	if (kind == TK_NULL || kind == TK_STR || kind == TK_PTR) return 1;
+	if (kind == TK_UNTYPED_INT) return 1;
+	if (kind != TK_INT && kind != TK_ENUM && kind != TK_NEWTYPE) return 0;
+	uint32_t size = types[type].size;
+
+	return size == 1 || size == 2 || size == 4 || size == 8;
+}
+
 int sema_implicit_cast_ok (TypeId from, TypeId to)
 {
 	if (from == to) return 1;
 	if (from == TYPE_ERROR || to == TYPE_ERROR) return 0;
 	if (from == TYPE_VOID || to == TYPE_VOID) return 0;
+	if (to == TYPE_ANY) return sema_any_packable(from);
 
 	TypeKind from_kind = type_kind(from);
 	TypeKind to_kind = type_kind(to);
@@ -536,6 +549,10 @@ uint32_t force_cast (Sema *s, uint32_t child, TypeId child_type, TypeId target, 
 	*ok = 1;
 	if (child_type == target || child_type == TYPE_ERROR || target == TYPE_ERROR)
 		return child;
+	if (target == TYPE_ANY && type_kind(child_type) == TK_UNTYPED_INT) {
+		finalize_type(s, child, child_type);
+		return sema_wrap_cast(s, child, target);
+	}
 	if (types[target].size && type_kind(child_type) == TK_UNTYPED_INT
 			&& target_kind != TK_PTR && target_kind != TK_NULL
 			&& target_kind != TK_STR && target_kind != TK_VOID

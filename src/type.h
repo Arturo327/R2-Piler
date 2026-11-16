@@ -42,6 +42,7 @@ typedef enum {
 	TYPE_ERROR,
 	TYPE_NULL,
 	TYPE_STR,
+	TYPE_ANY,
 	TYPE_COUNT
 } DataType;
 
