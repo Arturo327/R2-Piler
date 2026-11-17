@@ -22,7 +22,7 @@ static int ptr_base_ok (TypeId base)
 {
 	TypeKind kind = type_kind(base);
 
-	return kind == TK_VOID || kind == TK_INT || kind == TK_ENUM
+	return kind == TK_VOID || kind == TK_INT || kind == TK_ENUM || kind == TK_FN
 			|| kind == TK_NEWTYPE || kind == TK_PTR || kind == TK_STRUCT;
 }
 
@@ -155,7 +155,55 @@ static TypeId resolve_array_spec (Sema *s, ASTNode *ref, uint8_t *done, int *def
 	return id;
 }
 
-TypeId resolve_type_spec (Sema *s, ASTNode *owner, uint8_t *done, int *deferred)
+static TypeId resolve_fn_item (Sema *s, uint32_t *item, TypeId *out,
+		uint8_t *done, int *deferred, const char *what)
+{
+	if (*item == NO_NODE) return TYPE_ERROR;
+
+	ASTNode *p = s->ast->nodes + *item;
+	TypeId id = resolve_type_spec(s, p, done, deferred);
+
+	*item = p->next_bro;
+	if (deferred && *deferred) return TYPE_ERROR;
+	if (id == TYPE_ERROR) return TYPE_ERROR;
+	if (id == TYPE_VOID || type_kind(id) == TK_FN) {
+		error_report(s->err, ERR_ERROR, node_loc(p),
+				"invalid function pointer %s type '%s'", what, types[id].name);
+		return TYPE_ERROR;
+	}
+	*out = id;
+	return id;
+}
+
+static TypeId resolve_fn_spec (Sema *s, ASTNode *ref, uint8_t *done, int *deferred)
+{
+	uint16_t param_count = (uint16_t)ref->sym;
+	uint16_t ret_count = (uint16_t)ref->u64;
+	TypeId *params = arena_alloc(s->arena, sizeof(TypeId) * (param_count + 1u));
+	TypeId *rets = arena_alloc(s->arena, sizeof(TypeId) * (ret_count + 1u));
+	uint32_t item = ref->child;
+
+	for (uint16_t i = 0; i < param_count; i++) {
+		if (resolve_fn_item(s, &item, params + i, done, deferred, "parameter") == TYPE_ERROR)
+			return TYPE_ERROR;
+	}
+	for (uint16_t i = 0; i < ret_count; i++) {
+		if (resolve_fn_item(s, &item, rets + i, done, deferred, "return") == TYPE_ERROR)
+			return TYPE_ERROR;
+	}
+
+	TypeId fn = type_fn_of(params, param_count, rets, ret_count,
+			(ref->flags & NODE_FLAG_VARARG) != 0);
+
+	if (fn == TYPE_ERROR) {
+		error_report(s->err, ERR_ERROR, node_loc(ref), "too many types");
+		return TYPE_ERROR;
+	}
+	return fn;
+}
+
+static TypeId resolve_spec_at (Sema *s, ASTNode *owner,
+		uint8_t *done, int *deferred, int bare_fn)
 {
 	if (owner->type_node == NO_TYPE_NODE) return owner->data_type;
 
@@ -165,10 +213,22 @@ TypeId resolve_type_spec (Sema *s, ASTNode *owner, uint8_t *done, int *deferred)
 	if (ref->type == NODE_TYPE_ARRAY || ref->type == NODE_TYPE_SLICE)
 		return resolve_array_spec(s, ref, done, deferred,
 				ref->type == NODE_TYPE_SLICE);
+	if (ref->type == NODE_TYPE_FN) {
+		TypeId fn = resolve_fn_spec(s, ref, done, deferred);
+
+		if (fn == TYPE_ERROR || bare_fn) return fn;
+		TypeId id = type_ptr_to(fn);
+
+		if (id == TYPE_ERROR) {
+			error_report(s->err, ERR_ERROR, node_loc(ref), "too many types");
+			return TYPE_ERROR;
+		}
+		return id;
+	}
 	if (ref->type != NODE_TYPE_PTR)
 		return resolve_type_ref(s, ref, done, deferred);
 
-	TypeId id = resolve_type_spec(s, ref, done, deferred);
+	TypeId id = resolve_spec_at(s, ref, done, deferred, 1);
 	if (deferred && *deferred) return TYPE_ERROR;
 	if (id == TYPE_ERROR) return TYPE_ERROR;
 	if (!ptr_base_ok(id)) {
@@ -183,6 +243,11 @@ TypeId resolve_type_spec (Sema *s, ASTNode *owner, uint8_t *done, int *deferred)
 		return TYPE_ERROR;
 	}
 	return id;
+}
+
+TypeId resolve_type_spec (Sema *s, ASTNode *owner, uint8_t *done, int *deferred)
+{
+	return resolve_spec_at(s, owner, done, deferred, 0);
 }
 
 TypeId resolve_type_node (Sema *s, ASTNode *n)
@@ -428,6 +493,20 @@ uint32_t sema_wrap_cast (Sema *s, uint32_t child, TypeId to_type)
 
 	c->next_bro = NO_NODE;
 	return sema_new_node(s, cast);
+}
+
+uint32_t sema_make_id (Sema *s, ASTNode *src)
+{
+	ASTNode raw = {0};
+
+	raw.type = NODE_ID;
+	raw.str = src->str;
+	raw.len = src->len;
+	raw.line = src->line;
+	raw.col = src->col;
+	raw.sym = NO_SYMBOL;
+	raw.type_node = NO_TYPE_NODE;
+	return sema_new_node(s, raw);
 }
 
 uint32_t sema_ref_value (Sema *s, uint32_t idx)
@@ -958,6 +1037,8 @@ static int is_const_ptr_init (Sema *s, uint32_t idx)
 		n = &s->ast->nodes[n->child];
 
 	if (n->type == NODE_LIT_NULL || n->type == NODE_LIT_STR) return 1;
+	if (n->type == NODE_ID && n->sym != NO_SYMBOL)
+		return s->table.symbols[n->sym].kind == SYMBOL_FN;
 	if (n->type != NODE_ADDR || n->child == NO_NODE) return 0;
 
 	ASTNode *child = &s->ast->nodes[n->child];
@@ -1223,6 +1304,47 @@ static void reject_untyped_global (Sema *s, ASTNode *n)
 	n->data_type = TYPE_ERROR;
 }
 
+static TypeId build_fn_value (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	uint32_t args = n->child;
+	uint32_t ret = s->ast->nodes[args].next_bro;
+	uint32_t param = s->ast->nodes[args].child;
+	uint16_t param_count = 0;
+	uint16_t ret_count = (uint16_t)sema_ret_count(s, ret);
+	uint16_t used = 0;
+	uint16_t k = 0;
+
+	if (s->ast->nodes[args].flags & NODE_FLAG_VARARG_TYPED) return TYPE_ERROR;
+	for (uint32_t p = param; p != NO_NODE; p = s->ast->nodes[p].next_bro) {
+		if (s->ast->nodes[p].child != NO_NODE) return TYPE_ERROR;
+		param_count++;
+	}
+
+	TypeId *params = arena_alloc(s->arena, sizeof(TypeId) * (param_count + 1u));
+	TypeId *rets = arena_alloc(s->arena, sizeof(TypeId) * (ret_count + 1u));
+
+	for (uint32_t p = param; p != NO_NODE; p = s->ast->nodes[p].next_bro) {
+		TypeId t = s->ast->nodes[p].data_type;
+
+		if (t == TYPE_ERROR) return TYPE_ERROR;
+		params[k++] = t;
+	}
+	for (uint16_t i = 0; i < ret_count; i++) {
+		TypeId t = s->ast->nodes[sema_ret_at(s, ret, i)].data_type;
+
+		if (t == TYPE_ERROR) return TYPE_ERROR;
+		if (t == TYPE_VOID && ret_count == 1) continue;
+		rets[used++] = t;
+	}
+
+	TypeId fn = type_fn_of(params, param_count, rets, used,
+			(s->ast->nodes[args].flags & NODE_FLAG_VARARG) != 0);
+
+	if (fn == TYPE_ERROR) return TYPE_ERROR;
+	return type_ptr_to(fn);
+}
+
 static void decl_globals (Sema *s)
 {
 	uint32_t idx = s->ast->nodes[0].child;
@@ -1233,8 +1355,9 @@ static void decl_globals (Sema *s)
 		if (n->type == NODE_FN_DEC || n->type == NODE_EXTERN_FN_DEC) {
 			uint32_t ret = s->ast->nodes[n->child].next_bro;
 			resolve_fn_types(s, idx);
-			sema_declare(s, n->str, n->len, SYMBOL_FN,
+			uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_FN,
 					s->ast->nodes[ret].data_type, idx);
+			s->table.symbols[sym].fn_type = build_fn_value(s, idx);
 		} else if (n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC
 				|| n->type == NODE_EXTERN_VAR_DEC) {
 			if (n->child != NO_NODE) infer_array_dims(s, idx);

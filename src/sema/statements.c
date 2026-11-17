@@ -94,6 +94,8 @@ static int is_static_const (Sema *s, uint32_t idx)
 	{
 	case NODE_LIT_NULL: case NODE_LIT_STR:
 		return 1;
+	case NODE_ID:
+		return n->sym != NO_SYMBOL && s->table.symbols[n->sym].kind == SYMBOL_FN;
 	case NODE_CAST: case NODE_FIELD_INIT:
 		return n->child != NO_NODE && is_static_const(s, n->child);
 	case NODE_INDEX_INIT:

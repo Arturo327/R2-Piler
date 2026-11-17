@@ -40,6 +40,7 @@ typedef struct Symbol {
 
 	uint8_t kind;
 	TypeId type;
+	TypeId fn_type;
 
 	uint8_t assigned : 1;
 	uint8_t addressed : 1;

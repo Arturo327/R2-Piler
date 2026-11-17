@@ -346,6 +346,12 @@ TypeId check_deref (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+	if (type_kind(types[type].base) == TK_FN) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot dereference a function pointer; call it directly");
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
 
 	n->data_type = types[type].base;
 	warn_null_deref(s, idx, n->child);
@@ -360,6 +366,15 @@ static TypeId check_addr_id (Sema *s, uint32_t idx, uint32_t saved_addr, int *fi
 
 	n = s->ast->nodes + idx;
 	child = s->ast->nodes + n->child;
+	if (type != TYPE_ERROR && child->sym != NO_SYMBOL
+			&& s->table.symbols[child->sym].kind == SYMBOL_FN) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'%.*s' is a function; use it directly as a pointer value",
+				(int)child->len, child->str);
+		n->data_type = TYPE_ERROR;
+		*finalized = 1;
+		return TYPE_ERROR;
+	}
 	if (type != TYPE_ERROR && child->sym != NO_SYMBOL
 			&& s->table.symbols[child->sym].by_ref) {
 		s->addr_operand = saved_addr;
@@ -584,12 +599,8 @@ static uint32_t check_ref_arg (Sema *s, uint32_t arg, uint32_t param)
 	return node;
 }
 
-static uint32_t check_arg_value (Sema *s, uint32_t arg, uint32_t param)
+static uint32_t check_arg_type (Sema *s, uint32_t arg, TypeId param_type)
 {
-	if (param != NO_NODE && (s->ast->nodes[param].flags & NODE_FLAG_REF_LOWERED))
-		return check_ref_arg(s, arg, param);
-
-	TypeId param_type = param == NO_NODE ? TYPE_VOID : s->ast->nodes[param].data_type;
 	TypeId arg_type = check_expr(s, arg);
 	uint32_t out = arg;
 
@@ -600,6 +611,16 @@ static uint32_t check_arg_value (Sema *s, uint32_t arg, uint32_t param)
 	if (type_kind(arg_type) == TK_ARRAY || type_kind(arg_type) == TK_SLICE)
 		agg_untrack_root(s, out);
 	return out;
+}
+
+static uint32_t check_arg_value (Sema *s, uint32_t arg, uint32_t param)
+{
+	if (param != NO_NODE && (s->ast->nodes[param].flags & NODE_FLAG_REF_LOWERED))
+		return check_ref_arg(s, arg, param);
+
+	TypeId param_type = param == NO_NODE ? TYPE_VOID : s->ast->nodes[param].data_type;
+
+	return check_arg_type(s, arg, param_type);
 }
 
 static uint32_t check_vararg_value (Sema *s, uint32_t arg, TypeId elem)
@@ -958,10 +979,117 @@ static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 				(int)s->ast->nodes[call_idx].len, s->ast->nodes[call_idx].str);
 }
 
+static int value_is_fn_ptr (Sema *s, uint32_t sym_idx)
+{
+	Symbol *sym = s->table.symbols + sym_idx;
+	TypeId type = sym->type;
+
+	if (sym->kind != SYMBOL_VAR && sym->kind != SYMBOL_PARAM) return 0;
+	return type_kind(type) == TK_PTR && type_kind(types[type].base) == TK_FN;
+}
+
+static uint32_t count_call_args (Sema *s, uint32_t first)
+{
+	uint32_t count = 0;
+
+	while (first != NO_NODE) {
+		count++;
+		first = s->ast->nodes[first].next_bro;
+	}
+	return count;
+}
+
+static TypeId indirect_callee (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	TypeId type = check_expr(s, (uint32_t)n->u64);
+
+	n = s->ast->nodes + idx;
+	if (type == TYPE_ERROR) return TYPE_ERROR;
+	if (type_kind(type) != TK_PTR || type_kind(types[type].base) != TK_FN) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"expression of type %s is not callable", type_display_name(type));
+		return TYPE_ERROR;
+	}
+	return type;
+}
+
+static uint32_t check_indirect_arg (Sema *s, uint32_t arg, TypeId pt)
+{
+	ASTNode *a = s->ast->nodes + arg;
+
+	if (a->type == NODE_NAMED_ARG) {
+		error_report(s->err, ERR_ERROR, node_loc(a),
+				"an indirect call cannot use named arguments");
+		check_expr(s, a->child);
+		return arg;
+	}
+	if (a->type == NODE_SPREAD) {
+		error_report(s->err, ERR_ERROR, node_loc(a),
+				"a spread argument ('...') is not supported in an indirect call");
+		check_expr(s, a->child);
+		return arg;
+	}
+	return check_arg_type(s, arg, pt);
+}
+
+static void check_indirect_args (Sema *s, uint32_t idx, TypeId sig_type)
+{
+	uint32_t argc = count_call_args(s, s->ast->nodes[idx].child);
+	uint32_t fixed = types[sig_type].param_count;
+	uint32_t arg = s->ast->nodes[idx].child;
+	uint32_t last = NO_NODE;
+
+	for (uint32_t i = 0; i < argc && arg != NO_NODE; i++) {
+		uint32_t next = s->ast->nodes[arg].next_bro;
+		TypeId pt = i < fixed ? types[sig_type].params[i] : TYPE_ERROR;
+		uint32_t out = check_indirect_arg(s, arg, pt);
+
+		s->ast->nodes[out].next_bro = next;
+		if (last == NO_NODE) s->ast->nodes[idx].child = out;
+		else s->ast->nodes[last].next_bro = out;
+		last = out;
+		arg = next;
+	}
+	if (types[sig_type].fn_variadic ? argc < fixed : argc != fixed)
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"wrong number of arguments in indirect call: got %u, expected %u",
+				argc, fixed);
+}
+
+static TypeId check_indirect_call (Sema *s, uint32_t idx)
+{
+	TypeId type = indirect_callee(s, idx);
+	ASTNode *n = s->ast->nodes + idx;
+	TypeId sig_type;
+
+	if (type == TYPE_ERROR) {
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	sig_type = types[type].base;
+	check_indirect_args(s, idx, sig_type);
+	n = s->ast->nodes + idx;
+	n->sym = type;
+	n->data_type = types[sig_type].ret_count ? types[sig_type].rets[0] : TYPE_VOID;
+	return n->data_type;
+}
+
 TypeId check_fn_call (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
+
+	if (n->flags & NODE_FLAG_INDIRECT) return check_indirect_call(s, idx);
 	uint32_t sym_idx = symtab_find(&s->table, n->str, n->len);
+
+	if (sym_idx != NO_SYMBOL && value_is_fn_ptr(s, sym_idx)) {
+		uint32_t callee = sema_make_id(s, s->ast->nodes + idx);
+
+		n = s->ast->nodes + idx;
+		n->u64 = callee;
+		n->flags |= NODE_FLAG_INDIRECT;
+		return check_indirect_call(s, idx);
+	}
 
 	if (sym_idx == NO_SYMBOL) {
 		error_report(s->err, ERR_ERROR, node_loc(n), "'%.*s' is not a known function",
@@ -1221,6 +1349,12 @@ TypeId check_index (Sema *s, uint32_t idx)
 	if (kind == TK_PTR && types[ptr].base == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot index 'ptr void'; cast it to a typed pointer first");
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	if (kind == TK_PTR && type_kind(types[ptr].base) == TK_FN) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"cannot index a function pointer; call it directly");
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}

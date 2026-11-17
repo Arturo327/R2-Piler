@@ -46,7 +46,7 @@ static TypeId check_init_ref (Sema *s, uint32_t idx, uint32_t sym_idx)
 
 TypeId check_var_ref (Sema *s, uint32_t idx, int init_refs)
 {
-	ASTNode *n = &s->ast->nodes[idx];
+	ASTNode *n = s->ast->nodes + idx;
 	uint32_t sym_idx = symtab_find(&s->table, n->str, n->len);
 
 	if (sym_idx == NO_SYMBOL) {
@@ -57,10 +57,18 @@ TypeId check_var_ref (Sema *s, uint32_t idx, int init_refs)
 	}
 
 	if (s->table.symbols[sym_idx].kind == SYMBOL_FN) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"'%.*s' is a function, not a variable", (int)n->len, n->str);
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
+		Symbol *fn = s->table.symbols + sym_idx;
+
+		if (fn->fn_type == TYPE_ERROR) {
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"'%.*s' cannot be used as a value; it has optional or variadic parameters",
+					(int)n->len, n->str);
+			n->data_type = TYPE_ERROR;
+			return TYPE_ERROR;
+		}
+		n->sym = sym_idx;
+		n->data_type = fn->fn_type;
+		return n->data_type;
 	}
 
 	if (s->table.symbols[sym_idx].kind == SYMBOL_ENUM) {
@@ -93,6 +101,7 @@ static void warn_unassigned (Sema *s, uint32_t idx, TypeId type)
 	ASTNode *n = s->ast->nodes + idx;
 
 	if (type == TYPE_ERROR || n->sym == NO_SYMBOL) return;
+	if (s->table.symbols[n->sym].kind == SYMBOL_FN) return;
 	if (s->table.symbols[n->sym].assigned) return;
 
 	error_report(s->err, ERR_WARNING, node_loc(n),
@@ -186,7 +195,15 @@ static TypeId check_lvalue (Sema *s, uint32_t idx)
 	{
 	case NODE_ID: {
 		TypeId type = check_var_ref(s, idx, 1);
+		ASTNode *n = s->ast->nodes + idx;
 
+		if (type != TYPE_ERROR && n->sym != NO_SYMBOL
+				&& s->table.symbols[n->sym].kind == SYMBOL_FN) {
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"'%.*s' is a function, not a variable", (int)n->len, n->str);
+			n->data_type = TYPE_ERROR;
+			return TYPE_ERROR;
+		}
 		if (type != TYPE_ERROR && id_by_ref(s, idx))
 			return sema_ref_value(s, idx);
 		return type;
@@ -508,6 +525,11 @@ static TypeId check_compound_ptr (Sema *s, uint32_t idx, uint8_t op,
 				types[l].name);
 		return TYPE_ERROR;
 	}
+	if (type_kind(types[l].base) == TK_FN) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"pointer arithmetic on a function pointer is not allowed");
+		return TYPE_ERROR;
+	}
 	if (types[l].base == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"pointer arithmetic on 'ptr void' is not allowed");
@@ -573,7 +595,8 @@ static uint32_t call_ret_list (Sema *s, uint32_t call)
 	ASTNode *n = s->ast->nodes + call;
 	uint32_t decl;
 
-	if (n->type != NODE_FN_CALL || n->sym == NO_SYMBOL) return NO_NODE;
+	if (n->type != NODE_FN_CALL || (n->flags & NODE_FLAG_INDIRECT)) return NO_NODE;
+	if (n->sym == NO_SYMBOL) return NO_NODE;
 
 	decl = s->table.symbols[n->sym].decl;
 	if (decl == NO_NODE) return NO_NODE;
@@ -667,11 +690,19 @@ void check_multi_assign (Sema *s, uint32_t idx)
 {
 	uint32_t rhs = multi_rhs(s, idx);
 	uint32_t count = 0;
+	uint32_t ret = NO_NODE;
+	TypeId sig = TYPE_ERROR;
 
 	check_expr(s, rhs);
-	uint32_t ret = call_ret_list(s, rhs);
+	ret = call_ret_list(s, rhs);
 
-	if (ret != NO_NODE) count = sema_ret_count(s, ret);
+	ASTNode *call = s->ast->nodes + rhs;
+	if (call->type == NODE_FN_CALL && (call->flags & NODE_FLAG_INDIRECT)) {
+		sig = types[call->sym].base;
+		count = types[sig].ret_count;
+	} else if (ret != NO_NODE) {
+		count = sema_ret_count(s, ret);
+	}
 	if (count < 2) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + rhs),
 				"the right side of a multi-assignment must be a call to a"
@@ -684,15 +715,17 @@ void check_multi_assign (Sema *s, uint32_t idx)
 	uint32_t n = 0;
 	while (target != rhs) {
 		uint32_t next = s->ast->nodes[target].next_bro;
-		TypeId want = n < count
-				? s->ast->nodes[sema_ret_at(s, ret, n)].data_type : TYPE_ERROR;
+		TypeId want = TYPE_ERROR;
 
+		if (n < count)
+			want = sig != TYPE_ERROR ? types[sig].rets[n]
+					: s->ast->nodes[sema_ret_at(s, ret, n)].data_type;
 		check_multi_target(s, target, want, rhs);
 		target = next;
 		n++;
 	}
 
-	if (ret != NO_NODE && n > count)
+	if (count && n > count)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"this function returns %u values, but %u are assigned",
 				count, n);

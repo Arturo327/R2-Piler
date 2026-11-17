@@ -222,6 +222,19 @@ static TypeId pointer_arith (Sema *s, uint32_t idx, uint8_t op, uint32_t *left, 
 	return TYPE_ERROR;
 }
 
+static int fn_ptr_operator (Sema *s, uint32_t idx, uint8_t op)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	const char *msg;
+
+	if (op == NODE_ADD || op == NODE_SUB)
+		msg = "pointer arithmetic on a function pointer is not allowed";
+	else msg = "comparison of function pointers is not allowed; only '==' and '!=' are supported";
+	error_report(s->err, ERR_ERROR, node_loc(n), "%s", msg);
+	n->data_type = TYPE_ERROR;
+	return 1;
+}
+
 static int check_pointer_binary (Sema *s, uint32_t idx, uint32_t *left,
 		uint32_t *right, TypeId *l, TypeId *r)
 {
@@ -230,6 +243,11 @@ static int check_pointer_binary (Sema *s, uint32_t idx, uint32_t *left,
 
 	if (!is_pointer_operand(*l) && !is_pointer_operand(*r)) return 0;
 	if (op == NODE_AND_L || op == NODE_OR_L) return 0;
+
+	int l_fn_ptr = type_kind(*l) == TK_PTR && type_kind(types[*l].base) == TK_FN;
+	int r_fn_ptr = type_kind(*r) == TK_PTR && type_kind(types[*r].base) == TK_FN;
+	if ((l_fn_ptr || r_fn_ptr) && op != NODE_EQ && op != NODE_NE)
+		return fn_ptr_operator(s, idx, op);
 
 	switch (op)
 	{
