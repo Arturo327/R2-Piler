@@ -1,0 +1,22 @@
+tests/sema/180_err_view_src.r2:4:5: ERROR: a view variable can only be declared inside a function; use 'arr' for a global array
+      4 | var _gv : i32[3];
+        |     ^~~
+tests/sema/180_err_view_src.r2:7:6: ERROR: cannot initialize view '_v' (i32[4]) with a value of type i32[3]; a view requires an array or slice of the same rank and element type, with the same size in every sized dimension
+      7 |         var _v : i32[4] = _a3;
+        |             ^~
+tests/sema/180_err_view_src.r2:8:20: ERROR: a view cannot be initialized with a '{...}' list; use an array or slice expression
+      8 |         var _w : i32[3] = {1, 2, 3};
+        |                           ^
+tests/sema/180_err_view_src.r2:9:6: ERROR: cannot initialize view '_s' (i8[4]) with a value of type string; a view requires an array or slice of the same rank and element type, with the same size in every sized dimension
+      9 |         var _s : i8[4] = "hi";
+        |             ^~
+tests/sema/180_err_view_src.r2:10:6: ERROR: cannot initialize view '_n' (i32[3]) with a value of type nil; a view requires an array or slice of the same rank and element type, with the same size in every sized dimension
+     10 |         var _n : i32[3] = NULL;
+        |             ^~
+tests/sema/180_err_view_src.r2:11:13: ERROR: a 'static' view is not supported; use 'static arr'
+     11 |         static var _st : i32[3];
+        |                    ^~~
+tests/sema/180_err_view_src.r2:13:5: ERROR: cannot assign i32[4] to a view of type i32[3]; a view requires an array or slice of the same rank and element type, with the same size in every sized dimension
+     13 |         _u = _a4;
+        |            ^
+7 errors, 0 warnings

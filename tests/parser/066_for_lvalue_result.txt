@@ -3,7 +3,7 @@ NODE_ROOT [0:0]
     NODE_ARGS_DEC [1:12]
     NODE_RET_DEC [1:15] type=i64
     NODE_BLOCK [1:21]
-      NODE_VAR_DEC [2:6] name="a" type=i64[4]
+      NODE_ARR_DEC [2:6] name="a" type=i64[4]
       NODE_VAR_DEC [3:6] name="p" type=ptr i64
         NODE_ID [3:20] str="a"
       NODE_FOR [5:2]

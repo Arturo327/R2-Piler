@@ -1,4 +1,4 @@
-var ga : i64[2] = {1, 2};
+arr ga : i64[2] = {1, 2};
 
 fn plain (a : i64) : i64 { return a; }
 extern fn printf (fmt : ptr i8, ...) : i32;

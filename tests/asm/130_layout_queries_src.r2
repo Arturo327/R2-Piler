@@ -52,7 +52,7 @@ pub fn main () : i64 {
 	var st : ptr i8 = "abc";
 	var bl : Bits = {};
 	var c : Cpu = {};
-	var arr32 : i32[4] = {1, 2, 3, 4};
+	arr arr32 : i32[4] = {1, 2, 3, 4};
 	var sl32 : i32[] = arr32;
 	var ws : WithSlice = {};
 

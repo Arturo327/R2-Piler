@@ -29,7 +29,7 @@ pub fn main () : i64 {
 	if (p.y != 77) return 8;
 
 	// elemento de array: destino no fresco
-	var s : P[2];
+	arr s : P[2];
 
 	s[0] = {.x = 1, .y = 2} as P;
 	s[1] = {.x = s[0].x + 1} as P;

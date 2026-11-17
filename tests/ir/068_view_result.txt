@@ -1,0 +1,70 @@
+global g : i32[4]
+global gm : i32[2][3]
+
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn main(0 params, 57 regs) : i64
+    r1 = addr_local.i32[4] r0
+    r2 = addr_global.i32[4] @g
+    str_ptr.ptr i32 r1, r2
+    r4 = addr_local.i32[2][] r3
+    r5 = addr_global.i32[2][3] @gm
+    str_ptr.ptr i32 r4, r5
+    r6 = const.i64 3
+    r7 = const.i64 8
+    r8 = add.i64 r4, r7
+    str_ptr.i64 r8, r6
+    r9 = addr_local.i32[4] r0
+    r10 = ld_ptr.ptr i32 r9
+    r11 = const.i64 1
+    r12 = const.i64 4
+    r13 = mul.i64 r11, r12
+    r14 = add.i64 r10, r13
+    r15 = const.i32 9
+    str_ptr.i32 r14, r15
+    r16 = addr_local.i32[2][] r3
+    r17 = ld_ptr.ptr i32 r16
+    r18 = const.i64 1
+    r19 = addr_local.i32[2][] r3
+    r20 = const.i64 8
+    r21 = add.i64 r19, r20
+    r22 = ld_ptr.i64 r21
+    r23 = const.i64 4
+    r24 = mul.i64 r22, r23
+    r25 = mul.i64 r18, r24
+    r26 = add.i64 r17, r25
+    r27 = const.i64 2
+    r28 = const.i64 4
+    r29 = mul.i64 r27, r28
+    r30 = add.i64 r26, r29
+    r31 = const.i32 7
+    str_ptr.i32 r30, r31
+    r32 = addr_local.i32[4] r0
+    r33 = ld_ptr.ptr i32 r32
+    r34 = const.i64 1
+    r35 = const.i64 4
+    r36 = mul.i64 r34, r35
+    r37 = add.i64 r33, r36
+    r38 = ld_ptr.i32 r37
+    r39 = addr_local.i32[2][] r3
+    r40 = ld_ptr.ptr i32 r39
+    r41 = const.i64 1
+    r42 = addr_local.i32[2][] r3
+    r43 = const.i64 8
+    r44 = add.i64 r42, r43
+    r45 = ld_ptr.i64 r44
+    r46 = const.i64 4
+    r47 = mul.i64 r45, r46
+    r48 = mul.i64 r41, r47
+    r49 = add.i64 r40, r48
+    r50 = const.i64 2
+    r51 = const.i64 4
+    r52 = mul.i64 r50, r51
+    r53 = add.i64 r49, r52
+    r54 = ld_ptr.i32 r53
+    r55 = add.i32 r38, r54
+    r56 = extend.i64 r55
+    ret.i64 r56
+    ret
+

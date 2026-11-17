@@ -14,7 +14,7 @@ fn total (rest : ...any) : i64 {
 
 fn fwd (a : i32[3]) : i32 { return add(a...); }
 
-var gx : i32[3] = {10, 20, 12};
+arr gx : i32[3] = {10, 20, 12};
 
 pub fn main () : i64 {
 	arr x : i32[5] = {1, 2, 3, 4, 5};

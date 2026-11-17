@@ -25,8 +25,8 @@ fn pairs (vs : ...i64[2]) : i64 {
 fn count (tag : i64, rest : ...i32) : i64 { return tag * 100 + rest.len; }
 
 pub fn main () : i64 {
-	var a : i64[2] = {3, 4};
-	var b : i64[2] = {5, 6};
+	arr a : i64[2] = {3, 4};
+	arr b : i64[2] = {5, 6};
 	var r : i64 = 0;
 	r += sum();
 	r += sum(5);

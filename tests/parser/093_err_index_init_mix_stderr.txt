@@ -1,0 +1,13 @@
+tests/parser/093_err_index_init_mix_src.r2:2:23: ERROR: cannot mix '.field = value', '[index] = value' and positional initializers
+      2 |         arr a : i32[6] = {1, [2] = 3};
+        |                              ^
+tests/parser/093_err_index_init_mix_src.r2:2:30: ERROR: expected ';' at the end of the declaration
+      2 |         arr a : i32[6] = {1, [2] = 3};
+        |                                     ^
+tests/parser/093_err_index_init_mix_src.r2:2:31: ERROR: expected expression
+      2 |         arr a : i32[6] = {1, [2] = 3};
+        |                                      ^
+tests/parser/093_err_index_init_mix_src.r2:4:1: ERROR: expected expression
+      4 | }
+        | ^
+4 errors, 0 warnings

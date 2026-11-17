@@ -33,7 +33,7 @@ pub fn main() : i64 {
 	inc(m);
 	var b : B = {.f = 1};
 	bf(b.f);
-	var v : i32[3] = {1, 2, 3};
+	arr v : i32[3] = {1, 2, 3};
 	afn(v);
 	sfn(v);
 	dflt(n);

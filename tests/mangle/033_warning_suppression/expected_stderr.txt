@@ -5,6 +5,6 @@ warn.r2:6:5: WARNING: unused variable 'pvv'
       6 | var pvv : i64 = 3;
         |     ^~~
 warn.r2:9:5: WARNING: unused variable 'pva'
-      9 | var pva : i64[2] = {5, 6};
+      9 | arr pva : i64[2] = {5, 6};
         |     ^~~
 0 errors, 3 warnings

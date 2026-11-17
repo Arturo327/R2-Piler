@@ -18,7 +18,7 @@ fn sum (rest : ...i64) : i64 {
 }
 
 pub fn main () : i64 {
-	var av : i64[3] = {1, 2, 3};
+	arr av : i64[3] = {1, 2, 3};
 	sum("x");
 	sum(1, "x");
 	sum(rest = 1);

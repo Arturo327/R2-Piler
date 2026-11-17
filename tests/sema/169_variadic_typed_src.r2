@@ -15,7 +15,7 @@ fn pairs (vs : ...i64[2]) : i64 { return vs.len as i64; }
 fn show (_tag : ptr i8, rest : ...i32) : i64 { return rest.len as i64; }
 
 pub fn main () : i64 {
-	var a : i64[2] = {1, 2};
+	arr a : i64[2] = {1, 2};
 	sum();
 	sum(1, 2, 3);
 	forward(4, 5);

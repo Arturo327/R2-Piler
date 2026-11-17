@@ -5,7 +5,7 @@ extern fn snprintf (buf : ptr i8, n : u64, fmt : ptr i8, ...) : i32;
 extern fn strcmp (a : ptr i8, b : ptr i8) : i32;
 
 pub fn main () : i64 {
-	var buf : i8[64];
+	arr buf : i8[64];
 	var n : i32 = snprintf(buf, 64, "%d-%s-%c-%lld", 42, "ok", 'x', 7);
 
 	if (n != 9) { return 1; }

@@ -1,4 +1,4 @@
-var ga : i32[3] = {1, 2, 3};
+arr ga : i32[3] = {1, 2, 3};
 
 fn add (rest : ...i32) : i32 {
 	var t : i32 = 0;

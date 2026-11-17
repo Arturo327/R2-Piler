@@ -1,0 +1,12 @@
+struct S [1:8] depth=0 size=16 align=4
+  field a type=i32[4] offset=0
+var _g1 [3:5] depth=0 type=i32[6]
+var _g2 [4:5] depth=0 type=i32[6]
+var _g3 [5:5] depth=0 type=i32[2][3]
+fn main [7:8] depth=0 type=i64
+var _l1 [8:6] depth=1 type=i32[3][3]
+var _l2 [9:6] depth=1 type=i8[2][4]
+var _l3 [10:6] depth=1 type=S[2]
+static var _st [11:13] depth=1 type=i32[4]
+var _sv [12:6] depth=1 type=S
+var _l4 [13:6] depth=1 type=i32[2][2]

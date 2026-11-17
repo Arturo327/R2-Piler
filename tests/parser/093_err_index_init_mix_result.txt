@@ -1,0 +1,16 @@
+NODE_ROOT [0:0]
+  NODE_FN_DEC [1:8] name="main" pub
+    NODE_ARGS_DEC [1:12]
+    NODE_RET_DEC [1:15] type=i64
+    NODE_BLOCK [1:21]
+      NODE_ARR_DEC [2:6] name="a" type=i32[6]
+        NODE_ASSIGN [2:27]
+          NODE_INDEX [2:23]
+            NODE_ARRAY_INIT [2:19]
+              NODE_LIT_i64 [2:20] i64=1
+            NODE_LIT_i64 [2:24] i64=2
+          NODE_LIT_i64 [2:29] i64=3
+  NODE_ERROR [2:31]
+  NODE_RET [3:2]
+    NODE_LIT_i64 [3:9] i64=0
+  NODE_ERROR [4:1]

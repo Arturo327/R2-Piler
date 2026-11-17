@@ -1,0 +1,11 @@
+var _src [1:5] depth=0 type=i32[2]
+fn main [3:8] depth=0 type=i64
+var _i [4:6] depth=1 type=i64
+var _s [5:6] depth=1 type=i32[]
+var _a [6:6] depth=1 type=i32[6]
+var _b [7:6] depth=1 type=i32[6]
+var _c [8:6] depth=1 type=i32[6]
+var _d [9:6] depth=1 type=i32[2][2]
+var _e [10:6] depth=1 type=i32[6]
+var _f [11:6] depth=1 type=i32[6]
+var _h [12:6] depth=1 type=i32[2][]

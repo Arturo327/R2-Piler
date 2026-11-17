@@ -1,4 +1,4 @@
-var ga : i64[3] = {1, 2, 3};
+arr ga : i64[3] = {1, 2, 3};
 
 fn sum (rest : ...i64) : i64 {
 	var t : i64 = 0;
