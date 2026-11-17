@@ -7,10 +7,25 @@ enum {
 	TS_REF,
 	TS_PTR,
 	TS_ARRAY,
-	TS_SLICE
+	TS_SLICE,
+	TS_FN
 };
 
-typedef struct TypeSpec {
+typedef struct TypeSpec TypeSpec;
+
+typedef struct FnSig {
+	TypeSpec **params;
+	uint32_t param_count;
+	uint32_t param_cap;
+
+	TypeSpec **rets;
+	uint32_t ret_count;
+	uint32_t ret_cap;
+
+	uint8_t variadic;
+} FnSig;
+
+struct TypeSpec {
 	struct TypeSpec *base;
 
 	char *str;
@@ -22,7 +37,9 @@ typedef struct TypeSpec {
 
 	uint8_t kind;
 	TypeId builtin;
-} TypeSpec;
+
+	FnSig *sig;
+};
 
 static TypeId tok_to_datatype (TokenType t)
 {
@@ -49,6 +66,7 @@ static int is_type_token (TokenType type)
 	case TOK_i8: case TOK_u8: case TOK_i16: case TOK_u16:
 	case TOK_i32: case TOK_u32: case TOK_i64: case TOK_u64:
 	case TOK_CHAR: case TOK_VOID: case TOK_PTR: case TOK_ANY:
+	case TOK_FN:
 		return 1;
 	default:
 		return 0;
@@ -67,10 +85,104 @@ static TypeSpec *new_spec (Parser *p, uint8_t kind, Token t)
 	ts->col = t.col;
 	ts->kind = kind;
 	ts->builtin = TYPE_VOID;
+	ts->sig = NULL;
 	return ts;
 }
 
-static TypeSpec *parse_type_spec (Parser *p, int allow_void)
+static void append_sig (Parser *p, TypeSpec ***arr, uint32_t *count, uint32_t *cap, TypeSpec *item)
+{
+	if (*count >= *cap) {
+		uint32_t old = *cap;
+		*cap = old ? old << 1 : 4;
+		*arr = arena_realloc(p->arena, *arr, sizeof(TypeSpec *) * old,
+				sizeof(TypeSpec *) * *cap);
+	}
+	(*arr)[(*count)++] = item;
+}
+
+static TypeSpec *parse_type_spec (Parser *p, int allow_void, int bare_fn);
+
+static TypeSpec *parse_ref_type (Parser *p)
+{
+	if (p->curr.type != TOK_AND_A) return parse_type_spec(p, 0, 0);
+
+	Token t = p->curr;
+	TypeSpec *ptr = new_spec(p, TS_PTR, t);
+
+	advance(p);
+	ptr->base = parse_type_spec(p, 0, 0);
+	return ptr;
+}
+
+static TypeSpec *parse_fn_param (Parser *p)
+{
+	if (p->curr.type == TOK_ID) {
+		TypeSpec *spec = parse_type_spec(p, 0, 0);
+		if (p->curr.type != TOK_COL) return spec;
+		advance(p);
+	}
+	return parse_ref_type(p);
+}
+
+static void parse_fn_ret (Parser *p, FnSig *sig)
+{
+	if (p->curr.type != TOK_COL) return;
+
+	advance(p);
+	if (p->curr.type != TOK_LPAREN) {
+		TypeSpec *ret = parse_type_spec(p, 1, 0);
+
+		if (ret->kind == TS_BUILTIN && ret->builtin == TYPE_VOID) return;
+		append_sig(p, &sig->rets, &sig->ret_count, &sig->ret_cap, ret);
+		return;
+	}
+
+	advance(p);
+	append_sig(p, &sig->rets, &sig->ret_count, &sig->ret_cap,
+			parse_type_spec(p, 0, 0));
+	if (p->curr.type != TOK_COMMA) {
+		consume(p, TOK_RPAREN, "expected ')' after the return type");
+		return;
+	}
+	while (p->curr.type == TOK_COMMA) {
+		advance(p);
+		append_sig(p, &sig->rets, &sig->ret_count, &sig->ret_cap,
+				parse_type_spec(p, 0, 0));
+	}
+	consume(p, TOK_RPAREN, "expected ')' after the return types");
+}
+
+static FnSig *parse_fn_sig (Parser *p, Token fn)
+{
+	FnSig *sig = arena_alloc(p->arena, sizeof(FnSig));
+
+	sig->params = NULL;
+	sig->param_count = 0;
+	sig->param_cap = 0;
+	sig->rets = NULL;
+	sig->ret_count = 0;
+	sig->ret_cap = 0;
+	sig->variadic = 0;
+
+	if (!consume(p, TOK_LPAREN, "expected '(' after 'fn'")) return sig;
+	while (p->curr.type != TOK_RPAREN && p->curr.type != TOK_EOF) {
+		if (p->curr.type == TOK_ELLIPSIS) {
+			sig->variadic = 1;
+			advance(p);
+			break;
+		}
+		append_sig(p, &sig->params, &sig->param_count, &sig->param_cap,
+				parse_fn_param(p));
+		if (p->curr.type != TOK_COMMA) break;
+		advance(p);
+	}
+	consume(p, TOK_RPAREN, "expected ')' after function parameters");
+	parse_fn_ret(p, sig);
+	(void)fn;
+	return sig;
+}
+
+static TypeSpec *parse_type_spec (Parser *p, int allow_void, int bare_fn)
 {
 	Token t = p->curr;
 	TypeSpec *ts;
@@ -79,12 +191,21 @@ static TypeSpec *parse_type_spec (Parser *p, int allow_void)
 
 	if (t.type == TOK_LPAREN) {
 		advance(p);
-		ts = parse_type_spec(p, allow_void);
+		ts = parse_type_spec(p, allow_void, bare_fn);
 		consume(p, TOK_RPAREN, "expected ')' after type");
 	} else if (t.type == TOK_PTR) {
 		advance(p);
 		ts = new_spec(p, TS_PTR, t);
-		ts->base = parse_type_spec(p, 1);
+		ts->base = parse_type_spec(p, 1, 1);
+	} else if (t.type == TOK_FN) {
+		advance(p);
+		ts = new_spec(p, TS_FN, t);
+		ts->sig = parse_fn_sig(p, t);
+		if (!bare_fn) {
+			TypeSpec *ptr = new_spec(p, TS_PTR, t);
+			ptr->base = ts;
+			ts = ptr;
+		}
 	} else if (is_type_token(t.type)
 			&& (allow_void || t.type != TOK_VOID)) {
 		advance(p);
@@ -150,6 +271,37 @@ static TypeSpec *parse_type_spec (Parser *p, int allow_void)
 	return ts;
 }
 
+static TypeId make_type_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t *type_node);
+
+static uint32_t make_fn_item (Parser *p, TypeSpec *spec)
+{
+	uint16_t base_node;
+	uint32_t node = new_node(p, NODE_FN_PARAM, spec->line, spec->col);
+	TypeId base = make_type_spec(p, spec, node, &base_node);
+
+	p->ast.nodes[node].data_type = base;
+	p->ast.nodes[node].type_node = base_node;
+	return node;
+}
+
+static TypeId make_fn_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t *type_node)
+{
+	uint32_t node = new_node(p, NODE_TYPE_FN, ts->line, ts->col);
+	uint32_t last = NO_NODE;
+
+	p->ast.nodes[node].sym = ts->sig->param_count;
+	p->ast.nodes[node].u64 = ts->sig->ret_count;
+	if (ts->sig->variadic) p->ast.nodes[node].flags |= NODE_FLAG_VARARG;
+
+	for (uint32_t i = 0; i < ts->sig->param_count; i++)
+		append_child(p, node, &last, make_fn_item(p, ts->sig->params[i]));
+	for (uint32_t i = 0; i < ts->sig->ret_count; i++)
+		append_child(p, node, &last, make_fn_item(p, ts->sig->rets[i]));
+
+	*type_node = (uint16_t)(node - owner);
+	return TYPE_ERROR;
+}
+
 static TypeId make_type_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t *type_node)
 {
 	uint32_t node;
@@ -167,6 +319,7 @@ static TypeId make_type_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t 
 		*type_node = (uint16_t)(node - owner);
 		return TYPE_ERROR;
 	}
+	if (ts->kind == TS_FN) return make_fn_spec(p, ts, owner, type_node);
 
 	switch (ts->kind)
 	{
@@ -192,7 +345,7 @@ static TypeId make_type_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t 
 
 TypeId parse_type (Parser *p, int allow_void, uint32_t owner, uint16_t *type_node)
 {
-	TypeSpec *ts = parse_type_spec(p, allow_void);
+	TypeSpec *ts = parse_type_spec(p, allow_void, 0);
 
 	if (!ts) {
 		*type_node = NO_TYPE_NODE;

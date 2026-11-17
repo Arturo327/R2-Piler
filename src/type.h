@@ -20,6 +20,7 @@ typedef enum {
 	TK_STRUCT,
 	TK_CLASS,
 	TK_PTR,
+	TK_FN,
 	TK_ARRAY,
 	TK_SLICE,
 	TK_NULL,
@@ -89,6 +90,12 @@ typedef struct TypeDesc {
 	uint8_t layout;
 	uint8_t is_union;
 	uint8_t is_packed;
+
+	TypeId *params;
+	TypeId *rets;
+	uint16_t param_count;
+	uint16_t ret_count;
+	uint8_t fn_variadic;
 } TypeDesc;
 
 typedef TypeDesc Type;
@@ -101,6 +108,8 @@ void types_destroy (void);
 
 TypeId add_type (const char *name, uint16_t len, TypeKind kind, TypeId base);
 TypeId type_ptr_to (TypeId base);
+TypeId type_fn_of (const TypeId *params, uint16_t param_count,
+		const TypeId *rets, uint16_t ret_count, int variadic);
 TypeId type_array_of (TypeId base, uint32_t count);
 TypeId type_slice_of (TypeId base);
 TypeId type_flat_element (TypeId id);

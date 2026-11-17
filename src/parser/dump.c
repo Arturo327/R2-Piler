@@ -94,6 +94,8 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_NAMED_ARG] = "NODE_NAMED_ARG",
 	[NODE_SPREAD] = "NODE_SPREAD",
 	[NODE_MODULE_DEC] = "NODE_MODULE_DEC",
+	[NODE_TYPE_FN] = "NODE_TYPE_FN",
+	[NODE_FN_PARAM] = "NODE_FN_PARAM",
 };
 
 static inline void indent (int depth)
@@ -129,7 +131,8 @@ static void dump_node_value (ASTNode *n)
 	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
 	case NODE_STRUCT_DEC: case NODE_FIELD_DEC: case NODE_MODULE_DEC:
-		if (n->str) printf(" name=\"%.*s\"", (int)n->len, n->str);
+		if (n->str && !(n->flags & NODE_FLAG_INDIRECT))
+			printf(" name=\"%.*s\"", (int)n->len, n->str);
 		if (n->flags & NODE_FLAG_STATIC) printf(" static");
 		if (n->flags & NODE_FLAG_PUB) {
 			if (n->flags & NODE_FLAG_EXPORT) printf(" export");
@@ -225,6 +228,31 @@ static void dump_type_name (AST *ast, ASTNode *n)
 		dump_array_name(ast, n);
 		return;
 	}
+	if (n->type == NODE_TYPE_FN) {
+		ASTNode *item = n->child != NO_NODE ? &ast->nodes[n->child] : NULL;
+
+		printf("fn(");
+		for (uint32_t i = 0; i < n->sym && item; i++) {
+			if (i) printf(", ");
+			dump_type_name(ast, item->type_node != NO_TYPE_NODE
+					? &ast->nodes[(uint32_t)(item - ast->nodes) + item->type_node]
+					: item);
+			item = item->next_bro != NO_NODE ? &ast->nodes[item->next_bro] : NULL;
+		}
+		if (n->flags & NODE_FLAG_VARARG) printf("%s...", n->sym ? ", " : "");
+		printf(")");
+		if (!n->u64) return;
+		printf(n->u64 == 1 ? " : " : " : (");
+		for (uint32_t i = 0; i < n->u64 && item; i++) {
+			if (i) printf(", ");
+			dump_type_name(ast, item->type_node != NO_TYPE_NODE
+					? &ast->nodes[(uint32_t)(item - ast->nodes) + item->type_node]
+					: item);
+			item = item->next_bro != NO_NODE ? &ast->nodes[item->next_bro] : NULL;
+		}
+		if (n->u64 > 1) printf(")");
+		return;
+	}
 	if (n->type == NODE_TYPE_REF) {
 		printf("%.*s", (int)n->len, n->str);
 		return;
@@ -281,6 +309,8 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 			dump_type(ast, n);
 
 		printf("\n");
+		if (n->type == NODE_FN_CALL && (n->flags & NODE_FLAG_INDIRECT))
+			dump_node(ast, (uint32_t)n->u64, depth + 1);
 		dump_node(ast, child, depth + 1);
 		if (n->type == NODE_INDEX_INIT)
 			dump_node(ast, (uint32_t)n->u64, depth + 1);

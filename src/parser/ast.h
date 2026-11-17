@@ -21,6 +21,7 @@
 #define NODE_FLAG_VARARG 1
 #define NODE_FLAG_VARARG_TYPED 2
 #define NODE_FLAG_VARARG_LOWERED 4
+#define NODE_FLAG_INDIRECT 8
 
 typedef enum {
 	NODE_ERROR = 0, NODE_EMPTY,
@@ -48,6 +49,7 @@ typedef enum {
 	NODE_RET_ITEM, NODE_MULTI_ASSIGN, NODE_NAMED_ARG,			// several
 	NODE_ALIGNOF, NODE_OFFSETOF, NODE_SIZEOF, 				// layout queries
 	NODE_SPREAD, NODE_MODULE_DEC,						// variadics & modules
+	NODE_TYPE_FN, NODE_FN_PARAM,						// function pointer types
 	NODE_COUNT
 } NodeType;
 

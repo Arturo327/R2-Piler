@@ -160,6 +160,11 @@ TypeId add_type (const char *name, uint16_t len, TypeKind kind, TypeId base)
 	t->layout = 0;
 	t->is_union = 0;
 	t->is_packed = 0;
+	t->params = NULL;
+	t->rets = NULL;
+	t->param_count = 0;
+	t->ret_count = 0;
+	t->fn_variadic = 0;
 
 	if (kind == TK_ENUM || kind == TK_ALIAS || kind == TK_NEWTYPE || kind == TK_STRUCT) {
 		uint16_t *slot = name_slot(name, len);
@@ -188,6 +193,103 @@ TypeId type_ptr_to (TypeId base)
 	types[id].size = 8;
 	types[id].sign = 0;
 	*slot = id;
+	return id;
+}
+
+static uint32_t fn_name_len (const TypeId *params, uint16_t param_count,
+		const TypeId *rets, uint16_t ret_count, int variadic)
+{
+	uint64_t total = 4;
+
+	for (uint16_t i = 0; i < param_count; i++)
+		total += (uint64_t)types[params[i]].len + 2;
+	if (variadic) total += 5;
+	if (ret_count == 1) total += (uint64_t)types[rets[0]].len + 3;
+	else if (ret_count > 1) {
+		total += 4;
+		for (uint16_t i = 0; i < ret_count; i++)
+			total += (uint64_t)types[rets[i]].len + 2;
+	}
+	return total > UINT16_MAX ? 0 : (uint32_t)total;
+}
+
+static char *put_name (char *at, const char *src, uint32_t len)
+{
+	memcpy(at, src, len);
+	return at + len;
+}
+
+static char *fn_name (const TypeId *params, uint16_t param_count,
+		const TypeId *rets, uint16_t ret_count, int variadic, uint16_t *out_len)
+{
+	uint32_t total = fn_name_len(params, param_count, rets, ret_count, variadic);
+
+	if (!total) return NULL;
+
+	char *name = arena_alloc(&type_arena, (size_t)total + 1);
+	char *at = put_name(name, "fn(", 3);
+
+	for (uint16_t i = 0; i < param_count; i++) {
+		if (i) at = put_name(at, ", ", 2);
+		at = put_name(at, types[params[i]].name, types[params[i]].len);
+	}
+	if (variadic) at = put_name(at, param_count ? ", ..." : "...", param_count ? 5 : 3);
+	*at++ = ')';
+	if (ret_count == 1) {
+		at = put_name(at, " : ", 3);
+		at = put_name(at, types[rets[0]].name, types[rets[0]].len);
+	} else if (ret_count > 1) {
+		at = put_name(at, " : (", 4);
+		for (uint16_t i = 0; i < ret_count; i++) {
+			if (i) at = put_name(at, ", ", 2);
+			at = put_name(at, types[rets[i]].name, types[rets[i]].len);
+		}
+		*at++ = ')';
+	}
+	*at = '\0';
+	*out_len = (uint16_t)(at - name);
+	return name;
+}
+
+static int fn_same (const Type *t, const TypeId *params, uint16_t pc,
+		const TypeId *rets, uint16_t rc, int variadic)
+{
+	if (t->param_count != pc || t->ret_count != rc || t->fn_variadic != variadic)
+		return 0;
+	for (uint16_t i = 0; i < pc; i++)
+		if (t->params[i] != params[i]) return 0;
+	for (uint16_t i = 0; i < rc; i++)
+		if (t->rets[i] != rets[i]) return 0;
+	return 1;
+}
+
+TypeId type_fn_of (const TypeId *params, uint16_t param_count,
+		const TypeId *rets, uint16_t ret_count, int variadic)
+{
+	for (TypeId i = TYPE_COUNT; i < type_count; i++)
+		if (types[i].kind == TK_FN
+				&& fn_same(types + i, params, param_count, rets, ret_count, variadic))
+			return i;
+
+	uint16_t len;
+	char *name = fn_name(params, param_count, rets, ret_count, variadic, &len);
+	if (!name) return TYPE_ERROR;
+
+	TypeId id = add_type(name, len, TK_FN, TYPE_VOID);
+	if (id == TYPE_ERROR) return TYPE_ERROR;
+
+	TypeId *pcopy = arena_alloc(&type_arena, sizeof(TypeId) * (param_count + 1u));
+	TypeId *rcopy = arena_alloc(&type_arena, sizeof(TypeId) * (ret_count + 1u));
+	for (uint16_t i = 0; i < param_count; i++) pcopy[i] = params[i];
+	for (uint16_t i = 0; i < ret_count; i++) rcopy[i] = rets[i];
+
+	types[id].params = pcopy;
+	types[id].rets = rcopy;
+	types[id].param_count = param_count;
+	types[id].ret_count = ret_count;
+	types[id].fn_variadic = variadic != 0;
+	types[id].size = 0;
+	types[id].sign = 0;
 	return id;
 }
 

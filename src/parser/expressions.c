@@ -276,10 +276,24 @@ static uint32_t parse_index (Parser *p, uint32_t left)
 	return node;
 }
 
+static uint32_t parse_indirect_call (Parser *p, uint32_t callee)
+{
+	uint32_t node = new_node(p, NODE_FN_CALL,
+			p->ast.nodes[callee].line, p->ast.nodes[callee].col);
+
+	p->ast.nodes[node].u64 = callee;
+	p->ast.nodes[node].len = p->ast.nodes[callee].len;
+	p->ast.nodes[node].flags |= NODE_FLAG_INDIRECT;
+	return parse_call_args(p, node);
+}
+
 uint32_t parse_postfix (Parser *p, uint32_t node)
 {
-	while (p->curr.type == TOK_DOT || p->curr.type == TOK_LBRACE) {
+	while (p->curr.type == TOK_DOT || p->curr.type == TOK_LBRACE
+			|| (p->curr.type == TOK_LPAREN
+			&& p->ast.nodes[node].type != NODE_ERROR)) {
 		if (p->curr.type == TOK_DOT) node = parse_dot(p, node);
+		else if (p->curr.type == TOK_LPAREN) node = parse_indirect_call(p, node);
 		else node = parse_index(p, node);
 	}
 	return node;
