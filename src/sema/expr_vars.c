@@ -290,6 +290,22 @@ static TypeId assign_type_error (Sema *s, uint32_t idx, TypeId l, TypeId r)
 	return TYPE_ERROR;
 }
 
+static int lvalue_view (Sema *s, uint32_t left)
+{
+	return s->ast->nodes[left].type == NODE_ID
+			&& s->ast->nodes[left].sym != NO_SYMBOL
+			&& s->table.symbols[s->ast->nodes[left].sym].view;
+}
+
+static void view_assign_error (Sema *s, uint32_t idx, TypeId view, TypeId rhs)
+{
+	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+			"cannot assign %s to a view of type %s; a view requires an array"
+			" or slice of the same rank and element type, with the same size"
+			" in every sized dimension",
+			type_display_name(rhs), types[view].name);
+}
+
 TypeId check_assign (Sema *s, uint32_t idx)
 {
 	uint32_t left = s->ast->nodes[idx].child;
@@ -342,8 +358,9 @@ TypeId check_assign (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
+	int view = lvalue_view(s, left);
 	int slice_field = (left_kind == NODE_DOT || left_kind == NODE_ID) && type_dyn_rank(l) > 0;
-	if ((type_kind(l) == TK_ARRAY || type_kind(l) == TK_SLICE) && !slice_field) {
+	if (!view && (type_kind(l) == TK_ARRAY || type_kind(l) == TK_SLICE) && !slice_field) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"cannot assign a value of type %s; arrays and slices"
 				" must be modified element by element", types[l].name);
@@ -351,7 +368,13 @@ TypeId check_assign (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
-	if (l != r) {
+	if (view) {
+		if (!sema_array_slice_compat(r, l)) {
+			view_assign_error(s, idx, l, r);
+			s->ast->nodes[idx].data_type = TYPE_ERROR;
+			return TYPE_ERROR;
+		}
+	} else if (l != r) {
 		int ok;
 		right = force_cast(s, right, r, l, &ok);
 		s->ast->nodes[left].next_bro = right;
@@ -697,6 +720,7 @@ static int stack_storage (Symbol *sym)
 {
 	TypeId t = sym->type;
 
+	if (sym->view) return sym->stack_slice;
 	if (type_kind(t) == TK_ARRAY || type_kind(t) == TK_STRUCT) return 1;
 	return type_dyn_rank(t) > 0 && sym->stack_slice;
 }
@@ -705,7 +729,7 @@ void sym_set_stack_slice (Sema *s, uint32_t sym, uint32_t rhs)
 {
 	if (sym == NO_SYMBOL || rhs == NO_NODE) return;
 	Symbol *sp = &s->table.symbols[sym];
-	if (type_dyn_rank(sp->type) == 0) return;
+	if (type_dyn_rank(sp->type) == 0 && !sp->view) return;
 	uint32_t root = local_base(s, rhs);
 	sp->stack_slice = root != NO_SYMBOL && stack_storage(&s->table.symbols[root]);
 }

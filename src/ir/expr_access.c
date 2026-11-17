@@ -87,6 +87,12 @@ uint32_t slice_dim_reg (IR *ir, ASTNode *n, int dim, TypeId type)
 		Symbol *s = ir->symtab->symbols + root->sym;
 		if (s->ir_dims)
 			return read_reg(ir, s->ir_dims[type_dyn_rank(s->type) - type_dyn_rank(t)], type);
+		if (s->view) {
+			int dyn_idx = type_dyn_rank(s->type) - type_dyn_rank(t);
+			uint32_t addr = local_storage_addr(ir, s, s->type);
+
+			return make_ld_ptr(ir, add_offset(ir, addr, (uint64_t)8 * (dyn_idx + 1)), type);
+		}
 	}
 
 	uint32_t addr;
@@ -172,6 +178,8 @@ uint32_t gen_array_addr (IR *ir, ASTNode *n)
 	if (n->type != NODE_ID) return gen_expr(ir, n);
 
 	Symbol *s = ir->symtab->symbols + n->sym;
+	if (s->view) return make_ld_ptr(ir, local_storage_addr(ir, s, s->type),
+			type_ptr_to(type_flat_element(s->type)));
 	if (s->kind == SYMBOL_PARAM)
 		return read_reg(ir, s->ir_id, type_ptr_to(type_flat_element(s->type)));
 	if (!s->depth || s->is_static) {

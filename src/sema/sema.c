@@ -370,6 +370,7 @@ uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 				"'%.*s' already declared in this scope", (int)len, name);
 	}
 
+	ASTNode *decl = s->ast->nodes + decl_node;
 	Symbol sym = {
 		.name = name,
 		.len = len,
@@ -378,10 +379,11 @@ uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 		.decl = decl_node,
 		.depth = s->depth,
 		.kind = (uint8_t)kind,
-		.type = data_type
+		.type = data_type,
+		.view = kind == SYMBOL_VAR && decl->type == NODE_VAR_DEC
+				&& type_kind(data_type) == TK_ARRAY
 	};
 
-	ASTNode *decl = s->ast->nodes + decl_node;
 	int aggregate = decl->data_type != TYPE_ERROR
 			&& type_is_aggregate(decl->data_type);
 
@@ -510,12 +512,25 @@ void check_storage_decl (Sema *s, ASTNode *n)
 
 	TypeKind kind = type_kind(n->data_type);
 	int is_arr = n->type == NODE_ARR_DEC;
+	int is_view = n->type == NODE_VAR_DEC && kind == TK_ARRAY;
 
 	if (is_arr && kind != TK_ARRAY) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"'arr' declarations must have an array type");
 		n->data_type = TYPE_ERROR;
 		return;
+	}
+	if (is_view && s->depth == 0) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"a view variable can only be declared inside a function;"
+				" use 'arr' for a global array");
+		n->data_type = TYPE_ERROR;
+		return;
+	}
+	if (is_view && (n->flags & NODE_FLAG_STATIC)) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"a 'static' view is not supported; use 'static arr'");
+		n->data_type = TYPE_ERROR;
 	}
 }
 

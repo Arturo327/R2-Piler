@@ -15,6 +15,18 @@ void gen_var_dec (IR *ir, ASTNode *n)
 	Symbol *s = ir->symtab->symbols + n->sym;
 	uint32_t reg;
 
+	if (s->view) {
+		uint32_t dyn = (uint32_t)type_dyn_rank(s->type);
+
+		reg = new_reg(ir, type_array_of(TYPE_u64, 1 + dyn));
+		s->ir_id = reg;
+		ir->addressed[reg] = 1;
+		ir->no_tail = 1;
+		if (n->child != NO_NODE)
+			gen_slice_desc(ir, local_storage_addr(ir, s, s->type),
+					ir->ast->nodes + n->child, s->type);
+		return;
+	}
 	if (type_dyn_rank(s->type) > 0 || type_kind(s->type) == TK_SLICE) {
 		reg = new_reg(ir, s->type);
 		s->ir_id = reg;

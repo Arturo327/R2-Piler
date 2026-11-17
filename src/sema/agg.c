@@ -33,7 +33,7 @@ void agg_declare (Sema *s, uint32_t sym_idx, uint32_t decl_idx)
 	ASTNode *decl = s->ast->nodes + decl_idx;
 
 	if (sym->kind != SYMBOL_VAR || sym->depth == 0) return;
-	if (decl->flags & NODE_FLAG_STATIC) return;
+	if (sym->view || (decl->flags & NODE_FLAG_STATIC)) return;
 
 	uint32_t slots = slot_count(sym->type);
 	if (!slots) return;

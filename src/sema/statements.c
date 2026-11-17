@@ -197,6 +197,55 @@ static void check_inferred_decl (Sema *s, uint32_t idx)
 		check_var_init_type(s, n, init);
 }
 
+static void check_view_init (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	uint8_t it = s->ast->nodes[n->child].type;
+
+	if (it == NODE_ARRAY_INIT || it == NODE_STRUCT_INIT) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + n->child),
+				"a view cannot be initialized with a '{...}' list;"
+				" use an array or slice expression");
+		return;
+	}
+	TypeId init = check_expr(s, n->child);
+
+	n = s->ast->nodes + idx;
+	if (init == TYPE_ERROR || n->data_type == TYPE_ERROR) return;
+	if (sema_array_slice_compat(init, n->data_type)) return;
+
+	error_report(s->err, ERR_ERROR, node_loc(n),
+			"cannot initialize view '%.*s' (%s) with a value of type %s;"
+			" a view requires an array or slice of the same rank and element type,"
+			" with the same size in every sized dimension",
+			(int)n->len, n->str, types[n->data_type].name,
+			type_display_name(init));
+}
+
+static void check_decl_init (Sema *s, uint32_t idx, int is_view)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	TypeKind kind = n->data_type == TYPE_ERROR ? TK_ERROR : type_kind(n->data_type);
+
+	if (is_view) {
+		check_view_init(s, idx);
+	} else if (kind == TK_ARRAY) {
+		check_array_init(s, idx);
+	} else if (kind == TK_STRUCT && (s->ast->nodes[n->child].type == NODE_STRUCT_INIT
+			|| s->ast->nodes[n->child].type == NODE_ARRAY_INIT)) {
+		check_struct_init(s, n->child, n->data_type);
+	} else if (s->ast->nodes[n->child].type == NODE_STRUCT_INIT) {
+		if (kind != TK_ERROR)
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + n->child),
+					"'{.field = ...}' initializer requires a struct type");
+	} else if (s->ast->nodes[n->child].type == NODE_ARRAY_INIT) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + n->child),
+				"'{...}' initializer requires an array type");
+	} else {
+		check_var_init_type(s, n, check_expr(s, n->child));
+	}
+}
+
 static void check_var_dec (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -211,27 +260,11 @@ static void check_var_dec (Sema *s, uint32_t idx)
 	if (untyped) check_inferred_decl(s, idx);
 	else check_storage_decl(s, n);
 
-	if (has_init && !untyped) {
-		n = s->ast->nodes + idx;
-		TypeKind kind = n->data_type == TYPE_ERROR
-				? TK_ERROR : type_kind(n->data_type);
+	n = s->ast->nodes + idx;
+	int is_view = n->type == NODE_VAR_DEC && !(n->flags & NODE_FLAG_STATIC)
+			&& n->data_type != TYPE_ERROR && type_kind(n->data_type) == TK_ARRAY;
 
-		if (kind == TK_ARRAY) {
-			check_array_init(s, idx);
-		} else if (kind == TK_STRUCT && (s->ast->nodes[n->child].type == NODE_STRUCT_INIT
-				|| s->ast->nodes[n->child].type == NODE_ARRAY_INIT)) {
-			check_struct_init(s, n->child, n->data_type);
-		} else if (s->ast->nodes[n->child].type == NODE_STRUCT_INIT) {
-			if (kind != TK_ERROR)
-				error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + n->child),
-						"'{.field = ...}' initializer requires a struct type");
-		} else if (s->ast->nodes[n->child].type == NODE_ARRAY_INIT) {
-			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + n->child),
-					"'{...}' initializer requires an array type");
-		} else {
-			check_var_init_type(s, n, check_expr(s, n->child));
-		}
-	}
+	if (has_init && !untyped) check_decl_init(s, idx, is_view);
 
 	n = s->ast->nodes + idx;
 	if (n->flags & NODE_FLAG_STATIC) {

@@ -27,8 +27,10 @@ static int dest_is_private (IR *ir, ASTNode *lhs)
 uint32_t gen_assign (IR *ir, ASTNode *n)
 {
 	ASTNode *lhs = ir->ast->nodes + n->child;
+	int view = lhs->type == NODE_ID && ir->symtab->symbols[lhs->sym].view;
 
-	if ((lhs->type == NODE_DOT || lhs->type == NODE_ID) && type_dyn_rank(lhs->data_type) > 0) {
+	if ((lhs->type == NODE_DOT || lhs->type == NODE_ID)
+			&& (type_dyn_rank(lhs->data_type) > 0 || view)) {
 		uint32_t dst;
 		if (lhs->type == NODE_DOT) dst = gen_lvalue_addr(ir, lhs);
 		else {
