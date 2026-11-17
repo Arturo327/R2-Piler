@@ -77,10 +77,10 @@ static uint32_t push_dims (IR *ir, ASTNode *a, TypeId pt, uint32_t *regs, uint32
 	return k;
 }
 
-static uint32_t push_arg (IR *ir, ASTNode *call, uint32_t arg, uint32_t param, uint32_t *regs, uint32_t k)
+static uint32_t push_arg_t (IR *ir, ASTNode *call, uint32_t arg, TypeId pt,
+		uint32_t param, uint32_t *regs, uint32_t k)
 {
 	ASTNode *a = ir->ast->nodes + arg;
-	TypeId pt = param == NO_NODE ? TYPE_VOID : ir->ast->nodes[param].data_type;
 	uint32_t n8 = struct_eightbytes(pt);
 
 	if (n8) {
@@ -88,9 +88,16 @@ static uint32_t push_arg (IR *ir, ASTNode *call, uint32_t arg, uint32_t param, u
 		return k + n8;
 	}
 	regs[k++] = type_kind(pt) == TK_STRUCT
-			? gen_struct_arg(ir, a, can_alias_arg(ir, call, arg, param))
+			? gen_struct_arg(ir, a, param != NO_NODE && can_alias_arg(ir, call, arg, param))
 			: gen_expr(ir, a);
 	return push_dims(ir, a, pt, regs, k);
+}
+
+static uint32_t push_arg (IR *ir, ASTNode *call, uint32_t arg, uint32_t param, uint32_t *regs, uint32_t k)
+{
+	TypeId pt = param == NO_NODE ? TYPE_VOID : ir->ast->nodes[param].data_type;
+
+	return push_arg_t(ir, call, arg, pt, param, regs, k);
 }
 
 static uint32_t call_struct_regs (IR *ir, uint32_t fn_idx, uint32_t argc, TypeId type, uint32_t dest)
@@ -143,8 +150,55 @@ static uint32_t push_varargs (IR *ir, uint32_t arg, TypeId slice, uint32_t *regs
 	return k;
 }
 
+static uint32_t make_ind_call (IR *ir, ASTNode *n, TypeId rtype, uint32_t callee,
+		uint32_t argc, uint32_t dest)
+{
+	TypeId sig = types[n->sym].base;
+
+	if (struct_eightbytes(rtype)) {
+		uint32_t words[2] = { NO_REG, NO_REG };
+
+		words[0] = make_call_ind(ir, callee, sig, (uint16_t)argc, TYPE_u64);
+		if (struct_eightbytes(rtype) == 2) words[1] = make_rethi(ir);
+		if (dest == NO_REG) dest = new_struct_temp(ir, rtype);
+		unpack_struct(ir, dest, rtype, words);
+		return dest;
+	}
+	return make_call_ind(ir, callee, sig, (uint16_t)argc, call_ret_abi(ir, n));
+}
+
+static uint32_t gen_call_ind (IR *ir, ASTNode *n, uint32_t dest)
+{
+	const Type *sig = types + types[n->sym].base;
+	uint32_t argc = count_bros(ir, n->child);
+	uint32_t regs[sig->param_count + argc + 2];
+	uint32_t sret = (uint32_t)call_uses_sret(ir, n);
+	uint32_t arg = n->child;
+	uint32_t k = 0;
+	uint32_t i = 0;
+
+	if (sret) regs[k++] = dest != NO_REG ? dest : new_struct_temp(ir, call_buf_type(ir, n));
+	for (; i < argc; i++) {
+		if (i < sig->param_count)
+			k = push_arg_t(ir, n, arg, sig->params[i], NO_NODE, regs, k);
+		else regs[k++] = gen_expr(ir, ir->ast->nodes + arg);
+		arg = ir->ast->nodes[arg].next_bro;
+	}
+
+	uint32_t callee = gen_expr(ir, ir->ast->nodes + (uint32_t)n->u64);
+	for (uint32_t j = 0; j < k; j++)
+		make_arg(ir, regs[j], j);
+	if (sret) {
+		make_call_ind(ir, callee, types[n->sym].base, (uint16_t)k, TYPE_VOID);
+		return regs[0];
+	}
+	return make_ind_call(ir, n, call_ret_type(ir, n, 0), callee, k, dest);
+}
+
 uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest)
 {
+	if (n->flags & NODE_FLAG_INDIRECT) return gen_call_ind(ir, n, dest);
+
 	Symbol *fn = ir->symtab->symbols + n->sym;
 	uint32_t ret = call_ret_node(ir, n);
 	TypeId rtype = ir->ast->nodes[ret].data_type;
@@ -194,7 +248,7 @@ uint32_t gen_call_desc (IR *ir, ASTNode *n)
 
 uint32_t gen_call_value (IR *ir, ASTNode *n)
 {
-	if (!fn_uses_sret(ir, call_ret_node(ir, n))) return gen_call(ir, n, NO_REG);
+	if (!call_uses_sret(ir, n)) return gen_call(ir, n, NO_REG);
 	TypeId type = n->data_type;
 
 	if (type_kind(type) == TK_STRUCT) return gen_call(ir, n, NO_REG);

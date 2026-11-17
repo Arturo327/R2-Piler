@@ -395,6 +395,7 @@ static uint32_t gen_id (IR *ir, ASTNode *n)
 	Symbol *s = ir->symtab->symbols + n->sym;
 	TypeId elem_ptr;
 
+	if (s->kind == SYMBOL_FN) return make_fn_addr(ir, s->ir_id, n->data_type);
 	if (type_dyn_rank(s->type) > 0) {
 		elem_ptr = type_ptr_to(type_flat_element(s->type));
 		if (s->kind == SYMBOL_PARAM) return read_reg(ir, s->ir_id, elem_ptr);

@@ -9,7 +9,8 @@ int opt_coalesce (Optimizer *opt, OptFn *f)
 		IRInstr *a = code + i;
 		IRInstr *m;
 		int can = (is_deletable[a->op] && a->op != IR_MOVE)
-				|| a->op == IR_CALL || a->op == IR_DIV || a->op == IR_MOD;
+				|| a->op == IR_CALL || a->op == IR_CALL_IND
+				|| a->op == IR_DIV || a->op == IR_MOD;
 
 		if (!can || a->dst == NO_REG) continue;
 		if (f->defs[a->dst] != 1 || f->uses[a->dst] != 1) continue;

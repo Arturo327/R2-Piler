@@ -6,6 +6,8 @@ static int mentions_sym (IR *ir, uint32_t idx, uint32_t sym)
 	ASTNode *n = ir->ast->nodes + idx;
 
 	if (n->type == NODE_ID && n->sym == sym) return 1;
+	if (n->type == NODE_FN_CALL && (n->flags & NODE_FLAG_INDIRECT)
+			&& mentions_sym(ir, (uint32_t)n->u64, sym)) return 1;
 	for (uint32_t k = n->child; k != NO_NODE; k = ir->ast->nodes[k].next_bro) {
 		if (mentions_sym(ir, k, sym)) return 1;
 	}
@@ -126,8 +128,7 @@ void gen_multi_assign (IR *ir, ASTNode *n)
 	while (ir->ast->nodes[rhs].next_bro != NO_NODE)
 		rhs = ir->ast->nodes[rhs].next_bro;
 
-	uint32_t ret = call_ret_node(ir, ir->ast->nodes + rhs);
-	uint32_t count = ret == NO_NODE ? 0 : ret_count(ir, ret);
+	uint32_t count = call_ret_count(ir, ir->ast->nodes + rhs);
 	uint32_t buf = gen_call(ir, ir->ast->nodes + rhs, NO_REG);
 	uint32_t target = n->child;
 	uint32_t i = 0;
@@ -136,8 +137,8 @@ void gen_multi_assign (IR *ir, ASTNode *n)
 		uint32_t next = ir->ast->nodes[target].next_bro;
 
 		if (i < count)
-			gen_multi_store(ir, target, add_offset(ir, buf, ret_off(ir, ret, i)),
-					ir->ast->nodes[ret_node_at(ir, ret, i)].data_type);
+			gen_multi_store(ir, target, add_offset(ir, buf, call_ret_off(ir, ir->ast->nodes + rhs, i)),
+					call_ret_type(ir, ir->ast->nodes + rhs, i));
 		target = next;
 		i++;
 	}

@@ -3,19 +3,24 @@
 #include <string.h>
 
 static const uint8_t stops_static[IR_COUNT] = {
-	[IR_JMP] = 1, [IR_JZ] = 1, [IR_JNZ] = 1, [IR_LABEL] = 1, [IR_RET] = 1
+	[IR_JMP] = 1, [IR_JZ] = 1, [IR_JNZ] = 1, [IR_LABEL] = 1,
+	[IR_RET] = 1, [IR_CALL_IND] = 1
 };
 
 static int bind_value (Optimizer *opt, IRInstr *cst, IRGlobal *g)
 {
 	uint8_t size = types[g->type].size;
 
-	if (cst->op == IR_STR_LIT || cst->op == IR_ADDR_GLOBAL) {
-		uint32_t limit = cst->op == IR_STR_LIT
-				? opt->ir->string_count : opt->ir->global_count;
+	if (cst->op == IR_STR_LIT || cst->op == IR_ADDR_GLOBAL
+			|| cst->op == IR_FN_ADDR) {
+		uint32_t limit = cst->op == IR_ADDR_GLOBAL
+				? opt->ir->global_count : opt->ir->string_count;
 
+		if (cst->op == IR_FN_ADDR) limit = opt->ir->fn_count;
 		if (size != 8 || types[cst->data_type].size != 8 || cst->target >= limit) return 0;
-		g->init_kind = cst->op == IR_STR_LIT ? IR_INIT_STR : IR_INIT_ADDR;
+		if (cst->op == IR_STR_LIT) g->init_kind = IR_INIT_STR;
+		else if (cst->op == IR_FN_ADDR) g->init_kind = IR_INIT_FN;
+		else g->init_kind = IR_INIT_ADDR;
 		g->init_ref = cst->target;
 		return 1;
 	}
@@ -59,11 +64,16 @@ static void touch_alloc (Optimizer *opt, uint32_t words)
 		ir->fns[i].gtouch = buf;
 }
 
-static void touch_direct (IR *ir, IRFn *fn)
+static void touch_direct (IR *ir, IRFn *fn, uint32_t words)
 {
 	for (uint32_t j = 0; j < fn->count; j++) {
 		IRInstr *in = ir->instrs + fn->start + j;
 
+		if (in->op == IR_CALL_IND) {
+			for (uint32_t w = 0; w < words; w++)
+				fn->gtouch[w] = ~0ull;
+			continue;
+		}
 		if (in->op != IR_LD_GLOBAL && in->op != IR_STR_GLOBAL) continue;
 		fn->gtouch[in->target >> 6] |= 1ull << (in->target & 63);
 	}
@@ -95,7 +105,7 @@ static void compute_touch (Optimizer *opt)
 
 	touch_alloc(opt, words);
 	for (uint32_t i = 0; i < ir->fn_count; i++)
-		touch_direct(ir, ir->fns + i);
+		touch_direct(ir, ir->fns + i, words);
 	while (changed) {
 		changed = 0;
 		for (uint32_t i = 0; i < ir->fn_count; i++)

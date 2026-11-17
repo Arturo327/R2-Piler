@@ -70,7 +70,7 @@ static const IRInstr blank_instr = {
 const uint8_t is_deletable[IR_COUNT] =
 {
 	[IR_CONST] = 1, [IR_ADDR_LOCAL] = 1, [IR_ADDR_GLOBAL] = 1, [IR_STR_LIT] = 1,
-	[IR_LD_PTR] = 1, [IR_LD_LOCAL] = 1,
+	[IR_LD_PTR] = 1, [IR_LD_LOCAL] = 1, [IR_FN_ADDR] = 1,
 	[IR_MOVE] = 1, [IR_EXTEND] = 1, [IR_SELECT] = 1,
 	[IR_ADD] = 1, [IR_SUB] = 1, [IR_MUL] = 1,
 	[IR_AND_A] = 1, [IR_OR_A] = 1, [IR_XOR] = 1,
@@ -224,6 +224,78 @@ uint32_t call_ret_node (IR *ir, ASTNode *call)
 	uint32_t decl = ir->symtab->symbols[call->sym].decl;
 	if (decl == NO_NODE) return NO_NODE;
 	return ir->ast->nodes[ir->ast->nodes[decl].child].next_bro;
+}
+
+uint32_t call_ret_count (IR *ir, ASTNode *call)
+{
+	if (call->flags & NODE_FLAG_INDIRECT) return types[types[call->sym].base].ret_count;
+
+	uint32_t ret = call_ret_node(ir, call);
+	if (ret == NO_NODE) return 0;
+	if (ir->ast->nodes[ret].data_type == TYPE_VOID
+			&& ir->ast->nodes[ret].child == NO_NODE) return 0;
+	return ret_count(ir, ret);
+}
+
+TypeId call_ret_type (IR *ir, ASTNode *call, uint32_t i)
+{
+	if (call->flags & NODE_FLAG_INDIRECT) return types[types[call->sym].base].rets[i];
+	return ir->ast->nodes[ret_node_at(ir, call_ret_node(ir, call), i)].data_type;
+}
+
+uint32_t call_ret_off (IR *ir, ASTNode *call, uint32_t i)
+{
+	uint32_t off = 0;
+
+	for (uint32_t k = 0; k < i; k++) {
+		uint32_t size = types[ret_slot_type(call_ret_type(ir, call, k))].size;
+
+		off += (size + 7u) & ~7u;
+	}
+	return off;
+}
+
+int call_uses_sret (IR *ir, ASTNode *call)
+{
+	uint32_t count = call_ret_count(ir, call);
+
+	if (!count) return 0;
+	TypeId t = call_ret_type(ir, call, 0);
+	if (count > 1) return 1;
+	if (type_dyn_rank(t) > 0) return 1;
+	return type_kind(t) == TK_STRUCT && !struct_eightbytes(t);
+}
+
+TypeId call_buf_type (IR *ir, ASTNode *call)
+{
+	uint32_t count = call_ret_count(ir, call);
+
+	if (count > 1)
+		return type_array_of(TYPE_u64, call_ret_off(ir, call, count) / 8);
+	return ret_slot_type(call_ret_type(ir, call, 0));
+}
+
+TypeId call_ret_abi (IR *ir, ASTNode *call)
+{
+	if (call_uses_sret(ir, call)) return TYPE_VOID;
+	TypeId t = call_ret_type(ir, call, 0);
+	if (type_kind(t) == TK_ARRAY) return type_ptr_to(type_flat_element(t));
+	if (struct_eightbytes(t)) return TYPE_u64;
+	return t;
+}
+
+uint32_t call_param_slots (IR *ir, ASTNode *call)
+{
+	const Type *fn = types + types[call->sym].base;
+	uint32_t count = (uint32_t)call_uses_sret(ir, call);
+
+	for (uint16_t i = 0; i < fn->param_count; i++) {
+		TypeId t = fn->params[i];
+
+		count += struct_eightbytes(t) ? struct_eightbytes(t)
+				: 1u + (uint32_t)type_dyn_rank(t);
+	}
+	return count;
 }
 
 static uint32_t param_slots (IR *ir, ASTNode *n)
@@ -557,6 +629,30 @@ uint32_t make_call (IR *ir, uint32_t idx, uint16_t argc, TypeId ret_type)
 	i.target = idx;
 	i.argc = argc;
 	i.data_type = ret_type;
+	push_instr(ir, i);
+	return i.dst;
+}
+
+uint32_t make_call_ind (IR *ir, uint32_t callee, TypeId sig, uint16_t argc, TypeId ret_type)
+{
+	IRInstr i = blank_instr;
+	i.op = IR_CALL_IND;
+	i.dst = ret_type == TYPE_VOID ? NO_REG : new_reg(ir, ret_type);
+	i.src1 = callee;
+	i.target = sig;
+	i.argc = argc;
+	i.data_type = ret_type;
+	push_instr(ir, i);
+	return i.dst;
+}
+
+uint32_t make_fn_addr (IR *ir, uint32_t fn_idx, TypeId type)
+{
+	IRInstr i = blank_instr;
+	i.op = IR_FN_ADDR;
+	i.dst = new_reg(ir, type);
+	i.target = fn_idx;
+	i.data_type = type;
 	push_instr(ir, i);
 	return i.dst;
 }

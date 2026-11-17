@@ -102,7 +102,7 @@ static int globals_block (Optimizer *opt, OptFn *f, CfgBlock *blk)
 	for (uint32_t i = 0; i < blk->count; i++) {
 		IRInstr *in = code + i;
 
-		if (in->op == IR_CALL) f->gepoch++;
+		if (in->op == IR_CALL || in->op == IR_CALL_IND) f->gepoch++;
 		else if (in->op == IR_STR_PTR) kill_visible(f);
 		else if (in->op == IR_STR_GLOBAL) note_global(f, in, in->src1);
 		else if (in->op == IR_LD_GLOBAL && fwd_global(f, in)) changed = 1;

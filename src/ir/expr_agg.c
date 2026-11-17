@@ -450,7 +450,7 @@ void gen_struct_into (IR *ir, uint32_t dst, uint32_t expr, TypeId type, int fres
 		return;
 	}
 	if (e->type == NODE_FN_CALL && (fresh || struct_eightbytes(type))
-			&& ret_count(ir, call_ret_node(ir, e)) == 1) {
+			&& call_ret_count(ir, e) == 1) {
 		gen_call(ir, e, dst);
 		return;
 	}

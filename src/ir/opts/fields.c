@@ -130,7 +130,7 @@ static int fields_instr (Optimizer *opt, OptFn *f, IRInstr *in)
 	case IR_STR_PTR: case IR_STR_LOCAL: fwd_store(opt, f, in); break;
 	case IR_LD_PTR: case IR_LD_LOCAL: fwd_remember(opt, f, in); break;
 	case IR_STR_GLOBAL: fwd_kill_global(f, in->target); break;
-	case IR_CALL: f->fwd_count = 0; break;
+	case IR_CALL: case IR_CALL_IND: f->fwd_count = 0; break;
 	default: break;
 	}
 	return changed;

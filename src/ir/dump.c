@@ -15,10 +15,10 @@ static const char *const op_names[IR_COUNT] = {
 	[IR_RS] = "rshift", [IR_LS] = "lshift",
 	[IR_NEG] = "neg", [IR_NOT_A] = "not", [IR_NOT_L] = "lnot",
 	[IR_EQ] = "eq", [IR_NE] = "ne", [IR_GT] = "gt", [IR_GE] = "ge",
-	[IR_LT] = "lt", [IR_LE] = "le",
+	[IR_LT] = "lt", [IR_LE] = "le", [IR_FN_ADDR] = "fn_addr",
 	[IR_LABEL] = "label", [IR_JMP] = "jmp", [IR_JZ] = "jz", [IR_JNZ] = "jnz",
-	[IR_ARG] = "arg", [IR_CALL] = "call", [IR_RET] = "ret",
-	[IR_RETHI] = "rethi"
+	[IR_ARG] = "arg", [IR_CALL] = "call", [IR_CALL_IND] = "call_ind",
+	[IR_RET] = "ret", [IR_RETHI] = "rethi"
 };
 
 static void dump_extra (IR *ir, IRInstr *i)
@@ -36,6 +36,12 @@ static void dump_extra (IR *ir, IRInstr *i)
 		printf(" #%u", i->target);
 		break;
 	case IR_CALL:
+		printf(" %.*s", (int)ir->fns[i->target].len, ir->fns[i->target].name);
+		break;
+	case IR_CALL_IND:
+		printf(" %s", types[i->target].name);
+		break;
+	case IR_FN_ADDR:
 		printf(" %.*s", (int)ir->fns[i->target].len, ir->fns[i->target].name);
 		break;
 	case IR_LD_GLOBAL: case IR_STR_GLOBAL:
