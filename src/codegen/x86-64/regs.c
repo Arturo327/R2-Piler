@@ -11,7 +11,8 @@ uint64_t x86_call_clobbers (void *user, IRInstr *call)
 {
 	X86Fn *f = user;
 	const ArchDesc *arch = f->ctx.arch;
-	uint64_t mask = f->fn_clobber ? f->fn_clobber[call->target] : X86_CALLER_MASK;
+	uint64_t mask = call->op == IR_CALL_IND || !f->fn_clobber
+			? X86_CALLER_MASK : f->fn_clobber[call->target];
 	uint32_t n = call->argc < arch->arg_reg_max ? call->argc : arch->arg_reg_max;
 
 	for (uint32_t k = 0; k < n; k++)
@@ -132,7 +133,7 @@ void x86_check_arg_group (X86Fn *f, IRInstr *first, IRInstr *end)
 		k++;
 		a++;
 	}
-	if (a >= end || a->op != IR_CALL || a->argc != k) {
+	if (a >= end || (a->op != IR_CALL && a->op != IR_CALL_IND) || a->argc != k) {
 		f->at = (uint32_t)(first - base);
 		regalloc_violation(f, "ARG group must end in CALL with argc == length");
 	}

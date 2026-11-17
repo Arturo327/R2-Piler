@@ -21,6 +21,16 @@ static void protect_args (X86Fn *f, IRInstr *first, uint32_t n)
 		f->busy |= x86_home_bit(f, first[k].src1);
 }
 
+static void copy_ind_callee (X86Fn *f, IRInstr *call)
+{
+	uint64_t busy = f->busy;
+
+	f->busy |= 1ull << RAX;
+	f->ind_callee = x86_grab(f);
+	f->busy = busy;
+	x86_load_reg64(f, f->ind_callee, call->src1);
+}
+
 static void make_stack_arg (X86Fn *f, IRInstr *a, int tail)
 {
 	uint32_t off = tail ? (f->frame ? f->frame + 8 : 8) + ((a->target - 6) << 3)
@@ -89,6 +99,7 @@ int x86_make_arg (X86Fn *f, IRInstr *i)
 	if (!tail) move_call_live(f, call, 0);
 
 	protect_args(f, i, n);
+	if (call->op == IR_CALL_IND) copy_ind_callee(f, call);
 	for (uint32_t k = 6; k < n; k++)
 		make_stack_arg(f, i + k, tail);
 
@@ -125,14 +136,15 @@ int x86_make_call (X86Fn *f, IRInstr *i)
 	IRInstr *end = c->ir->instrs + f->fn->start + f->fn->count;
 	IRInstr *hi = x86_next_live(f, i, end);
 	int pair = hi != end && hi->op == IR_RETHI;
+	int ind = i->op == IR_CALL_IND;
 
 	f->clobbers |= x86_call_clobbers(f, i);
 	if (i->argc == 0) move_call_live(f, i, 0);
-	if (c->ir->fns[i->target].is_extern)
+	if (ind && i->argc == 0) copy_ind_callee(f, i);
+	if (ind || c->ir->fns[i->target].is_extern)
 		cg_printf(c, "\txorl %%eax, %%eax\n");
-	cg_printf(c, "\tcall ");
-	cg_printf(c, "%s", c->ir->fns[i->target].sym);
-	cg_printf(c, "\n");
+	if (ind) cg_printf(c, "\tcall *%s\n", reg_name(f->ind_callee, 8));
+	else cg_printf(c, "\tcall %s\n", c->ir->fns[i->target].sym);
 
 	if (pair) store_call_pair(f, i, hi);
 	else if (i->dst != NO_REG)

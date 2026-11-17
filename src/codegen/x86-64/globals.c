@@ -42,6 +42,10 @@ static void make_global_data (CodeGen *c, uint32_t i)
 		cg_printf(c, ".quad %s\n", ref->sym);
 		return;
 	}
+	if (g->init_kind == IR_INIT_FN) {
+		cg_printf(c, ".quad %s\n", c->ir->fns[g->init_ref].sym);
+		return;
+	}
 	if (g->init_kind == IR_INIT_IMAGE) {
 		make_global_image(c, g);
 		return;

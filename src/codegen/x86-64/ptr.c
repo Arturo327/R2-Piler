@@ -24,6 +24,21 @@ void x86_make_addr_global (X86Fn *f, IRInstr *i)
 	if (p < 0) x86_store_reg(f, w, i->dst);
 }
 
+void x86_make_fn_addr (X86Fn *f, IRInstr *i)
+{
+	CodeGen *c = f->cg;
+	int p = x86_phys_reg(f, i->dst);
+	uint8_t w = p >= 0 ? (uint8_t)p : x86_grab(f);
+
+	x86_clobber(f, w);
+	if (c->ir->fns[i->target].is_extern)
+		cg_printf(c, "\tmovq %s@GOTPCREL(%%rip), %s\n",
+				c->ir->fns[i->target].sym, reg_name(w, 8));
+	else cg_printf(c, "\tleaq %s(%%rip), %s\n", c->ir->fns[i->target].sym,
+			reg_name(w, 8));
+	if (p < 0) x86_store_reg(f, w, i->dst);
+}
+
 void x86_make_str_lit (X86Fn *f, IRInstr *i)
 {
 	CodeGen *c = f->cg;

@@ -93,7 +93,7 @@ static void verify_save (Verify *v, IRInstr *in, uint32_t i)
 
 	if (s & ra->ctx->arch->callee_mask)
 		verify_fail(v, "save[] lists a callee-saved home");
-	if (in->op != IR_CALL) {
+	if (in->op != IR_CALL && in->op != IR_CALL_IND) {
 		if (s) verify_fail(v, "save[] set outside a call");
 		return;
 	}

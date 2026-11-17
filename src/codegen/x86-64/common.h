@@ -52,6 +52,7 @@ typedef struct X86Fn {
 	uint32_t frame;
 	uint64_t savemask;
 	uint8_t leaf;
+	uint8_t ind_callee;
 } X86Fn;
 
 extern const char *x86_regs_names[];
@@ -101,6 +102,7 @@ void x86_make_addr_global (X86Fn *f, IRInstr *i);
 void x86_make_ld_ptr (X86Fn *f, IRInstr *i);
 void x86_make_str_ptr (X86Fn *f, IRInstr *i);
 void x86_make_str_lit (X86Fn *f, IRInstr *i);
+void x86_make_fn_addr (X86Fn *f, IRInstr *i);
 void x86_make_ld_local (X86Fn *f, IRInstr *i);
 void x86_make_str_local (X86Fn *f, IRInstr *i);
 

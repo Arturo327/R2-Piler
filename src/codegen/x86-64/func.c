@@ -30,6 +30,7 @@ static int make_instr (X86Fn *f, IRInstr *i)
 	case IR_LD_LOCAL: x86_make_ld_local(f, i); return 1;
 	case IR_STR_LOCAL: x86_make_str_local(f, i); return 1;
 	case IR_STR_LIT: x86_make_str_lit(f, i); return 1;
+	case IR_FN_ADDR: x86_make_fn_addr(f, i); return 1;
 
 	case IR_MOVE:
 		n = x86_make_rmw(f, i);
@@ -63,6 +64,7 @@ static int make_instr (X86Fn *f, IRInstr *i)
 		n = x86_make_tail_call(f, i);
 		if (n) return n;
 		return x86_make_call(f, i);
+	case IR_CALL_IND: return x86_make_call(f, i);
 	case IR_RET: x86_make_ret(f, i); return 1;
 
 	default: return 1;

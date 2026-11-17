@@ -19,7 +19,7 @@ static uint32_t scan_outg (X86Fn *f)
 	for (uint32_t i = 0; i < fn->count; i++) {
 		IRInstr *instr = ir->instrs + fn->start + i;
 
-		if (instr->op != IR_CALL) continue;
+		if (instr->op != IR_CALL && instr->op != IR_CALL_IND) continue;
 		if (x86_tail_match(f, instr)) continue;
 		f->leaf = 0;
 
@@ -70,6 +70,7 @@ static uint32_t x86_scratch_need (void *user, IRInstr *in, const int8_t *h)
 	case IR_EQ: case IR_NE: case IR_GT: case IR_GE: case IR_LT: case IR_LE:
 		return x86_cmp_scratch(f, in, h);
 	case IR_ARG: return x86_arg_scratch(f, in, h);
+	case IR_CALL_IND: return 1;
 	default: return 0;
 	}
 }
@@ -77,6 +78,9 @@ static uint32_t x86_scratch_need (void *user, IRInstr *in, const int8_t *h)
 static const OpNeeds x86_64_needs[IR_COUNT] =
 {
 	[IR_CALL] = {
+		.dst = { .type = REG_COND_HINT, .reg = RAX }
+	},
+	[IR_CALL_IND] = {
 		.dst = { .type = REG_COND_HINT, .reg = RAX }
 	},
 	[IR_DIV] = {

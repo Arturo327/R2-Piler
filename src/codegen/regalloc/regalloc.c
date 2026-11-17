@@ -587,7 +587,7 @@ static void sweep_block (RegAlloc *ra, uint32_t b)
 		uint64_t hm = homes_live(ra, ra->tmp, ra->ctx->ins_block[at]);
 		ra->ctx->free_regs[at] = ra->all & ~hm & allowed;
 
-		if (in->op == IR_CALL &&
+		if ((in->op == IR_CALL || in->op == IR_CALL_IND) &&
 				!cg_is_tail_call(ra->ir, ra->fn, ra->regs, ra->ctx, in, ra->ctx->arch->arg_reg_max)) {
 			uint64_t clob = ra->ctx->arch->call_clobbers
 					? ra->ctx->arch->call_clobbers(ra->ctx->user, in) : caller;

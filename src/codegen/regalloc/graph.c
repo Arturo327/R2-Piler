@@ -342,7 +342,7 @@ static void sweep_instr (Graph *g, IRInstr *in, uint32_t at)
 		g->live[d >> 6] &= ~(1ull << (d & 63));
 	}
 
-	if (in->op == IR_CALL) {
+	if (in->op == IR_CALL || in->op == IR_CALL_IND) {
 		const ArchDesc *arch = g->cr->ctx->arch;
 		uint64_t clob = arch->call_clobbers
 				? arch->call_clobbers(g->cr->ctx->user, in) : arch->caller_mask;
