@@ -171,6 +171,19 @@ int compile (Compiler *c, CompilerOpts *opts)
 
 	ir_init(&c->ir, &c->ir_arena, &c->sema, opts->opt_level == OPT_FULL && !opts->dump_ir, c->mod);
 	ir_gen(&c->ir);
+
+	R2i r2i;
+	int r2i_pending = 0;
+
+	memset(&r2i, 0, sizeof r2i);
+	if (!dumping && opts->r2i) {
+		if (r2i_generate(&r2i, &c->ir, &c->sema, opts->path, opts->r2i_dir)) {
+			r2i_free(&r2i);
+			print_err_count(c);
+			return 1;
+		}
+		r2i_pending = 1;
+	}
 	if (opts->dump_ir) {
 		dump_ir(&c->ir);
 		print_err_count(c);
@@ -188,7 +201,11 @@ int compile (Compiler *c, CompilerOpts *opts)
 	}
 
 	print_err_count(c);
-	return codegen_run(&c->codegen);
+	int status = codegen_run(&c->codegen);
+
+	if (!status && r2i_pending) status = r2i_write(&r2i);
+	r2i_free(&r2i);
+	return status;
 }
 
 void compiler_destroy (Compiler *comp)

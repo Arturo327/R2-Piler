@@ -10,13 +10,16 @@
 #include "ir/ir.h"
 #include "ir/opt.h"
 #include "mangle/mangle.h"
+#include "r2i/r2i.h"
 
 typedef struct CompilerOpts {
 	char *path;
 	char *out;
+	const char *r2i_dir;
 	Arch arch;
 	OptLevel opt_level;
 
+	int r2i;
 	int dump_tokens;
 	int dump_ast;
 	int dump_symbols;

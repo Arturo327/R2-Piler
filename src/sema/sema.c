@@ -1441,6 +1441,119 @@ static void mark_exposed_decls (Sema *s)
 	}
 }
 
+static ASTNode *named_type_decl (Sema *s, TypeId id)
+{
+	if (type_kind(id) == TK_STRUCT) {
+		uint32_t decl = types[id].decl;
+
+		if (decl < s->ast->count) return s->ast->nodes + decl;
+	}
+	for (uint32_t idx = s->ast->nodes[0].child; idx != NO_NODE;
+			idx = s->ast->nodes[idx].next_bro) {
+		ASTNode *n = s->ast->nodes + idx;
+
+		if (n->type != NODE_ENUM_DEC && n->type != NODE_TYPE_DEC
+				&& n->type != NODE_NEWTYPE_DEC)
+			continue;
+		if (n->sym != NO_SYMBOL && s->table.symbols[n->sym].type == id)
+			return n;
+	}
+	return NULL;
+}
+
+static void require_public_type (Sema *s, TypeId type, uint32_t use);
+
+static void require_public_fields (Sema *s, uint32_t first)
+{
+	for (uint32_t m = first; m != NO_NODE; m = s->ast->nodes[m].next_bro) {
+		ASTNode *n = s->ast->nodes + m;
+
+		if (n->type == NODE_STRUCT_DEC)
+			require_public_fields(s, n->child);
+		else if (n->type == NODE_FIELD_DEC
+				&& !(n->flags & NODE_FLAG_BITFIELD))
+			require_public_type(s, n->data_type, m);
+	}
+}
+
+static void require_public_type (Sema *s, TypeId type, uint32_t use)
+{
+	if (type == TYPE_ERROR || type < TYPE_COUNT) return;
+
+	switch (type_kind(type))
+	{
+	case TK_PTR: case TK_ARRAY: case TK_SLICE:
+		require_public_type(s, types[type].base, use);
+		return;
+	case TK_FN:
+		for (uint16_t i = 0; i < types[type].param_count; i++)
+			require_public_type(s, types[type].params[i], use);
+		for (uint16_t i = 0; i < types[type].ret_count; i++)
+			require_public_type(s, types[type].rets[i], use);
+		return;
+	case TK_STRUCT: case TK_ENUM: case TK_ALIAS: case TK_NEWTYPE: {
+		ASTNode *decl = named_type_decl(s, type);
+
+		if (decl && !(decl->flags & NODE_FLAG_PUB))
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + use),
+					"public declaration exposes non-public type '%.*s'",
+					(int)types[type].len, types[type].name);
+		return;
+	}
+	default:
+		return;
+	}
+}
+
+static void require_public_sig (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	uint32_t args = n->child;
+	uint32_t ret = s->ast->nodes[args].next_bro;
+
+	for (uint32_t p = s->ast->nodes[args].child; p != NO_NODE;
+			p = s->ast->nodes[p].next_bro)
+		require_public_type(s, s->ast->nodes[p].data_type, p);
+	require_public_type(s, s->ast->nodes[ret].data_type, ret);
+	for (uint32_t item = s->ast->nodes[ret].child; item != NO_NODE;
+			item = s->ast->nodes[item].next_bro)
+		require_public_type(s, s->ast->nodes[item].data_type, item);
+}
+
+static void require_public_decl (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+
+	switch (n->type)
+	{
+	case NODE_FN_DEC: case NODE_EXTERN_FN_DEC:
+		require_public_sig(s, idx);
+		return;
+	case NODE_VAR_DEC: case NODE_ARR_DEC: case NODE_EXTERN_VAR_DEC:
+		require_public_type(s, n->data_type, idx);
+		return;
+	case NODE_STRUCT_DEC:
+		require_public_fields(s, n->child);
+		return;
+	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
+		require_public_type(s, n->data_type, idx);
+		return;
+	default:
+		return;
+	}
+}
+
+static void check_public_types (Sema *s)
+{
+	uint32_t idx = s->ast->nodes[0].child;
+
+	while (idx != NO_NODE) {
+		if (s->ast->nodes[idx].flags & NODE_FLAG_PUB)
+			require_public_decl(s, idx);
+		idx = s->ast->nodes[idx].next_bro;
+	}
+}
+
 static const char *type_decl_kind (ASTNode *n)
 {
 	switch (n->type)
@@ -1536,6 +1649,7 @@ void sema_run (Sema *s)
 	check_fn_defaults_all(s);
 	check_root(s);
 	mark_exposed_decls(s);
+	check_public_types(s);
 	warn_unused_top(s);
 }
 

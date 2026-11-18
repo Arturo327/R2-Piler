@@ -979,7 +979,7 @@ static int pub_target (TokenType type)
 	{
 	case TOK_FN: case TOK_VAR: case TOK_ARR: case TOK_ENUM:
 	case TOK_STRUCT: case TOK_UNION: case TOK_PACKED:
-	case TOK_TYPE: case TOK_NEWTYPE:
+	case TOK_TYPE: case TOK_NEWTYPE: case TOK_EXTERN:
 		return 1;
 	default:
 		return 0;
@@ -1003,8 +1003,6 @@ static uint32_t parse_pub (Parser *p)
 	if (p->curr.type == TOK_EXPORT) {
 		msg = "'pub' cannot be combined with 'export'";
 		ok = 0;
-	} else if (!ok && p->curr.type == TOK_EXTERN) {
-		msg = "'extern' declarations cannot be 'pub'";
 	} else if (!ok && p->curr.type == TOK_STATIC) {
 		msg = "'static' cannot be 'pub'";
 	}

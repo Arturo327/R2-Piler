@@ -21,6 +21,8 @@ static void print_help (const char *build)
 	printf("    -v|--version            Shows running version.\n");
 	printf("    -h|--help               Shows this message.\n");
 	printf("    -o|--out FILE           Output assembly path (default: <source>.s). '-' for stdout\n");
+	printf("    -m|--modules-dir DIR    Directory for generated .r2i files (default: modules)\n");
+	printf("    -n|--no-r2i             Do not generate the .r2i interface file\n");
 	printf("    -a|--arch ARCH          Indicates the architecture. Default: x86-64.\n");
 	printf("    -e|--execute            Runs the program with the interpreter instead of generating assembly (not implemented yet).\n");
 	printf("    -O[LEVEL]|--opt[=LEVEL] Optimization level 0, 1, 2 or 3 (no space; plain -O means 2). Default: 2\n");
@@ -44,6 +46,8 @@ static const ArchAlias arch_aliases[] = {
 
 static const struct option long_options[] = {
 	{"out", required_argument, 0, 'o'},
+	{"modules-dir", required_argument, 0, 'm'},
+	{"no-r2i", no_argument, 0, 'n'},
 	{"help", no_argument, 0, 'h'},
 	{"version", no_argument, 0, 'v'},
 	{"arch", required_argument, 0, 'a'},
@@ -137,17 +141,26 @@ static void resolve_paths (CompilerOpts *args, int argc, char *argv[])
 
 static CompilerOpts parse_args (int argc, char *argv[])
 {
-	CompilerOpts args = { .arch = ARCH_X86_64, .opt_level = OPT_BASIC };
+	CompilerOpts args = { .r2i_dir = "modules", .arch = ARCH_X86_64,
+			.opt_level = OPT_BASIC, .r2i = 1 };
 	int opt;
 	int interp = 0;
 	int opt_spec = 0;
 
 	opterr = 0;
-	const char *short_opts = ":TIASDO::o:a:ehv";
+	const char *short_opts = ":TIASDO::o:m:na:ehv";
 	while ((opt = getopt_long(argc, argv, short_opts, long_options, NULL)) != -1) {
 		switch (opt)
 		{
 		case 'o': args.out = optarg; break;
+		case 'm':
+			if (!optarg[0]) {
+				fprintf(stderr, "Error: --modules-dir cannot be empty\n");
+				exit(1);
+			}
+			args.r2i_dir = optarg;
+			break;
+		case 'n': args.r2i = 0; break;
 		case 'a': args.arch = get_arch(optarg); break;
 		case 'e': interp = 1; break;
 		case 'h': print_help(argv[0]); exit(0);
