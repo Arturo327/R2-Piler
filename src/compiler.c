@@ -126,86 +126,122 @@ static inline void print_err_count (Compiler *c)
 			c->err.warn_count, c->err.warn_count == 1 ? "" : "s");
 }
 
-int compile (Compiler *c, CompilerOpts *opts)
+static int compile_setup (Compiler *c, CompilerOpts *opts, int dumping)
 {
-	int dumping = opts->dump_tokens || opts->dump_ast
-			|| opts->dump_symbols || opts->dump_ir || opts->dump_opt;
-
 	if (compiler_load_file(c, opts->path)) return 1;
 	if (!dumping && mangle_module(&c->arena, opts->path, &c->mod)) return 1;
 	if (!dumping && init_codegen(&c->codegen, opts->arch, &c->gen_arena,
 			&c->ir, opts->out, opts->opt_level))
 		return 1;
+	return 0;
+}
 
-	if (opts->dump_tokens)
-		return dump_tokens(&c->lexer) ? 1 : 0;
-
+static int compile_parse (Compiler *c, CompilerOpts *opts)
+{
 	parse(&c->parser);
+
 	if (opts->dump_ast) {
 		dump_ast(&c->parser.ast);
 		print_err_count(c);
 		return c->err.err_count ? 1 : 0;
 	}
-	if (c->err.err_count) {
-		print_err_count(c);
-		return 1;
-	}
+	if (!c->err.err_count) return -1;
+	print_err_count(c);
+	return 1;
+}
 
+static int compile_sema (Compiler *c, CompilerOpts *opts)
+{
 	sema_run(&c->sema);
+
 	if (opts->dump_symbols) {
 		dump_symbols(&c->sema);
 		print_err_count(c);
 		return c->err.err_count ? 1 : 0;
 	}
-	if (c->err.err_count) {
-		print_err_count(c);
-		return 1;
-	}
+	if (!c->err.err_count) return -1;
+	print_err_count(c);
+	return 1;
+}
 
-	if (c->sema.mod_seen && c->sema.mod_len
-			&& mangle_module_name(&c->arena, c->sema.mod_name,
-					c->sema.mod_len, &c->mod)) {
+static int apply_module_name (Compiler *c)
+{
+	if (!c->sema.mod_seen || !c->sema.mod_len) return 0;
+	if (mangle_module_name(&c->arena, c->sema.mod_name,
+			c->sema.mod_len, &c->mod)) {
 		fprintf(stderr, "Error: invalid module name\n");
 		return 1;
 	}
+	return 0;
+}
 
-	ir_init(&c->ir, &c->ir_arena, &c->sema, opts->opt_level == OPT_FULL && !opts->dump_ir, c->mod);
+static int compile_ir (Compiler *c, CompilerOpts *opts, int dumping, R2i *r2i)
+{
+	if (apply_module_name(c)) return 1;
+
+	ir_init(&c->ir, &c->ir_arena, &c->sema,
+			opts->opt_level == OPT_FULL && !opts->dump_ir, c->mod);
 	ir_gen(&c->ir);
 
-	R2i r2i;
-	int r2i_pending = 0;
-
-	memset(&r2i, 0, sizeof r2i);
-	if (!dumping && opts->r2i) {
-		if (r2i_generate(&r2i, &c->ir, &c->sema, opts->path, opts->r2i_dir)) {
-			r2i_free(&r2i);
-			print_err_count(c);
-			return 1;
-		}
-		r2i_pending = 1;
-	}
-	if (opts->dump_ir) {
-		dump_ir(&c->ir);
+	memset(r2i, 0, sizeof *r2i);
+	if (!dumping && opts->r2i
+			&& r2i_generate(r2i, &c->ir, &c->sema, opts->path,
+					opts->r2i_dir)) {
+		r2i_free(r2i);
 		print_err_count(c);
-		return 0;
+		return 1;
 	}
-	release_frontend(c);
+	if (!opts->dump_ir) return -1;
 
+	dump_ir(&c->ir);
+	print_err_count(c);
+	return 0;
+}
+
+static int compile_optimize (Compiler *c, CompilerOpts *opts)
+{
 	if (opts->opt_level >= OPT_BASIC)
 		optimize_ir(&c->ir, &c->opt_arena, opts->opt_level);
 
-	if (opts->dump_opt) {
-		dump_ir(&c->ir);
-		print_err_count(c);
-		return 0;
-	}
+	if (!opts->dump_opt) return -1;
 
+	dump_ir(&c->ir);
+	print_err_count(c);
+	return 0;
+}
+
+static int compile_backend (Compiler *c, R2i *r2i)
+{
 	print_err_count(c);
 	int status = codegen_run(&c->codegen);
 
-	if (!status && r2i_pending) status = r2i_write(&r2i);
-	r2i_free(&r2i);
+	if (!status && r2i->ready) status = r2i_write(r2i);
+	r2i_free(r2i);
 	return status;
+}
+
+int compile (Compiler *c, CompilerOpts *opts)
+{
+	int dumping = opts->dump_tokens || opts->dump_ast
+			|| opts->dump_symbols || opts->dump_ir || opts->dump_opt;
+
+	if (compile_setup(c, opts, dumping)) return 1;
+	if (opts->dump_tokens) return dump_tokens(&c->lexer) ? 1 : 0;
+
+	int stage = compile_parse(c, opts);
+	if (stage != -1) return stage;
+	stage = compile_sema(c, opts);
+	if (stage != -1) return stage;
+
+	R2i r2i;
+	stage = compile_ir(c, opts, dumping, &r2i);
+	if (stage != -1) return stage;
+
+	release_frontend(c);
+	stage = compile_optimize(c, opts);
+	if (stage != -1) return stage;
+
+	return compile_backend(c, &r2i);
 }
 
 void compiler_destroy (Compiler *comp)
