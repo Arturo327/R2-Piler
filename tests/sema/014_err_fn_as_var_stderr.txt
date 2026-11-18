@@ -1,10 +1,7 @@
-tests/sema/014_err_fn_as_var_src.r2:4:15: ERROR: 'f' is a function, not a variable
+tests/sema/014_err_fn_as_var_src.r2:4:5: ERROR: can't initialize 'x' (i64) with a value of type ptr fn() : i64; use an explicit cast with 'as'
       4 | var x : i64 = f;
-        |               ^
-tests/sema/014_err_fn_as_var_src.r2:1:4: WARNING: unused function 'f'
-      1 | fn f() : i64 {
-        |    ^
+        |     ^
 tests/sema/014_err_fn_as_var_src.r2:4:5: WARNING: unused variable 'x'
       4 | var x : i64 = f;
         |     ^
-1 error, 2 warnings
+1 error, 1 warning

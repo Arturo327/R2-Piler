@@ -1,0 +1,28 @@
+NODE_ROOT [0:0]
+  NODE_TYPE_DEC [1:6] name="Op" type=ptr fn(i32, u32) : i64
+  NODE_TYPE_DEC [2:6] name="Bare" type=ptr fn(i8)
+  NODE_TYPE_DEC [3:6] name="Multi" type=ptr fn(i32) : (i32, u32, ptr i8)
+  NODE_TYPE_DEC [4:6] name="Var" type=ptr fn(ptr i8, ...) : i32
+  NODE_TYPE_DEC [5:6] name="Ref" type=ptr fn(ptr i64)
+  NODE_STRUCT_DEC [7:8] name="Handlers"
+    NODE_FIELD_DEC [8:2] name="op" type=ptr fn() : i32
+    NODE_FIELD_DEC [9:2] name="many" type=ptr fn(i64) : i64[2]
+  NODE_FN_DEC [12:4] name="takes"
+    NODE_ARGS_DEC [12:10]
+      NODE_VAR_DEC [12:11] name="cb" type=ptr fn(i32) : i32
+    NODE_RET_DEC [12:39] type=ptr fn(i32) : i32
+    NODE_BLOCK [12:63]
+      NODE_RET [13:2]
+        NODE_ID [13:9] str="cb"
+  NODE_VAR_DEC [16:5] name="g" type=ptr fn(i32, i32) : i32
+    NODE_LIT_NULL [16:42]
+  NODE_FN_DEC [18:8] name="main" pub
+    NODE_ARGS_DEC [18:13]
+    NODE_RET_DEC [18:16] type=i64
+    NODE_BLOCK [18:22]
+      NODE_VAR_DEC [19:6] name="local" type=ptr fn(i32) : i32
+        NODE_LIT_NULL [19:34]
+      NODE_VAR_DEC [20:6] name="nested" type=ptr ptr fn()
+        NODE_LIT_NULL [20:30]
+      NODE_RET [21:2]
+        NODE_LIT_i64 [21:9] i64=0

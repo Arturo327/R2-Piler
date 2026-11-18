@@ -1,0 +1,106 @@
+tests/sema/182_fn_ptr_err_src.r2:4:19: WARNING: unused parameter 'rest'
+      4 | fn tvar (a : i32, rest : ...i64) : i32 { return a; }
+        |                   ^~~~
+tests/sema/182_fn_ptr_err_src.r2:9:2: ERROR: cannot return ptr fn(i32, i32) : i32 from a function returning ptr fn(i32) : i32; use an explicit cast with 'as'
+      9 |         return suma;
+        |         ^
+tests/sema/182_fn_ptr_err_src.r2:16:19: ERROR: 'tvar' cannot be used as a value; it has optional or variadic parameters
+     16 | var g_init : Op = tvar;
+        |                   ^~~~
+tests/sema/182_fn_ptr_err_src.r2:18:18: WARNING: 'g_var' is used without being assigned
+     18 | var g_bad : Op = g_var;
+        |                  ^~~~~
+tests/sema/182_fn_ptr_err_src.r2:18:5: ERROR: global pointer initializers only support NULL, a string literal or the address of a global
+     18 | var g_bad : Op = g_var;
+        |     ^~~~~
+tests/sema/182_fn_ptr_err_src.r2:22:6: ERROR: can't initialize 'p' (ptr fn(i32, i32) : i32) with a value of type ptr fn(i64) : i64; use an explicit cast with 'as'
+     22 |         var p : Op = other;
+        |             ^
+tests/sema/182_fn_ptr_err_src.r2:24:15: ERROR: 'dflt' cannot be used as a value; it has optional or variadic parameters
+     24 |         var d : Op = dflt;
+        |                      ^~~~
+tests/sema/182_fn_ptr_err_src.r2:26:4: ERROR: cannot assign ptr fn(i64) : i64 to a variable of type ptr fn(i32, i32) : i32; use an explicit cast with 'as'
+     26 |         p = other;
+        |           ^
+tests/sema/182_fn_ptr_err_src.r2:27:8: ERROR: argument type ptr fn(i64) : i64 does not match parameter type ptr fn(i32, i32) : i32; use an explicit cast with 'as'
+     27 |         takes(other);
+        |               ^~~~~
+tests/sema/182_fn_ptr_err_src.r2:28:2: ERROR: wrong number of arguments in indirect call: got 1, expected 2
+     28 |         p(1);
+        |         ^
+tests/sema/182_fn_ptr_err_src.r2:29:2: ERROR: wrong number of arguments in indirect call: got 3, expected 2
+     29 |         p(1, 2, 3);
+        |         ^
+tests/sema/182_fn_ptr_err_src.r2:30:4: ERROR: an indirect call cannot use named arguments
+     30 |         p(a = 1, b = 2);
+        |           ^
+tests/sema/182_fn_ptr_err_src.r2:30:11: ERROR: an indirect call cannot use named arguments
+     30 |         p(a = 1, b = 2);
+        |                  ^
+tests/sema/182_fn_ptr_err_src.r2:32:22: ERROR: expression of type i32 is not callable
+     32 |         var called : i32 = (s)(1);
+        |                             ^
+tests/sema/182_fn_ptr_err_src.r2:33:22: ERROR: pointer arithmetic on a function pointer is not allowed
+     33 |         var sum1 : i64 = (p + 1) as i64;
+        |                             ^
+tests/sema/182_fn_ptr_err_src.r2:34:22: ERROR: comparison of function pointers is not allowed; only '==' and '!=' are supported
+     34 |         var sum2 : i64 = (p < q) as i64;
+        |                             ^
+tests/sema/182_fn_ptr_err_src.r2:35:20: ERROR: cannot dereference a function pointer; call it directly
+     35 |         var deref : i64 = @p as i64;
+        |                           ^
+tests/sema/182_fn_ptr_err_src.r2:36:21: ERROR: cannot index a function pointer; call it directly
+     36 |         var index : i64 = p[0] as i64;
+        |                            ^
+tests/sema/182_fn_ptr_err_src.r2:37:50: ERROR: 'suma' is a function; use it directly as a pointer value
+     37 |         var addr : ptr ptr fn(a : i32, b : i32) : i32 = $suma;
+        |                                                         ^
+tests/sema/182_fn_ptr_err_src.r2:38:4: ERROR: pointer arithmetic on a function pointer is not allowed
+     38 |         p += 1;
+        |           ^~
+tests/sema/182_fn_ptr_err_src.r2:39:2: ERROR: 'suma' is a function, not a variable
+     39 |         suma = p;
+        |         ^~~~
+tests/sema/182_fn_ptr_err_src.r2:22:6: WARNING: value assigned to 'p' is not used
+     22 |         var p : Op = other;
+        |             ^
+tests/sema/182_fn_ptr_err_src.r2:25:4: WARNING: value assigned to 'p' is not used
+     25 |         p = suma;
+        |           ^
+tests/sema/182_fn_ptr_err_src.r2:24:6: WARNING: unused variable 'd'
+     24 |         var d : Op = dflt;
+        |             ^
+tests/sema/182_fn_ptr_err_src.r2:32:6: WARNING: unused variable 'called'
+     32 |         var called : i32 = (s)(1);
+        |             ^~~~~~
+tests/sema/182_fn_ptr_err_src.r2:33:6: WARNING: unused variable 'sum1'
+     33 |         var sum1 : i64 = (p + 1) as i64;
+        |             ^~~~
+tests/sema/182_fn_ptr_err_src.r2:34:6: WARNING: unused variable 'sum2'
+     34 |         var sum2 : i64 = (p < q) as i64;
+        |             ^~~~
+tests/sema/182_fn_ptr_err_src.r2:35:6: WARNING: unused variable 'deref'
+     35 |         var deref : i64 = @p as i64;
+        |             ^~~~~
+tests/sema/182_fn_ptr_err_src.r2:36:6: WARNING: unused variable 'index'
+     36 |         var index : i64 = p[0] as i64;
+        |             ^~~~~
+tests/sema/182_fn_ptr_err_src.r2:37:6: WARNING: unused variable 'addr'
+     37 |         var addr : ptr ptr fn(a : i32, b : i32) : i32 = $suma;
+        |             ^~~~
+tests/sema/182_fn_ptr_err_src.r2:3:4: WARNING: unused function 'dflt'
+      3 | fn dflt (a : i32, b : i32 = 2) : i32 { return a * b; }
+        |    ^~~~
+tests/sema/182_fn_ptr_err_src.r2:4:4: WARNING: unused function 'tvar'
+      4 | fn tvar (a : i32, rest : ...i64) : i32 { return a; }
+        |    ^~~~
+tests/sema/182_fn_ptr_err_src.r2:8:4: WARNING: unused function 'ret_bad'
+      8 | fn ret_bad () : ptr fn(a : i32) : i32 {
+        |    ^~~~~~~
+tests/sema/182_fn_ptr_err_src.r2:16:5: WARNING: unused variable 'g_init'
+     16 | var g_init : Op = tvar;
+        |     ^~~~~~
+tests/sema/182_fn_ptr_err_src.r2:18:5: WARNING: unused variable 'g_bad'
+     18 | var g_bad : Op = g_var;
+        |     ^~~~~
+19 errors, 16 warnings

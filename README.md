@@ -13,9 +13,9 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **399 dump fixtures** pass (`make test`): 51 lexer, 87 parser, 161 sema,
-  61 IR and 39 optimizer tests, plus 43 mangling/visibility/export cases.
-- **151 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+- **441 dump fixtures** pass (`make test`): 53 lexer, 95 parser, 182 sema,
+  69 IR and 42 optimizer tests, plus 45 mangling/visibility/export cases.
+- **167 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
@@ -34,10 +34,24 @@ tested:
   `sizeof(T)` and `p - q` yields the distance in **elements**. The backend
   lowers address-of, dereference, loads/stores and a deduplicated `.rodata`
   string pool; address-taken locals get a stack slot. Global pointer
-  initializers must be link-time constants — `NULL`, a string literal or the
-  address of a global (`$g`) — and at `-O2`/`-O3` they are bound statically
-  into `.data` (`.quad .LC0`, `.quad __r2_g`) instead of running in
-  `__r2_init`.
+  initializers must be link-time constants — `NULL`, a string literal, the
+  address of a global (`$g`) or a function name for a `ptr fn` — and at
+  `-O2`/`-O3` they are bound statically into `.data` (`.quad .LC0`,
+  `.quad __r2_g`, `.quad <fn>`) instead of running in `__r2_init`.
+- **Function pointers** are supported end to end: `ptr fn(a : i32) : i32`
+  (`fn(...)` is an alias), signatures with pointers, arrays, slices, structs,
+  `&T` parameters, multi-return (`(i32, u32)`) and C variadics (`...`),
+  checked structurally on init/assignment/argument/return. Any fixed-signature
+  `fn`/`extern fn`/`export fn` is a value (a bare name is already the pointer);
+  functions with defaults or R2 typed variadics are not. They live in locals,
+  parameters, returns, globals, `static` and struct fields, and are called with
+  the ordinary postfix syntax (`cb(4, 5)`, `s.cb()`, `table[i](x)`,
+  `(c ? f : g)(x)`) with positional, fixed-arity arguments. `==`/`!=` and
+  `NULL` are allowed; arithmetic, ordering, `@` and `[]` have dedicated
+  diagnostics; `ptr fn` converts implicitly to/from `ptr void`. The backend
+  emits `leaq` (or `sym@GOTPCREL` for an `extern`), copies the callee to a
+  scratch register and calls through it with `%al` zeroed; indirect calls are
+  never tail calls.
 - **C interop** through `extern fn` / `extern var` declarations: they have no
   body or initializer, calls are type-checked like normal functions, and the
   emitted symbol keeps its plain C name (`call puts`, `optind(%rip)`) with
@@ -82,6 +96,10 @@ tested:
 - Pointers: `ptr T` and `ptr void` types, `@` dereference, `$` address-of,
   the `NULL` literal, `sizeof`, C-like pointer arithmetic and comparison, and
   explicit pointer-to-pointer casts.
+- Function pointers: `ptr fn(a : i32, b : i32) : i32` (bare `fn(...)` is the
+  same type) with structurally checked signatures, callable through any
+  postfix expression, storable in globals, `static`, struct fields and arrays,
+  and convertible implicitly to/from `ptr void`.
 - Arrays and slices: `arr a : T[N]` with `{...}` and string initializers,
   element-scaled indexing, `.len`, `sizeof`, decay to `ptr T` (including in
   `a + i` / `a - i` / `a - b`), slice parameters `T[]` (pointer + hidden
@@ -188,6 +206,7 @@ src/
 ├── sema/
 │   ├── sema.c/h     # Semantic driver: declarations, global inits, symbol dump
 │   ├── common.h     # Private cross-file declarations for sema/
+│   ├── expr_internal.h # Private expression/statement declarations for sema/
 │   ├── expr_core.c  # Expression checking core
 │   ├── expr_vars.c  # Variable/reference checking
 │   ├── expr_access.c # Field access, indexing, deref, address, sizeof
@@ -200,6 +219,7 @@ src/
 │   └── symbol.c/h   # Symbol and symbol-table definitions
 ├── ir/
 │   ├── core.c/h     # IR definition, module/fn skeleton
+│   ├── internal.h   # Private cross-file declarations for ir/
 │   ├── stmt.c       # IR generation for statements/params
 │   ├── expr.c       # IR generation for expressions (incl. struct copies/sret)
 │   ├── expr_access.c # IR helpers for field/index/pointer access

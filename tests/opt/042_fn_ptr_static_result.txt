@@ -1,0 +1,40 @@
+global g : ptr fn(i32, i32) : i32
+
+fn __r2_init(0 params, 1 regs) : void
+    ret
+
+fn suma(2 params, 5 regs) : i32
+    r0 = param.i32 #0
+    r1 = param.i32 #1
+    r4 = add.i32 r0, r1
+    ret.i32 r4
+    ret
+
+fn resta(2 params, 5 regs) : i32
+    r0 = param.i32 #0
+    r1 = param.i32 #1
+    r4 = sub.i32 r0, r1
+    ret.i32 r4
+    ret
+
+fn main(0 params, 13 regs) : i64
+    r0 = fn_addr.ptr fn(i32, i32) : i32 resta
+    r1 = fn_addr.ptr fn(i32, i32) : i32 suma
+    str_global.ptr fn(i32, i32) : i32 r1 @g
+    r2 = const.i32 1
+    r3 = const.i32 2
+    arg r2 #0
+    arg r3 #1
+    r5 = call_ind.i32 r0 fn(i32, i32) : i32
+    r6 = extend.i64 r5
+    r7 = const.i32 3
+    r8 = const.i32 4
+    r9 = ld_global.ptr fn(i32, i32) : i32 @g
+    arg r7 #0
+    arg r8 #1
+    r10 = call_ind.i32 r9 fn(i32, i32) : i32
+    r11 = extend.i64 r10
+    r12 = add.i64 r6, r11
+    ret.i64 r12
+    ret
+

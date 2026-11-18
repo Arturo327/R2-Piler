@@ -1,0 +1,61 @@
+NODE_ROOT [0:0]
+  NODE_STRUCT_DEC [1:8] name="S"
+    NODE_FIELD_DEC [2:2] name="cb" type=ptr fn(i32) : i32
+  NODE_FN_DEC [5:4] name="plain"
+    NODE_ARGS_DEC [5:10]
+      NODE_VAR_DEC [5:11] name="a" type=i32
+    NODE_RET_DEC [5:20] type=i32
+    NODE_BLOCK [5:26]
+      NODE_RET [5:28]
+        NODE_ID [5:35] str="a"
+  NODE_FN_DEC [7:8] name="main" pub
+    NODE_ARGS_DEC [7:13]
+    NODE_RET_DEC [7:16] type=i64
+    NODE_BLOCK [7:22]
+      NODE_ARR_DEC [8:6] name="table" type=ptr fn(i32) : i32[2]
+        NODE_ARRAY_INIT [8:43]
+          NODE_ID [8:44] str="plain"
+          NODE_ID [8:51] str="plain"
+      NODE_VAR_DEC [9:6] name="s" type=S
+        NODE_STRUCT_INIT [9:14]
+          NODE_FIELD_INIT [9:16] field="cb"
+            NODE_ID [9:21] str="plain"
+      NODE_VAR_DEC [10:6] name="cond" type=i32
+        NODE_LIT_i64 [10:19] i64=1
+      NODE_VAR_DEC [11:6] name="a" type=i32
+        NODE_FN_CALL [11:21]
+          NODE_INDEX [11:21]
+            NODE_ID [11:16] str="table"
+            NODE_LIT_i64 [11:22] i64=0
+          NODE_LIT_i64 [11:25] i64=1
+      NODE_VAR_DEC [12:6] name="b" type=i32
+        NODE_FN_CALL [12:17]
+          NODE_DOT [12:17] field="cb"
+            NODE_ID [12:16] str="s"
+          NODE_LIT_i64 [12:21] i64=2
+      NODE_VAR_DEC [13:6] name="c" type=i32
+        NODE_FN_CALL [13:22]
+          NODE_TERNARY [13:22]
+            NODE_ID [13:17] str="cond"
+            NODE_ID [13:24] str="plain"
+            NODE_INDEX [13:37]
+              NODE_ID [13:32] str="table"
+              NODE_LIT_i64 [13:38] i64=1
+          NODE_LIT_i64 [13:42] i64=3
+      NODE_VAR_DEC [14:6] name="d" type=i32
+        NODE_FN_CALL [14:17]
+          NODE_DOT [14:17] field="cb"
+            NODE_ID [14:16] str="s"
+          NODE_LIT_i64 [14:21] i64=4
+      NODE_RET [15:2]
+        NODE_ADD [15:40]
+          NODE_ADD [15:29]
+            NODE_ADD [15:18]
+              NODE_CAST [15:11] type=i64
+                NODE_ID [15:9] str="a"
+              NODE_CAST [15:22] type=i64
+                NODE_ID [15:20] str="b"
+            NODE_CAST [15:33] type=i64
+              NODE_ID [15:31] str="c"
+          NODE_CAST [15:44] type=i64
+            NODE_ID [15:42] str="d"

@@ -1,0 +1,29 @@
+type Op [6:6] depth=0 type=Op base=ptr fn(i32, i32) : i32
+fn suma [1:4] depth=0 type=i32
+fn other [2:4] depth=0 type=i64
+fn dflt [3:4] depth=0 type=i32
+fn tvar [4:4] depth=0 type=i32
+fn ret_bad [8:4] depth=0 type=ptr fn(i32) : i32
+fn takes [12:4] depth=0 type=i32
+var g_init [16:5] depth=0 type=ptr fn(i32, i32) : i32
+var g_var [17:5] depth=0 type=ptr fn(i32, i32) : i32
+var g_bad [18:5] depth=0 type=ptr fn(i32, i32) : i32
+fn main [20:8] depth=0 type=i64
+param a [1:10] depth=1 type=i32
+param b [1:19] depth=1 type=i32
+param a [2:11] depth=1 type=i64
+param a [3:10] depth=1 type=i32
+param b [3:19] depth=1 type=i32
+param a [4:10] depth=1 type=i32
+param rest [4:19] depth=1 type=i64[]
+param f [12:11] depth=1 type=ptr fn(i32, i32) : i32
+var p [22:6] depth=1 type=ptr fn(i32, i32) : i32
+var q [23:6] depth=1 type=ptr fn(i32) : i32
+var d [24:6] depth=1 type=ptr fn(i32, i32) : i32
+var s [31:6] depth=1 type=i32
+var called [32:6] depth=1 type=i32
+var sum1 [33:6] depth=1 type=i64
+var sum2 [34:6] depth=1 type=i64
+var deref [35:6] depth=1 type=i64
+var index [36:6] depth=1 type=i64
+var addr [37:6] depth=1 type=ptr ptr fn(i32, i32) : i32

@@ -1,0 +1,36 @@
+type Op [1:6] depth=0 type=Op base=ptr fn(i32, i32) : i32
+struct Table [3:8] depth=0 size=16 align=8
+  field op type=ptr fn(i32, i32) : i32 offset=0
+  field name type=ptr i8 offset=8
+fn suma [8:4] depth=0 type=i32
+fn printf [9:11] depth=0 type=i32
+fn pair [10:4] depth=0 type=i32, u32
+fn mk [11:4] depth=0 type=Table
+fn apply [12:4] depth=0 type=i32
+fn pick [13:4] depth=0 type=ptr fn(i32, i32) : i32
+fn bump [14:4] depth=0 type=void
+var gsum [16:5] depth=0 type=ptr fn(i32, i32) : i32
+var gvar [17:5] depth=0 type=ptr fn(ptr i8, ...) : i32
+fn main [19:8] depth=0 type=i64
+param a [8:10] depth=1 type=i32
+param b [8:19] depth=1 type=i32
+param a [10:10] depth=1 type=i32
+param f [12:11] depth=1 type=ptr fn(i32, i32) : i32
+param x [12:19] depth=1 type=i32
+param y [12:28] depth=1 type=i32
+param flag [13:10] depth=1 type=i32
+param v [14:10] depth=1 type=ptr i64
+var local [21:6] depth=1 type=ptr fn(i32, i32) : i32
+var impl [22:6] depth=1 type=ptr fn(i32, i32) : i32
+var as_void [23:6] depth=1 type=ptr void
+var back [24:6] depth=1 type=ptr fn(i32, i32) : i32
+var tbl [25:6] depth=1 type=Table
+var a [26:6] depth=1 type=i32
+var b [27:6] depth=1 type=i32
+var c [28:6] depth=1 type=i32
+var d [29:6] depth=1 type=i32
+var m1 [30:6] depth=1 type=i32
+var m2 [30:10] depth=1 type=u32
+var v [31:6] depth=1 type=i64
+var rp [32:6] depth=1 type=ptr fn(ptr i64)
+var sz [38:6] depth=1 type=i64
