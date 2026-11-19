@@ -1,0 +1,10 @@
+tests/sema/183_err_pub_private_src.r2:6:2: ERROR: public declaration exposes non-public type 'Hidden'
+      6 |         h : Hidden;
+        |         ^
+tests/sema/183_err_pub_private_src.r2:9:16: ERROR: public declaration exposes non-public type 'Hidden'
+      9 | pub fn expose (p : ptr Hidden) : Hidden
+        |                ^
+tests/sema/183_err_pub_private_src.r2:9:32: ERROR: public declaration exposes non-public type 'Hidden'
+      9 | pub fn expose (p : ptr Hidden) : Hidden
+        |                                ^
+3 errors, 0 warnings

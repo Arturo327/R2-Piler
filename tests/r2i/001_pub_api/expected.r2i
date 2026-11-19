@@ -1,0 +1,33 @@
+// r2i v1
+// source: $ROOT/a.r2
+// module: 3api
+// has_dynamic_init: 1
+// imports:
+
+pub struct _r2_s_3api_5Punto {
+	x : i32;
+	y : i32;
+};
+
+pub union _r2_u_3api_4Dato {
+	entero : i64;
+};
+
+pub enum _r2_e_3api_5Color : u8 {
+	Red = 0,
+	Green = 5,
+};
+
+pub type _r2_a_3api_2Id = i64;
+
+pub newtype _r2_n_3api_6Handle = u64;
+
+pub var _r2_pv_3api_7counter : i64;
+
+pub arr _r2_pv_3api_5table : i64[2];
+
+pub fn _r2_pf_3api_3add (a : i32, b : i32 = 3) : i32;
+
+pub fn _r2_pf_3api_4main () : i64;
+
+pub fn __r2_init_3api () : void;

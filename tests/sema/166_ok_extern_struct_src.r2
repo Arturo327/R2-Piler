@@ -6,7 +6,7 @@ struct Foreign {
 	filled_by_c : i64;
 }
 
-struct ByValue {
+pub struct ByValue {
 	also_c : i64;
 }
 

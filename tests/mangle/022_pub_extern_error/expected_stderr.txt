@@ -1,4 +1,0 @@
-pub_extern.r2:1:1: ERROR: 'extern' declarations cannot be 'pub'
-      1 | pub extern fn puts (s : ptr i8) : i64;
-        | ^~~
-1 error, 0 warnings

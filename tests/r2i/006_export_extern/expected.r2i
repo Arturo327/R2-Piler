@@ -1,0 +1,19 @@
+// r2i v1
+// source: $ROOT/a.r2
+// module: 1a
+// has_dynamic_init: 1
+// imports:
+
+export fn c_entry (x : i32) : i32;
+
+export var c_count : i64;
+
+export arr c_table : i64[2];
+
+pub extern fn puts (s : ptr i8) : i32;
+
+pub extern var errno : i32;
+
+pub fn _r2_pf_1a_4main () : i64;
+
+pub fn __r2_init_1a () : void;

@@ -131,7 +131,7 @@ run_case() { # conf
 	done <"$syms"
 	[ "$ok" -eq 1 ] || { fail "$name"; return 1; }
 
-	(cd "$run_dir" && "$bin" "$src" -o "$out" >"$root/stdout" 2>"$root/stderr")
+	(cd "$run_dir" && "$bin" "$src" -o "$out" --no-r2i >"$root/stdout" 2>"$root/stderr")
 	status=$?
 	[ "$status" -eq "$want" ] || {
 		echo "  status $status, want $want"

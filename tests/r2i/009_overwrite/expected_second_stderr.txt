@@ -1,0 +1,1 @@
+Error: refusing to overwrite 'modules/same.r2i': it was generated from '$ROOT/a.r2'

@@ -1,0 +1,7 @@
+struct Hidden [1:8] depth=0 size=8 align=8
+  field _x type=i64 offset=0
+struct Exposed [5:12] depth=0 size=8 align=8
+  field h type=Hidden offset=0
+fn expose [9:8] depth=0 type=Hidden
+fn main [14:8] depth=0 type=i64
+param p [9:16] depth=1 type=ptr Hidden

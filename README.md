@@ -148,6 +148,15 @@ gcc prog.s -o prog
 A plain compile (no dump flag) writes assembly to `<source>.s` (or the `-o`
 target; `-` for stdout). Assemble with gcc and run it.
 
+It also writes the module interface to `modules/<module>.r2i` (the module is
+the source stem, or the name of a top-level `module "..."`; the directory is
+flat). The file lists the `pub`/`export` interface in R2 declaration syntax
+with already-mangled top-level symbols; its comment header carries the module
+id, the imports list (empty for now) and the `has_dynamic_init` flag. Use
+`-m DIR`/`--modules-dir DIR` to change the directory and `-n`/`--no-r2i` to
+skip it. The `.r2i` is written only after the assembly succeeds, and an
+existing file generated from a different source is never overwritten.
+
 A minimal program:
 
 ```r2

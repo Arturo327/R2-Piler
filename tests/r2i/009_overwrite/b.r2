@@ -1,0 +1,6 @@
+module "same";
+
+pub fn main () : i64
+{
+	return 1;
+}

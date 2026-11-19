@@ -83,7 +83,8 @@ static void r2i_print_cast (R2i *r, ASTNode *n)
 	ASTNode *child = r->ir->ast->nodes + n->child;
 
 	r2i_print_expr(r, n->child);
-	if (child->data_type != n->data_type) {
+	if (child->type == NODE_STRUCT_INIT || child->type == NODE_ARRAY_INIT
+			|| child->data_type != n->data_type) {
 		r2i_printf(r, " as ");
 		r2i_print_type(r, n->data_type);
 	}

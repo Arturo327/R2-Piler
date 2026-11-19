@@ -57,7 +57,7 @@ for src in "$dir"/*_src.r2; do
 	[ -f "${base}_exit.txt" ] && want_exit=$(cat "${base}_exit.txt")
 	ok=1
 	r0=0; r1=0; r2=0; r3=0
-	"$bin" "$src" -o "$tmp_asm" >"$tmp_out" 2>"$tmp_err"
+	"$bin" "$src" -o "$tmp_asm" --no-r2i >"$tmp_out" 2>"$tmp_err"
 	cstat=$?
 	if [ "$cstat" -ne 0 ]; then
 		echo "FAIL $src: r2p exited with $cstat"; cat "$tmp_err"; ok=0
@@ -70,7 +70,7 @@ for src in "$dir"/*_src.r2; do
 	fi
 	if [ "$ok" -eq 1 ]; then
 		for olev in 0 1 2 3; do
-			"$bin" -O$olev "$src" -o "$tmp_asm" >/dev/null 2>&1
+			"$bin" -O$olev "$src" -o "$tmp_asm" --no-r2i >/dev/null 2>&1
 			if [ $? -ne 0 ]; then
 				echo "FAIL $src: r2p -O$olev exited nonzero"; ok=0; break
 			fi
