@@ -8,7 +8,8 @@ static int starts_block (IR *ir, IRFn *fn, uint32_t i)
 	if (!i) return 1;
 
 	uint8_t prev = ir->instrs[fn->start + i - 1].op;
-	if (prev == IR_JMP || prev == IR_JZ || prev == IR_JNZ || prev == IR_RET)
+	if (prev == IR_JMP || prev == IR_JZ || prev == IR_JNZ
+			|| prev == IR_RET || prev == IR_JMP_TBL)
 		return 1;
 
 	uint8_t cur = ir->instrs[fn->start + i].op;
@@ -31,6 +32,24 @@ void cfg_fill_blocks (IR *ir, IRFn *fn, CfgBlock *blocks, uint32_t *block_count)
 		blocks[b].count++;
 	}
 	*block_count = b + 1;
+
+	uint32_t caps[b + 1];
+	uint32_t total = 0;
+
+	for (uint32_t j = 0; j <= b; j++) {
+		IRInstr *last = ir->instrs + blocks[j].start + blocks[j].count - 1;
+
+		caps[j] = last->op == IR_JMP_TBL
+			? ir->jtables[last->target].count + 1 : 2;
+		total += caps[j];
+	}
+	uint32_t *pool = arena_alloc(ir->arena, sizeof(uint32_t) * (total ? total : 1));
+	uint32_t off = 0;
+
+	for (uint32_t j = 0; j <= b; j++) {
+		blocks[j].succ = pool + off;
+		off += caps[j];
+	}
 }
 
 uint32_t cfg_entry_len (IR *ir, IRFn *fn)
@@ -41,7 +60,7 @@ uint32_t cfg_entry_len (IR *ir, IRFn *fn)
 		uint8_t op = ir->instrs[fn->start + n].op;
 
 		if (op == IR_LABEL || op == IR_JMP || op == IR_JZ
-				|| op == IR_JNZ || op == IR_RET)
+				|| op == IR_JNZ || op == IR_JMP_TBL || op == IR_RET)
 			break;
 		n++;
 	}
@@ -91,18 +110,27 @@ void cfg_build_edges (IR *ir, Cfg *cfg)
 {
 	for (uint32_t b = 0; b < cfg->block_count; b++) {
 		CfgBlock *blk = cfg->blocks + b;
-		IRInstr *last;
-		int jumps, falls;
 
 		blk->succ_count = 0;
 		blk->reachable = 0;
 		if (!blk->count) continue;
 
-		last = ir->instrs + blk->start + blk->count - 1;
-		jumps = last->op == IR_JMP || last->op == IR_JZ || last->op == IR_JNZ;
-		falls = last->op != IR_JMP && last->op != IR_RET && b + 1 < cfg->block_count;
+		IRInstr *last = ir->instrs + blk->start + blk->count - 1;
+		int jumps = last->op == IR_JMP || last->op == IR_JZ
+				|| last->op == IR_JNZ || last->op == IR_JMP_TBL;
+		int falls = last->op != IR_JMP && last->op != IR_JMP_TBL
+			&& last->op != IR_RET && b + 1 < cfg->block_count;
 		if (falls) blk->succ[blk->succ_count++] = b + 1;
-		if (jumps) {
+
+		if (last->op == IR_JMP_TBL) {
+			IRJumpTable *jt = ir->jtables + last->target;
+
+			for (uint32_t k = 0; k < jt->count; k++) {
+				uint32_t t = cfg_label_block(ir, cfg, jt->labels[k]);
+
+				if (t != CFG_NO_BLOCK) blk->succ[blk->succ_count++] = t;
+			}
+		} else if (jumps) {
 			uint32_t t = cfg_label_block(ir, cfg, last->target);
 			if (t != CFG_NO_BLOCK) blk->succ[blk->succ_count++] = t;
 		}

@@ -3,8 +3,8 @@
 #include <string.h>
 
 static const uint8_t stops_static[IR_COUNT] = {
-	[IR_JMP] = 1, [IR_JZ] = 1, [IR_JNZ] = 1, [IR_LABEL] = 1,
-	[IR_RET] = 1, [IR_CALL_IND] = 1
+	[IR_JMP] = 1, [IR_JZ] = 1, [IR_JNZ] = 1, [IR_JMP_TBL] = 1,
+	[IR_LABEL] = 1, [IR_RET] = 1, [IR_CALL_IND] = 1
 };
 
 static int bind_value (Optimizer *opt, IRInstr *cst, IRGlobal *g)

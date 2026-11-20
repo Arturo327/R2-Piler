@@ -306,6 +306,134 @@ static void gen_switch_tests (IR *ir, uint32_t cond, uint32_t scrut,
 	make_jump(ir, IR_JMP, NO_REG, dflt);
 }
 
+#define SWITCH_TBL_MIN 6
+#define SWITCH_TBL_SPAN 3
+#define SWITCH_TBL_MAX 512
+#define SWITCH_TREE_MIN 8
+
+typedef struct {
+	uint64_t bits;
+	uint32_t label;
+} SwitchCase;
+
+static uint64_t switch_case_bits (IR *ir, uint32_t idx, TypeId type)
+{
+	ASTNode *nodes = ir->ast->nodes;
+	uint64_t bits;
+	uint32_t size = types[type].size;
+
+	while (nodes[idx].type == NODE_CAST) idx = nodes[idx].child;
+	if (nodes[idx].type == NODE_LIT_CHAR) bits = (uint64_t)(int64_t)nodes[idx].chr;
+	else bits = nodes[idx].u64;
+
+	if (size < 8) {
+		uint64_t mask = (1ull << (size * 8)) - 1;
+
+		bits &= mask;
+		if (types[type].sign && (bits & (1ull << (size * 8 - 1)))) bits |= ~mask;
+	}
+	return bits;
+}
+
+static int switch_compare (uint64_t a, uint64_t b, int sgn)
+{
+	if (sgn) return (int64_t)a < (int64_t)b ? -1 : (int64_t)a > (int64_t)b;
+	return a < b ? -1 : a > b;
+}
+
+static int switch_range (SwitchCase *cases, uint32_t n,
+		TypeId type, uint64_t *lo, uint64_t *hi)
+{
+	int sgn = types[type].sign;
+	uint64_t span;
+
+	*lo = cases[0].bits;
+	*hi = cases[0].bits;
+	for (uint32_t k = 1; k < n; k++) {
+		if (switch_compare(cases[k].bits, *lo, sgn) < 0) *lo = cases[k].bits;
+		if (switch_compare(cases[k].bits, *hi, sgn) > 0) *hi = cases[k].bits;
+	}
+	span = *hi - *lo;
+	return span < SWITCH_TBL_MAX && span + 1 <= (uint64_t)n * SWITCH_TBL_SPAN;
+}
+
+static void gen_switch_table (IR *ir, uint32_t scrut, TypeId type,
+		SwitchCase *cases, uint32_t n, uint64_t lo, uint64_t hi, uint32_t dflt)
+{
+	uint32_t span = (uint32_t)(hi - lo + 1);
+	uint32_t *table = arena_alloc(ir->arena, sizeof(uint32_t) * span);
+	uint32_t wide = scrut;
+
+	for (uint32_t k = 0; k < span; k++) table[k] = dflt;
+	for (uint32_t k = 0; k < n; k++) table[(uint32_t)(cases[k].bits - lo)] = cases[k].label;
+	if (types[type].size < 8) wide = make_op(ir, IR_EXTEND, scrut, NO_REG, TYPE_u64);
+
+	uint32_t base = make_const(ir, (int64_t)lo, TYPE_u64);
+	uint32_t idx = make_op(ir, IR_SUB, wide, base, TYPE_u64);
+	uint32_t limit = make_const(ir, (int64_t)span, TYPE_u64);
+	uint32_t ge = make_op(ir, IR_GE, idx, limit, TYPE_u64);
+
+	make_jump(ir, IR_JNZ, ge, dflt);
+	make_jump_table(ir, idx, table, span);
+}
+
+typedef struct {
+	IR *ir;
+	SwitchCase *cases;
+	uint32_t idx;
+	uint32_t dflt;
+	uint64_t base;
+} SwitchTree;
+
+static void sort_cases (SwitchCase *cases, uint32_t n, int sgn)
+{
+	for (uint32_t i = 1; i < n; i++) {
+		SwitchCase cur = cases[i];
+		uint32_t j = i;
+
+		while (j && switch_compare(cases[j - 1].bits, cur.bits, sgn) > 0) {
+			cases[j] = cases[j - 1];
+			j--;
+		}
+		cases[j] = cur;
+	}
+}
+
+static void gen_switch_tree (SwitchTree *t, int lo, int hi)
+{
+	IR *ir = t->ir;
+	int mid = lo + (hi - lo) / 2;
+
+	if (lo >= hi) {
+		make_jump(ir, IR_JMP, NO_REG, t->dflt);
+		return;
+	}
+	uint32_t right = ir->label_count++;
+	uint32_t pivot_const = make_const(ir, (int64_t)(t->cases[mid].bits - t->base), TYPE_u64);
+	uint32_t test = make_op(ir, IR_GT, t->idx, pivot_const, TYPE_u64);
+
+	make_jump(ir, IR_JNZ, test, right);
+	test = make_op(ir, IR_EQ, t->idx, pivot_const, TYPE_u64);
+	make_jump(ir, IR_JNZ, test, t->cases[mid].label);
+	gen_switch_tree(t, lo, mid);
+	make_label(ir, right);
+	gen_switch_tree(t, mid + 1, hi);
+}
+
+static void gen_switch_sparse (IR *ir, uint32_t scrut, TypeId type,
+		SwitchCase *cases, uint32_t n, uint32_t dflt)
+{
+	SwitchTree t = { .ir = ir, .cases = cases, .dflt = dflt };
+	uint32_t wide = scrut;
+
+	sort_cases(cases, n, types[type].sign);
+	t.base = cases[0].bits;
+	if (types[type].size < 8) wide = make_op(ir, IR_EXTEND, scrut, NO_REG, TYPE_u64);
+	t.idx = make_op(ir, IR_SUB, wide,
+			make_const(ir, (int64_t)t.base, TYPE_u64), TYPE_u64);
+	gen_switch_tree(&t, 0, (int)n);
+}
+
 static void gen_switch (IR *ir, ASTNode *n)
 {
 	ASTNode *nodes = ir->ast->nodes;
@@ -313,36 +441,47 @@ static void gen_switch (IR *ir, ASTNode *n)
 	TypeId type = nodes[cond].data_type;
 	uint32_t scrut = gen_expr(ir, nodes + cond);
 	uint32_t end = ir->label_count++;
+	uint32_t ncase = 0;
+	uint32_t filled = 0;
+
+	for (uint32_t clause = nodes[cond].next_bro; clause != NO_NODE;
+			clause = nodes[clause].next_bro) {
+		if (nodes[clause].type == NODE_DEFAULT) continue;
+		for (uint32_t v = nodes[clause].child; v != NO_NODE
+				&& nodes[v].type != NODE_BLOCK; v = nodes[v].next_bro) ncase++;
+	}
+
+	uint32_t labels[ncase ? ncase + 1 : 2];
+	SwitchCase *cases = arena_alloc(ir->arena, sizeof(SwitchCase) * (ncase ? ncase : 1));
+	uint32_t dflt = 0;
+	uint32_t k = 0;
 
 	uint32_t clause = nodes[cond].next_bro;
-	uint32_t count = 0;
 	while (clause != NO_NODE) {
-		count++;
+		labels[k] = ir->label_count++;
+		if (nodes[clause].type == NODE_DEFAULT) dflt = labels[k];
+		else for (uint32_t v = nodes[clause].child; v != NO_NODE
+				&& nodes[v].type != NODE_BLOCK; v = nodes[v].next_bro) {
+			cases[filled].bits = switch_case_bits(ir, v, type);
+			cases[filled++].label = labels[k];
+		}
 		clause = nodes[clause].next_bro;
+		k++;
 	}
 
-	uint32_t labels[count + 1];
+	uint64_t lo;
+	uint64_t hi;
+	if (filled >= SWITCH_TBL_MIN && switch_range(cases, filled, type, &lo, &hi))
+		gen_switch_table(ir, scrut, type, cases, filled, lo, hi, dflt);
+	else if (filled >= SWITCH_TREE_MIN)
+		gen_switch_sparse(ir, scrut, type, cases, filled, dflt);
+	else gen_switch_tests(ir, cond, scrut, type, labels, dflt);
 
 	clause = nodes[cond].next_bro;
-	count = 0;
-	uint32_t dflt = 0;
-
-	while (clause != NO_NODE) {
-		labels[count] = ir->label_count++;
-		if (nodes[clause].type == NODE_DEFAULT) dflt = labels[count];
-		count++;
-		clause = nodes[clause].next_bro;
-	}
-
-	gen_switch_tests(ir, cond, scrut, type, labels, dflt);
-
-	count = 0;
-	clause = nodes[cond].next_bro;
-	while (clause != NO_NODE) {
-		make_label(ir, labels[count++]);
+	for (k = 0; clause != NO_NODE; clause = nodes[clause].next_bro, k++) {
+		make_label(ir, labels[k]);
 		gen_stmt(ir, nodes + ir_case_body(ir, clause));
 		make_jump(ir, IR_JMP, NO_REG, end);
-		clause = nodes[clause].next_bro;
 	}
 	make_label(ir, end);
 }

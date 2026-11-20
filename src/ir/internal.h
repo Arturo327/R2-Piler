@@ -59,6 +59,7 @@ uint32_t make_fn_addr (IR *ir, uint32_t fn_idx, TypeId type);
 void make_move (IR *ir, uint32_t dst, uint32_t src, TypeId type);
 uint32_t make_op (IR *ir, uint8_t op, uint32_t a, uint32_t b, TypeId type);
 void make_jump (IR *ir, uint8_t op, uint32_t cond, uint32_t label);
+void make_jump_table (IR *ir, uint32_t idx, const uint32_t *labels, uint32_t count);
 void make_label (IR *ir, uint32_t label);
 void make_ret (IR *ir, uint32_t val, TypeId type);
 void make_select (IR *ir, uint32_t dst, uint32_t a, uint32_t b, uint32_t c, TypeId type);

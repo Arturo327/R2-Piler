@@ -355,6 +355,35 @@ static uint32_t lay_arrays (RegAlloc *ra)
 	return c;
 }
 
+static void pin_jt_homes (RegAlloc *ra)
+{
+	Cfg *cfg = &ra->cfg;
+
+	for (uint32_t b = 0; b < cfg->block_count; b++) {
+		CfgBlock *blk = cfg->blocks + b;
+
+		if (!blk->count) continue;
+		IRInstr *last = ra->ir->instrs + blk->start + blk->count - 1;
+		if (last->op != IR_JMP_TBL) continue;
+		cfg_live_out(cfg, b, ra->tmp, ra->words);
+		uint32_t jb = ra->ctx->ins_block[blk->start - ra->fn->start];
+
+		for (uint32_t w = 0; w < ra->words; w++) {
+			uint64_t bits = ra->tmp[w];
+			while (bits) {
+				uint32_t v = (w << 6) + (uint32_t)__builtin_ctzll(bits);
+				bits &= bits - 1;
+				if (v >= ra->fn->reg_count || ra->regs[v].cstate == VR_CONST) continue;
+				ra->regs[v].home[jb] = VR_SPILL;
+				for (uint32_t k = 0; k < blk->succ_count; k++) {
+					uint32_t s = cfg->blocks[blk->succ[k]].start - ra->fn->start;
+					ra->regs[v].home[ra->ctx->ins_block[s]] = VR_SPILL;
+				}
+			}
+		}
+	}
+}
+
 static void lay_sizes (RegAlloc *ra, int share)
 {
 	static const uint8_t sizes[4] = { 8, 4, 2, 1 };
@@ -466,7 +495,8 @@ static void build_block_edges (RegAlloc *ra, uint32_t b)
 	uint32_t from = ra->ctx->ins_block[at];
 
 	e->first = ra->move_count;
-	if (last->op != IR_JMP && last->op != IR_RET && b + 1 < ra->cfg.block_count)
+	if (last->op != IR_JMP && last->op != IR_JMP_TBL && last->op != IR_RET
+			&& b + 1 < ra->cfg.block_count)
 		e->fall = edge_to_block(ra, from, b + 1);
 	if (last->op == IR_JMP || last->op == IR_JZ || last->op == IR_JNZ)
 		add_taken_edge(ra, at, from, last);
@@ -698,6 +728,7 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, int spill
 	if (!spill_all) mark_remat(&ra);
 	default_homes(fn, regs, ctx->block_count);
 	if (!spill_all) color_all(&ra);
+	if (!spill_all && ra.words) pin_jt_homes(&ra);
 	lay_sizes(&ra, !spill_all && ra.words);
 
 	resolve(fn, regs, ctx->block_count);

@@ -58,6 +58,7 @@ static int make_instr (X86Fn *f, IRInstr *i)
 		return x86_make_cmp_instr(f, i);
 
 	case IR_LABEL: case IR_JMP: case IR_JZ: case IR_JNZ: x86_make_jump(f, i); return 1;
+	case IR_JMP_TBL: x86_make_jump_table(f, i); return 1;
 
 	case IR_ARG: return x86_make_arg(f, i);
 	case IR_CALL:
@@ -90,7 +91,7 @@ static void make_body (X86Fn *f)
 		uint32_t n = make_instr(f, instr);
 		last = instr + n - 1;
 		dead = last->op == IR_RET || last->op == IR_JMP
-				|| x86_const_jump(f, last);
+				|| last->op == IR_JMP_TBL || x86_const_jump(f, last);
 		if (!dead) x86_make_edge(f, i + n - 1, 0);
 		i += n;
 	}

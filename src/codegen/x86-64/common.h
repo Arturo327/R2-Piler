@@ -95,6 +95,7 @@ void x86_op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg, uint8_t siz
 
 void x86_make_globals (CodeGen *c);
 void x86_make_strings (CodeGen *c);
+void x86_make_jump_tables (CodeGen *c);
 void x86_make_ld_global (X86Fn *f, IRInstr *i);
 void x86_make_str_global (X86Fn *f, IRInstr *i);
 void x86_make_addr_local (X86Fn *f, IRInstr *i);
@@ -126,6 +127,7 @@ int x86_make_cmp_instr (X86Fn *f, IRInstr *i);
 void x86_make_select (X86Fn *f, IRInstr *i);
 int x86_const_jump (X86Fn *f, IRInstr *i);
 void x86_make_jump (X86Fn *f, IRInstr *i);
+void x86_make_jump_table (X86Fn *f, IRInstr *i);
 
 IRInstr *x86_tail_ret (IRInstr *call);
 int x86_tail_match (X86Fn *f, IRInstr *call);

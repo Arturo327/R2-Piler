@@ -9,9 +9,12 @@ void kill_instr (IRInstr *in)
 	in->argc = 0;
 }
 
-void kill_branch (OptFn *f, IRInstr *in)
+void kill_branch (IR *ir, OptFn *f, IRInstr *in)
 {
-	if (in->op == IR_JMP || in->op == IR_JZ || in->op == IR_JNZ)
+	if (in->op == IR_JMP_TBL) {
+		IRJumpTable *jt = ir->jtables + in->target;
+		for (uint32_t k = 0; k < jt->count; k++) f->lrefs[jt->labels[k]]--;
+	} else if (in->op == IR_JMP || in->op == IR_JZ || in->op == IR_JNZ)
 		f->lrefs[in->target]--;
 	kill_instr(in);
 }

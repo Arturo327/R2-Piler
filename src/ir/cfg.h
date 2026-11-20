@@ -10,9 +10,9 @@
 
 typedef struct CfgBlock {
 	uint64_t *live_in;
+	uint32_t *succ;
 	uint32_t start;
 	uint32_t count;
-	uint32_t succ[2];
 	uint32_t succ_count;
 	uint8_t reachable;
 } CfgBlock;

@@ -43,8 +43,10 @@ static void mark_eligible (Inliner *n)
 		int ok = i != n->ir->init_fn && !fn->is_extern
 				&& fn->count <= INLINE_MAX_INSTRS;
 
-		for (uint32_t j = 0; ok && j < fn->count; j++)
-			ok = n->src[fn->start + j].op != IR_CALL;
+		for (uint32_t j = 0; ok && j < fn->count; j++) {
+			uint8_t op = n->src[fn->start + j].op;
+			ok = op != IR_CALL && op != IR_JMP_TBL;
+		}
 		n->elig[i] = (uint8_t)ok;
 	}
 }

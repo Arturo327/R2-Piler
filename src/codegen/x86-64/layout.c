@@ -70,6 +70,7 @@ static uint32_t x86_scratch_need (void *user, IRInstr *in, const int8_t *h)
 	case IR_EQ: case IR_NE: case IR_GT: case IR_GE: case IR_LT: case IR_LE:
 		return x86_cmp_scratch(f, in, h);
 	case IR_ARG: return x86_arg_scratch(f, in, h);
+	case IR_JMP_TBL: return 2;
 	case IR_CALL_IND: return 1;
 	default: return 0;
 	}

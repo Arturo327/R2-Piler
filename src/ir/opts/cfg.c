@@ -17,7 +17,7 @@ int opt_unreachable (Optimizer *opt, OptFn *f)
 		if (f->blocks[b].reachable) continue;
 		for (uint32_t i = 0; i < f->blocks[b].count; i++) {
 			if (code[i].op == IR_NOP || code + i == last) continue;
-			kill_branch(f, code + i);
+			kill_branch(opt->ir, f, code + i);
 			changed = 1;
 		}
 	}

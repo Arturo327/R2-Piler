@@ -183,6 +183,41 @@ void x86_make_jump (X86Fn *f, IRInstr *i)
 	else cg_printf(c, "\t%s .L%u\n", i->op == IR_JZ ? "je" : "jne", i->target);
 }
 
+void x86_make_jump_table (X86Fn *f, IRInstr *i)
+{
+	CodeGen *c = f->cg;
+	int p = x86_phys_reg(f, i->src1);
+	uint8_t base = x86_grab(f);
+
+	cg_printf(c, "\tleaq .LJT%u(%%rip), %s\n", i->target, reg_name(base, 8));
+	if (p >= 0) {
+		cg_printf(c, "\tjmp *(%s,%s,8)\n", reg_name(base, 8), reg_name((uint8_t)p, 8));
+		return;
+	}
+	uint8_t idx = x86_grab(f);
+
+	x86_load_reg64(f, idx, i->src1);
+	cg_printf(c, "\tjmp *(%s,%s,8)\n", reg_name(base, 8), reg_name(idx, 8));
+}
+
+void x86_make_jump_tables (CodeGen *c)
+{
+	IR *ir = c->ir;
+	int printed = 0;
+
+	for (uint32_t i = 0; i < ir->jtable_count; i++) {
+		IRJumpTable *jt = ir->jtables + i;
+
+		if (!printed) {
+			printed = 1;
+			cg_printf(c, "\t.section .data.rel.ro,\"aw\"\n");
+		}
+		cg_printf(c, "\t.balign 8\n.LJT%u:\n", i);
+		for (uint32_t k = 0; k < jt->count; k++)
+			cg_printf(c, "\t.quad .L%u\n", jt->labels[k]);
+	}
+}
+
 void x86_make_select (X86Fn *f, IRInstr *i)
 {
 	test_zero(f, i->cond);

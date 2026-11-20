@@ -22,7 +22,7 @@ typedef enum {
 	IR_AND_A, IR_OR_A, IR_XOR, IR_RS, IR_LS,
 	IR_NEG, IR_NOT_A, IR_NOT_L,
 	IR_EQ, IR_NE, IR_GT, IR_GE, IR_LT, IR_LE,
-	IR_LABEL, IR_JMP, IR_JZ, IR_JNZ,
+	IR_LABEL, IR_JMP, IR_JZ, IR_JNZ, IR_JMP_TBL,
 	IR_ARG, IR_CALL, IR_CALL_IND, IR_RET, IR_RETHI,
 	IR_COUNT
 } IROp;
@@ -92,6 +92,11 @@ typedef struct IRString {
 	uint32_t len;
 } IRString;
 
+typedef struct IRJumpTable {
+	uint32_t *labels;
+	uint32_t count;
+} IRJumpTable;
+
 typedef struct TempSlot {
 	uint32_t reg;
 	TypeId type;
@@ -119,6 +124,10 @@ typedef struct IR {
 	IRString *strings;
 	uint32_t string_count;
 	uint32_t string_cap;
+
+	IRJumpTable *jtables;
+	uint32_t jtable_count;
+	uint32_t jtable_cap;
 
 	uint32_t *string_tab;
 	uint32_t string_tab_cap;

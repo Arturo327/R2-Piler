@@ -33,6 +33,10 @@ static void count_label_refs (IR *ir, OptFn *f)
 
 		if (in->op == IR_JMP || in->op == IR_JZ || in->op == IR_JNZ)
 			f->lrefs[in->target]++;
+		else if (in->op == IR_JMP_TBL) {
+			IRJumpTable *jt = ir->jtables + in->target;
+			for (uint32_t k = 0; k < jt->count; k++) f->lrefs[jt->labels[k]]++;
+		}
 	}
 }
 

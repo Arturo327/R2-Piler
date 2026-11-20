@@ -276,7 +276,8 @@ static void verify_block_edges (Verify *v, uint32_t b)
 	IRInstr *last = ra->ir->instrs + blk->start + blk->count - 1;
 	uint32_t at = blk->start - ra->fn->start + blk->count - 1;
 	const EdgeMoves *e = ra->ctx->edges + at;
-	int fall = last->op != IR_JMP && last->op != IR_RET && b + 1 < ra->cfg.block_count;
+	int fall = last->op != IR_JMP && last->op != IR_JMP_TBL
+			&& last->op != IR_RET && b + 1 < ra->cfg.block_count;
 	int jump = last->op == IR_JMP || last->op == IR_JZ || last->op == IR_JNZ;
 
 	if (!blk->count) return;

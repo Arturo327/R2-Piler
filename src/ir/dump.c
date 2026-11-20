@@ -10,7 +10,7 @@ static const char *const op_names[IR_COUNT] = {
 	[IR_LD_LOCAL] = "ld_local", [IR_STR_LOCAL] = "str_local",
 	[IR_MOVE] = "move", [IR_EXTEND] = "extend", [IR_SELECT] = "select",
 	[IR_ADD] = "add", [IR_SUB] = "sub", [IR_MUL] = "mul",
-	[IR_DIV] = "div", [IR_MOD] = "mod",
+	[IR_DIV] = "div", [IR_MOD] = "mod", [IR_JMP_TBL] = "jmp_tbl",
 	[IR_AND_A] = "and", [IR_OR_A] = "or", [IR_XOR] = "xor",
 	[IR_RS] = "rshift", [IR_LS] = "lshift",
 	[IR_NEG] = "neg", [IR_NOT_A] = "not", [IR_NOT_L] = "lnot",
@@ -32,6 +32,15 @@ static void dump_extra (IR *ir, IRInstr *i)
 	case IR_JMP: case IR_JZ: case IR_JNZ:
 		printf(" -> L%u", i->target);
 		break;
+	case IR_JMP_TBL: {
+		IRJumpTable *jt = ir->jtables + i->target;
+
+		printf(" #%u [", i->target);
+		for (uint32_t k = 0; k < jt->count; k++)
+			printf("%sL%u", k ? ", " : "", jt->labels[k]);
+		printf("]");
+		break;
+	}
 	case IR_PARAM: case IR_ARG:
 		printf(" #%u", i->target);
 		break;

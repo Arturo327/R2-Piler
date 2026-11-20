@@ -168,6 +168,10 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select, const char *mod)
 	ir->string_cap = 0;
 	ir->strings = NULL;
 
+	ir->jtable_count = 0;
+	ir->jtable_cap = 8;
+	ir->jtables = arena_alloc(arena, sizeof(IRJumpTable) * ir->jtable_cap);
+
 	ir->string_tab = NULL;
 	ir->string_tab_cap = 0;
 }
@@ -697,6 +701,27 @@ void make_jump (IR *ir, uint8_t op, uint32_t cond, uint32_t label)
 	i.op = op;
 	i.src1 = cond;
 	i.target = label;
+	push_instr(ir, i);
+}
+
+void make_jump_table (IR *ir, uint32_t idx, const uint32_t *labels, uint32_t count)
+{
+	IRInstr i = blank_instr;
+	uint32_t id = ir->jtable_count++;
+
+	if (id >= ir->jtable_cap) {
+		uint32_t old = ir->jtable_cap;
+		ir->jtable_cap <<= 1;
+		ir->jtables = arena_realloc(ir->arena, ir->jtables,
+				old * sizeof(IRJumpTable), ir->jtable_cap * sizeof(IRJumpTable));
+	}
+	ir->jtables[id].count = count;
+	ir->jtables[id].labels = arena_alloc(ir->arena, sizeof(uint32_t) * (count ? count : 1));
+	for (uint32_t k = 0; k < count; k++) ir->jtables[id].labels[k] = labels[k];
+
+	i.op = IR_JMP_TBL;
+	i.src1 = idx;
+	i.target = id;
 	push_instr(ir, i);
 }
 
