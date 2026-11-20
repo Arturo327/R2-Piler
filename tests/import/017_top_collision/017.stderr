@@ -1,0 +1,4 @@
+app.r2:3:4: ERROR: 'ok' conflicts with the name imported from module 'lib'
+      3 | fn ok () : i64 { return 1; }
+        |    ^~
+1 error, 0 warnings

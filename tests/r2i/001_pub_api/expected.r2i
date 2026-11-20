@@ -1,7 +1,7 @@
 // r2i v1
 // source: $ROOT/a.r2
 // module: 3api
-// has_dynamic_init: 1
+// has_dynamic_init: 0
 // imports:
 
 pub struct _r2_s_3api_5Punto {

@@ -1,0 +1,4 @@
+app.r2:1:1: ERROR: cannot find module 'nope' (.r2i not found in the source directory, the modules directory or a -p path)
+      1 | import nope;
+        | ^~~~
+1 error, 0 warnings

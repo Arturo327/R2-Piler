@@ -1,0 +1,4 @@
+app.r2:3:12: ERROR: 'Pair' conflicts with the name imported from module 'lib'
+      3 | pub struct Pair { x : i64; }
+        |            ^~~~
+1 error, 0 warnings

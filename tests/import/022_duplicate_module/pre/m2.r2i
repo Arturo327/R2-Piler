@@ -1,0 +1,9 @@
+// r2i v1
+// source: /nonexistent/m2.r2
+// module: 1m
+// has_dynamic_init: 0
+// imports:
+
+pub fn _r2_pf_1m_1g () : i64;
+
+pub fn __r2_init_1m () : void;

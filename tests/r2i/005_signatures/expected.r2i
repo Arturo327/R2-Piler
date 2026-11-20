@@ -1,7 +1,7 @@
 // r2i v1
 // source: $ROOT/a.r2
 // module: 1a
-// has_dynamic_init: 1
+// has_dynamic_init: 0
 // imports:
 
 pub var _r2_pv_1a_1g : i64;

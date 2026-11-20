@@ -1,0 +1,4 @@
+app.r2:2:1: ERROR: another imported module uses module id '1m'
+      2 | import m2;
+        | ^~
+1 error, 0 warnings

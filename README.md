@@ -13,8 +13,8 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **441 dump fixtures** pass (`make test`): 53 lexer, 95 parser, 182 sema,
-  69 IR and 42 optimizer tests, plus 45 mangling/visibility/export cases.
+- **526 fixtures** pass (`make test`): 54 lexer, 95 parser, 183 sema, 69 IR,
+  42 optimizer, 45 mangling/visibility/export, 9 `.r2i` and 29 import cases.
 - **167 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
@@ -79,8 +79,8 @@ tested:
   arguments and `sret` returns, arrays of structs, globals/`static` structs
   (constant initializers become a `.data` image at any level; pointer/slice/
   bitfield initializers are written from `__r2_init`) and `sizeof`.
-- Not implemented yet: modules/imports, classes, floating point, heap arrays
-  and `defer`.
+- Not implemented yet: C header (`.h`) generation, classes, floating point,
+  heap arrays and `defer`.
 
 ---
 
@@ -112,6 +112,17 @@ tested:
 - Top-level visibility: private by default, `pub` for public symbols (`.globl`,
   `_r2_pf_...`/`_r2_pv_...`) and `export` for plain C-linkable definitions;
   module names come from the canonical source path with `$xx`-escaped bytes.
+- **Modules and imports**: one file is one module. `import m;` exposes
+  `m::name`, `import m as x;` renames the qualifier, and
+  `from m import a as b, T;` brings names into scope. The importer reads
+  `m.r2i` (source directory, then the `-m` directory, then each `-p DIR`),
+  reconstructs the module's public types/signatures/defaults, treats its
+  functions and globals as external symbols, and calls its `__r2_init_<mod>`
+  when it has dynamic initializers. Only `pub`/`export`/`pub extern`
+  declarations are visible; `from` does not bind the qualifier; local
+  variables may shadow imported names but a top-level name collision is an
+  error. Dependencies listed in the `.r2i` `imports:` header are loaded
+  recursively (cycle-checked), so a module can re-export imported types.
 - Top-level globals with well-defined initialization order; cyclic initializers
   are diagnosed.
 - Short-circuit `&&` and `||`, and the ternary `cond ? a : b` (lowered to
@@ -152,10 +163,18 @@ It also writes the module interface to `modules/<module>.r2i` (the module is
 the source stem, or the name of a top-level `module "..."`; the directory is
 flat). The file lists the `pub`/`export` interface in R2 declaration syntax
 with already-mangled top-level symbols; its comment header carries the module
-id, the imports list (empty for now) and the `has_dynamic_init` flag. Use
-`-m DIR`/`--modules-dir DIR` to change the directory and `-n`/`--no-r2i` to
-skip it. The `.r2i` is written only after the assembly succeeds, and an
-existing file generated from a different source is never overwritten.
+id, the modules whose types appear in that interface (`imports:`) and the
+`has_dynamic_init` flag. Use `-m DIR`/`--modules-dir DIR` to change the
+directory, `-n`/`--no-r2i` to skip it and `-p DIR`/`--path DIR` (repeatable) to
+add directories searched by importers. The `.r2i` is written only after the
+assembly succeeds, and an existing file generated from a different source is
+never overwritten. Modules are compiled one at a time and linked afterwards:
+
+```bash
+./build/r2p a.r2 -m modules      # writes a.s and modules/a.r2i
+./build/r2p b.r2 -m modules      # b.r2 has `import a;`, reads modules/a.r2i
+gcc a.s b.s -o prog
+```
 
 A minimal program:
 
@@ -226,6 +245,16 @@ src/
 │   ├── structs.c    # Struct/union declaration, layout, initializers
 │   ├── agg.c        # Aggregate helpers
 │   └── symbol.c/h   # Symbol and symbol-table definitions
+├── imports/
+│   ├── imports.h    # Module/item/binding records
+│   ├── internal.h   # Loader structs and cross-file helpers
+│   ├── load.c       # Module lookup, .r2i header, aliases/bindings
+│   ├── parse.c      # .r2i parser driver + symbol-name decoding
+│   └── lookup.c     # Qualified/from lookup used by sema
+├── r2i/
+│   ├── r2i.c/h      # Output buffer, header, write/ownership checks
+│   ├── decl.c/type.c/expr.c # Interface body
+│   └── imports.c    # `imports:` dependency collection
 ├── ir/
 │   ├── core.c/h     # IR definition, module/fn skeleton
 │   ├── internal.h   # Private cross-file declarations for ir/
@@ -295,7 +324,7 @@ list of source files to maintain.
 ### Pipeline
 
 ```
-source -> lexer -> parser -> sema -> IR -> optimize_ir (-O2/-O3) -> x86-64 asm
+source -> lexer -> parser -> imports (.r2i) -> sema -> IR -> optimize_ir (-O2/-O3) -> x86-64 asm
 ```
 
 An error in a stage stops the compilation before the next stage; warnings do

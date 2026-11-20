@@ -121,8 +121,7 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select, const char *mod)
 
 	ir->init_fn = 0;
 	ir->init_dep_count = 0;
-	ir->init_deps = arena_alloc(arena,
-			sizeof(uint32_t) * ((size_t)sema->module_count + 1u));
+	ir->init_deps = arena_alloc(arena, sizeof(uint32_t) * ((size_t)sema->module_count + 1u));
 	for (uint32_t i = 0; i < sema->module_count; i++) {
 		ImportModule *m = sema->modules + i;
 
