@@ -11,17 +11,20 @@
 #include "ir/opt.h"
 #include "mangle/mangle.h"
 #include "r2i/r2i.h"
+#include "header/header.h"
 
 typedef struct CompilerOpts {
 	char *path;
 	char *out;
 	const char *r2i_dir;
+	const char *header_dir;
 	const char **import_paths;
 	int import_path_count;
 	Arch arch;
 	OptLevel opt_level;
 
 	int r2i;
+	int header;
 	int dump_tokens;
 	int dump_ast;
 	int dump_symbols;

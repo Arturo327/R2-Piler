@@ -1,0 +1,1 @@
+Error: refusing to overwrite 'include/a.h': it was generated from '/some/other/module.r2'

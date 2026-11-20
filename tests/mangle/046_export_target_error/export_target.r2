@@ -1,0 +1,1 @@
+export extern fn f (a : i32) : i32;

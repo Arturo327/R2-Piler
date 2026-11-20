@@ -1,0 +1,4 @@
+a.r2:2:16: ERROR: export declaration exposes non-export type 'Privada'
+      2 | export fn get (p : ptr Privada) : i64 { return p.x; }
+        |                ^
+1 error, 0 warnings

@@ -1090,11 +1090,10 @@ static uint32_t parse_pub (Parser *p, int root)
 static uint32_t parse_export (Parser *p, int root)
 {
 	Token exp = p->curr;
-	const char *msg = "expected 'fn', 'var' or 'arr' after 'export'";
+	const char *msg = "expected a declaration after 'export'";
 
 	advance(p);
-	int ok = p->curr.type == TOK_FN || p->curr.type == TOK_VAR
-			|| p->curr.type == TOK_ARR;
+	int ok = pub_target(p->curr.type) && p->curr.type != TOK_EXTERN;
 	if (p->curr.type == TOK_PUB) {
 		msg = "'export' cannot be combined with 'pub'";
 		ok = 0;

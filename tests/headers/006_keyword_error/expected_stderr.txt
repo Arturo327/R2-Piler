@@ -1,0 +1,4 @@
+a.r2:1:11: ERROR: exported name 'int' is a C/C++ keyword; rename it
+      1 | export fn int (a : i32) : i32 { return a; }
+        |           ^~~
+1 error, 0 warnings

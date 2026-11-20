@@ -13,10 +13,10 @@ tests/sema/160_err_export_src.r2:6:19: ERROR: export functions cannot return str
 tests/sema/160_err_export_src.r2:7:11: ERROR: 'main' cannot be exported
       7 | export fn main () : i64 { return 0; }
         |           ^~~~
-tests/sema/160_err_export_src.r2:3:14: ERROR: public declaration exposes non-public type 'P'
+tests/sema/160_err_export_src.r2:3:14: ERROR: export declaration exposes non-export type 'P'
       3 | export fn s (p : P) : i64 { return p.x; }
         |              ^
-tests/sema/160_err_export_src.r2:6:19: ERROR: public declaration exposes non-public type 'P'
+tests/sema/160_err_export_src.r2:6:19: ERROR: export declaration exposes non-export type 'P'
       6 | export fn rets () : P { return {.x = 1} as P; }
         |                   ^
 7 errors, 0 warnings

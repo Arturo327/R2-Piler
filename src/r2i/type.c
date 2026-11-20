@@ -34,9 +34,13 @@ void r2i_build_types (R2i *r)
 		TypeId id = table->symbols[n->sym].type;
 
 		if (id == TYPE_ERROR || id >= type_count) continue;
-		MangleName m = { .kind = kind, .mod = r->ir->mod, .a = n->str, .alen = n->len };
-
-		r->type_syms[id] = mangle_symbol(r->ir->arena, &m);
+		if (n->flags & NODE_FLAG_EXPORT) {
+			r->type_syms[id] = mangle_plain(r->ir->arena, n->str, n->len);
+		} else {
+			MangleName m = { .kind = kind, .mod = r->ir->mod,
+					.a = n->str, .alen = n->len };
+			r->type_syms[id] = mangle_symbol(r->ir->arena, &m);
+		}
 	}
 }
 
@@ -177,7 +181,9 @@ void r2i_make_struct (R2i *r, ASTNode *n)
 	Symbol *sym = r->ir->symtab->symbols + n->sym;
 	const char *name = r->type_syms[sym->type];
 
-	r2i_printf(r, "pub%s %s %s {\n", (n->flags & NODE_FLAG_PACKED) ? " packed" : "",
+	r2i_printf(r, "%s%s %s %s {\n",
+			(n->flags & NODE_FLAG_EXPORT) ? "export" : "pub",
+			(n->flags & NODE_FLAG_PACKED) ? " packed" : "",
 			(n->flags & NODE_FLAG_UNION) ? "union" : "struct", name);
 	for (uint32_t m = n->child; m != NO_NODE; m = r->ir->ast->nodes[m].next_bro) {
 		ASTNode *member = r->ir->ast->nodes + m;
@@ -194,7 +200,8 @@ void r2i_make_enum (R2i *r, ASTNode *n)
 	TypeId id = sym->type;
 	Type *t = types + id;
 
-	r2i_printf(r, "pub enum %s : ", r->type_syms[id]);
+	r2i_printf(r, "%s enum %s : ",
+			(n->flags & NODE_FLAG_EXPORT) ? "export" : "pub", r->type_syms[id]);
 	r2i_print_type(r, n->data_type);
 	r2i_printf(r, " {\n");
 	for (uint16_t i = 0; i < t->variant_count; i++) {
@@ -213,8 +220,9 @@ void r2i_make_alias (R2i *r, ASTNode *n, int is_newtype)
 {
 	Symbol *sym = r->ir->symtab->symbols + n->sym;
 
-	r2i_printf(r, "pub %s %s = ", is_newtype ? "newtype" : "type",
-			r->type_syms[sym->type]);
+	r2i_printf(r, "%s %s %s = ",
+			(n->flags & NODE_FLAG_EXPORT) ? "export" : "pub",
+			is_newtype ? "newtype" : "type", r->type_syms[sym->type]);
 	r2i_print_type(r, n->data_type);
 	r2i_printf(r, ";\n\n");
 }

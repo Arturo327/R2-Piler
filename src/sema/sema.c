@@ -1450,6 +1450,10 @@ static void mark_exposed_decls (Sema *s)
 		else if (n->type == NODE_EXTERN_VAR_DEC
 				|| ((n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC) && exported))
 			mark_exposed_type(n->data_type);
+		else if (exported && (n->type == NODE_STRUCT_DEC
+				|| n->type == NODE_ENUM_DEC || n->type == NODE_TYPE_DEC
+				|| n->type == NODE_NEWTYPE_DEC))
+			mark_exposed_type(n->data_type);
 		idx = n->next_bro;
 	}
 }
@@ -1561,9 +1565,130 @@ static void check_public_types (Sema *s)
 	uint32_t idx = s->ast->nodes[0].child;
 
 	while (idx != NO_NODE) {
-		if (s->ast->nodes[idx].flags & NODE_FLAG_PUB)
+		uint16_t flags = s->ast->nodes[idx].flags;
+
+		if ((flags & NODE_FLAG_PUB) && !(flags & NODE_FLAG_EXPORT))
 			require_public_decl(s, idx);
 		idx = s->ast->nodes[idx].next_bro;
+	}
+}
+
+static int c_keyword (const char *name, uint16_t len)
+{
+	static const char *words[] = {
+		"auto", "break", "case", "char", "const", "continue", "default", "do",
+		"double", "else", "enum", "extern", "float", "for", "goto", "if",
+		"inline", "int", "long", "register", "restrict", "return", "short",
+		"signed", "sizeof", "static", "struct", "switch", "typedef", "union",
+		"unsigned", "void", "volatile", "while", "_Bool", "_Complex",
+		"_Imaginary", "_Alignas", "_Alignof", "_Atomic", "_Generic",
+		"_Noreturn", "_Static_assert", "_Thread_local", "alignas", "alignof",
+		"and", "and_eq", "asm", "bitand", "bitor", "bool", "catch", "class",
+		"compl", "concept", "consteval", "constexpr", "constinit", "const_cast",
+		"co_await", "co_return", "co_yield", "decltype", "delete",
+		"dynamic_cast", "explicit", "export", "false", "friend", "mutable",
+		"namespace", "new", "noexcept", "not", "not_eq", "nullptr", "operator",
+		"or", "or_eq", "private", "protected", "public", "reinterpret_cast",
+		"requires", "static_assert", "static_cast", "template", "this",
+		"thread_local", "throw", "true", "try", "typeid", "typename", "using",
+		"virtual", "wchar_t", "xor", "xor_eq"
+	};
+	for (uint32_t i = 0; i < sizeof words / sizeof words[0]; i++)
+		if (strlen(words[i]) == len && memcmp(words[i], name, len) == 0)
+			return 1;
+	return 0;
+}
+
+static inline void check_export_name (Sema *s, ASTNode *n)
+{
+	if (n->str && c_keyword(n->str, n->len))
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"exported name '%.*s' is a C/C++ keyword; rename it",
+				(int)n->len, n->str);
+}
+
+static void check_export_type (Sema *s, TypeId type, uint32_t use)
+{
+	if (type == TYPE_ERROR || type < TYPE_COUNT) return;
+	switch (type_kind(type))
+	{
+	case TK_PTR: case TK_ARRAY: case TK_SLICE:
+		check_export_type(s, types[type].base, use);
+		return;
+	case TK_FN: {
+		Type *fn = types + type;
+
+		for (uint16_t i = 0; i < fn->param_count; i++)
+			check_export_type(s, fn->params[i], use);
+		for (uint16_t i = 0; i < fn->ret_count; i++)
+			check_export_type(s, fn->rets[i], use);
+		return;
+	}
+	case TK_STRUCT: case TK_ENUM: case TK_ALIAS: case TK_NEWTYPE: {
+		ASTNode *decl = named_type_decl(s, type);
+
+		if (decl && !(decl->flags & NODE_FLAG_EXPORT))
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + use),
+					"export declaration exposes non-export type '%.*s'",
+					(int)types[type].len, types[type].name);
+		return;
+	}
+	default: return;
+	}
+}
+
+static void check_export_fields (Sema *s, uint32_t first)
+{
+	for (uint32_t m = first; m != NO_NODE; m = s->ast->nodes[m].next_bro) {
+		ASTNode *n = s->ast->nodes + m;
+
+		if (n->type == NODE_STRUCT_DEC) check_export_fields(s, n->child);
+		else if (n->type == NODE_FIELD_DEC)
+			check_export_type(s, n->data_type, m);
+	}
+}
+
+static void check_export_decl (Sema *s, ASTNode *n, uint32_t idx)
+{
+	switch (n->type)
+	{
+	case NODE_FN_DEC: case NODE_EXTERN_FN_DEC: {
+		uint32_t args = n->child;
+		uint32_t ret = s->ast->nodes[args].next_bro;
+		uint32_t item;
+
+		for (item = s->ast->nodes[args].child; item != NO_NODE;
+				item = s->ast->nodes[item].next_bro)
+			check_export_type(s, s->ast->nodes[item].data_type, item);
+		check_export_type(s, s->ast->nodes[ret].data_type, ret);
+		for (item = s->ast->nodes[ret].child; item != NO_NODE;
+				item = s->ast->nodes[item].next_bro)
+			check_export_type(s, s->ast->nodes[item].data_type, item);
+		return;
+	}
+	case NODE_VAR_DEC: case NODE_ARR_DEC: case NODE_EXTERN_VAR_DEC:
+		check_export_type(s, n->data_type, idx);
+		return;
+	case NODE_STRUCT_DEC: check_export_fields(s, n->child); return;
+	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
+		check_export_type(s, n->data_type, idx);
+		return;
+	default: return;
+	}
+}
+
+void check_export_decls (Sema *s)
+{
+	uint32_t idx = s->ast->nodes[0].child;
+
+	while (idx != NO_NODE) {
+		ASTNode *n = s->ast->nodes + idx;
+
+		if (n->flags & NODE_FLAG_EXPORT) {
+			check_export_name(s, n);
+			check_export_decl(s, n, idx);
+		}
+		idx = n->next_bro;
 	}
 }
 
@@ -1664,6 +1789,7 @@ void sema_run (Sema *s)
 	check_root(s);
 	mark_exposed_decls(s);
 	check_public_types(s);
+	check_export_decls(s);
 	warn_unused_top(s);
 }
 

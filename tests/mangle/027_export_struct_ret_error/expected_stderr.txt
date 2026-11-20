@@ -1,7 +1,7 @@
 export_struct.r2:2:16: ERROR: export functions cannot return structs by value yet
       2 | export fn f () : S { var s : S = {}; return s; }
         |                ^
-export_struct.r2:2:16: ERROR: public declaration exposes non-public type 'S'
+export_struct.r2:2:16: ERROR: export declaration exposes non-export type 'S'
       2 | export fn f () : S { var s : S = {}; return s; }
         |                ^
 2 errors, 0 warnings

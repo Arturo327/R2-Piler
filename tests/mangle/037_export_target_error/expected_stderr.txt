@@ -1,7 +1,0 @@
-export_target.r2:1:1: ERROR: expected 'fn', 'var' or 'arr' after 'export'
-      1 | export struct S { x : i64; }
-        | ^~~~~~
-export_target.r2:1:28: ERROR: expected expression
-      1 | export struct S { x : i64; }
-        |                            ^
-2 errors, 0 warnings

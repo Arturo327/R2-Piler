@@ -66,6 +66,7 @@ int sema_any_packable (TypeId type);
 void check_fn_dec (Sema *s, uint32_t idx);
 void check_extern_fn (Sema *s, uint32_t idx);
 void check_fn_defaults_all (Sema *s);
+void check_export_decls (Sema *s);
 
 void agg_declare (Sema *s, uint32_t sym_idx, uint32_t decl_idx);
 void agg_init_all (Sema *s, uint32_t sym_idx);

@@ -179,7 +179,7 @@ static int apply_module_name (Compiler *c)
 	return 0;
 }
 
-static int compile_ir (Compiler *c, CompilerOpts *opts, int dumping, R2i *r2i)
+static int compile_ir (Compiler *c, CompilerOpts *opts, int dumping, R2i *r2i, CHeader *header)
 {
 	if (apply_module_name(c)) return 1;
 
@@ -188,10 +188,18 @@ static int compile_ir (Compiler *c, CompilerOpts *opts, int dumping, R2i *r2i)
 	ir_gen(&c->ir);
 
 	memset(r2i, 0, sizeof *r2i);
+	memset(header, 0, sizeof *header);
 	if (!dumping && opts->r2i
 			&& r2i_generate(r2i, &c->ir, &c->sema, opts->path,
 					opts->r2i_dir)) {
 		r2i_free(r2i);
+		print_err_count(c);
+		return 1;
+	}
+	if (!dumping && opts->header
+			&& header_generate(header, &c->ir, &c->sema, opts->path, opts->header_dir)) {
+		r2i_free(r2i);
+		header_free(header);
 		print_err_count(c);
 		return 1;
 	}
@@ -214,13 +222,15 @@ static int compile_optimize (Compiler *c, CompilerOpts *opts)
 	return 0;
 }
 
-static int compile_backend (Compiler *c, R2i *r2i)
+static int compile_backend (Compiler *c, R2i *r2i, CHeader *header)
 {
 	print_err_count(c);
 	int status = codegen_run(&c->codegen);
 
 	if (!status && r2i->ready) status = r2i_write(r2i);
+	if (!status && header->ready) status = header_write(header);
 	r2i_free(r2i);
+	header_free(header);
 	return status;
 }
 
@@ -238,14 +248,15 @@ int compile (Compiler *c, CompilerOpts *opts)
 	if (stage != -1) return stage;
 
 	R2i r2i;
-	stage = compile_ir(c, opts, dumping, &r2i);
+	CHeader header;
+	stage = compile_ir(c, opts, dumping, &r2i, &header);
 	if (stage != -1) return stage;
 
 	release_frontend(c);
 	stage = compile_optimize(c, opts);
 	if (stage != -1) return stage;
 
-	return compile_backend(c, &r2i);
+	return compile_backend(c, &r2i, &header);
 }
 
 void compiler_destroy (Compiler *comp)
