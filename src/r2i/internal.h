@@ -7,6 +7,7 @@ void r2i_printf (R2i *r, const char *fmt, ...);
 void r2i_indent (R2i *r, int depth);
 
 void r2i_build_types (R2i *r);
+void r2i_collect_imports (R2i *r);
 void r2i_print_type (R2i *r, TypeId type);
 
 void r2i_make_decls (R2i *r);

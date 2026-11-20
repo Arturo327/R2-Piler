@@ -16,6 +16,8 @@ typedef struct R2i {
 	const char **type_syms;
 	uint16_t type_total;
 
+	uint8_t *import_used;
+
 	char *canon;
 	char *path;
 

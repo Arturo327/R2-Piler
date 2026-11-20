@@ -105,7 +105,8 @@ void r2i_make_decls (R2i *r)
 
 	for (uint32_t idx = ast->nodes[0].child; idx != NO_NODE;
 			idx = ast->nodes[idx].next_bro) {
-		if (ast->nodes[idx].flags & NODE_FLAG_PUB)
+		if ((ast->nodes[idx].flags & NODE_FLAG_PUB)
+				&& !(ast->nodes[idx].flags & NODE_FLAG_IMPORTED))
 			r2i_make_decl(r, ast->nodes + idx);
 	}
 }

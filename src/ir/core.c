@@ -120,6 +120,17 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select, const char *mod)
 	ir->static_count = sema->static_count;
 
 	ir->init_fn = 0;
+	ir->init_dep_count = 0;
+	ir->init_deps = arena_alloc(arena,
+			sizeof(uint32_t) * ((size_t)sema->module_count + 1u));
+	for (uint32_t i = 0; i < sema->module_count; i++) {
+		ImportModule *m = sema->modules + i;
+
+		if (!m->direct || !m->has_init || m->init_node == NO_NODE) continue;
+		uint32_t sym = sema->ast->nodes[m->init_node].sym;
+
+		if (sym != NO_SYMBOL) ir->init_deps[ir->init_dep_count++] = sym;
+	}
 	ir->reg_count = 0;
 	ir->label_count = 0;
 	ir->loops = NULL;
@@ -339,7 +350,8 @@ static uint32_t declare_fn (IR *ir, ASTNode *n, Symbol *sym)
 	else fn.ret_type = sym->type;
 
 	fn.param_count = param_slots(ir, n);
-	fn.is_extern = n->type == NODE_EXTERN_FN_DEC;
+	fn.is_extern = n->type == NODE_EXTERN_FN_DEC
+			|| (n->flags & NODE_FLAG_IMPORTED);
 	fn.is_pub = (n->flags & NODE_FLAG_PUB) != 0;
 	fn.sym = decl_symbol(ir, n, fn.is_extern, "pf", "f");
 	return push_fn(ir, fn);
@@ -351,7 +363,8 @@ static uint32_t declare_global (IR *ir, ASTNode *n, Symbol *sym)
 	global.name = n->str;
 	global.len = n->len;
 	global.type = sym->type;
-	global.is_extern = n->type == NODE_EXTERN_VAR_DEC;
+	global.is_extern = n->type == NODE_EXTERN_VAR_DEC
+			|| (n->flags & NODE_FLAG_IMPORTED);
 	global.is_pub = (n->flags & NODE_FLAG_PUB) != 0;
 	global.sym = decl_symbol(ir, n, global.is_extern, "pv", "v");
 	return push_global(ir, global);

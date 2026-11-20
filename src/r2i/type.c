@@ -29,7 +29,8 @@ void r2i_build_types (R2i *r)
 		ASTNode *n = ast->nodes + idx;
 		const char *kind = type_kind_sym(n);
 
-		if (!kind || n->sym == NO_SYMBOL) continue;
+		if (!kind || n->sym == NO_SYMBOL
+				|| (n->flags & NODE_FLAG_IMPORTED)) continue;
 		TypeId id = table->symbols[n->sym].type;
 
 		if (id == TYPE_ERROR || id >= type_count) continue;

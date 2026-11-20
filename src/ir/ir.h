@@ -125,6 +125,9 @@ typedef struct IR {
 
 	uint32_t init_fn;
 
+	uint32_t *init_deps;
+	uint32_t init_dep_count;
+
 	uint32_t *init_order;
 	uint32_t init_order_count;
 

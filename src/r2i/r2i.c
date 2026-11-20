@@ -186,9 +186,23 @@ static int check_owner (R2i *r)
 	return failed;
 }
 
+static void patch_init_flag (R2i *r)
+{
+	static const char key[] = "// has_dynamic_init: ";
+	size_t klen = sizeof key - 1;
+	char *at = strstr(r->code, key);
+
+	if (!at || (size_t)(at - r->code) + klen >= r->len) return;
+	char *digit = at + klen;
+
+	if (*digit != '0' && *digit != '1') return;
+	*digit = r->ir->fns[r->ir->init_fn].count > 1 ? '1' : '0';
+}
+
 int r2i_write (R2i *r)
 {
 	if (!r->ready) return 0;
+	patch_init_flag(r);
 	if (make_dirs(r->dir) || check_owner(r)) return 1;
 
 	FILE *f = fopen(r->path, "wb");
@@ -229,14 +243,24 @@ int r2i_generate (R2i *r, IR *ir, Sema *sema, const char *source, const char *di
 
 	if (build_path(r)) return 1;
 	r2i_build_types(r);
+	r2i_collect_imports(r);
 	r->cap = 1024;
 	r->code = malloc(r->cap);
 	if (!r->code) {
 		fprintf(stderr, "Not enough memory\n");
 		exit(1);
 	}
-	r2i_printf(r, "// r2i v1\n// source: %s\n// module: %s\n// has_dynamic_init: %d\n// imports:\n\n",
+	r2i_printf(r, "// r2i v1\n// source: %s\n// module: %s\n// has_dynamic_init: %d\n// imports:",
 			r->canon, ir->mod, has_init(ir));
+	int first = 1;
+	for (uint32_t i = 0; i < sema->module_count; i++) {
+		ImportModule *m = sema->modules + i;
+
+		if (!r->import_used || !r->import_used[i]) continue;
+		r2i_printf(r, "%s%.*s", first ? " " : ", ", (int)m->name_len, m->name);
+		first = 0;
+	}
+	r2i_printf(r, "\n\n");
 	r2i_make_decls(r);
 	r2i_make_init(r);
 	r->ready = 1;

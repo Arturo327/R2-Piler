@@ -580,6 +580,11 @@ static void gen_init_fn (IR *ir)
 	memset(ir->desc, 0xFF, sizeof(uint32_t) * ir->ast->count);
 	ir->fns[ir->init_fn].start = ir->instr_count;
 
+	for (uint32_t i = 0; i < ir->init_dep_count; i++) {
+		Symbol *sym = ir->symtab->symbols + ir->init_deps[i];
+
+		make_call(ir, sym->ir_id, 0, TYPE_VOID);
+	}
 	for (uint32_t i = 0; i < ir->static_count; i++)
 		gen_var_init(ir, ir->statics[i]);
 	for (uint32_t i = 0; i < ir->init_order_count; i++) {
@@ -599,7 +604,7 @@ static void gen_fns (IR *ir)
 	uint32_t idx = ir->ast->nodes[0].child;
 	while (idx != NO_NODE) {
 		ASTNode *n = ir->ast->nodes + idx;
-		if (n->type == NODE_FN_DEC)
+		if (n->type == NODE_FN_DEC && !(n->flags & NODE_FLAG_IMPORTED))
 			gen_fn(ir, n, ir->symtab->symbols[n->sym].ir_id);
 		idx = n->next_bro;
 	}
