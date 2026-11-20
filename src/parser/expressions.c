@@ -141,11 +141,15 @@ static uint32_t parse_call_args (Parser *p, uint32_t call)
 
 static uint32_t parse_id_or_call (Parser *p)
 {
-	uint16_t line = p->curr.line;
-	uint16_t col = p->curr.col;
-	char *name = p->curr.str;
-	uint16_t len = p->curr.len;
+	Token first = p->curr;
+	uint16_t line = first.line;
+	uint16_t col = first.col;
+	uint16_t len;
+	int ok;
+
 	advance(p);
+	char *name = qualify_name(p, first, &len, &ok);
+	(void)ok;
 
 	if (p->curr.type != TOK_LPAREN) {
 		uint32_t node = new_node(p, NODE_ID, line, col);

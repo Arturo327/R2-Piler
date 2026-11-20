@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "parser/common.h"
 
 #define MAX_PARSE_DEPTH 1000
@@ -23,6 +25,8 @@ void init_parser (Parser *parser, Lexer *lexer, Arena *arena, ErrorReporter *err
 	parser->lexer = lexer;
 	parser->panic_mode = 0;
 	parser->depth = 0;
+	parser->at_root = 0;
+	parser->r2i_mode = 0;
 
 	parser->ast.count = 0;
 	parser->ast.cap = 64;
@@ -40,6 +44,20 @@ void init_parser (Parser *parser, Lexer *lexer, Arena *arena, ErrorReporter *err
 		.type_node = NO_TYPE_NODE
 	};
 	(void)push_ast_node(parser, root);
+}
+
+void init_parser_shared (Parser *parser, Lexer *lexer, Arena *arena, ErrorReporter *err, AST *ast)
+{
+	parser->arena = arena;
+	parser->err = err;
+	parser->lexer = lexer;
+	parser->panic_mode = 0;
+	parser->depth = 0;
+	parser->at_root = 0;
+	parser->r2i_mode = 1;
+	parser->ast = *ast;
+	parser->prev.type = TOK_NONE;
+	parser->curr.type = TOK_NONE;
 }
 
 void advance (Parser *p)
@@ -66,7 +84,7 @@ static void syncro_advance (Parser *p)
 		case TOK_WHILE: case TOK_FOR: case TOK_RET:
 		case TOK_BREAK: case TOK_CONTINUE: case TOK_PUB: case TOK_EXPORT:
 		case TOK_SWITCH: case TOK_CASE: case TOK_DEFAULT:
-		case TOK_EXTERN: case TOK_RKEY:
+		case TOK_EXTERN: case TOK_IMPORT: case TOK_FROM: case TOK_RKEY:
 			return;
 
 		default: break;
@@ -157,12 +175,57 @@ void append_child (Parser *p, uint32_t parent, uint32_t *last, uint32_t child)
 	*last = child;
 }
 
+char *qualify_name (Parser *p, Token first, uint16_t *len, int *ok)
+{
+	*ok = 1;
+	if (p->curr.type != TOK_PATHSEP) {
+		*len = first.len;
+		return first.str;
+	}
+	advance(p);
+	if (!consume(p, TOK_ID, "expected an identifier after '::'")) {
+		*ok = 0;
+		*len = first.len;
+		return first.str;
+	}
+	Token second = p->prev;
+
+	if ((uint32_t)first.len + 2u + second.len > UINT16_MAX) {
+		error_report(p->err, ERR_ERROR, token_loc(first),
+				"qualified name is too long");
+		*ok = 0;
+		*len = first.len;
+		return first.str;
+	}
+	uint16_t total = (uint16_t)(first.len + 2u + second.len);
+	char *name = arena_alloc(p->arena, (size_t)total + 1);
+
+	memcpy(name, first.str, first.len);
+	name[first.len] = ':';
+	name[first.len + 1] = ':';
+	memcpy(name + first.len + 2, second.str, second.len);
+	name[total] = '\0';
+	*len = total;
+	return name;
+}
+
+static uint32_t root_last_child (AST *ast)
+{
+	uint32_t last = ast->nodes[0].child;
+
+	if (last == NO_NODE) return NO_NODE;
+	while (ast->nodes[last].next_bro != NO_NODE)
+		last = ast->nodes[last].next_bro;
+	return last;
+}
+
 void parse (Parser *p)
 {
 	advance(p);
 	if (p->curr.type == TOK_EOF) return;
 
-	uint32_t last = NO_NODE;
+	uint32_t last = root_last_child(&p->ast);
+	p->at_root = 1;
 	while (p->curr.type != TOK_EOF) {
 		Token start = p->curr;
 		uint32_t stmt = parse_statement(p);

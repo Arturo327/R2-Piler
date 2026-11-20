@@ -214,7 +214,11 @@ static TypeSpec *parse_type_spec (Parser *p, int allow_void, int bare_fn)
 	} else if (t.type == TOK_ID) {
 		advance(p);
 		ts = new_spec(p, TS_REF, t);
-		ts->str = t.str;
+		int ok;
+		uint16_t name_len;
+		ts->str = qualify_name(p, t, &name_len, &ok);
+		(void)ok;
+		ts->len = name_len;
 	} else {
 		if (!p->panic_mode) {
 			if (t.type == TOK_AND_A)

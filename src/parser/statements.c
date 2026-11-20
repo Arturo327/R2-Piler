@@ -971,7 +971,80 @@ static uint32_t parse_multi_assign (Parser *p, uint32_t first)
 	return node;
 }
 
-static uint32_t parse_statement_inner (Parser *p);
+static uint32_t parse_statement_inner (Parser *p, int root);
+
+static uint32_t parse_import (Parser *p, int root)
+{
+	Token kw = p->curr;
+
+	advance(p);
+	uint32_t node = new_node(p, NODE_IMPORT_DEC, kw.line, kw.col);
+
+	if (consume(p, TOK_ID, "expected a module name after 'import'")) {
+		p->ast.nodes[node].str = p->prev.str;
+		p->ast.nodes[node].len = p->prev.len;
+	}
+	if (p->curr.type == TOK_AS) {
+		advance(p);
+		uint32_t alias = new_node(p, NODE_ID, p->curr.line, p->curr.col);
+
+		if (consume(p, TOK_ID, "expected an alias after 'as'")) {
+			p->ast.nodes[alias].str = p->prev.str;
+			p->ast.nodes[alias].len = p->prev.len;
+		}
+		p->ast.nodes[node].child = alias;
+	}
+	consume(p, TOK_SEMCOL, "expected ';' after the import");
+	if (!root) error_report(p->err, ERR_ERROR, token_loc(kw),
+			"import declarations are only allowed at the top level");
+	return node;
+}
+
+static void parse_from_item (Parser *p, uint32_t from, uint32_t *last)
+{
+	uint32_t item = new_node(p, NODE_ID, p->curr.line, p->curr.col);
+
+	if (consume(p, TOK_ID, "expected a name to import")) {
+		p->ast.nodes[item].str = p->prev.str;
+		p->ast.nodes[item].len = p->prev.len;
+	}
+	if (p->curr.type == TOK_AS) {
+		advance(p);
+		uint32_t alias = new_node(p, NODE_ID, p->curr.line, p->curr.col);
+
+		if (consume(p, TOK_ID, "expected an alias after 'as'")) {
+			p->ast.nodes[alias].str = p->prev.str;
+			p->ast.nodes[alias].len = p->prev.len;
+		}
+		p->ast.nodes[item].child = alias;
+	}
+	append_child(p, from, last, item);
+}
+
+static uint32_t parse_from (Parser *p, int root)
+{
+	Token kw = p->curr;
+
+	advance(p);
+	uint32_t node = new_node(p, NODE_FROM_DEC, kw.line, kw.col);
+
+	if (consume(p, TOK_ID, "expected a module name after 'from'")) {
+		p->ast.nodes[node].str = p->prev.str;
+		p->ast.nodes[node].len = p->prev.len;
+	}
+	consume(p, TOK_IMPORT, "expected 'import' after the module name");
+	uint32_t last = NO_NODE;
+
+	while (1) {
+		parse_from_item(p, node, &last);
+		if (p->curr.type != TOK_COMMA || p->panic_mode) break;
+		advance(p);
+	}
+	consume(p, TOK_SEMCOL, "expected ';' after the import list");
+	if (!root) error_report(p->err, ERR_ERROR, token_loc(kw),
+			"import declarations are only allowed at the top level");
+	return node;
+}
 
 static int pub_target (TokenType type)
 {
@@ -993,7 +1066,7 @@ static uint32_t mark_visibility (Parser *p, uint32_t node, uint8_t flags)
 	return node;
 }
 
-static uint32_t parse_pub (Parser *p)
+static uint32_t parse_pub (Parser *p, int root)
 {
 	Token pub = p->curr;
 	const char *msg = "expected a declaration after 'pub'";
@@ -1011,10 +1084,10 @@ static uint32_t parse_pub (Parser *p)
 		p->panic_mode = 1;
 		return new_node(p, NODE_ERROR, pub.line, pub.col);
 	}
-	return mark_visibility(p, parse_statement_inner(p), NODE_FLAG_PUB);
+	return mark_visibility(p, parse_statement_inner(p, root), NODE_FLAG_PUB);
 }
 
-static uint32_t parse_export (Parser *p)
+static uint32_t parse_export (Parser *p, int root)
 {
 	Token exp = p->curr;
 	const char *msg = "expected 'fn', 'var' or 'arr' after 'export'";
@@ -1031,7 +1104,7 @@ static uint32_t parse_export (Parser *p)
 		p->panic_mode = 1;
 		return new_node(p, NODE_ERROR, exp.line, exp.col);
 	}
-	return mark_visibility(p, parse_statement_inner(p),
+	return mark_visibility(p, parse_statement_inner(p, root),
 			NODE_FLAG_PUB | NODE_FLAG_EXPORT);
 }
 
@@ -1058,15 +1131,17 @@ static uint32_t parse_module (Parser *p)
 	return node;
 }
 
-static uint32_t parse_statement_inner (Parser *p)
+static uint32_t parse_statement_inner (Parser *p, int root)
 {
 	switch (p->curr.type)
 	{
+	case TOK_IMPORT: return parse_import(p, root);
+	case TOK_FROM: return parse_from(p, root);
 	case TOK_VAR: return parse_decl(p, 0);
 	case TOK_STATIC: return parse_static_decl(p);
 	case TOK_MODULE: return parse_module(p);
-	case TOK_PUB: return parse_pub(p);
-	case TOK_EXPORT: return parse_export(p);
+	case TOK_PUB: return parse_pub(p, root);
+	case TOK_EXPORT: return parse_export(p, root);
 	case TOK_ARR: return parse_decl(p, 1);
 	case TOK_LKEY: return parse_block(p);
 	case TOK_FN: return parse_fn_decl(p);
@@ -1109,7 +1184,10 @@ uint32_t parse_statement (Parser *p)
 	if (!enter_depth(p, "expression or statement"))
 		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
 
-	uint32_t node = parse_statement_inner(p);
+	uint8_t root = p->at_root;
+	p->at_root = 0;
+	uint32_t node = parse_statement_inner(p, root);
 	p->depth--;
+	p->at_root = root;
 	return node;
 }

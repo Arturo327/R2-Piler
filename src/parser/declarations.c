@@ -125,12 +125,16 @@ uint32_t parse_fn_decl (Parser *p)
 
 	uint32_t args = parse_args_dec(p);
 	uint32_t ret = parse_ret_dec(p);
-	uint32_t body = parse_block(p);
+	uint32_t body = NO_NODE;
+
+	if (p->r2i_mode) {
+		consume(p, TOK_SEMCOL, "expected ';' after the imported function declaration");
+	} else body = parse_block(p);
 
 	uint32_t last = NO_NODE;
 	append_child(p, node, &last, args);
 	append_child(p, node, &last, ret);
-	append_child(p, node, &last, body);
+	if (body != NO_NODE) append_child(p, node, &last, body);
 	return node;
 }
 

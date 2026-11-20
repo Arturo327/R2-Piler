@@ -18,6 +18,7 @@
 #define NODE_FLAG_PAREN 1
 #define NODE_FLAG_EXPORT 64
 #define NODE_FLAG_PUB 128
+#define NODE_FLAG_IMPORTED 8
 #define NODE_FLAG_VARARG 1
 #define NODE_FLAG_VARARG_TYPED 2
 #define NODE_FLAG_VARARG_LOWERED 4
@@ -50,6 +51,7 @@ typedef enum {
 	NODE_ALIGNOF, NODE_OFFSETOF, NODE_SIZEOF, 				// layout queries
 	NODE_SPREAD, NODE_MODULE_DEC,						// variadics & modules
 	NODE_TYPE_FN, NODE_FN_PARAM,						// function pointer types
+	NODE_IMPORT_DEC, NODE_FROM_DEC,						// imported modules
 	NODE_COUNT
 } NodeType;
 
