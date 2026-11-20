@@ -4,6 +4,10 @@
 #include "sema/sema.h"
 
 ErrorLoc node_loc (ASTNode *n);
+uint32_t sema_lookup (Sema *s, const char *name, uint16_t len);
+TypeId sema_lookup_type (Sema *s, const char *name, uint16_t len);
+ImportedDecl *imports_lookup (Sema *s, const char *name, uint16_t len);
+void imports_check_collisions (Sema *s);
 TypeId resolve_type_node (Sema *s, ASTNode *n);
 TypeId resolve_type_spec (Sema *s, ASTNode *owner, uint8_t *done, int *deferred);
 void resolve_fn_types (Sema *s, uint32_t idx);

@@ -22,6 +22,7 @@ static void print_help (const char *build)
 	printf("    -h|--help               Shows this message.\n");
 	printf("    -o|--out FILE           Output assembly path (default: <source>.s). '-' for stdout\n");
 	printf("    -m|--modules-dir DIR    Directory for generated .r2i files (default: modules)\n");
+	printf("    -p|--path DIR           Extra directory to search for imported .r2i files (repeatable)\n");
 	printf("    -n|--no-r2i             Do not generate the .r2i interface file\n");
 	printf("    -a|--arch ARCH          Indicates the architecture. Default: x86-64.\n");
 	printf("    -e|--execute            Runs the program with the interpreter instead of generating assembly (not implemented yet).\n");
@@ -47,6 +48,7 @@ static const ArchAlias arch_aliases[] = {
 static const struct option long_options[] = {
 	{"out", required_argument, 0, 'o'},
 	{"modules-dir", required_argument, 0, 'm'},
+	{"path", required_argument, 0, 'p'},
 	{"no-r2i", no_argument, 0, 'n'},
 	{"help", no_argument, 0, 'h'},
 	{"version", no_argument, 0, 'v'},
@@ -146,9 +148,11 @@ static CompilerOpts parse_args (int argc, char *argv[])
 	int opt;
 	int interp = 0;
 	int opt_spec = 0;
+	const char **paths = NULL;
+	int path_count = 0;
 
 	opterr = 0;
-	const char *short_opts = ":TIASDO::o:m:na:ehv";
+	const char *short_opts = ":TIASDO::o:m:p:na:ehv";
 	while ((opt = getopt_long(argc, argv, short_opts, long_options, NULL)) != -1) {
 		switch (opt)
 		{
@@ -160,6 +164,21 @@ static CompilerOpts parse_args (int argc, char *argv[])
 			}
 			args.r2i_dir = optarg;
 			break;
+		case 'p': {
+			if (!optarg[0]) {
+				fprintf(stderr, "Error: --path cannot be empty\n");
+				exit(1);
+			}
+			const char **grown = realloc(paths, sizeof(char *) * (size_t)(path_count + 1));
+
+			if (!grown) {
+				fprintf(stderr, "Not enough memory\n");
+				exit(1);
+			}
+			grown[path_count++] = optarg;
+			paths = grown;
+			break;
+		}
 		case 'n': args.r2i = 0; break;
 		case 'a': args.arch = get_arch(optarg); break;
 		case 'e': interp = 1; break;
@@ -186,6 +205,8 @@ static CompilerOpts parse_args (int argc, char *argv[])
 	resolve_paths(&args, argc, argv);
 	if (interp) args.arch = ARCH_INTERP;
 	if (args.dump_opt && !opt_spec) args.opt_level = OPT_FULL;
+	args.import_paths = paths;
+	args.import_path_count = path_count;
 	return args;
 }
 

@@ -28,7 +28,7 @@ static int ptr_base_ok (TypeId base)
 
 static TypeId resolve_type_ref (Sema *s, ASTNode *ref, uint8_t *done, int *deferred)
 {
-	TypeId id = find_type(ref->str, ref->len);
+	TypeId id = sema_lookup_type(s, ref->str, ref->len);
 
 	if (id == TYPE_ERROR) {
 		error_report(s->err, ERR_ERROR, node_loc(ref),
@@ -398,6 +398,15 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->mod_name = NULL;
 	s->mod_len = 0;
 	s->mod_seen = 0;
+	s->modules = NULL;
+	s->module_count = 0;
+	s->module_cap = 0;
+	s->aliases = NULL;
+	s->alias_count = 0;
+	s->alias_cap = 0;
+	s->bindings = NULL;
+	s->binding_count = 0;
+	s->binding_cap = 0;
 	s->flag_stack = NULL;
 	s->flag_cap = 0;
 	s->flag_top = 0;
@@ -416,7 +425,9 @@ static const char *reserved_prefix (char *name, uint16_t len)
 
 static void check_reserved_name (Sema *s, char *name, uint16_t len, uint32_t decl_node)
 {
-	const char *prefix = s->depth == 0 ? reserved_prefix(name, len) : NULL;
+	const char *prefix = s->depth == 0
+			&& !(s->ast->nodes[decl_node].flags & NODE_FLAG_IMPORTED)
+			? reserved_prefix(name, len) : NULL;
 
 	if (!prefix) return;
 	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + decl_node),
@@ -452,8 +463,9 @@ uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 	int aggregate = decl->data_type != TYPE_ERROR
 			&& type_is_aggregate(decl->data_type);
 
-	if (kind == SYMBOL_PARAM || (kind == SYMBOL_VAR && (decl->child != NO_NODE 
-			|| decl->type == NODE_EXTERN_VAR_DEC || aggregate)))
+	if (kind == SYMBOL_PARAM || (kind == SYMBOL_VAR && (decl->child != NO_NODE
+			|| decl->type == NODE_EXTERN_VAR_DEC || aggregate
+			|| (decl->flags & NODE_FLAG_IMPORTED))))
 		sym.assigned = 1;
 
 	uint32_t sym_idx = symtab_declare(&s->table, s->arena, sym);
@@ -1286,7 +1298,8 @@ static void check_root (Sema *s)
 		else if (n->type == NODE_MODULE_DEC) check_module_decl(s, n);
 		else if (n->type != NODE_ENUM_DEC && n->type != NODE_TYPE_DEC
 				&& n->type != NODE_NEWTYPE_DEC && n->type != NODE_EXTERN_VAR_DEC
-				&& n->type != NODE_STRUCT_DEC)
+				&& n->type != NODE_STRUCT_DEC && n->type != NODE_IMPORT_DEC
+				&& n->type != NODE_FROM_DEC)
 			error_report(s->err, ERR_ERROR, node_loc(n),
 					"only variable, function, enum and type declarations are allowed at the top level");
 		idx = n->next_bro;
@@ -1645,6 +1658,7 @@ void sema_run (Sema *s)
 	sema_layout_structs(s);
 	decl_globals(s);
 	bind_enums(s);
+	imports_check_collisions(s);
 
 	check_fn_defaults_all(s);
 	check_root(s);

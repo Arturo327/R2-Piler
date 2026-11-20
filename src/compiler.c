@@ -152,6 +152,10 @@ static int compile_parse (Compiler *c, CompilerOpts *opts)
 
 static int compile_sema (Compiler *c, CompilerOpts *opts)
 {
+	if (imports_load(c, opts)) {
+		print_err_count(c);
+		return 1;
+	}
 	sema_run(&c->sema);
 
 	if (opts->dump_symbols) {

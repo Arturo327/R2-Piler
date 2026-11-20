@@ -47,7 +47,7 @@ static TypeId check_init_ref (Sema *s, uint32_t idx, uint32_t sym_idx)
 TypeId check_var_ref (Sema *s, uint32_t idx, int init_refs)
 {
 	ASTNode *n = s->ast->nodes + idx;
-	uint32_t sym_idx = symtab_find(&s->table, n->str, n->len);
+	uint32_t sym_idx = sema_lookup(s, n->str, n->len);
 
 	if (sym_idx == NO_SYMBOL) {
 		error_report(s->err, ERR_ERROR, node_loc(n), "'%.*s' is not declared",
@@ -341,7 +341,7 @@ TypeId check_assign (Sema *s, uint32_t idx)
 	if (left_kind == NODE_DOT) {
 		ASTNode *dot_left = s->ast->nodes + s->ast->nodes[left].child;
 		if (dot_left->type == NODE_ID) {
-			uint32_t sym_idx = symtab_find(&s->table, dot_left->str, dot_left->len);
+			uint32_t sym_idx = sema_lookup(s, dot_left->str, dot_left->len);
 			if (sym_idx != NO_SYMBOL) {
 				TypeId ct = s->table.symbols[sym_idx].type;
 				if (type_kind(ct) == TK_ARRAY || type_kind(ct) == TK_SLICE) {
@@ -452,7 +452,7 @@ static int reject_compound_dot_array_slice (Sema *s, uint32_t idx, uint32_t left
 {
 	ASTNode *dot_left = s->ast->nodes + s->ast->nodes[left].child;
 	if (dot_left->type != NODE_ID) return 0;
-	uint32_t sym_idx = symtab_find(&s->table, dot_left->str, dot_left->len);
+	uint32_t sym_idx = sema_lookup(s, dot_left->str, dot_left->len);
 	if (sym_idx == NO_SYMBOL) return 0;
 	TypeId ct = s->table.symbols[sym_idx].type;
 	if (type_kind(ct) != TK_ARRAY && type_kind(ct) != TK_SLICE) return 0;
@@ -806,7 +806,7 @@ void check_inc_dec (Sema *s, uint32_t idx)
 	if (target_kind == NODE_DOT) {
 		ASTNode *dot_left = s->ast->nodes + s->ast->nodes[target].child;
 		if (dot_left->type == NODE_ID) {
-			uint32_t sym_idx = symtab_find(&s->table, dot_left->str, dot_left->len);
+			uint32_t sym_idx = sema_lookup(s, dot_left->str, dot_left->len);
 			if (sym_idx != NO_SYMBOL) {
 				TypeId ct = s->table.symbols[sym_idx].type;
 				if (type_kind(ct) == TK_ARRAY || type_kind(ct) == TK_SLICE) {

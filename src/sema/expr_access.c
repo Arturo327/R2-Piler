@@ -44,7 +44,7 @@ static void info_from_type (OperandInfo *info, TypeId type)
 
 static int operand_named_info (Sema *s, ASTNode *n, OperandInfo *info, const char *op)
 {
-	uint32_t sym_idx = symtab_find(&s->table, n->str, n->len);
+	uint32_t sym_idx = sema_lookup(s, n->str, n->len);
 
 	if (sym_idx == NO_SYMBOL) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
@@ -141,7 +141,7 @@ static int operand_index_info (Sema *s, ASTNode *n, OperandInfo *info, const cha
 	ASTNode *child = s->ast->nodes + n->child;
 
 	if (child->type == NODE_ID) {
-		uint32_t sym_idx = symtab_find(&s->table, child->str, child->len);
+		uint32_t sym_idx = sema_lookup(s, child->str, child->len);
 		Symbol *sym = sym_idx == NO_SYMBOL ? 0 : s->table.symbols + sym_idx;
 
 		if (sym && (sym->kind == SYMBOL_TYPE || sym->kind == SYMBOL_ENUM)) {
@@ -1080,7 +1080,7 @@ TypeId check_fn_call (Sema *s, uint32_t idx)
 	ASTNode *n = s->ast->nodes + idx;
 
 	if (n->flags & NODE_FLAG_INDIRECT) return check_indirect_call(s, idx);
-	uint32_t sym_idx = symtab_find(&s->table, n->str, n->len);
+	uint32_t sym_idx = sema_lookup(s, n->str, n->len);
 
 	if (sym_idx != NO_SYMBOL && value_is_fn_ptr(s, sym_idx)) {
 		uint32_t callee = sema_make_id(s, s->ast->nodes + idx);
@@ -1296,7 +1296,7 @@ TypeId check_dot (Sema *s, uint32_t idx)
 
 	if (left->type != NODE_ID) return check_dot_value(s, idx);
 
-	uint32_t sym_idx = symtab_find(&s->table, left->str, left->len);
+	uint32_t sym_idx = sema_lookup(s, left->str, left->len);
 	if (sym_idx == NO_SYMBOL) {
 		error_report(s->err, ERR_ERROR, node_loc(left),
 				"'%.*s' is not declared", (int)left->len, left->str);

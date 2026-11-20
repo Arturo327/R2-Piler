@@ -482,6 +482,11 @@ void check_fn_defaults_all (Sema *s)
 void check_fn_dec (Sema *s, uint32_t idx)
 {
 	resolve_fn_types(s, idx);
+	if (s->ast->nodes[idx].flags & NODE_FLAG_IMPORTED) {
+		check_signature_types(s, idx, 0);
+		check_export_fn(s, idx);
+		return;
+	}
 	check_signature_types(s, idx, 0);
 	check_export_fn(s, idx);
 	check_main_signature(s, idx);

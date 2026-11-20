@@ -16,6 +16,8 @@ typedef struct CompilerOpts {
 	char *path;
 	char *out;
 	const char *r2i_dir;
+	const char **import_paths;
+	int import_path_count;
 	Arch arch;
 	OptLevel opt_level;
 

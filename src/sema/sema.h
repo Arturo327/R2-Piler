@@ -5,6 +5,7 @@
 
 #include "arena/arena.h"
 #include "error/error.h"
+#include "imports/imports.h"
 #include "parser/ast.h"
 #include "sema/symbol.h"
 
@@ -63,6 +64,16 @@ typedef struct Sema {
 	const char *mod_name;
 	uint16_t mod_len;
 	uint8_t mod_seen;
+
+	ImportModule *modules;
+	uint32_t module_count;
+	uint32_t module_cap;
+	ImportAlias *aliases;
+	uint32_t alias_count;
+	uint32_t alias_cap;
+	ImportBinding *bindings;
+	uint32_t binding_count;
+	uint32_t binding_cap;
 
 	uint8_t *flag_stack;
 	uint32_t flag_cap;
