@@ -37,6 +37,7 @@ typedef enum {
 
 	TOK_PTR, TOK_NULL, TOK_SIZEOF, TOK_AT, TOK_DOLLAR,			// Pointers
 	TOK_PACKED, TOK_ALIGNOF, TOK_OFFSETOF,					// layout
+	TOK_IMPORT, TOK_FROM, TOK_PATHSEP,					// modules
 	TOK_COUNT
 } TokenType;
 
@@ -59,6 +60,7 @@ typedef struct Lexer {
 	int line;
 	ErrorReporter *err;
 	Arena *arena;
+	uint8_t r2i_mode;
 } Lexer;
 
 void init_lexer (Lexer *lexer, char *src, Arena *arena, ErrorReporter *err);

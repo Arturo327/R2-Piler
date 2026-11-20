@@ -12,6 +12,7 @@ void init_lexer (Lexer *lexer, char *src, Arena *arena, ErrorReporter *err)
 	lexer->line_start = src;
 	lexer->arena = arena;
 	lexer->err = err;
+	lexer->r2i_mode = 0;
 }
 
 static inline ErrorLoc loc_here (Lexer *l)
@@ -214,7 +215,31 @@ static Token handle_num_literal (Lexer *l)
 	return token;
 }
 
-static int decode_escape (ErrorReporter *err, char c, char *out, ErrorLoc loc)
+static int hex_digit (char c)
+{
+	if (c >= '0' && c <= '9') return c - '0';
+	if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+	if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+	return -1;
+}
+
+static int decode_hex_escape (Lexer *l, char *out, ErrorLoc loc)
+{
+	int hi = hex_digit(l->cursor[0]);
+	int lo = l->cursor[0] ? hex_digit(l->cursor[1]) : -1;
+
+	if (hi < 0 || lo < 0) {
+		error_report(l->err, ERR_ERROR, loc,
+				"escape sequence '\\x' needs two hexadecimal digits");
+		*out = 0;
+		return 0;
+	}
+	*out = (char)((hi << 4) | lo);
+	l->cursor += 2;
+	return 1;
+}
+
+static int decode_escape (Lexer *l, char c, char *out, ErrorLoc loc)
 {
 	switch (c)
 	{
@@ -222,14 +247,14 @@ static int decode_escape (ErrorReporter *err, char c, char *out, ErrorLoc loc)
 	case 't':  *out = '\t'; break;
 	case 'r':  *out = '\r'; break;
 	case '0':  *out = '\0'; break;
+	case 'x':  return decode_hex_escape(l, out, loc);
 	case '\\': *out = '\\'; break;
 	case '\'': *out = '\''; break;
 	case '"':  *out = '"'; break;
 	default:
 		if (isprint((unsigned char)c))
-			error_report(err, ERR_ERROR, loc, "unknown escape sequence '\\%c'", c);
-		else
-			error_report(err, ERR_ERROR, loc, "unknown escape sequence '\\x%02X'", (unsigned char)c);
+			error_report(l->err, ERR_ERROR, loc, "unknown escape sequence '\\%c'", c);
+		else error_report(l->err, ERR_ERROR, loc, "unknown escape sequence '\\x%02X'", (unsigned char)c);
 		*out = c;
 		return 0;
 	}
@@ -283,7 +308,7 @@ static Token string_literal_decode (Lexer *l, char *end, int start_line, int sta
 		}
 
 		char decoded;
-		if (!decode_escape(l->err, escaped, &decoded, loc)) {
+		if (!decode_escape(l, escaped, &decoded, loc)) {
 			track_continuation_lines(l, l->cursor, end);
 			return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
 		}
@@ -337,8 +362,12 @@ static char handle_char_literal_next_char (Lexer *l, char *chr)
 			error_report(l->err, ERR_ERROR, loc_here(l), "incomplete escape sequence");
 			return 0;
 		}
-		if (!decode_escape(l->err, *l->cursor, &c, loc_at(l->line, (int)(l->cursor - l->line_start), 2)))
+		char esc = *l->cursor++;
+		if (!decode_escape(l, esc, &c,
+				loc_at(l->line, (int)(l->cursor - l->line_start) - 1, 2)))
 			return 0;
+		*chr = c;
+		return 1;
 	}
 	l->cursor++;
 	*chr = c;
@@ -442,6 +471,7 @@ static const Keyword keywords[] = {
 	KW("elif", TOK_ELIF),
 	KW("else", TOK_ELSE),
 	KW("enum", TOK_ENUM),
+	KW("from", TOK_FROM),
 	KW("type", TOK_TYPE),
 	KW("void", TOK_VOID),
 	KW("break", TOK_BREAK),
@@ -449,6 +479,7 @@ static const Keyword keywords[] = {
 	KW("while", TOK_WHILE),
 	KW("export", TOK_EXPORT),
 	KW("extern", TOK_EXTERN),
+	KW("import", TOK_IMPORT),
 	KW("module", TOK_MODULE),
 	KW("packed", TOK_PACKED),
 	KW("return", TOK_RET),
@@ -509,7 +540,8 @@ static const TwoCharOp two_char_ops[] = {
 	{'*', '=', TOK_STAR_ASSIGN}, {'/', '=', TOK_SLASH_ASSIGN},
 	{'%', '=', TOK_PERCENT_ASSIGN}, {'&', '=', TOK_AND_A_ASSIGN},
 	{'|', '=', TOK_OR_A_ASSIGN}, {'^', '=', TOK_XOR_ASSIGN},
-	{'+', '+', TOK_INC}, {'-', '-', TOK_DEC}
+	{'+', '+', TOK_INC}, {'-', '-', TOK_DEC},
+	{':', ':', TOK_PATHSEP}
 };
 
 static const uint8_t one_char_ops[256] = {
@@ -573,7 +605,9 @@ Token get_token (Lexer *l)
 	if (isalpha((unsigned char)c) || c == '_') {
 		int start_col = (int)(l->cursor - l->line_start) + 1;
 		char *start = l->cursor++;
-		while (isalnum((unsigned char)*l->cursor) || *l->cursor == '_') l->cursor++;
+		while (isalnum((unsigned char)*l->cursor) || *l->cursor == '_'
+				|| (l->r2i_mode && (*l->cursor == '.' || *l->cursor == '$')))
+			l->cursor++;
 		size_t length = l->cursor - start;
 
 		if (length > UINT16_MAX) {
@@ -614,7 +648,8 @@ static const char *const token_names[TOK_COUNT] = {
 	TN(TOK_AND_A_ASSIGN), TN(TOK_OR_A_ASSIGN), TN(TOK_XOR_ASSIGN),
 	TN(TOK_LS_ASSIGN), TN(TOK_RS_ASSIGN),
 	TN(TOK_PTR), TN(TOK_NULL), TN(TOK_SIZEOF), TN(TOK_AT), TN(TOK_DOLLAR),
-	TN(TOK_PACKED), TN(TOK_ALIGNOF), TN(TOK_OFFSETOF), TN(TOK_PUB)
+	TN(TOK_PACKED), TN(TOK_ALIGNOF), TN(TOK_OFFSETOF), TN(TOK_PUB),
+	TN(TOK_IMPORT), TN(TOK_FROM), TN(TOK_PATHSEP)
 };
 
 static const char *token_type_to_string (TokenType type)
