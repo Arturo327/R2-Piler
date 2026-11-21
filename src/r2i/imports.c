@@ -2,48 +2,56 @@
 
 #include <string.h>
 
-static int type_module (R2i *r, TypeId id)
+static void build_mod_maps (R2i *r)
 {
 	Sema *s = r->sema;
 	AST *ast = r->ir->ast;
-	SymbolTable *table = r->ir->symtab;
+	uint32_t nodes = ast->count ? ast->count : 1;
+
+	r->node_mod = arena_alloc(s->arena, sizeof(int32_t) * nodes);
+	r->type_mod = arena_alloc(s->arena, sizeof(int32_t) * type_count);
+	for (uint32_t i = 0; i < nodes; i++) r->node_mod[i] = -1;
+	for (TypeId id = 0; id < type_count; id++) r->type_mod[id] = -1;
 
 	for (uint32_t m = 0; m < s->module_count; m++) {
 		ImportModule *mod = s->modules + m;
 
 		for (uint16_t i = 0; i < mod->item_count; i++) {
 			uint32_t node = mod->items[i].node;
-			uint8_t type = ast->nodes[node].type;
+			ASTNode *n = ast->nodes + node;
+			uint8_t kind = n->type;
 
-			if (type != NODE_STRUCT_DEC && type != NODE_ENUM_DEC
-					&& type != NODE_TYPE_DEC && type != NODE_NEWTYPE_DEC)
+			if (node < nodes) r->node_mod[node] = (int32_t)m;
+			if (kind != NODE_STRUCT_DEC && kind != NODE_ENUM_DEC
+					&& kind != NODE_TYPE_DEC && kind != NODE_NEWTYPE_DEC)
 				continue;
-			uint32_t sym = ast->nodes[node].sym;
+			uint32_t sym = n->sym;
 
-			if (sym != NO_SYMBOL && table->symbols[sym].type == id)
-				return (int)m;
+			if (sym != NO_SYMBOL) {
+				TypeId id = r->ir->symtab->symbols[sym].type;
+
+				if (id != TYPE_ERROR && id < type_count)
+					r->type_mod[id] = (int32_t)m;
+			}
 		}
 	}
-	return -1;
+}
+
+static int type_module (R2i *r, TypeId id)
+{
+	if (id >= type_count) return -1;
+	return r->type_mod[id];
 }
 
 static void mark_symbol (R2i *r, uint32_t sym_idx)
 {
-	Sema *s = r->sema;
-
 	if (sym_idx == NO_SYMBOL) return;
-	uint32_t decl = s->table.symbols[sym_idx].decl;
+	uint32_t decl = r->sema->table.symbols[sym_idx].decl;
 
-	if (decl == NO_NODE) return;
-	for (uint32_t m = 0; m < s->module_count; m++) {
-		ImportModule *mod = s->modules + m;
+	if (decl == NO_NODE || decl >= r->ir->ast->count) return;
+	int32_t m = r->node_mod[decl];
 
-		for (uint16_t i = 0; i < mod->item_count; i++)
-			if (mod->items[i].node == decl) {
-				r->import_used[m] = 1;
-				return;
-			}
-	}
+	if (m >= 0) r->import_used[m] = 1;
 }
 
 static void mark_type (R2i *r, TypeId id, uint8_t *seen)
@@ -145,6 +153,7 @@ void r2i_collect_imports (R2i *r)
 	AST *ast = r->ir->ast;
 
 	if (!s->module_count) return;
+	build_mod_maps(r);
 	r->import_used = arena_alloc(s->arena, (size_t)s->module_count + 1u);
 	memset(r->import_used, 0, (size_t)s->module_count + 1u);
 	uint8_t *seen = arena_alloc(s->arena, (size_t)type_count + 1u);

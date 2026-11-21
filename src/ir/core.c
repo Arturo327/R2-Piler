@@ -112,6 +112,7 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select, const char *mod)
 {
 	ir->arena = arena;
 	ir->mod = mod ? mod : "";
+	ir->target = "";
 	ir->ast = sema->ast;
 	ir->symtab = &sema->table;
 	ir->init_order = sema->init_order;

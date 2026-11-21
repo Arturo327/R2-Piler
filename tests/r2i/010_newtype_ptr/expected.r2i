@@ -1,5 +1,6 @@
 // r2i v1
 // source: $ROOT/a.r2
+// target: x86-64-sysv
 // module: 2np
 // has_dynamic_init: 0
 // imports:

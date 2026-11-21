@@ -185,6 +185,7 @@ static int compile_ir (Compiler *c, CompilerOpts *opts, int dumping, R2i *r2i, C
 
 	ir_init(&c->ir, &c->ir_arena, &c->sema,
 			opts->opt_level == OPT_FULL && !opts->dump_ir, c->mod);
+	c->ir.target = c->codegen.target;
 	ir_gen(&c->ir);
 
 	memset(r2i, 0, sizeof(*r2i));

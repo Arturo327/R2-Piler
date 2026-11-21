@@ -1,5 +1,7 @@
 #include "r2i/internal.h"
 
+#include "sema/common.h"
+
 static void r2i_print_escaped (R2i *r, unsigned char c, char quote)
 {
 	switch (c)
@@ -138,6 +140,11 @@ void r2i_print_expr (R2i *r, uint32_t idx)
 		r2i_print_init_list(r, n->child); return;
 	case NODE_FIELD_INIT: r2i_print_field_init(r, n); return;
 	case NODE_INDEX_INIT: r2i_print_index_init(r, n); return;
-	default: r2i_printf(r, "0"); return;
+	default:
+		r2i_printf(r, "0");
+		r->failed = 1;
+		error_report(r->sema->err, ERR_ERROR, node_loc(n),
+				"cannot write this expression in a .r2i default argument");
+		return;
 	}
 }

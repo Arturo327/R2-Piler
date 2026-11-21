@@ -22,6 +22,7 @@ struct CodeGen {
 	IR *ir;
 	Arena *arena;
 	const char *out;
+	const char *target;
 
 	char *code;
 	size_t len;

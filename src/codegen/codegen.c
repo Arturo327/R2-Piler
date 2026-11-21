@@ -12,14 +12,15 @@
 
 typedef struct Backend {
 	const char *name;
+	const char *target;
 	int (*generate) (CodeGen *c);
 } Backend;
 
 static const Backend backends[ARCH_COUNT] = {
-	[ARCH_X86_64] = { "x86-64", gen_x86_64 },
-	[ARCH_ARM] = { "ARM", NULL },
-	[ARCH_RISCV] = { "RISC-V", NULL },
-	[ARCH_INTERP] = { "interpreter", NULL }
+	[ARCH_X86_64] = { "x86-64", "x86-64-sysv", gen_x86_64 },
+	[ARCH_ARM] = { "ARM", "arm-aapcs", NULL },
+	[ARCH_RISCV] = { "RISC-V", "riscv64-lp64", NULL },
+	[ARCH_INTERP] = { "interpreter", "interpreter", NULL }
 };
 
 int init_codegen (CodeGen *codegen, Arch arch, Arena *arena, IR *ir, const char *out, OptLevel level)
@@ -33,6 +34,7 @@ int init_codegen (CodeGen *codegen, Arch arch, Arena *arena, IR *ir, const char 
 	codegen->arena = arena;
 	codegen->ir = ir;
 	codegen->out = out;
+	codegen->target = b->target;
 	codegen->opt_level = level;
 	codegen->generate = b->generate;
 	codegen->len = 0;

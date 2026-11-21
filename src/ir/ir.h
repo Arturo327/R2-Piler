@@ -176,6 +176,7 @@ typedef struct IR {
 
 	Arena *arena;
 	const char *mod;
+	const char *target;
 	AST *ast;
 	SymbolTable *symtab;
 } IR;

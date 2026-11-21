@@ -298,19 +298,31 @@ int r2i_write (R2i *r)
 	if (r2i_make_dirs(r->dir) || r2i_make_parent(r->path)
 			|| r2i_check_owner(r->path, r->canon)) return 1;
 
-	FILE *f = fopen(r->path, "wb");
+	size_t len = strlen(r->path);
+	char *tmp = malloc(len + 5);
+
+	if (!tmp) {
+		fprintf(stderr, "Not enough memory\n");
+		exit(1);
+	}
+	memcpy(tmp, r->path, len);
+	memcpy(tmp + len, ".tmp", 5);
+	FILE *f = fopen(tmp, "wb");
 	if (!f) {
 		fprintf(stderr, "Error: could not open '%s' for writing: %s\n",
 				r->path, strerror(errno));
+		free(tmp);
 		return 1;
 	}
 	int failed = fwrite(r->code, 1, r->len, f) != r->len;
 
 	if (fclose(f) != 0) failed = 1;
+	if (!failed && rename(tmp, r->path) != 0) failed = 1;
 	if (failed) {
 		fprintf(stderr, "Error: could not write '%s'\n", r->path);
-		remove(r->path);
+		remove(tmp);
 	}
+	free(tmp);
 	return failed;
 }
 
@@ -363,8 +375,9 @@ int r2i_generate (R2i *r, IR *ir, Sema *sema, const char *source, const char *di
 		fprintf(stderr, "Not enough memory\n");
 		exit(1);
 	}
-	r2i_printf(r, "// r2i v1\n// source: %s\n// module: %s\n// has_dynamic_init: %d\n// imports:",
-			r->canon, ir->mod, has_init(ir));
+	r2i_printf(r, "// r2i v1\n// source: %s\n// target: %s\n// module: %s\n"
+			"// has_dynamic_init: %d\n// imports:",
+			r->canon, ir->target, ir->mod, has_init(ir));
 	int first = 1;
 	for (uint32_t i = 0; i < sema->module_count; i++) {
 		ImportModule *m = sema->modules + i;
@@ -378,7 +391,7 @@ int r2i_generate (R2i *r, IR *ir, Sema *sema, const char *source, const char *di
 	r2i_make_decls(r);
 	r2i_make_init(r);
 	r->ready = 1;
-	return 0;
+	return r->failed;
 }
 
 void r2i_free (R2i *r)

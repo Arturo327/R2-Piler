@@ -17,6 +17,8 @@ typedef struct R2i {
 	uint16_t type_total;
 
 	uint8_t *import_used;
+	int32_t *type_mod;
+	int32_t *node_mod;
 
 	char *canon;
 	char *path;
@@ -26,6 +28,7 @@ typedef struct R2i {
 	size_t cap;
 
 	uint8_t ready;
+	uint8_t failed;
 } R2i;
 
 int r2i_valid_name (const char *name, size_t len);
