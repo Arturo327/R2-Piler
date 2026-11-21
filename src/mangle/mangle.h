@@ -1,6 +1,7 @@
 #ifndef MANGLE_H
 #define MANGLE_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "arena/arena.h"
@@ -15,6 +16,7 @@ typedef struct MangleName {
 	uint16_t blen;
 } MangleName;
 
+int mangle_module_relative (const char *path, char *out, size_t cap);
 int mangle_module (Arena *arena, const char *path, const char **out);
 int mangle_module_name (Arena *arena, const char *name, uint16_t len, const char **out);
 char *mangle_symbol (Arena *arena, const MangleName *m);

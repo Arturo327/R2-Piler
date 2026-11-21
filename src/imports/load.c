@@ -1,3 +1,4 @@
+#include <dirent.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,11 +26,33 @@ typedef struct ImportRequest {
 	uint16_t len;
 	const char *alias;
 	uint16_t alias_len;
+	const char *path;
 	uint32_t use;
 	int direct;
 } ImportRequest;
 
+typedef struct FolderEntry {
+	const char *name;
+	uint8_t is_dir;
+} FolderEntry;
+
+typedef struct ModName {
+	const char *str;
+	uint16_t len;
+} ModName;
+
+typedef struct FolderLoad {
+	ModName canon;
+	ModName alias;
+	uint32_t use;
+	int depth;
+} FolderLoad;
+
+#define FOLDER_MAX_DEPTH 32
+
 static uint32_t load_module (ImportLoader *l, const ImportRequest *req);
+static uint32_t load_path (ImportLoader *l, const ImportRequest *req);
+static void load_folder (ImportLoader *l, const char *path, const FolderLoad *fl);
 
 uint32_t import_find_module (Sema *s, const char *name, uint16_t len)
 {
@@ -70,33 +93,89 @@ static char *source_dir (Arena *a, const char *path)
 	return dir;
 }
 
-static char *path_join (Arena *a, const char *dir, const char *name, uint16_t len)
-{
-	size_t dlen = strlen(dir);
-	int slash = dlen && dir[dlen - 1] == '/';
-	size_t total = dlen + (slash ? 0 : 1) + len + 4;
-	char *out = arena_alloc(a, total + 1);
-
-	snprintf(out, total + 1, "%s%s%.*s.r2i", dir, slash ? "" : "/", (int)len, name);
-	return out;
-}
-
-static const char *find_module_file (ImportLoader *l, const char *name, uint16_t len)
+static const char **search_dirs (ImportLoader *l, uint32_t *count)
 {
 	Arena *a = &l->c->arena;
 	const CompilerOpts *o = l->opts;
-	uint32_t count = 2u + (uint32_t)o->import_path_count;
-	const char **dirs = arena_alloc(a, sizeof(char *) * count);
+	uint32_t total = 2u + (uint32_t)o->import_path_count;
+	const char **dirs = arena_alloc(a, sizeof(char *) * total);
 	uint32_t n = 0;
 
 	dirs[n++] = source_dir(a, o->path);
 	dirs[n++] = o->r2i_dir ? o->r2i_dir : "modules";
 	for (int i = 0; i < o->import_path_count; i++) dirs[n++] = o->import_paths[i];
-	for (uint32_t i = 0; i < n; i++) {
-		char *path = path_join(a, dirs[i], name, len);
-		struct stat st;
+	*count = n;
+	return dirs;
+}
 
-		if (stat(path, &st) == 0 && S_ISREG(st.st_mode)) return path;
+static char *module_fs_path (ImportLoader *l, const char *name, uint16_t len, uint16_t *out_len)
+{
+	char *out = arena_alloc(&l->c->arena, (size_t)len + 1);
+	uint16_t n = 0;
+
+	for (uint16_t i = 0; i < len; i++) {
+		if (name[i] == ':' && i + 1 < len && name[i + 1] == ':') {
+			out[n++] = '/';
+			i++;
+		} else out[n++] = name[i];
+	}
+	out[n] = '\0';
+	*out_len = n;
+	return out;
+}
+
+static char *make_path (ImportLoader *l, const char *dir, const char *rel, uint16_t rel_len, const char *suffix)
+{
+	size_t dlen = strlen(dir);
+	int slash = dlen && dir[dlen - 1] == '/';
+	size_t slen = strlen(suffix);
+	size_t total = dlen + (slash ? 0 : 1) + rel_len + slen;
+	char *out = arena_alloc(&l->c->arena, total + 1);
+
+	snprintf(out, total + 1, "%s%s%.*s%s", dir, slash ? "" : "/", (int)rel_len, rel, suffix);
+	return out;
+}
+
+static int dir_has_r2i (ImportLoader *l, const char *dir, int depth)
+{
+	if (depth > FOLDER_MAX_DEPTH) return 0;
+	DIR *d = opendir(dir);
+
+	if (!d) return 0;
+	int found = 0;
+	struct dirent *de;
+
+	while ((de = readdir(d)) != NULL && !found) {
+		const char *name = de->d_name;
+		uint16_t len = (uint16_t)strlen(name);
+		struct stat st;
+		if (!len || name[0] == '.') continue;
+		char *full = make_path(l, dir, name, len, "");
+		if (stat(full, &st) != 0) continue;
+		if (S_ISDIR(st.st_mode)) found = dir_has_r2i(l, full, depth + 1);
+		else if (S_ISREG(st.st_mode) && len > 4 && !strcmp(name + len - 4, ".r2i"))
+			found = 1;
+	}
+	closedir(d);
+	return found;
+}
+
+static const char *find_in_dirs (ImportLoader *l, const char *name,
+		uint16_t len, const char *suffix, int want_dir)
+{
+	uint16_t fs_len;
+	char *fs = module_fs_path(l, name, len, &fs_len);
+	uint32_t count;
+	const char **dirs = search_dirs(l, &count);
+
+	for (uint32_t i = 0; i < count; i++) {
+		struct stat st;
+		const char *path = make_path(l, dirs[i], fs, fs_len, suffix);
+
+		if (stat(path, &st) == 0
+				&& (want_dir ? S_ISDIR(st.st_mode)
+				&& dir_has_r2i(l, path, 0) : S_ISREG(st.st_mode)))
+			return path;
 	}
 	return NULL;
 }
@@ -199,9 +278,11 @@ static int header_error (const char *path, const char *msg)
 	return 1;
 }
 
-static int valid_module_name (const char *s, size_t len)
+static int segment_ok (const char *s, size_t len)
 {
 	if (!len) return 0;
+	if (len == 1 && s[0] == '.') return 0;
+	if (len == 2 && s[0] == '.' && s[1] == '.') return 0;
 	for (size_t i = 0; i < len; i++) {
 		unsigned char c = (unsigned char)s[i];
 
@@ -210,6 +291,29 @@ static int valid_module_name (const char *s, size_t len)
 			return 0;
 	}
 	return 1;
+}
+
+static int valid_module_name (const char *s, size_t len)
+{
+	size_t seg = 0;
+
+	if (!len) return 0;
+	for (size_t i = 0; i < len;) {
+		if (s[i] == ':') {
+			if (i + 1 >= len || s[i + 1] != ':' || !segment_ok(s + seg, i - seg))
+				return 0;
+			i += 2;
+			seg = i;
+			continue;
+		}
+		unsigned char c = (unsigned char)s[i];
+
+		if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
+				|| (c >= '0' && c <= '9') || c == '_' || c == '-'))
+			return 0;
+		i++;
+	}
+	return segment_ok(s + seg, len - seg);
 }
 
 static int parse_deps (ImportLoader *l, const char *path, const char *val, size_t len, R2iHeader *h)
@@ -412,18 +516,163 @@ static int add_binding (ImportLoader *l, uint32_t module, const char *name,
 	return 0;
 }
 
+static void join_name (ImportLoader *l, const ModName *prefix, const char *seg, uint16_t slen, ModName *out)
+{
+	uint32_t total = (uint32_t)prefix->len + (prefix->len ? 2u : 0u) + slen;
+	uint32_t at = 0;
+	char *buf = arena_alloc(&l->c->arena, (size_t)total + 1);
+
+	if (prefix->len) {
+		memcpy(buf, prefix->str, prefix->len);
+		at = prefix->len;
+		buf[at++] = ':';
+		buf[at++] = ':';
+	}
+	memcpy(buf + at, seg, slen);
+	buf[total] = '\0';
+	out->str = buf;
+	out->len = (uint16_t)total;
+}
+
+static char *copy_name (ImportLoader *l, const char *s, uint16_t len)
+{
+	char *out = arena_alloc(&l->c->arena, (size_t)len + 1);
+
+	memcpy(out, s, len);
+	out[len] = '\0';
+	return out;
+}
+
+static int entry_cmp (const void *a, const void *b)
+{
+	const FolderEntry *x = a;
+	const FolderEntry *y = b;
+
+	return strcmp(x->name, y->name);
+}
+
+static int entry_kind (ImportLoader *l, const char *dir, const char *name,
+		uint16_t len, char **full)
+{
+	struct stat st;
+
+	*full = make_path(l, dir, name, len, "");
+	if (stat(*full, &st) != 0) return -1;
+	if (S_ISDIR(st.st_mode)) return 1;
+	if (S_ISREG(st.st_mode) && len > 4 && !strcmp(name + len - 4, ".r2i"))
+		return 0;
+	return -1;
+}
+
+static FolderEntry *collect_entries (ImportLoader *l, const char *dir, uint32_t use, uint32_t *count)
+{
+	uint32_t cap = 8;
+	uint32_t n = 0;
+	FolderEntry *out = arena_alloc(&l->c->arena, sizeof(FolderEntry) * cap);
+	DIR *d = opendir(dir);
+
+	if (!d) {
+		error_report(&l->c->err, ERR_ERROR, use_loc(l, use),
+				"cannot read module folder '%s'", dir);
+		l->failed = 1;
+		return NULL;
+	}
+	struct dirent *de;
+
+	while ((de = readdir(d)) != NULL) {
+		const char *name = de->d_name;
+		uint16_t len = (uint16_t)strlen(name);
+		char *full;
+		int kind;
+
+		if (!len || name[0] == '.') continue;
+		kind = entry_kind(l, dir, name, len, &full);
+		if (kind < 0) continue;
+		if (n >= cap) {
+			uint32_t old = cap;
+
+			cap <<= 1;
+			out = arena_realloc(&l->c->arena, out, sizeof(FolderEntry) * old,
+					sizeof(FolderEntry) * cap);
+		}
+		out[n].name = copy_name(l, name, len);
+		out[n].is_dir = (uint8_t)kind;
+		n++;
+	}
+	closedir(d);
+	*count = n;
+	return out;
+}
+
+static void load_folder (ImportLoader *l, const char *path, const FolderLoad *fl)
+{
+	if (fl->depth > FOLDER_MAX_DEPTH) {
+		error_report(&l->c->err, ERR_ERROR, use_loc(l, fl->use),
+				"module folder is nested too deeply");
+		l->failed = 1;
+		return;
+	}
+	uint32_t count = 0;
+	FolderEntry *entries = collect_entries(l, path, fl->use, &count);
+
+	if (!entries) return;
+	qsort(entries, count, sizeof(FolderEntry), entry_cmp);
+	ModName ap = fl->alias.len ? fl->alias : fl->canon;
+
+	for (uint32_t i = 0; i < count; i++) {
+		const char *name = entries[i].name;
+		uint16_t nlen = (uint16_t)strlen(name);
+		uint16_t stem_len = entries[i].is_dir ? nlen : (uint16_t)(nlen - 4);
+		ModName mod = {0};
+		ModName alias_mod = {0};
+		char *full = make_path(l, path, name, nlen, "");
+
+		join_name(l, &fl->canon, name, stem_len, &mod);
+		join_name(l, &ap, name, stem_len, &alias_mod);
+		if (entries[i].is_dir) {
+			FolderLoad next = { mod, alias_mod, fl->use, fl->depth + 1 };
+
+			load_folder(l, full, &next);
+			continue;
+		}
+		ImportRequest req = { .name = mod.str, .len = mod.len,
+				.alias = alias_mod.str, .alias_len = alias_mod.len,
+				.path = full, .use = fl->use, .direct = 1 };
+
+		(void)load_module(l, &req);
+	}
+}
+
 static void load_from (ImportLoader *l, uint32_t idx)
 {
 	AST *ast = &l->c->parser.ast;
 	ASTNode *n = ast->nodes + idx;
-	ImportRequest req = { .name = n->str, .len = n->len, .alias = NULL,
-			.alias_len = 0, .use = idx, .direct = 1 };
-	uint32_t mod = load_module(l, &req);
+	ImportRequest base = { .name = n->str, .len = n->len, .use = idx, .direct = 1 };
+	uint32_t mod = load_path(l, &base);
 
-	if (mod == NO_MODULE) return;
 	for (uint32_t item = n->child; item != NO_NODE; item = ast->nodes[item].next_bro) {
 		ASTNode *it = ast->nodes + item;
 		uint32_t local = it->child != NO_NODE ? it->child : item;
+		const char *lname = ast->nodes[local].str;
+		uint16_t llen = ast->nodes[local].len;
+		ModName sub = {0};
+		ModName base = { n->str, n->len };
+
+		join_name(l, &base, it->str, it->len, &sub);
+		if (find_in_dirs(l, sub.str, sub.len, ".r2i", 0) || find_in_dirs(l, sub.str, sub.len, "", 1)) {
+			ImportRequest req = { .name = sub.str, .len = sub.len, .alias = lname,
+					.alias_len = llen, .use = item, .direct = 1 };
+
+			(void)load_path(l, &req);
+			continue;
+		}
+		if (mod == NO_MODULE) {
+			error_report(&l->c->err, ERR_ERROR, use_loc(l, item),
+					"module '%.*s' does not export '%.*s'",
+					(int)n->len, n->str, (int)it->len, it->str);
+			l->failed = 1;
+			continue;
+		}
 		ImportedDecl *decl = import_find_item(&l->c->sema.modules[mod], it->str, it->len);
 
 		if (!decl) {
@@ -433,7 +682,7 @@ static void load_from (ImportLoader *l, uint32_t idx)
 			l->failed = 1;
 			continue;
 		}
-		add_binding(l, mod, ast->nodes[local].str, ast->nodes[local].len, decl, item);
+		add_binding(l, mod, lname, llen, decl, item);
 	}
 }
 
@@ -452,16 +701,16 @@ static void load_import (ImportLoader *l, uint32_t idx)
 	ImportRequest req = { .name = n->str, .len = n->len, .alias = alias,
 			.alias_len = len, .use = idx, .direct = 1 };
 
-	(void)load_module(l, &req);
+	(void)load_path(l, &req);
 }
 
 static void load_deps (ImportLoader *l, const R2iHeader *h, uint32_t use)
 {
 	for (uint16_t i = 0; i < h->dep_count; i++) {
 		ImportRequest req = { .name = h->deps[i], .len = h->dep_lens[i],
-				.alias = NULL, .alias_len = 0, .use = use, .direct = 0 };
+				.use = use, .direct = 0 };
 
-		(void)load_module(l, &req);
+		(void)load_path(l, &req);
 	}
 }
 
@@ -484,7 +733,7 @@ static uint32_t reuse_module (ImportLoader *l, uint32_t idx, const ImportRequest
 
 static uint32_t open_module (ImportLoader *l, const ImportRequest *req, char **src, R2iHeader *h)
 {
-	const char *path = find_module_file(l, req->name, req->len);
+	const char *path = req->path ? req->path : find_in_dirs(l, req->name, req->len, ".r2i", 0);
 
 	if (!path) {
 		error_report(&l->c->err, ERR_ERROR, use_loc(l, req->use),
@@ -536,6 +785,24 @@ static uint32_t load_module (ImportLoader *l, const ImportRequest *req)
 	s->modules[idx].loading = 0;
 	s->modules[idx].loaded = 1;
 	return idx;
+}
+
+static uint32_t load_path (ImportLoader *l, const ImportRequest *req)
+{
+	const char *dir = find_in_dirs(l, req->name, req->len, "", 1);
+
+	if (dir) {
+		ModName name = { req->name, req->len };
+		ModName alias = { req->alias, req->alias ? req->alias_len : 0 };
+		FolderLoad fl = { name, alias, req->use, 0 };
+
+		load_folder(l, dir, &fl);
+		return NO_MODULE;
+	}
+	ImportRequest file = *req;
+
+	file.path = NULL;
+	return load_module(l, &file);
 }
 
 static uint32_t *collect_import_nodes (Compiler *c, uint32_t *count)

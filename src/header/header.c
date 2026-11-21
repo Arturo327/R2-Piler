@@ -194,7 +194,8 @@ int header_write (CHeader *h)
 {
 	if (!h->ready) return 0;
 	patch_init_flag(h);
-	if (r2i_make_dirs(h->dir) || r2i_check_owner(h->path, h->canon)) return 1;
+	if (r2i_make_dirs(h->dir) || r2i_make_parent(h->path)
+			|| r2i_check_owner(h->path, h->canon)) return 1;
 
 	FILE *f = fopen(h->path, "wb");
 	if (!f) {

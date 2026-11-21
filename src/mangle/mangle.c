@@ -101,7 +101,7 @@ static char *encode_module (Arena *arena, const char *rel, size_t len)
 	return buf;
 }
 
-int mangle_module (Arena *arena, const char *path, const char **out)
+int mangle_module_relative (const char *path, char *out, size_t cap)
 {
 	size_t len = strlen(path);
 	char full[PATH_MAX];
@@ -123,6 +123,21 @@ int mangle_module (Arena *arena, const char *path, const char **out)
 		fprintf(stderr, "Error: source file '%s' must end in '.r2'\n", path);
 		return 1;
 	}
+	if (rel_len >= cap) {
+		fprintf(stderr, "Error: source path '%s' is too long\n", path);
+		return 1;
+	}
+	memcpy(out, rel, rel_len + 1);
+	return 0;
+}
+
+int mangle_module (Arena *arena, const char *path, const char **out)
+{
+	char rel[PATH_MAX];
+
+	if (mangle_module_relative(path, rel, sizeof rel)) return 1;
+	size_t rel_len = strlen(rel);
+
 	*out = encode_module(arena, rel, rel_len - 3);
 	return 0;
 }

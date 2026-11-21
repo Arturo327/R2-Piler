@@ -30,8 +30,9 @@ ImportedDecl *imports_lookup (Sema *s, const char *name, uint16_t len)
 {
 	uint16_t sep = 0;
 
-	while (sep + 1 < len && !(name[sep] == ':' && name[sep + 1] == ':')) sep++;
-	if (sep + 1 < len) {
+	for (uint16_t i = 0; i + 1 < len; i++)
+		if (name[i] == ':' && name[i + 1] == ':') sep = i;
+	if (sep && sep + 1 < len) {
 		uint32_t mod;
 		uint16_t mlen = (uint16_t)(len - sep - 2);
 

@@ -175,37 +175,60 @@ void append_child (Parser *p, uint32_t parent, uint32_t *last, uint32_t child)
 	*last = child;
 }
 
+#define QUALIFY_MAX_SEGS 64
+
+typedef struct QualifySeg {
+	const char *str;
+	uint16_t len;
+} QualifySeg;
+
 char *qualify_name (Parser *p, Token first, uint16_t *len, int *ok)
 {
+	QualifySeg segs[QUALIFY_MAX_SEGS];
+	uint32_t count = 1;
+	uint32_t total = first.len;
+
 	*ok = 1;
-	if (p->curr.type != TOK_PATHSEP) {
-		*len = first.len;
-		return first.str;
-	}
-	advance(p);
-	if (!consume(p, TOK_ID, "expected an identifier after '::'")) {
-		*ok = 0;
-		*len = first.len;
-		return first.str;
-	}
-	Token second = p->prev;
+	segs[0].str = first.str;
+	segs[0].len = first.len;
+	while (p->curr.type == TOK_PATHSEP) {
+		advance(p);
+		if (!consume(p, TOK_ID, "expected an identifier after '::'")) {
+			*ok = 0;
+			break;
+		}
+		if (count == QUALIFY_MAX_SEGS) {
+			error_report(p->err, ERR_ERROR, token_loc(first),
+					"qualified name has too many segments");
+			*ok = 0;
+			break;
+		}
+		Token next = p->prev;
 
-	if ((uint32_t)first.len + 2u + second.len > UINT16_MAX) {
-		error_report(p->err, ERR_ERROR, token_loc(first),
-				"qualified name is too long");
-		*ok = 0;
-		*len = first.len;
-		return first.str;
+		total += 2u + next.len;
+		if (total > UINT16_MAX) {
+			error_report(p->err, ERR_ERROR, token_loc(first),
+					"qualified name is too long");
+			*ok = 0;
+			break;
+		}
+		segs[count].str = next.str;
+		segs[count].len = next.len;
+		count++;
 	}
-	uint16_t total = (uint16_t)(first.len + 2u + second.len);
 	char *name = arena_alloc(p->arena, (size_t)total + 1);
+	uint32_t at = 0;
 
-	memcpy(name, first.str, first.len);
-	name[first.len] = ':';
-	name[first.len + 1] = ':';
-	memcpy(name + first.len + 2, second.str, second.len);
-	name[total] = '\0';
-	*len = total;
+	for (uint32_t i = 0; i < count; i++) {
+		if (i) {
+			name[at++] = ':';
+			name[at++] = ':';
+		}
+		memcpy(name + at, segs[i].str, segs[i].len);
+		at += segs[i].len;
+	}
+	name[at] = '\0';
+	*len = (uint16_t)total;
 	return name;
 }
 

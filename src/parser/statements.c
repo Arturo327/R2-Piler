@@ -973,6 +973,21 @@ static uint32_t parse_multi_assign (Parser *p, uint32_t first)
 
 static uint32_t parse_statement_inner (Parser *p, int root);
 
+static char *parse_module_path (Parser *p, const char *what, uint16_t *len)
+{
+	Token first = p->curr;
+
+	if (!consume(p, TOK_ID, what)) {
+		*len = first.len;
+		return first.str;
+	}
+	int ok;
+	char *name = qualify_name(p, first, len, &ok);
+
+	(void)ok;
+	return name;
+}
+
 static uint32_t parse_import (Parser *p, int root)
 {
 	Token kw = p->curr;
@@ -980,10 +995,8 @@ static uint32_t parse_import (Parser *p, int root)
 	advance(p);
 	uint32_t node = new_node(p, NODE_IMPORT_DEC, kw.line, kw.col);
 
-	if (consume(p, TOK_ID, "expected a module name after 'import'")) {
-		p->ast.nodes[node].str = p->prev.str;
-		p->ast.nodes[node].len = p->prev.len;
-	}
+	p->ast.nodes[node].str = parse_module_path(p,
+			"expected a module name after 'import'", &p->ast.nodes[node].len);
 	if (p->curr.type == TOK_AS) {
 		advance(p);
 		uint32_t alias = new_node(p, NODE_ID, p->curr.line, p->curr.col);
@@ -1028,10 +1041,8 @@ static uint32_t parse_from (Parser *p, int root)
 	advance(p);
 	uint32_t node = new_node(p, NODE_FROM_DEC, kw.line, kw.col);
 
-	if (consume(p, TOK_ID, "expected a module name after 'from'")) {
-		p->ast.nodes[node].str = p->prev.str;
-		p->ast.nodes[node].len = p->prev.len;
-	}
+	p->ast.nodes[node].str = parse_module_path(p,
+			"expected a module name after 'from'", &p->ast.nodes[node].len);
 	consume(p, TOK_IMPORT, "expected 'import' after the module name");
 	uint32_t last = NO_NODE;
 

@@ -7,6 +7,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "mangle/mangle.h"
+
 #define R2I_PATH_MAX 4096
 
 void r2i_printf (R2i *r, const char *fmt, ...)
@@ -93,6 +95,7 @@ int r2i_build_path (Sema *sema, const char *source, const char *dir,
 		const char *ext, char **canon, char **path)
 {
 	char resolved[R2I_PATH_MAX];
+	char rel[R2I_PATH_MAX];
 	size_t dir_len = strlen(dir);
 
 	const char *name;
@@ -111,17 +114,49 @@ int r2i_build_path (Sema *sema, const char *source, const char *dir,
 	}
 	strcpy(*canon, resolved);
 
+	const char *subdir = "";
+	size_t subdir_len = 0;
+	if (!sema->mod_seen) {
+		if (mangle_module_relative(source, rel, sizeof rel)) return 1;
+		const char *last = strrchr(rel, '/');
+
+		if (last) {
+			subdir = rel;
+			subdir_len = (size_t)(last - rel) + 1;
+		}
+	}
 	const char *slash = dir_len && dir[dir_len - 1] == '/' ? "" : "/";
 	size_t ext_len = strlen(ext);
-	size_t cap = dir_len + strlen(slash) + len + ext_len + 1;
+	size_t cap = dir_len + strlen(slash) + subdir_len + len + ext_len + 1;
 
 	*path = malloc(cap);
 	if (!*path) {
 		fprintf(stderr, "Not enough memory\n");
 		exit(1);
 	}
-	snprintf(*path, cap, "%s%s%.*s%s", dir, slash, (int)len, name, ext);
+	snprintf(*path, cap, "%s%s%.*s%.*s%s", dir, slash,
+			(int)subdir_len, subdir, (int)len, name, ext);
 	return 0;
+}
+
+int r2i_make_parent (const char *path)
+{
+	const char *slash = strrchr(path, '/');
+
+	if (!slash || slash == path) return 0;
+	size_t len = (size_t)(slash - path);
+	char *dir = malloc(len + 1);
+
+	if (!dir) {
+		fprintf(stderr, "Not enough memory\n");
+		exit(1);
+	}
+	memcpy(dir, path, len);
+	dir[len] = '\0';
+	int failed = r2i_make_dirs(dir);
+
+	free(dir);
+	return failed;
 }
 
 int r2i_make_dirs (const char *dir)
@@ -205,7 +240,8 @@ int r2i_write (R2i *r)
 {
 	if (!r->ready) return 0;
 	patch_init_flag(r);
-	if (r2i_make_dirs(r->dir) || r2i_check_owner(r->path, r->canon)) return 1;
+	if (r2i_make_dirs(r->dir) || r2i_make_parent(r->path)
+			|| r2i_check_owner(r->path, r->canon)) return 1;
 
 	FILE *f = fopen(r->path, "wb");
 	if (!f) {
