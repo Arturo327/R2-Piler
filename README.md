@@ -13,9 +13,10 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **526 fixtures** pass (`make test`): 54 lexer, 95 parser, 183 sema, 69 IR,
-  42 optimizer, 45 mangling/visibility/export, 9 `.r2i` and 29 import cases.
-- **167 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+- **558 fixtures** pass (`make test`): 55 lexer, 96 parser, 186 sema, 70 IR,
+  43 optimizer, 46 mangling/visibility/export, 11 `.r2i`, 10 C/C++ header and
+  41 import cases.
+- **171 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
@@ -79,8 +80,7 @@ tested:
   arguments and `sret` returns, arrays of structs, globals/`static` structs
   (constant initializers become a `.data` image at any level; pointer/slice/
   bitfield initializers are written from `__r2_init`) and `sizeof`.
-- Not implemented yet: C header (`.h`) generation, classes, floating point,
-  heap arrays and `defer`.
+- Not implemented yet: classes, floating point, heap arrays and `defer`.
 
 ---
 
@@ -255,6 +255,12 @@ src/
 │   ├── r2i.c/h      # Output buffer, header, write/ownership checks
 │   ├── decl.c/type.c/expr.c # Interface body
 │   └── imports.c    # `imports:` dependency collection
+├── header/
+│   ├── header.c/h   # C/C++ header output and ownership checks
+│   ├── decl.c/type.c # Exported declarations and types
+│   └── internal.h   # Private cross-file declarations for header/
+├── mangle/
+│   └── mangle.c/h   # Module path resolution and symbol mangling
 ├── ir/
 │   ├── core.c/h     # IR definition, module/fn skeleton
 │   ├── internal.h   # Private cross-file declarations for ir/

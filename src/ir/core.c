@@ -181,26 +181,6 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select, const char *mod)
 	ir->string_tab_cap = 0;
 }
 
-uint32_t ret_count (IR *ir, uint32_t ret)
-{
-	uint32_t count = 1;
-
-	for (uint32_t item = ir->ast->nodes[ret].child; item != NO_NODE;
-			item = ir->ast->nodes[item].next_bro)
-		count++;
-	return count;
-}
-
-uint32_t ret_node_at (IR *ir, uint32_t ret, uint32_t i)
-{
-	uint32_t item = ir->ast->nodes[ret].child;
-
-	if (i == 0) return ret;
-	while (i-- > 1 && item != NO_NODE)
-		item = ir->ast->nodes[item].next_bro;
-	return item;
-}
-
 int fn_uses_sret (IR *ir, uint32_t ret)
 {
 	TypeId t = ir->ast->nodes[ret].data_type;
@@ -222,7 +202,7 @@ uint32_t ret_off (IR *ir, uint32_t ret, uint32_t i)
 	uint32_t off = 0;
 
 	for (uint32_t k = 0; k < i; k++) {
-		uint32_t size = types[ret_slot_type(ir->ast->nodes[ret_node_at(ir, ret, k)].data_type)].size;
+		uint32_t size = types[ret_slot_type(ir->ast->nodes[ast_ret_at(ir->ast, ret, k)].data_type)].size;
 
 		off += (size + 7u) & ~7u;
 	}
@@ -231,8 +211,8 @@ uint32_t ret_off (IR *ir, uint32_t ret, uint32_t i)
 
 TypeId ret_buf_type (IR *ir, uint32_t ret)
 {
-	if (ret_count(ir, ret) > 1)
-		return type_array_of(TYPE_u64, ret_off(ir, ret, ret_count(ir, ret)) / 8);
+	if (ast_ret_count(ir->ast, ret) > 1)
+		return type_array_of(TYPE_u64, ret_off(ir, ret, ast_ret_count(ir->ast, ret)) / 8);
 	return ret_slot_type(ir->ast->nodes[ret].data_type);
 }
 
@@ -253,13 +233,13 @@ uint32_t call_ret_count (IR *ir, ASTNode *call)
 	if (ret == NO_NODE) return 0;
 	if (ir->ast->nodes[ret].data_type == TYPE_VOID
 			&& ir->ast->nodes[ret].child == NO_NODE) return 0;
-	return ret_count(ir, ret);
+	return ast_ret_count(ir->ast, ret);
 }
 
 TypeId call_ret_type (IR *ir, ASTNode *call, uint32_t i)
 {
 	if (call->flags & NODE_FLAG_INDIRECT) return types[types[call->sym].base].rets[i];
-	return ir->ast->nodes[ret_node_at(ir, call_ret_node(ir, call), i)].data_type;
+	return ir->ast->nodes[ast_ret_at(ir->ast, call_ret_node(ir, call), i)].data_type;
 }
 
 uint32_t call_ret_off (IR *ir, ASTNode *call, uint32_t i)

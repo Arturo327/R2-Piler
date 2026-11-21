@@ -571,7 +571,7 @@ static void check_single_return (Sema *s, uint32_t idx, TypeId ret)
 static TypeId ret_type_at (Sema *s, uint32_t list, uint32_t i)
 {
 	if (list == NO_NODE) return i == 0 ? s->curr_ret : TYPE_ERROR;
-	return s->ast->nodes[sema_ret_at(s, list, i)].data_type;
+	return s->ast->nodes[ast_ret_at(s->ast, list, i)].data_type;
 }
 
 static void check_multi_return (Sema *s, uint32_t idx, uint32_t list, uint32_t count)
@@ -609,7 +609,7 @@ static void check_multi_return (Sema *s, uint32_t idx, uint32_t list, uint32_t c
 static void check_return (Sema *s, uint32_t idx)
 {
 	uint32_t list = s->curr_ret_list;
-	uint32_t count = list == NO_NODE ? 1 : sema_ret_count(s, list);
+	uint32_t count = list == NO_NODE ? 1 : ast_ret_count(s->ast, list);
 	uint32_t first = s->ast->nodes[idx].child;
 
 	if (first == NO_NODE) {

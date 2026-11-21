@@ -41,6 +41,8 @@ typedef enum {
 	TOK_COUNT
 } TokenType;
 
+_Static_assert(TOK_COUNT <= 256, "Token.type is uint8_t");
+
 typedef struct Token {
 	union {
 		char *str;

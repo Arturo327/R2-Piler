@@ -323,19 +323,15 @@ static void view_assign_error (Sema *s, uint32_t idx, TypeId view, TypeId rhs)
 			type_display_name(rhs), types[view].name);
 }
 
-TypeId check_assign (Sema *s, uint32_t idx)
+static int assign_lhs_bad (Sema *s, uint32_t idx, uint32_t left, uint32_t right, uint8_t left_kind)
 {
-	uint32_t left = s->ast->nodes[idx].child;
-	uint32_t right = s->ast->nodes[left].next_bro;
-	uint8_t left_kind = s->ast->nodes[left].type;
-
 	if (left_kind != NODE_ID && left_kind != NODE_DEREF &&
 			left_kind != NODE_INDEX && left_kind != NODE_DOT) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"left side of '=' must be a variable");
 		check_expr(s, right);
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
-		return TYPE_ERROR;
+		return 1;
 	}
 
 	if (left_kind == NODE_DOT) {
@@ -349,12 +345,32 @@ TypeId check_assign (Sema *s, uint32_t idx)
 							"left side of '=' must be a variable");
 					check_expr(s, right);
 					s->ast->nodes[idx].data_type = TYPE_ERROR;
-					return TYPE_ERROR;
+					return 1;
 				}
 			}
 		}
 	}
+	return 0;
+}
 
+static int assign_agg_bad (Sema *s, uint32_t idx, int view, int slice_field, TypeId l)
+{
+	if (view || slice_field
+			|| (type_kind(l) != TK_ARRAY && type_kind(l) != TK_SLICE)) return 0;
+	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+			"cannot assign a value of type %s; arrays and slices"
+			" must be modified element by element", types[l].name);
+	s->ast->nodes[idx].data_type = TYPE_ERROR;
+	return 1;
+}
+
+TypeId check_assign (Sema *s, uint32_t idx)
+{
+	uint32_t left = s->ast->nodes[idx].child;
+	uint32_t right = s->ast->nodes[left].next_bro;
+	uint8_t left_kind = s->ast->nodes[left].type;
+
+	if (assign_lhs_bad(s, idx, left, right, left_kind)) return TYPE_ERROR;
 	uint32_t saved_root = s->write_root;
 
 	s->write_root = lvalue_root(s, left);
@@ -377,14 +393,8 @@ TypeId check_assign (Sema *s, uint32_t idx)
 
 	int view = lvalue_view(s, left);
 	int slice_field = (left_kind == NODE_DOT || left_kind == NODE_ID) && type_dyn_rank(l) > 0;
-	if (!view && (type_kind(l) == TK_ARRAY || type_kind(l) == TK_SLICE) && !slice_field) {
-		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
-				"cannot assign a value of type %s; arrays and slices"
-				" must be modified element by element", types[l].name);
-		s->ast->nodes[idx].data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
 
+	if (assign_agg_bad(s, idx, view, slice_field, l)) return TYPE_ERROR;
 	if (view) {
 		if (!sema_array_slice_compat(r, l)) {
 			view_assign_error(s, idx, l, r);
@@ -702,7 +712,7 @@ void check_multi_assign (Sema *s, uint32_t idx)
 		sig = types[call->sym].base;
 		count = types[sig].ret_count;
 	} else if (ret != NO_NODE) {
-		count = sema_ret_count(s, ret);
+		count = ast_ret_count(s->ast, ret);
 	}
 	if (count < 2) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + rhs),
@@ -720,7 +730,7 @@ void check_multi_assign (Sema *s, uint32_t idx)
 
 		if (n < count)
 			want = sig != TYPE_ERROR ? types[sig].rets[n]
-					: s->ast->nodes[sema_ret_at(s, ret, n)].data_type;
+					: s->ast->nodes[ast_ret_at(s->ast, ret, n)].data_type;
 		check_multi_target(s, target, want, rhs);
 		target = next;
 		n++;

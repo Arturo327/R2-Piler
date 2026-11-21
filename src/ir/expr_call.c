@@ -195,6 +195,17 @@ static uint32_t gen_call_ind (IR *ir, ASTNode *n, uint32_t dest)
 	return make_ind_call(ir, n, call_ret_type(ir, n, 0), callee, k, dest);
 }
 
+static uint32_t push_typed_args (IR *ir, ASTNode *n, uint32_t arg, uint32_t param,
+		uint32_t *regs, uint32_t k)
+{
+	while (param != NO_NODE && ir->ast->nodes[param].next_bro != NO_NODE) {
+		k = push_arg(ir, n, arg, param, regs, k);
+		arg = ir->ast->nodes[arg].next_bro;
+		param = ir->ast->nodes[param].next_bro;
+	}
+	return push_varargs(ir, arg, ir->ast->nodes[param].data_type, regs, k);
+}
+
 uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest)
 {
 	if (n->flags & NODE_FLAG_INDIRECT) return gen_call_ind(ir, n, dest);
@@ -212,12 +223,7 @@ uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest)
 
 	if (sret) regs[k++] = dest != NO_REG ? dest : new_struct_temp(ir, ret_buf_type(ir, ret));
 	if (ir->ast->nodes[params].flags & NODE_FLAG_VARARG_TYPED) {
-		while (param != NO_NODE && ir->ast->nodes[param].next_bro != NO_NODE) {
-			k = push_arg(ir, n, arg, param, regs, k);
-			arg = ir->ast->nodes[arg].next_bro;
-			param = ir->ast->nodes[param].next_bro;
-		}
-		k = push_varargs(ir, arg, ir->ast->nodes[param].data_type, regs, k);
+		k = push_typed_args(ir, n, arg, param, regs, k);
 	} else {
 		for (uint32_t i = 0; i < argc; i++) {
 			k = push_arg(ir, n, arg, param, regs, k);

@@ -590,6 +590,26 @@ static TypeId check_indirect_call (Sema *s, uint32_t idx)
 	return n->data_type;
 }
 
+static int reject_bad_callee (Sema *s, uint32_t idx, uint32_t sym_idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	const char *msg = NULL;
+
+	if (sym_idx == NO_SYMBOL) msg = "is not a known function";
+	else {
+		SymKind kind = s->table.symbols[sym_idx].kind;
+
+		if (kind == SYMBOL_ENUM) msg = "is an enum type, not a function";
+		else if (kind == SYMBOL_TYPE) msg = "is a type, not a function";
+		else if (kind != SYMBOL_FN) msg = "is a variable, not a function";
+	}
+	if (!msg) return 0;
+	error_report(s->err, ERR_ERROR, node_loc(n), "'%.*s' %s",
+			(int)n->len, n->str, msg);
+	n->data_type = TYPE_ERROR;
+	return 1;
+}
+
 TypeId check_fn_call (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -605,35 +625,7 @@ TypeId check_fn_call (Sema *s, uint32_t idx)
 		n->flags |= NODE_FLAG_INDIRECT;
 		return check_indirect_call(s, idx);
 	}
-
-	if (sym_idx == NO_SYMBOL) {
-		error_report(s->err, ERR_ERROR, node_loc(n), "'%.*s' is not a known function",
-				(int)n->len, n->str);
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
-
-	if (s->table.symbols[sym_idx].kind == SYMBOL_ENUM) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"'%.*s' is an enum type, not a function", (int)n->len, n->str);
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
-
-	if (s->table.symbols[sym_idx].kind == SYMBOL_TYPE) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"'%.*s' is a type, not a function", (int)n->len, n->str);
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
-
-	if (s->table.symbols[sym_idx].kind != SYMBOL_FN) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"'%.*s' is a variable, not a function", (int)n->len, n->str);
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
-
+	if (reject_bad_callee(s, idx, sym_idx)) return TYPE_ERROR;
 	n->sym = sym_idx;
 	Symbol *fn = &s->table.symbols[sym_idx];
 	if (sym_idx != s->curr_fn) fn->read = 1;

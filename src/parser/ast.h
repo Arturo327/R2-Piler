@@ -16,8 +16,8 @@
 #define NODE_FLAG_REF 64
 #define NODE_FLAG_REF_LOWERED 128
 #define NODE_FLAG_PAREN 1
-#define NODE_FLAG_EXPORT 64
-#define NODE_FLAG_PUB 128
+#define NODE_FLAG_EXPORT 256
+#define NODE_FLAG_PUB 512
 #define NODE_FLAG_IMPORTED 8
 #define NODE_FLAG_VARARG 1
 #define NODE_FLAG_VARARG_TYPED 2
@@ -56,6 +56,8 @@ typedef enum {
 	NODE_COUNT
 } NodeType;
 
+_Static_assert(NODE_COUNT <= 256, "ASTNode.type is uint8_t");
+
 typedef struct ASTNode {
 	union {
 		char *str;
@@ -74,7 +76,7 @@ typedef struct ASTNode {
 	uint16_t len;
 
 	uint8_t type;
-	uint8_t flags;
+	uint16_t flags;
 	TypeId data_type;
 } ASTNode;
 
@@ -83,5 +85,25 @@ typedef struct AST {
 	uint32_t count;
 	uint32_t cap;
 } AST;
+
+static inline uint32_t ast_ret_count (const AST *ast, uint32_t ret)
+{
+	uint32_t count = 1;
+
+	for (uint32_t item = ast->nodes[ret].child; item != NO_NODE;
+			item = ast->nodes[item].next_bro)
+		count++;
+	return count;
+}
+
+static inline uint32_t ast_ret_at (const AST *ast, uint32_t ret, uint32_t i)
+{
+	uint32_t item = ast->nodes[ret].child;
+
+	if (i == 0) return ret;
+	while (i-- > 1 && item != NO_NODE)
+		item = ast->nodes[item].next_bro;
+	return item;
+}
 
 #endif

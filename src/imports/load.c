@@ -289,21 +289,6 @@ static int header_error (const char *path, const char *msg)
 	return 1;
 }
 
-static int segment_ok (const char *s, size_t len)
-{
-	if (!len) return 0;
-	if (len == 1 && s[0] == '.') return 0;
-	if (len == 2 && s[0] == '.' && s[1] == '.') return 0;
-	for (size_t i = 0; i < len; i++) {
-		unsigned char c = (unsigned char)s[i];
-
-		if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
-				|| (c >= '0' && c <= '9') || c == '_' || c == '-'))
-			return 0;
-	}
-	return 1;
-}
-
 static int valid_module_name (const char *s, size_t len)
 {
 	size_t seg = 0;
@@ -311,20 +296,15 @@ static int valid_module_name (const char *s, size_t len)
 	if (!len) return 0;
 	for (size_t i = 0; i < len;) {
 		if (s[i] == ':') {
-			if (i + 1 >= len || s[i + 1] != ':' || !segment_ok(s + seg, i - seg))
+			if (i + 1 >= len || s[i + 1] != ':' || !r2i_valid_name(s + seg, i - seg))
 				return 0;
 			i += 2;
 			seg = i;
 			continue;
 		}
-		unsigned char c = (unsigned char)s[i];
-
-		if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
-				|| (c >= '0' && c <= '9') || c == '_' || c == '-'))
-			return 0;
 		i++;
 	}
-	return segment_ok(s + seg, len - seg);
+	return r2i_valid_name(s + seg, len - seg);
 }
 
 static int parse_deps (ImportLoader *l, const char *path, const char *val, size_t len, R2iHeader *h)

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "error/error.h"
@@ -14,7 +15,7 @@ static int color_mode = -1;
 static int colors_on (void)
 {
 	if (color_mode < 0)
-		color_mode = isatty(fileno(stderr));
+		color_mode = isatty(fileno(stderr)) && !getenv("NO_COLOR");
 	return color_mode;
 }
 

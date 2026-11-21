@@ -9,8 +9,6 @@ uint32_t push_fn (IR *ir, IRFn fn);
 uint32_t new_reg (IR *ir, TypeId type);
 
 uint32_t agg_root_sym (AST *ast, uint32_t idx);
-uint32_t ret_count (IR *ir, uint32_t ret);
-uint32_t ret_node_at (IR *ir, uint32_t ret, uint32_t i);
 uint32_t ret_off (IR *ir, uint32_t ret, uint32_t i);
 int fn_uses_sret (IR *ir, uint32_t ret);
 TypeId ret_buf_type (IR *ir, uint32_t ret);
@@ -29,6 +27,8 @@ uint8_t *const_image (IR *ir, uint32_t init, TypeId type);
 int fuse_struct_init (IR *ir, uint32_t base, ASTNode *init, TypeId type);
 uint32_t make_blob (IR *ir, const uint8_t *data, uint32_t len);
 void gen_copy (IR *ir, uint32_t dst, uint32_t src, TypeId type);
+void gen_zero_range (IR *ir, uint32_t base, uint64_t size);
+void zero_fill (IR *ir, uint32_t base, uint32_t from, uint32_t count, TypeId elem);
 void gen_multi_assign (IR *ir, ASTNode *n);
 int struct_is_small (TypeId type);
 int type_has_bitfield (TypeId type);

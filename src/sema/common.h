@@ -11,8 +11,6 @@ void imports_check_collisions (Sema *s);
 TypeId resolve_type_node (Sema *s, ASTNode *n);
 TypeId resolve_type_spec (Sema *s, ASTNode *owner, uint8_t *done, int *deferred);
 void resolve_fn_types (Sema *s, uint32_t idx);
-uint32_t sema_ret_count (Sema *s, uint32_t ret);
-uint32_t sema_ret_at (Sema *s, uint32_t ret, uint32_t i);
 int enum_const_value (Sema *s, uint32_t idx, TypeId enum_id, uint64_t *out);
 uint32_t sema_wrap_deref (Sema *s, uint32_t child, TypeId to_type);
 uint32_t sema_wrap_addr (Sema *s, uint32_t child);

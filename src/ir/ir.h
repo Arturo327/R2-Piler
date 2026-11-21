@@ -27,6 +27,8 @@ typedef enum {
 	IR_COUNT
 } IROp;
 
+_Static_assert(IR_COUNT <= 256, "IRInstr.op is uint8_t");
+
 typedef struct IRInstr {
 	union {
 		int64_t imm64;

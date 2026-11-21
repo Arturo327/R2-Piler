@@ -58,7 +58,7 @@ while  return  as  enum  type  newtype  extern
 export  pub
 break  continue  switch  case  default  static
 ptr  NULL  sizeof  struct  union  packed
-alignof  offsetof  module  any  depends
+alignof  offsetof  module  import  from  any  depends
 ```
 
 `ptr`, `NULL`, `sizeof`, `packed`, `alignof`, `offsetof`, `pub`, `export`, `module`, `import`, `from`, `any` y `depends` son keywords (no identificadores). `::` es un único token (el cualificador de módulo) y no puede aparecer con espacios entre los dos `:`. `@` y `$` son operadores unarios, no palabras clave. En un bitfield, `uN`/`iN` (`u3`, `i5`, ...) **no** son keywords: se lexan como identificadores y solo el parser de campos de struct les da significado (§3.4).
@@ -468,7 +468,7 @@ Son **valores** las funciones de firma fija —`fn`, `extern fn` y `export fn`�
 
 La firma se comprueba al usar el valor: init (`can't initialize 'p' (...) with a value of type ...; use an explicit cast with 'as'`), asignación (`cannot assign ... to a variable of type ...`), argumento (`argument type ... does not match parameter type ...`), `return` (`cannot return ... from a function returning ...`) y campo de un literal. Dos firmas **distintas** solo se convierten con un cast explícito entre punteros (`q as ptr fn(a : i32) : i32`), que es un cast de puntero normal y **no** comprueba la firma: úsalo a sabiendas.
 
-Una llamada indirecta es cualquier expresión postfija seguida de `(`: `callback(4, 5)`, `s.cb()`, `table[i](x)`, `(c ? f : g)(x)`, `pick(1)(3, 4)`. Un nombre que resuelve a una `var` o a un parámetro de tipo `ptr fn` se llama igual que una función, así que el ejemplo de §11 de `comp_pending.md` (`var callback : ptr fn(a:i32, b:i32) : i32 = suma; var a : i32 = callback(4, 5);`) es exactamente una llamada indirecta. Las llamadas indirectas:
+Una llamada indirecta es cualquier expresión postfija seguida de `(`: `callback(4, 5)`, `s.cb()`, `table[i](x)`, `(c ? f : g)(x)`, `pick(1)(3, 4)`. Un nombre que resuelve a una `var` o a un parámetro de tipo `ptr fn` se llama igual que una función (véase el ejemplo al final de esta sección). Las llamadas indirectas:
 
 - son **posicionales** y de **aridad exacta** (`wrong number of arguments in indirect call: got N, expected M`): no admiten argumentos con nombre (`an indirect call cannot use named arguments`), ni defaults, ni spread (`a spread argument ('...') is not supported in an indirect call`);
 - comprueban cada argumento contra la firma como una llamada normal (mismo tipo, literal flexible, ensanche silencioso, `ptr fn`↔`ptr void`, arrays/slices/structs y `&T` → `ptr T`);

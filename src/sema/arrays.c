@@ -311,10 +311,8 @@ static void check_designated_init (Sema *s, TypeId arr, uint32_t init_idx)
 	}
 }
 
-void check_array_init_at (Sema *s, TypeId arr, uint32_t init_idx)
+static int check_array_init_head (Sema *s, TypeId arr, uint32_t init_idx, TypeId elem, uint32_t count)
 {
-	TypeId elem = types[arr].base;
-	uint32_t count = types[arr].count;
 	ASTNode *init = s->ast->nodes + init_idx;
 
 	if (init->type == NODE_LIT_STR) {
@@ -326,22 +324,32 @@ void check_array_init_at (Sema *s, TypeId arr, uint32_t init_idx)
 					"string literal needs %u bytes including the terminator, but the array has room for %u",
 					(unsigned)init->len + 1, count);
 		init->data_type = TYPE_STR;
-		return;
+		return 1;
 	}
 	if (init->type != NODE_ARRAY_INIT) {
 		error_report(s->err, ERR_ERROR, node_loc(init),
 				"array initializer must be a '{...}' list or a string literal");
-		return;
+		return 1;
 	}
 	if (type_dyn_rank(arr) > 0) {
 		error_report(s->err, ERR_ERROR, node_loc(init),
 				"an array type with '[]' dimensions cannot be initialized with '{...}'");
-		return;
+		return 1;
 	}
 	if (array_init_designated(s, init_idx)) {
 		check_designated_init(s, arr, init_idx);
-		return;
+		return 1;
 	}
+	return 0;
+}
+
+void check_array_init_at (Sema *s, TypeId arr, uint32_t init_idx)
+{
+	TypeId elem = types[arr].base;
+	uint32_t count = types[arr].count;
+	ASTNode *init = s->ast->nodes + init_idx;
+
+	if (check_array_init_head(s, arr, init_idx, elem, count)) return;
 	ErrorLoc init_loc = node_loc(init);
 
 	uint32_t n = 0;

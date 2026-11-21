@@ -217,6 +217,32 @@ static void dump_array_name (AST *ast, ASTNode *n)
 	}
 }
 
+static void dump_fn_type (AST *ast, ASTNode *n)
+{
+	ASTNode *item = n->child != NO_NODE ? &ast->nodes[n->child] : NULL;
+
+	printf("fn(");
+	for (uint32_t i = 0; i < n->sym && item; i++) {
+		if (i) printf(", ");
+		dump_type_name(ast, item->type_node != NO_TYPE_NODE
+				? &ast->nodes[(uint32_t)(item - ast->nodes) + item->type_node]
+				: item);
+		item = item->next_bro != NO_NODE ? &ast->nodes[item->next_bro] : NULL;
+	}
+	if (n->flags & NODE_FLAG_VARARG) printf("%s...", n->sym ? ", " : "");
+	printf(")");
+	if (!n->u64) return;
+	printf(n->u64 == 1 ? " : " : " : (");
+	for (uint32_t i = 0; i < n->u64 && item; i++) {
+		if (i) printf(", ");
+		dump_type_name(ast, item->type_node != NO_TYPE_NODE
+				? &ast->nodes[(uint32_t)(item - ast->nodes) + item->type_node]
+				: item);
+		item = item->next_bro != NO_NODE ? &ast->nodes[item->next_bro] : NULL;
+	}
+	if (n->u64 > 1) printf(")");
+}
+
 static void dump_type_name (AST *ast, ASTNode *n)
 {
 	if (n->type == NODE_TYPE_PTR) {
@@ -234,28 +260,7 @@ static void dump_type_name (AST *ast, ASTNode *n)
 		return;
 	}
 	if (n->type == NODE_TYPE_FN) {
-		ASTNode *item = n->child != NO_NODE ? &ast->nodes[n->child] : NULL;
-
-		printf("fn(");
-		for (uint32_t i = 0; i < n->sym && item; i++) {
-			if (i) printf(", ");
-			dump_type_name(ast, item->type_node != NO_TYPE_NODE
-					? &ast->nodes[(uint32_t)(item - ast->nodes) + item->type_node]
-					: item);
-			item = item->next_bro != NO_NODE ? &ast->nodes[item->next_bro] : NULL;
-		}
-		if (n->flags & NODE_FLAG_VARARG) printf("%s...", n->sym ? ", " : "");
-		printf(")");
-		if (!n->u64) return;
-		printf(n->u64 == 1 ? " : " : " : (");
-		for (uint32_t i = 0; i < n->u64 && item; i++) {
-			if (i) printf(", ");
-			dump_type_name(ast, item->type_node != NO_TYPE_NODE
-					? &ast->nodes[(uint32_t)(item - ast->nodes) + item->type_node]
-					: item);
-			item = item->next_bro != NO_NODE ? &ast->nodes[item->next_bro] : NULL;
-		}
-		if (n->u64 > 1) printf(")");
+		dump_fn_type(ast, n);
 		return;
 	}
 	if (n->type == NODE_TYPE_REF) {

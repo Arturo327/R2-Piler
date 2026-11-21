@@ -8,6 +8,8 @@
 
 typedef uint16_t TypeId;
 
+_Static_assert(TYPE_MAX <= UINT16_MAX, "TypeId is uint16_t");
+
 typedef enum {
 	TK_INVALID = 0,
 	TK_INT,

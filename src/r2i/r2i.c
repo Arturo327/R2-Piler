@@ -48,9 +48,11 @@ void r2i_indent (R2i *r, int depth)
 		r2i_printf(r, "\t");
 }
 
-static int valid_name (const char *name, size_t len)
+int r2i_valid_name (const char *name, size_t len)
 {
 	if (!len) return 0;
+	if ((len == 1 && name[0] == '.')
+			|| (len == 2 && name[0] == '.' && name[1] == '.')) return 0;
 	for (size_t i = 0; i < len; i++) {
 		unsigned char c = (unsigned char)name[i];
 
@@ -64,7 +66,7 @@ static int valid_name (const char *name, size_t len)
 static int module_file_name (Sema *sema, const char *source, const char **name, size_t *len)
 {
 	if (sema->mod_seen) {
-		if (!valid_name(sema->mod_name, sema->mod_len)) {
+		if (!r2i_valid_name(sema->mod_name, sema->mod_len)) {
 			fprintf(stderr, "Error: module name '%.*s' may only contain letters, digits, '_' and '-'\n",
 					(int)sema->mod_len, sema->mod_name);
 			return 1;
@@ -83,7 +85,7 @@ static int module_file_name (Sema *sema, const char *source, const char **name, 
 	}
 	*name = base;
 	*len = base_len - 3;
-	if (!valid_name(*name, *len)) {
+	if (!r2i_valid_name(*name, *len)) {
 		fprintf(stderr, "Error: source name '%s' may only contain letters, digits, '_' and '-' before '.r2'\n",
 				base);
 		return 1;

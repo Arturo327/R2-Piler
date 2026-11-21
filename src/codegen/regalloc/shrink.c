@@ -44,6 +44,26 @@ static void touch_live (Shrink *s, uint32_t b, uint32_t p, const uint64_t *live)
 	}
 }
 
+static void touch_instr (Shrink *s, uint32_t b, uint32_t p, IRInstr *in)
+{
+	RegAlloc *ra = s->ra;
+	uint32_t *src[3];
+	int n = get_srcs(in, src);
+
+	if (in->dst != NO_REG) {
+		int h = ra->regs[in->dst].home[p];
+
+		if (h >= 0 && (ra->ctx->arch->callee_mask >> h & 1))
+			s->touch[b] |= 1ull << h;
+	}
+	for (int k = 0; k < n; k++) {
+		int h = ra->regs[*src[k]].home[p];
+
+		if (h >= 0 && (ra->ctx->arch->callee_mask >> h & 1))
+			s->touch[b] |= 1ull << h;
+	}
+}
+
 static void touch_instrs (Shrink *s)
 {
 	RegAlloc *ra = s->ra;
@@ -53,24 +73,8 @@ static void touch_instrs (Shrink *s)
 		uint32_t p = ra->ctx->ins_block[blk->start - ra->fn->start];
 
 		if (!s->reach[b]) continue;
-		for (uint32_t i = 0; i < blk->count; i++) {
-			IRInstr *in = ra->ir->instrs + blk->start + i;
-			uint32_t *src[3];
-			int n = get_srcs(in, src);
-
-			if (in->dst != NO_REG) {
-				int h = ra->regs[in->dst].home[p];
-
-				if (h >= 0 && (ra->ctx->arch->callee_mask >> h & 1))
-					s->touch[b] |= 1ull << h;
-			}
-			for (int k = 0; k < n; k++) {
-				int h = ra->regs[*src[k]].home[p];
-
-				if (h >= 0 && (ra->ctx->arch->callee_mask >> h & 1))
-					s->touch[b] |= 1ull << h;
-			}
-		}
+		for (uint32_t i = 0; i < blk->count; i++)
+			touch_instr(s, b, p, ra->ir->instrs + blk->start + i);
 		touch_live(s, b, p, blk->live_in);
 		cfg_live_out(&ra->cfg, b, ra->tmp, ra->words);
 		touch_live(s, b, p, ra->tmp);

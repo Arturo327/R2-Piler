@@ -278,7 +278,7 @@ static TypeId build_fn_value (Sema *s, uint32_t idx)
 	uint32_t ret = s->ast->nodes[args].next_bro;
 	uint32_t param = s->ast->nodes[args].child;
 	uint16_t param_count = 0;
-	uint16_t ret_count = (uint16_t)sema_ret_count(s, ret);
+	uint16_t ret_count = (uint16_t)ast_ret_count(s->ast, ret);
 	uint16_t used = 0;
 	uint16_t k = 0;
 
@@ -298,7 +298,7 @@ static TypeId build_fn_value (Sema *s, uint32_t idx)
 		params[k++] = t;
 	}
 	for (uint16_t i = 0; i < ret_count; i++) {
-		TypeId t = s->ast->nodes[sema_ret_at(s, ret, i)].data_type;
+		TypeId t = s->ast->nodes[ast_ret_at(s->ast, ret, i)].data_type;
 
 		if (t == TYPE_ERROR) return TYPE_ERROR;
 		if (t == TYPE_VOID && ret_count == 1) continue;

@@ -447,6 +447,26 @@ static void warn_unsigned_zero (Sema *s, uint32_t idx, uint32_t left, uint32_t r
 			always_true ? "true" : "false");
 }
 
+static int binary_operands_bad (Sema *s, uint32_t idx, TypeId l, TypeId r)
+{
+	if (type_is_aggregate(l) || type_is_aggregate(r)) {
+		TypeId bad = type_is_aggregate(l) ? l : r;
+
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"operator cannot be applied to a value of type %s",
+				types[bad].name);
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return 1;
+	}
+	if (l == TYPE_VOID || r == TYPE_VOID) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"operator cannot be applied to a value of type void");
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return 1;
+	}
+	return 0;
+}
+
 TypeId check_binary (Sema *s, uint32_t idx)
 {
 	uint8_t op_type = s->ast->nodes[idx].type;
@@ -464,21 +484,7 @@ TypeId check_binary (Sema *s, uint32_t idx)
 		decay_operand(s, &left, &l);
 		decay_operand(s, &right, &r);
 	}
-	if (type_is_aggregate(l) || type_is_aggregate(r)) {
-		TypeId bad = type_is_aggregate(l) ? l : r;
-
-		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
-				"operator cannot be applied to a value of type %s",
-				types[bad].name);
-		s->ast->nodes[idx].data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
-	if (l == TYPE_VOID || r == TYPE_VOID) {
-		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
-				"operator cannot be applied to a value of type void");
-		s->ast->nodes[idx].data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
+	if (binary_operands_bad(s, idx, l, r)) return TYPE_ERROR;
 
 	if (op_type != NODE_AND_L && op_type != NODE_OR_L
 			&& check_pointer_binary(s, idx, &left, &right, &l, &r))
@@ -625,36 +631,45 @@ static int cast_types_ok (Sema *s, ASTNode *n, TypeId from, TypeId to)
 	return 1;
 }
 
+static TypeId check_cast_literal (Sema *s, uint32_t idx, TypeId to)
+{
+	uint8_t child_type = s->ast->nodes[s->ast->nodes[idx].child].type;
+	ASTNode *n = s->ast->nodes + idx;
+
+	if (child_type != NODE_STRUCT_INIT && child_type != NODE_ARRAY_INIT)
+		return TYPE_VOID;
+	if (type_kind(to) != TK_STRUCT) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"a '{...}' literal can only be cast to a struct or union type");
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	uint32_t init = n->child;
+
+	if (!as_struct_init(s, init, to)) {
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	check_struct_init(s, init, to);
+	n = s->ast->nodes + idx;
+	n->flags |= NODE_FLAG_LITERAL;
+	n->data_type = to;
+	return to;
+}
+
 TypeId check_cast (Sema *s, uint32_t idx)
 {
 	TypeId to = resolve_type_node(s, s->ast->nodes + idx);
 	ASTNode *n = s->ast->nodes + idx;
-	uint8_t child_type = s->ast->nodes[n->child].type;
 
 	if (to == TYPE_ERROR) {
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (child_type == NODE_STRUCT_INIT || child_type == NODE_ARRAY_INIT) {
-		uint32_t init = n->child;
+	TypeId literal = check_cast_literal(s, idx, to);
 
-		if (type_kind(to) != TK_STRUCT) {
-			error_report(s->err, ERR_ERROR, node_loc(n),
-					"a '{...}' literal can only be cast to a struct or union type");
-			n->data_type = TYPE_ERROR;
-			return TYPE_ERROR;
-		}
-		if (!as_struct_init(s, init, to)) {
-			s->ast->nodes[idx].data_type = TYPE_ERROR;
-			return TYPE_ERROR;
-		}
-		check_struct_init(s, init, to);
-		n = s->ast->nodes + idx;
-		n->flags |= NODE_FLAG_LITERAL;
-		n->data_type = to;
-		return to;
-	}
-
+	if (literal != TYPE_VOID) return literal;
+	n = s->ast->nodes + idx;
 	TypeId from = check_expr(s, n->child);
 
 	n = s->ast->nodes + idx;

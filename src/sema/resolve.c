@@ -325,24 +325,3 @@ void resolve_fn_types (Sema *s, uint32_t idx)
 			item = s->ast->nodes[item].next_bro)
 		resolve_type_node(s, s->ast->nodes + item);
 }
-
-uint32_t sema_ret_count (Sema *s, uint32_t ret)
-{
-	uint32_t count = 1;
-
-	for (uint32_t item = s->ast->nodes[ret].child; item != NO_NODE;
-			item = s->ast->nodes[item].next_bro)
-		count++;
-	return count;
-}
-
-uint32_t sema_ret_at (Sema *s, uint32_t ret, uint32_t i)
-{
-	uint32_t item = s->ast->nodes[ret].child;
-
-	if (i == 0) return ret;
-	for (uint32_t k = 1; k < i && item != NO_NODE; k++)
-		item = s->ast->nodes[item].next_bro;
-	return item;
-}
-

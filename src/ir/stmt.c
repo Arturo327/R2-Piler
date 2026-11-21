@@ -95,7 +95,7 @@ static void gen_multi_return (IR *ir, ASTNode *n, uint32_t ret, uint32_t count)
 	while (val != NO_NODE && i < count) {
 		uint32_t at = add_offset(ir, ir->sret, ret_off(ir, ret, i));
 
-		gen_ret_slot(ir, at, val, ir->ast->nodes[ret_node_at(ir, ret, i)].data_type);
+		gen_ret_slot(ir, at, val, ir->ast->nodes[ast_ret_at(ir->ast, ret, i)].data_type);
 		val = ir->ast->nodes[val].next_bro;
 		i++;
 	}
@@ -137,7 +137,7 @@ static void gen_single_return (IR *ir, ASTNode *n, uint32_t ret)
 static void gen_return (IR *ir, ASTNode *n)
 {
 	uint32_t ret = ir->ret_node;
-	uint32_t count = ret == NO_NODE ? 1 : ret_count(ir, ret);
+	uint32_t count = ret == NO_NODE ? 1 : ast_ret_count(ir->ast, ret);
 
 	if (n->child == NO_NODE) {
 		make_ret(ir, NO_REG, TYPE_VOID);
@@ -434,15 +434,17 @@ static void gen_switch_sparse (IR *ir, uint32_t scrut, TypeId type,
 	gen_switch_tree(&t, 0, (int)n);
 }
 
-static void gen_switch (IR *ir, ASTNode *n)
+typedef struct {
+	SwitchCase *cases;
+	uint32_t *labels;
+	uint32_t filled;
+	uint32_t dflt;
+} SwitchInfo;
+
+static uint32_t switch_count_values (IR *ir, uint32_t cond)
 {
 	ASTNode *nodes = ir->ast->nodes;
-	uint32_t cond = n->child;
-	TypeId type = nodes[cond].data_type;
-	uint32_t scrut = gen_expr(ir, nodes + cond);
-	uint32_t end = ir->label_count++;
 	uint32_t ncase = 0;
-	uint32_t filled = 0;
 
 	for (uint32_t clause = nodes[cond].next_bro; clause != NO_NODE;
 			clause = nodes[clause].next_bro) {
@@ -450,36 +452,55 @@ static void gen_switch (IR *ir, ASTNode *n)
 		for (uint32_t v = nodes[clause].child; v != NO_NODE
 				&& nodes[v].type != NODE_BLOCK; v = nodes[v].next_bro) ncase++;
 	}
+	return ncase;
+}
 
-	uint32_t labels[ncase ? ncase + 1 : 2];
-	SwitchCase *cases = arena_alloc(ir->arena, sizeof(SwitchCase) * (ncase ? ncase : 1));
-	uint32_t dflt = 0;
+static void switch_collect (IR *ir, uint32_t cond, TypeId type, SwitchInfo *si)
+{
+	ASTNode *nodes = ir->ast->nodes;
 	uint32_t k = 0;
 
-	uint32_t clause = nodes[cond].next_bro;
-	while (clause != NO_NODE) {
-		labels[k] = ir->label_count++;
-		if (nodes[clause].type == NODE_DEFAULT) dflt = labels[k];
-		else for (uint32_t v = nodes[clause].child; v != NO_NODE
-				&& nodes[v].type != NODE_BLOCK; v = nodes[v].next_bro) {
-			cases[filled].bits = switch_case_bits(ir, v, type);
-			cases[filled++].label = labels[k];
+	for (uint32_t clause = nodes[cond].next_bro; clause != NO_NODE;
+			clause = nodes[clause].next_bro, k++) {
+		si->labels[k] = ir->label_count++;
+		if (nodes[clause].type == NODE_DEFAULT) {
+			si->dflt = si->labels[k];
+			continue;
 		}
-		clause = nodes[clause].next_bro;
-		k++;
+		for (uint32_t v = nodes[clause].child; v != NO_NODE
+				&& nodes[v].type != NODE_BLOCK; v = nodes[v].next_bro) {
+			si->cases[si->filled].bits = switch_case_bits(ir, v, type);
+			si->cases[si->filled++].label = si->labels[k];
+		}
 	}
+}
 
+static void gen_switch (IR *ir, ASTNode *n)
+{
+	ASTNode *nodes = ir->ast->nodes;
+	uint32_t cond = n->child;
+	TypeId type = nodes[cond].data_type;
+	uint32_t scrut = gen_expr(ir, nodes + cond);
+	uint32_t end = ir->label_count++;
+	uint32_t ncase = switch_count_values(ir, cond);
+	SwitchInfo si = { 0 };
 	uint64_t lo;
 	uint64_t hi;
-	if (filled >= SWITCH_TBL_MIN && switch_range(cases, filled, type, &lo, &hi))
-		gen_switch_table(ir, scrut, type, cases, filled, lo, hi, dflt);
-	else if (filled >= SWITCH_TREE_MIN)
-		gen_switch_sparse(ir, scrut, type, cases, filled, dflt);
-	else gen_switch_tests(ir, cond, scrut, type, labels, dflt);
+	uint32_t k = 0;
 
-	clause = nodes[cond].next_bro;
-	for (k = 0; clause != NO_NODE; clause = nodes[clause].next_bro, k++) {
-		make_label(ir, labels[k]);
+	si.labels = arena_alloc(ir->arena, sizeof(uint32_t) * (ncase + 2));
+	si.cases = arena_alloc(ir->arena, sizeof(SwitchCase) * (ncase + 1));
+	switch_collect(ir, cond, type, &si);
+	if (si.filled >= SWITCH_TBL_MIN
+			&& switch_range(si.cases, si.filled, type, &lo, &hi))
+		gen_switch_table(ir, scrut, type, si.cases, si.filled, lo, hi, si.dflt);
+	else if (si.filled >= SWITCH_TREE_MIN)
+		gen_switch_sparse(ir, scrut, type, si.cases, si.filled, si.dflt);
+	else gen_switch_tests(ir, cond, scrut, type, si.labels, si.dflt);
+
+	for (uint32_t clause = nodes[cond].next_bro; clause != NO_NODE;
+			clause = nodes[clause].next_bro, k++) {
+		make_label(ir, si.labels[k]);
 		gen_stmt(ir, nodes + ir_case_body(ir, clause));
 		make_jump(ir, IR_JMP, NO_REG, end);
 	}

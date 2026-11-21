@@ -22,6 +22,12 @@ uint32_t parse_sizeof (Parser *p);
 uint32_t parse_alignof (Parser *p);
 uint32_t parse_offsetof (Parser *p);
 
+uint32_t parse_statement_inner (Parser *p, int root);
+uint32_t parse_import (Parser *p, int root);
+uint32_t parse_from (Parser *p, int root);
+uint32_t parse_pub (Parser *p, int root);
+uint32_t parse_export (Parser *p, int root);
+uint32_t parse_module (Parser *p);
 uint32_t parse_statement (Parser *p);
 uint32_t parse_block (Parser *p);
 uint32_t parse_brace_init (Parser *p);
