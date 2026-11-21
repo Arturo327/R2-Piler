@@ -1,0 +1,4 @@
+var g [1:5] depth=0 type=i64
+fn exposed [3:8] depth=0 type=i64
+fn main [8:8] depth=0 type=i64
+param p [3:17] depth=1 type=ptr i64

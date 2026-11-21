@@ -3,7 +3,7 @@
 // module: 1a
 // depends:
 // total_imports:
-#define R2_HAS_DYNAMIC_INIT 0
+#define R2_1A_HAS_DYNAMIC_INIT 0
 
 #ifndef R2_1A_H
 #define R2_1A_H
@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifndef R2_API
 #if defined(_WIN32) || defined(__CYGWIN__)
 #  if defined(R2_STATIC) || defined(R2_BUILDING)
 #    define R2_API
@@ -22,19 +23,30 @@
 #else
 #  define R2_API
 #endif
+#endif
 
+#ifndef R2_PACKED
 #if defined(_MSC_VER)
 #  define R2_PACKED
-#  define R2_PACK_PUSH __pragma(pack(push, 1))
-#  define R2_PACK_POP __pragma(pack(pop))
 #elif defined(__GNUC__) || defined(__clang__)
 #  define R2_PACKED __attribute__((packed))
-#  define R2_PACK_PUSH
-#  define R2_PACK_POP
 #else
 #  define R2_PACKED
+#endif
+#endif
+#ifndef R2_PACK_PUSH
+#if defined(_MSC_VER)
+#  define R2_PACK_PUSH __pragma(pack(push, 1))
+#else
 #  define R2_PACK_PUSH
+#endif
+#endif
+#ifndef R2_PACK_POP
+#if defined(_MSC_VER)
+#  define R2_PACK_POP __pragma(pack(pop))
+#else
 #  define R2_PACK_POP
+#endif
 #endif
 
 #ifdef __cplusplus
@@ -177,7 +189,7 @@ _Static_assert(offsetof(Mixta, p) == 8, "offset");
 #endif
 
 
-#if R2_HAS_DYNAMIC_INIT
+#if R2_1A_HAS_DYNAMIC_INIT
 R2_API extern void __r2_init_1a (void);
 #endif
 

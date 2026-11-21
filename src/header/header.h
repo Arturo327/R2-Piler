@@ -15,6 +15,7 @@ typedef struct CHeader {
 	char *canon;
 	char *path;
 	char *guard;
+	char *init_macro;
 	char *init_sym;
 
 	const char **type_names;

@@ -184,6 +184,7 @@ static CompilerOpts parse_args (int argc, char *argv[])
 		case 'n': args.r2i = 0; break;
 		case 'H':
 			args.header = 1;
+			if (optarg && optarg[0] == '=') optarg++;
 			if (optarg && optarg[0]) args.header_dir = optarg;
 			break;
 		case 'a': args.arch = get_arch(optarg); break;

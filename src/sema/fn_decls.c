@@ -37,6 +37,31 @@ static int is_static_const (Sema *s, uint32_t idx)
 	}
 }
 
+static void check_default_sym (Sema *s, uint32_t node, const char *param, uint16_t plen)
+{
+	ASTNode *n = s->ast->nodes + node;
+
+	if (n->type != NODE_ID || n->sym == NO_SYMBOL) return;
+	Symbol *sym = s->table.symbols + n->sym;
+
+	if (sym->decl != NO_NODE && !(s->ast->nodes[sym->decl].flags
+			& (NODE_FLAG_PUB | NODE_FLAG_EXPORT)))
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"default argument for parameter '%.*s' exposes non-public symbol '%.*s'",
+				(int)plen, param, (int)sym->len, sym->name);
+}
+
+static void check_default_syms (Sema *s, uint32_t node, const char *param, uint16_t plen)
+{
+	ASTNode *n = s->ast->nodes + node;
+
+	check_default_sym(s, node, param, plen);
+	if (n->type == NODE_INDEX_INIT && n->u64 != NO_NODE)
+		check_default_syms(s, (uint32_t)n->u64, param, plen);
+	for (uint32_t c = n->child; c != NO_NODE; c = s->ast->nodes[c].next_bro)
+		check_default_syms(s, c, param, plen);
+}
+
 static void check_static_decl (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -318,7 +343,7 @@ void check_export_fn (Sema *s, uint32_t idx)
 	}
 }
 
-static void check_param_default (Sema *s, uint32_t param)
+static void check_param_default (Sema *s, uint32_t param, int is_public)
 {
 	ASTNode *p = s->ast->nodes + param;
 	uint32_t def = p->child;
@@ -345,12 +370,15 @@ static void check_param_default (Sema *s, uint32_t param)
 	}
 
 	int ok;
+	const char *pname = p->str;
+	uint16_t plen = p->len;
 	uint32_t cast = force_cast(s, def, def_type, type, &ok);
 	s->ast->nodes[param].child = cast;
 	if (!ok)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cast),
 				"default argument type %s does not match parameter type %s; use an explicit cast with 'as'",
 				type_display_name(def_type), types[type].name);
+	else if (is_public) check_default_syms(s, def, pname, plen);
 }
 
 static void check_fn_defaults (Sema *s, uint32_t idx)
@@ -358,6 +386,8 @@ static void check_fn_defaults (Sema *s, uint32_t idx)
 	uint32_t args = s->ast->nodes[idx].child;
 	uint32_t param = s->ast->nodes[args].child;
 	int seen = 0;
+	int is_public = (s->ast->nodes[idx].flags
+			& (NODE_FLAG_PUB | NODE_FLAG_EXPORT)) != 0;
 
 	if (s->ast->nodes[idx].type == NODE_FN_DEC
 			&& (s->ast->nodes[args].flags & NODE_FLAG_VARARG_TYPED)) {
@@ -378,7 +408,7 @@ static void check_fn_defaults (Sema *s, uint32_t idx)
 			error_report(s->err, ERR_ERROR, node_loc(p),
 					"required parameter '%.*s' cannot follow an optional parameter",
 					(int)p->len, p->str);
-		check_param_default(s, param);
+		check_param_default(s, param, is_public);
 		param = s->ast->nodes[param].next_bro;
 	}
 }

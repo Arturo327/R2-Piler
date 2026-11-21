@@ -1,0 +1,6 @@
+// r2i v1
+// source: dep.r2
+// module: 3dep
+// has_dynamic_init: 0
+
+pub newtype _r2_n_3dep_6Handle = ptr void;

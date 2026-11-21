@@ -196,6 +196,25 @@ static void h_register_type (CHeader *h, ASTNode *n, uint32_t idx)
 	h_collect_type(h, id);
 }
 
+static void h_register_imported (CHeader *h)
+{
+	AST *ast = h->ir->ast;
+
+	for (uint32_t idx = ast->nodes[0].child; idx != NO_NODE;
+			idx = ast->nodes[idx].next_bro) {
+		ASTNode *n = ast->nodes + idx;
+		TypeId id;
+
+		if (!(n->flags & NODE_FLAG_IMPORTED) || n->sym == NO_SYMBOL) continue;
+		id = h->ir->symtab->symbols[n->sym].type;
+		if (id == TYPE_ERROR || id >= type_count || !h->type_used[id]) continue;
+		if (h->decl_nodes[id] != 0xFFFF) continue;
+		h->type_names[id] = types[id].name;
+		h->decl_nodes[id] = (uint16_t)idx;
+		h_collect_type(h, id);
+	}
+}
+
 void h_collect_all (CHeader *h)
 {
 	AST *ast = h->ir->ast;
@@ -216,6 +235,7 @@ void h_collect_all (CHeader *h)
 			break;
 		}
 	}
+	h_register_imported(h);
 }
 
 static void h_make_slices (CHeader *h)

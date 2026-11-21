@@ -580,8 +580,11 @@ static void check_export_type (Sema *s, TypeId type, uint32_t use)
 	}
 	case TK_STRUCT: case TK_ENUM: case TK_ALIAS: case TK_NEWTYPE: {
 		ASTNode *decl = named_type_decl(s, type);
+		int visible = decl && ((decl->flags & NODE_FLAG_EXPORT)
+				|| ((decl->flags & NODE_FLAG_IMPORTED)
+					&& (decl->flags & NODE_FLAG_PUB)));
 
-		if (decl && !(decl->flags & NODE_FLAG_EXPORT))
+		if (decl && !visible)
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + use),
 					"export declaration exposes non-export type '%.*s'",
 					(int)types[type].len, types[type].name);

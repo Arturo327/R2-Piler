@@ -64,6 +64,7 @@ for conf in "$dir"/*/test.conf; do
 	ws="$root/$name"
 	mkdir -p "$ws" || { fail "$name"; continue; }
 	cp "$case_dir"/*.r2 "$ws"/ 2>/dev/null
+	cp "$case_dir"/*.r2i "$ws"/ 2>/dev/null
 	cp "$case_dir"/*.c "$case_dir"/*.cpp "$ws"/ 2>/dev/null
 	cp -R "$case_dir/include" "$ws/" 2>/dev/null
 

@@ -1,2 +1,2 @@
-// source: /some/other/module.r2
+// source: b.r2
 int f(void);

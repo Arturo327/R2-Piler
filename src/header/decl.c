@@ -70,7 +70,7 @@ static void h_make_global (CHeader *h, ASTNode *n)
 
 static void h_make_init (CHeader *h)
 {
-	h_printf(h, "#if R2_HAS_DYNAMIC_INIT\n");
+	h_printf(h, "#if %s\n", h->init_macro);
 	h_printf(h, "R2_API extern void %s (void);\n", h->init_sym);
 	h_printf(h, "#endif\n\n");
 }

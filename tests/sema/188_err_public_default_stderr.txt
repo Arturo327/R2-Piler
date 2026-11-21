@@ -1,0 +1,4 @@
+tests/sema/188_err_public_default_src.r2:3:32: ERROR: default argument for parameter 'p' exposes non-public symbol 'g'
+      3 | pub fn exposed (p : ptr i64 = $g) : i64
+        |                                ^
+1 error, 0 warnings
