@@ -3,6 +3,8 @@
 // module: 1a
 // has_dynamic_init: 0
 // imports:
+// depends:
+// total_imports:
 
 pub struct _r2_s_1a_5Inner {
 	a : i64;

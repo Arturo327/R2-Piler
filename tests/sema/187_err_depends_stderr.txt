@@ -1,0 +1,10 @@
+tests/sema/187_err_depends_src.r2:1:1: ERROR: library name in 'depends' cannot be empty
+      1 | depends "";
+        | ^
+tests/sema/187_err_depends_src.r2:2:1: ERROR: invalid library name 'bad name'; use only [A-Za-z0-9_+.-]
+      2 | depends "bad name";
+        | ^~~~~~~~
+tests/sema/187_err_depends_src.r2:5:2: ERROR: 'depends' can only be declared at the top level
+      5 |         depends "m";
+        |         ^
+3 errors, 0 warnings

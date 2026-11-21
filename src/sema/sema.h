@@ -65,6 +65,11 @@ typedef struct Sema {
 	uint16_t mod_len;
 	uint8_t mod_seen;
 
+	const char **deps;
+	uint16_t *dep_lens;
+	uint16_t dep_count;
+	uint16_t dep_cap;
+
 	ImportModule *modules;
 	uint32_t module_count;
 	uint32_t module_cap;

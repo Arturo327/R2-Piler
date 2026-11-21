@@ -560,6 +560,42 @@ static uint32_t parse_module (Parser *p)
 	return node;
 }
 
+static uint32_t parse_depends (Parser *p)
+{
+	Token kw = p->curr;
+	uint32_t node = NO_NODE;
+	uint32_t last = NO_NODE;
+
+	advance(p);
+	while (1) {
+		if (p->curr.type != TOK_LIT_STR) {
+			if (!p->panic_mode)
+				error_report(p->err, ERR_ERROR, token_loc(p->curr),
+						"expected a library name string after 'depends'");
+			p->panic_mode = 1;
+			while (p->curr.type != TOK_SEMCOL && p->curr.type != TOK_EOF)
+				advance(p);
+			consume(p, TOK_SEMCOL, "expected ';' after the library name");
+			return node != NO_NODE ? node
+					: new_node(p, NODE_ERROR, kw.line, kw.col);
+		}
+		Token name = p->curr;
+
+		advance(p);
+		uint32_t at = new_node(p, NODE_DEPENDS_DEC, kw.line, kw.col);
+
+		p->ast.nodes[at].str = name.str;
+		p->ast.nodes[at].len = name.len;
+		if (node == NO_NODE) node = at;
+		else p->ast.nodes[last].next_bro = at;
+		last = at;
+		if (p->curr.type != TOK_COMMA || p->panic_mode) break;
+		advance(p);
+	}
+	consume(p, TOK_SEMCOL, "expected ';' after the library name");
+	return node;
+}
+
 static uint32_t parse_statement_inner (Parser *p, int root)
 {
 	switch (p->curr.type)
@@ -569,6 +605,7 @@ static uint32_t parse_statement_inner (Parser *p, int root)
 	case TOK_VAR: return parse_decl(p, 0);
 	case TOK_STATIC: return parse_static_decl(p);
 	case TOK_MODULE: return parse_module(p);
+	case TOK_DEPENDS: return parse_depends(p);
 	case TOK_PUB: return parse_pub(p, root);
 	case TOK_EXPORT: return parse_export(p, root);
 	case TOK_ARR: return parse_decl(p, 1);

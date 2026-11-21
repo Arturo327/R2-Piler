@@ -3,6 +3,8 @@
 // module: 2np
 // has_dynamic_init: 0
 // imports:
+// depends:
+// total_imports:
 
 pub newtype _r2_n_2np_1P = ptr i64;
 

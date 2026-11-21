@@ -9,6 +9,7 @@
 #   args <text>            extra compiler arguments
 #   status <n>             expected compiler exit status (default 0)
 #   stderr <file>          expected stderr, case-relative (default: must be empty)
+#   *.r2i files            copied to the workspace as prebuilt imported interfaces
 #   no_output              assert that no .r2i file is written
 #   second <file>          second source compiled afterwards in the same workspace
 #   second_status <n>      expected exit status of the second compile (default 0)
@@ -55,6 +56,7 @@ for conf in "$dir"/*/test.conf; do
 	ws="$root/$name"
 	mkdir -p "$ws"
 	cp "$case_dir"/*.r2 "$ws"/ 2>/dev/null
+	cp "$case_dir"/*.r2i "$ws"/ 2>/dev/null
 
 	src=a.r2; out=a.r2i; mdir=modules
 	want=0; want_err=""; no_output=0; extra=""

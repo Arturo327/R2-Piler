@@ -3,6 +3,8 @@
 // module: 4same
 // has_dynamic_init: 0
 // imports:
+// depends:
+// total_imports:
 
 pub fn _r2_pf_4same_4main () : i64;
 

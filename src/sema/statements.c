@@ -800,6 +800,10 @@ static void check_statement (Sema *s, uint32_t idx)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"'module' can only be declared at the top level");
 		return;
+	case NODE_DEPENDS_DEC:
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"'depends' can only be declared at the top level");
+		return;
 	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"extern declarations can only appear at the top level");

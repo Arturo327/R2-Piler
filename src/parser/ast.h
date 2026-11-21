@@ -52,6 +52,7 @@ typedef enum {
 	NODE_SPREAD, NODE_MODULE_DEC,						// variadics & modules
 	NODE_TYPE_FN, NODE_FN_PARAM,						// function pointer types
 	NODE_IMPORT_DEC, NODE_FROM_DEC,						// imported modules
+	NODE_DEPENDS_DEC,							// native library dependencies
 	NODE_COUNT
 } NodeType;
 

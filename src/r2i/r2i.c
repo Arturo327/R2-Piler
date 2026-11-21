@@ -291,6 +291,26 @@ static int has_init (IR *ir)
 	return 0;
 }
 
+static void print_header_meta (R2i *r)
+{
+	Sema *s = r->sema;
+
+	r2i_printf(r, "// depends:");
+	for (uint16_t i = 0; i < s->dep_count; i++)
+		r2i_printf(r, "%s%.*s", i ? ", " : " ",
+				(int)s->dep_lens[i], s->deps[i]);
+	r2i_printf(r, "\n// total_imports:");
+	int first = 1;
+	for (uint32_t i = 0; i < s->module_count; i++) {
+		ImportModule *m = s->modules + i;
+
+		r2i_printf(r, "%s%.*s", first ? " " : ", ",
+				(int)m->name_len, m->name);
+		first = 0;
+	}
+	r2i_printf(r, "\n\n");
+}
+
 int r2i_generate (R2i *r, IR *ir, Sema *sema, const char *source, const char *dir)
 {
 	memset(r, 0, sizeof(*r));
@@ -318,7 +338,8 @@ int r2i_generate (R2i *r, IR *ir, Sema *sema, const char *source, const char *di
 		r2i_printf(r, "%s%.*s", first ? " " : ", ", (int)m->name_len, m->name);
 		first = 0;
 	}
-	r2i_printf(r, "\n\n");
+	r2i_printf(r, "\n");
+	print_header_meta(r);
 	r2i_make_decls(r);
 	r2i_make_init(r);
 	r->ready = 1;

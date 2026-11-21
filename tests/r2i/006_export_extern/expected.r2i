@@ -3,6 +3,8 @@
 // module: 1a
 // has_dynamic_init: 0
 // imports:
+// depends:
+// total_imports:
 
 export fn c_entry (x : i32) : i32;
 

@@ -1,0 +1,9 @@
+// r2i v1
+// source: b.r2
+// module: 1b
+// has_dynamic_init: 0
+// imports:
+// depends: zlib
+// total_imports:
+
+pub fn _r2_pf_1b_5fromb () : i64;

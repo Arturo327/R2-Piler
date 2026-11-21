@@ -94,6 +94,7 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_NAMED_ARG] = "NODE_NAMED_ARG",
 	[NODE_SPREAD] = "NODE_SPREAD",
 	[NODE_MODULE_DEC] = "NODE_MODULE_DEC",
+	[NODE_DEPENDS_DEC] = "NODE_DEPENDS_DEC",
 	[NODE_TYPE_FN] = "NODE_TYPE_FN",
 	[NODE_FN_PARAM] = "NODE_FN_PARAM",
 	[NODE_IMPORT_DEC] = "NODE_IMPORT_DEC",
@@ -133,6 +134,7 @@ static void dump_node_value (ASTNode *n)
 	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
 	case NODE_STRUCT_DEC: case NODE_FIELD_DEC: case NODE_MODULE_DEC:
+	case NODE_DEPENDS_DEC:
 	case NODE_IMPORT_DEC: case NODE_FROM_DEC:
 		if (n->str && !(n->flags & NODE_FLAG_INDIRECT))
 			printf(" name=\"%.*s\"", (int)n->len, n->str);

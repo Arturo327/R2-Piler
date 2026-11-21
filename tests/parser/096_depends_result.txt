@@ -1,0 +1,11 @@
+NODE_ROOT [0:0]
+  NODE_DEPENDS_DEC [1:1] name="m"
+  NODE_DEPENDS_DEC [1:1] name="z"
+  NODE_DEPENDS_DEC [2:1] name="m"
+  NODE_MODULE_DEC [3:1] name="dep"
+  NODE_FN_DEC [5:8] name="main" pub
+    NODE_ARGS_DEC [5:13]
+    NODE_RET_DEC [5:16] type=i64
+    NODE_BLOCK [5:22]
+      NODE_RET [5:24]
+        NODE_LIT_i64 [5:31] i64=0

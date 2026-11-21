@@ -189,6 +189,51 @@ static void check_module_decl (Sema *s, ASTNode *n)
 	s->mod_len = n->len;
 }
 
+static int valid_dep_name (const char *s, uint16_t len)
+{
+	if (!len) return 0;
+	for (uint16_t i = 0; i < len; i++) {
+		unsigned char c = (unsigned char)s[i];
+
+		if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
+				|| (c >= '0' && c <= '9') || c == '_' || c == '+'
+				|| c == '-' || c == '.') continue;
+		return 0;
+	}
+	return 1;
+}
+
+static void check_depends_decl (Sema *s, ASTNode *n)
+{
+	if (!n->len) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"library name in 'depends' cannot be empty");
+		return;
+	}
+	if (!valid_dep_name(n->str, n->len)) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"invalid library name '%.*s'; use only [A-Za-z0-9_+.-]",
+				(int)n->len, n->str);
+		return;
+	}
+	for (uint16_t i = 0; i < s->dep_count; i++) {
+		if (s->dep_lens[i] == n->len
+				&& memcmp(s->deps[i], n->str, n->len) == 0) return;
+	}
+	if (s->dep_count == s->dep_cap) {
+		uint16_t cap = s->dep_cap ? s->dep_cap * 2 : 8;
+
+		s->deps = arena_realloc(s->arena, s->deps,
+				sizeof(char *) * s->dep_cap, sizeof(char *) * cap);
+		s->dep_lens = arena_realloc(s->arena, s->dep_lens,
+				sizeof(uint16_t) * s->dep_cap, sizeof(uint16_t) * cap);
+		s->dep_cap = cap;
+	}
+	s->deps[s->dep_count] = n->str;
+	s->dep_lens[s->dep_count] = n->len;
+	s->dep_count++;
+}
+
 static void check_root (Sema *s)
 {
 	uint32_t idx = s->ast->nodes[0].child;
@@ -204,6 +249,7 @@ static void check_root (Sema *s)
 		else if (n->type == NODE_FN_DEC) check_fn_dec(s, idx);
 		else if (n->type == NODE_EXTERN_FN_DEC) check_extern_fn(s, idx);
 		else if (n->type == NODE_MODULE_DEC) check_module_decl(s, n);
+		else if (n->type == NODE_DEPENDS_DEC) check_depends_decl(s, n);
 		else if (n->type != NODE_ENUM_DEC && n->type != NODE_TYPE_DEC
 				&& n->type != NODE_NEWTYPE_DEC && n->type != NODE_EXTERN_VAR_DEC
 				&& n->type != NODE_STRUCT_DEC && n->type != NODE_IMPORT_DEC

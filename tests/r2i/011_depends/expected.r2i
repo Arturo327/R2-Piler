@@ -1,0 +1,10 @@
+// r2i v1
+// source: $ROOT/a.r2
+// module: 4depa
+// has_dynamic_init: 0
+// imports:
+// depends: m, z
+// total_imports: b
+
+pub fn _r2_pf_4depa_4main () : i64;
+

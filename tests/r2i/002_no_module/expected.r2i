@@ -3,6 +3,8 @@
 // module: 1a
 // has_dynamic_init: 0
 // imports:
+// depends:
+// total_imports:
 
 pub fn _r2_pf_1a_5twice (x : i64) : i64;
 

@@ -52,6 +52,10 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->mod_name = NULL;
 	s->mod_len = 0;
 	s->mod_seen = 0;
+	s->deps = NULL;
+	s->dep_lens = NULL;
+	s->dep_count = 0;
+	s->dep_cap = 0;
 	s->modules = NULL;
 	s->module_count = 0;
 	s->module_cap = 0;
