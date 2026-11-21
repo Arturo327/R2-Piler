@@ -28,7 +28,7 @@ typedef struct Cfg {
 	uint8_t live_full;
 } Cfg;
 
-void cfg_fill_blocks (IR *ir, IRFn *fn, CfgBlock *blocks, uint32_t *block_count);
+void cfg_fill_blocks (Arena *arena, IR *ir, IRFn *fn, CfgBlock *blocks, uint32_t *block_count);
 uint32_t cfg_entry_len (IR *ir, IRFn *fn);
 void cfg_label_span (IR *ir, IRFn *fn, uint32_t *lo, uint32_t *count);
 void cfg_build_lmap (IR *ir, Cfg *cfg);

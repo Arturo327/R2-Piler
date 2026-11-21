@@ -17,7 +17,7 @@ static int starts_block (IR *ir, IRFn *fn, uint32_t i)
 	return 0;
 }
 
-void cfg_fill_blocks (IR *ir, IRFn *fn, CfgBlock *blocks, uint32_t *block_count)
+void cfg_fill_blocks (Arena *arena, IR *ir, IRFn *fn, CfgBlock *blocks, uint32_t *block_count)
 {
 	uint32_t b = 0;
 
@@ -33,7 +33,7 @@ void cfg_fill_blocks (IR *ir, IRFn *fn, CfgBlock *blocks, uint32_t *block_count)
 	}
 	*block_count = b + 1;
 
-	uint32_t caps[b + 1];
+	uint32_t *caps = arena_alloc(arena, sizeof(uint32_t) * (b + 1));
 	uint32_t total = 0;
 
 	for (uint32_t j = 0; j <= b; j++) {
@@ -43,7 +43,7 @@ void cfg_fill_blocks (IR *ir, IRFn *fn, CfgBlock *blocks, uint32_t *block_count)
 			? ir->jtables[last->target].count + 1 : 2;
 		total += caps[j];
 	}
-	uint32_t *pool = arena_alloc(ir->arena, sizeof(uint32_t) * (total ? total : 1));
+	uint32_t *pool = arena_alloc(arena, sizeof(uint32_t) * (total ? total : 1));
 	uint32_t off = 0;
 
 	for (uint32_t j = 0; j <= b; j++) {

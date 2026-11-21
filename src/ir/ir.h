@@ -164,6 +164,8 @@ typedef struct IR {
 	uint32_t nrvo;
 
 	uint32_t *desc;
+	uint32_t *desc_gen;
+	uint32_t desc_epoch;
 	uint32_t ret_node;
 
 	TempSlot *temps;

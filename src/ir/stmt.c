@@ -650,7 +650,7 @@ static void gen_fn (IR *ir, ASTNode *n, uint32_t fn_idx)
 	ir->loop_count = 0;
 	ir->sret = NO_REG;
 	ir->ret_node = ret;
-	memset(ir->desc, 0xFF, sizeof(uint32_t) * ir->ast->count);
+	ir->desc_epoch++;
 
 	ir->fns[fn_idx].start = ir->instr_count;
 	if (fn_uses_sret(ir, ret)) {
@@ -716,7 +716,7 @@ static void gen_init_fn (IR *ir)
 	ir->temp_count = 0;
 	ir->sret = NO_REG;
 	ir->ret_node = NO_NODE;
-	memset(ir->desc, 0xFF, sizeof(uint32_t) * ir->ast->count);
+	ir->desc_epoch++;
 	ir->fns[ir->init_fn].start = ir->instr_count;
 
 	for (uint32_t i = 0; i < ir->init_dep_count; i++) {

@@ -242,7 +242,10 @@ uint32_t gen_call_desc (IR *ir, ASTNode *n)
 {
 	uint32_t idx = (uint32_t)(n - ir->ast->nodes);
 
-	if (ir->desc[idx] == NO_REG) ir->desc[idx] = gen_call(ir, n, NO_REG);
+	if (ir->desc_gen[idx] != ir->desc_epoch) {
+		ir->desc[idx] = gen_call(ir, n, NO_REG);
+		ir->desc_gen[idx] = ir->desc_epoch;
+	}
 	return ir->desc[idx];
 }
 

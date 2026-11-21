@@ -533,7 +533,7 @@ static void build_cfg (RegAlloc *ra)
 	cfg->lrefs = ra->lrefs;
 	cfg->work = NULL;
 
-	cfg_fill_blocks(ra->ir, ra->fn, cfg->blocks, &cfg->block_count);
+	cfg_fill_blocks(ra->arena, ra->ir, ra->fn, cfg->blocks, &cfg->block_count);
 	ra->live = arena_alloc(ra->arena, (size_t)cfg->block_count * ra->words * sizeof(uint64_t));
 
 	cfg_build_lmap(ra->ir, cfg);

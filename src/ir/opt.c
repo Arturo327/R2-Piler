@@ -33,6 +33,7 @@ void optimize_fn (Optimizer *opt, OptFn *f)
 {
 	size_t n = sizeof(passes) / sizeof(passes[0]);
 	int dirty = 1;
+	ArenaMark mark = arena_mark(opt->arena);
 
 	for (int round = 0; round < OPT_MAX_ROUNDS; round++) {
 		int changed = 0;
@@ -45,6 +46,9 @@ void optimize_fn (Optimizer *opt, OptFn *f)
 		}
 		if (!changed) break;
 	}
+	arena_release(opt->arena, mark);
+	f->live = NULL;
+	f->live_cap = 0;
 }
 
 static void compact_ir (IR *ir)

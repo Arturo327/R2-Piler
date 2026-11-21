@@ -151,7 +151,8 @@ int mangle_module_name (Arena *arena, const char *name, uint16_t len, const char
 	int n = snprintf(buf, cap, "%zu", escaped_len(name, len));
 
 	if (n <= 0) return 1;
-	escape_segment(buf + n, name, len);
+	n += (int)escape_segment(buf + n, name, len);
+	buf[n] = '\0';
 	*out = buf;
 	return 0;
 }

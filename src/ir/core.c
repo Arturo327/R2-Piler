@@ -145,7 +145,12 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select, const char *mod)
 	ir->temps = NULL;
 	ir->temp_count = 0;
 	ir->temp_cap = 0;
-	ir->desc = arena_alloc(arena, sizeof(uint32_t) * (sema->ast->count ? sema->ast->count : 1));
+	uint32_t nodes = sema->ast->count ? sema->ast->count : 1;
+
+	ir->desc = arena_alloc(arena, sizeof(uint32_t) * nodes);
+	ir->desc_gen = arena_alloc(arena, sizeof(uint32_t) * nodes);
+	memset(ir->desc_gen, 0, sizeof(uint32_t) * nodes);
+	ir->desc_epoch = 0;
 
 	ir->reg_types = NULL;
 	ir->reg_type_cap = 0;

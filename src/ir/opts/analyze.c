@@ -27,7 +27,11 @@ static void count_regs (IR *ir, OptFn *f)
 
 static void count_label_refs (IR *ir, OptFn *f)
 {
-	memset(f->lrefs, 0, ((size_t)ir->label_count + 1) * sizeof(uint32_t));
+	uint32_t lo;
+	uint32_t span;
+
+	cfg_label_span(ir, f->fn, &lo, &span);
+	memset(f->lrefs + lo, 0, (size_t)span * sizeof(uint32_t));
 	for (uint32_t j = 0; j < f->fn->count; j++) {
 		IRInstr *in = ir->instrs + f->fn->start + j;
 
@@ -42,7 +46,7 @@ static void count_label_refs (IR *ir, OptFn *f)
 
 void analyze_fn (Optimizer *opt, OptFn *f)
 {
-	cfg_fill_blocks(opt->ir, f->fn, f->blocks, &f->block_count);
+	cfg_fill_blocks(opt->arena, opt->ir, f->fn, f->blocks, &f->block_count);
 	f->entry_end = cfg_entry_len(opt->ir, f->fn);
 	opt_cfg(f, &opt->cfg);
 	opt->cfg.lbase = 0;

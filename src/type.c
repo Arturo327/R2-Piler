@@ -10,6 +10,7 @@ uint16_t type_count;
 
 static uint16_t derived_tab[TYPE_HASH_SIZE];
 static uint16_t name_tab[TYPE_HASH_SIZE];
+static uint16_t fn_tab[TYPE_HASH_SIZE];
 
 static Arena type_arena;
 static int type_arena_ready;
@@ -94,6 +95,7 @@ void init_types (void)
 	memset(types, 0, sizeof(types));
 	memset(derived_tab, 0, sizeof(derived_tab));
 	memset(name_tab, 0, sizeof(name_tab));
+	memset(fn_tab, 0, sizeof(fn_tab));
 	for (int i = 0; i < TYPE_COUNT; i++) {
 		types[i] = builtin_types[i];
 		types[i].len = (uint16_t)strlen(types[i].name);
@@ -123,6 +125,7 @@ void types_destroy (void)
 	memset(types, 0, sizeof(types));
 	memset(derived_tab, 0, sizeof(derived_tab));
 	memset(name_tab, 0, sizeof(name_tab));
+	memset(fn_tab, 0, sizeof(fn_tab));
 }
 
 static const char *copy_name (const char *name, uint16_t len)
@@ -263,14 +266,30 @@ static int fn_same (const Type *t, const TypeId *params, uint16_t pc,
 	return 1;
 }
 
+static uint16_t *fn_slot (const TypeId *params, uint16_t pc,
+		const TypeId *rets, uint16_t rc, int variadic)
+{
+	uint32_t h = 2166136261u;
+
+	for (uint16_t i = 0; i < pc; i++)
+		h = (h ^ params[i]) * 16777619u;
+	h = (h ^ 0xFFFFu) * 16777619u;
+	for (uint16_t i = 0; i < rc; i++)
+		h = (h ^ rets[i]) * 16777619u;
+	h = (h ^ (uint32_t)(variadic != 0)) * 16777619u;
+	h ^= h >> 15;
+	h &= TYPE_HASH_SIZE - 1;
+	while (fn_tab[h] && !fn_same(types + fn_tab[h], params, pc, rets, rc, variadic != 0))
+		h = (h + 1) & (TYPE_HASH_SIZE - 1);
+	return fn_tab + h;
+}
+
 TypeId type_fn_of (const TypeId *params, uint16_t param_count,
 		const TypeId *rets, uint16_t ret_count, int variadic)
 {
-	for (TypeId i = TYPE_COUNT; i < type_count; i++)
-		if (types[i].kind == TK_FN
-				&& fn_same(types + i, params, param_count, rets, ret_count, variadic))
-			return i;
+	uint16_t *slot = fn_slot(params, param_count, rets, ret_count, variadic);
 
+	if (*slot) return *slot;
 	uint16_t len;
 	char *name = fn_name(params, param_count, rets, ret_count, variadic, &len);
 	if (!name) return TYPE_ERROR;
@@ -290,6 +309,7 @@ TypeId type_fn_of (const TypeId *params, uint16_t param_count,
 	types[id].fn_variadic = variadic != 0;
 	types[id].size = 0;
 	types[id].sign = 0;
+	*slot = id;
 	return id;
 }
 
