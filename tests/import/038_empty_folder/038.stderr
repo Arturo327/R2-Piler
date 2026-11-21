@@ -1,0 +1,4 @@
+app.r2:1:1: ERROR: module folder 'empty' contains no .r2i files
+      1 | import empty;
+        | ^~~~~
+1 error, 0 warnings

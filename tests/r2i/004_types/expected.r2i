@@ -45,4 +45,3 @@ pub fn _r2_pf_1a_4take (_o : _r2_s_1a_5Outer, _u : _r2_u_1a_1U, _p : _r2_s_1a_1P
 
 pub fn _r2_pf_1a_4main () : i64;
 
-pub fn __r2_init_1a () : void;

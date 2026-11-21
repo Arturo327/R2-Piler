@@ -1,0 +1,3 @@
+import empty;
+
+pub fn main () : i64 { return 0; }

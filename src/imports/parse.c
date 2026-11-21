@@ -55,7 +55,7 @@ static int decode_symbol (ImportLoader *l, ImportModule *m, const char *sym,
 static int is_init_name (ImportModule *m, const char *name, uint16_t len)
 {
 	static const char prefix[] = "__r2_init_";
-	size_t plen = sizeof prefix - 1;
+	size_t plen = sizeof(prefix) - 1;
 
 	if (len != plen + m->mod_len) return 0;
 	if (memcmp(name, prefix, plen) != 0) return 0;

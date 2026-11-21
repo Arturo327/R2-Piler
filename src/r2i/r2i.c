@@ -117,7 +117,7 @@ int r2i_build_path (Sema *sema, const char *source, const char *dir,
 	const char *subdir = "";
 	size_t subdir_len = 0;
 	if (!sema->mod_seen) {
-		if (mangle_module_relative(source, rel, sizeof rel)) return 1;
+		if (mangle_module_relative(source, rel, sizeof(rel))) return 1;
 		const char *last = strrchr(rel, '/');
 
 		if (last) {
@@ -164,7 +164,7 @@ int r2i_make_dirs (const char *dir)
 	char path[R2I_PATH_MAX];
 	size_t len = strlen(dir);
 
-	if (!len || len >= sizeof path) {
+	if (!len || len >= sizeof(path)) {
 		fprintf(stderr, "Error: invalid modules directory '%s'\n", dir);
 		return 1;
 	}
@@ -195,7 +195,7 @@ int r2i_check_owner (const char *path, const char *canon)
 		fprintf(stderr, "Error: could not read '%s': %s\n", path, strerror(errno));
 		return 1;
 	}
-	for (int i = 0; i < 16 && fgets(line, sizeof line, f); i++) {
+	for (int i = 0; i < 16 && fgets(line, sizeof(line), f); i++) {
 		if (strncmp(line, "// source: ", 11) != 0) {
 			if (line[0] != '/') break;
 			continue;
@@ -226,7 +226,7 @@ int r2i_check_owner (const char *path, const char *canon)
 static void patch_init_flag (R2i *r)
 {
 	static const char key[] = "// has_dynamic_init: ";
-	size_t klen = sizeof key - 1;
+	size_t klen = sizeof(key) - 1;
 	char *at = strstr(r->code, key);
 
 	if (!at || (size_t)(at - r->code) + klen >= r->len) return;
@@ -236,10 +236,30 @@ static void patch_init_flag (R2i *r)
 	*digit = r->ir->fns[r->ir->init_fn].count > 1 ? '1' : '0';
 }
 
+static void strip_init_decl (R2i *r)
+{
+	if (r->ir->fns[r->ir->init_fn].count > 1) return;
+	char needle[256];
+	int n = snprintf(needle, sizeof(needle), "pub fn %s () : void;\n",
+			r->ir->fns[r->ir->init_fn].sym);
+
+	if (n <= 0 || (size_t)n >= sizeof(needle)) return;
+	char *at = strstr(r->code, needle);
+
+	if (!at) return;
+	size_t len = (size_t)n;
+	size_t off = (size_t)(at - r->code);
+
+	memmove(at, at + len, r->len - off - len);
+	r->len -= len;
+	r->code[r->len] = '\0';
+}
+
 int r2i_write (R2i *r)
 {
 	if (!r->ready) return 0;
 	patch_init_flag(r);
+	strip_init_decl(r);
 	if (r2i_make_dirs(r->dir) || r2i_make_parent(r->path)
 			|| r2i_check_owner(r->path, r->canon)) return 1;
 
@@ -273,7 +293,7 @@ static int has_init (IR *ir)
 
 int r2i_generate (R2i *r, IR *ir, Sema *sema, const char *source, const char *dir)
 {
-	memset(r, 0, sizeof *r);
+	memset(r, 0, sizeof(*r));
 	r->ir = ir;
 	r->sema = sema;
 	r->source = source;
@@ -310,5 +330,5 @@ void r2i_free (R2i *r)
 	free(r->code);
 	free(r->canon);
 	free(r->path);
-	memset(r, 0, sizeof *r);
+	memset(r, 0, sizeof(*r));
 }

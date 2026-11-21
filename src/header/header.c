@@ -131,7 +131,7 @@ static void make_prologue (CHeader *h)
 static void patch_init_flag (CHeader *h)
 {
 	static const char key[] = "#define R2_HAS_DYNAMIC_INIT ";
-	size_t klen = sizeof key - 1;
+	size_t klen = sizeof(key) - 1;
 	char *at = strstr(h->code, key);
 
 	if (!at || (size_t)(at - h->code) + klen >= h->len) return;
@@ -162,10 +162,9 @@ static void init_maps (CHeader *h)
 	memset(h->slice_seen, 0, type_count);
 }
 
-int header_generate (CHeader *h, IR *ir, Sema *sema,
-		const char *source, const char *dir)
+int header_generate (CHeader *h, IR *ir, Sema *sema, const char *source, const char *dir)
 {
-	memset(h, 0, sizeof *h);
+	memset(h, 0, sizeof(*h));
 	h->ir = ir;
 	h->sema = sema;
 	h->source = source;
@@ -218,5 +217,5 @@ void header_free (CHeader *h)
 	free(h->code);
 	free(h->canon);
 	free(h->path);
-	memset(h, 0, sizeof *h);
+	memset(h, 0, sizeof(*h));
 }

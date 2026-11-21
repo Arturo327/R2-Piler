@@ -160,8 +160,17 @@ static int dir_has_r2i (ImportLoader *l, const char *dir, int depth)
 	return found;
 }
 
-static const char *find_in_dirs (ImportLoader *l, const char *name,
-		uint16_t len, const char *suffix, int want_dir)
+typedef struct PathFind {
+	const char *suffix;
+	uint8_t want_dir;
+	uint8_t need_r2i;
+} PathFind;
+
+static const PathFind FIND_FILE = { ".r2i", 0, 0 };
+static const PathFind FIND_DIR = { "", 1, 1 };
+static const PathFind FIND_ANY_DIR = { "", 1, 0 };
+
+static const char *find_in_dirs (ImportLoader *l, const char *name, uint16_t len, const PathFind *how)
 {
 	uint16_t fs_len;
 	char *fs = module_fs_path(l, name, len, &fs_len);
@@ -170,12 +179,14 @@ static const char *find_in_dirs (ImportLoader *l, const char *name,
 
 	for (uint32_t i = 0; i < count; i++) {
 		struct stat st;
-		const char *path = make_path(l, dirs[i], fs, fs_len, suffix);
+		const char *path = make_path(l, dirs[i], fs, fs_len, how->suffix);
+		int found = 0;
 
-		if (stat(path, &st) == 0
-				&& (want_dir ? S_ISDIR(st.st_mode)
-				&& dir_has_r2i(l, path, 0) : S_ISREG(st.st_mode)))
-			return path;
+		if (stat(path, &st) != 0) continue;
+		if (how->want_dir)
+			found = S_ISDIR(st.st_mode) && (!how->need_r2i || dir_has_r2i(l, path, 0));
+		else found = S_ISREG(st.st_mode);
+		if (found) return path;
 	}
 	return NULL;
 }
@@ -385,7 +396,7 @@ static int parse_header (ImportLoader *l, const char *path, char *src, R2iHeader
 	HeaderScan scan = {0};
 	int line_no = 0;
 
-	memset(h, 0, sizeof *h);
+	memset(h, 0, sizeof(*h));
 	while (next_line(&cursor, &line)) {
 		line_no++;
 		trim_line(&line);
@@ -426,7 +437,7 @@ static int check_module (ImportLoader *l, const R2iHeader *h, uint32_t use)
 {
 	char source[PATH_MAX];
 
-	if (h->source && h->source_len < sizeof source) {
+	if (h->source && h->source_len < sizeof(source)) {
 		memcpy(source, h->source, h->source_len);
 		source[h->source_len] = '\0';
 		if (same_source(l->opts->path, source)) {
@@ -459,7 +470,7 @@ static uint32_t module_new (ImportLoader *l, const char *name, uint16_t len)
 	uint32_t idx = s->module_count++;
 	ImportModule *m = &s->modules[idx];
 
-	memset(m, 0, sizeof *m);
+	memset(m, 0, sizeof(*m));
 	m->name = name;
 	m->name_len = len;
 	m->init_node = NO_NODE;
@@ -647,8 +658,7 @@ static void load_from (ImportLoader *l, uint32_t idx)
 {
 	AST *ast = &l->c->parser.ast;
 	ASTNode *n = ast->nodes + idx;
-	ImportRequest base = { .name = n->str, .len = n->len, .use = idx, .direct = 1 };
-	uint32_t mod = load_path(l, &base);
+	uint32_t mod = NO_MODULE;
 
 	for (uint32_t item = n->child; item != NO_NODE; item = ast->nodes[item].next_bro) {
 		ASTNode *it = ast->nodes + item;
@@ -659,12 +669,27 @@ static void load_from (ImportLoader *l, uint32_t idx)
 		ModName base = { n->str, n->len };
 
 		join_name(l, &base, it->str, it->len, &sub);
-		if (find_in_dirs(l, sub.str, sub.len, ".r2i", 0) || find_in_dirs(l, sub.str, sub.len, "", 1)) {
+		if (find_in_dirs(l, sub.str, sub.len, &FIND_FILE)
+				|| find_in_dirs(l, sub.str, sub.len, &FIND_DIR)) {
+			if (find_in_dirs(l, n->str, n->len, &FIND_FILE))
+				error_report(&l->c->err, ERR_WARNING, use_loc(l, item),
+						"'%.*s' resolves to submodule '%.*s'; a symbol with that name"
+						" exported by module '%.*s' is ignored",
+						(int)it->len, it->str, (int)sub.len, sub.str,
+						(int)n->len, n->str);
 			ImportRequest req = { .name = sub.str, .len = sub.len, .alias = lname,
 					.alias_len = llen, .use = item, .direct = 1 };
 
 			(void)load_path(l, &req);
 			continue;
+		}
+		if (mod == NO_MODULE
+				&& find_in_dirs(l, n->str, n->len, &FIND_FILE)) {
+			ImportRequest req = { .name = n->str, .len = n->len,
+					.use = idx, .direct = 1 };
+
+			mod = load_module(l, &req);
+			if (mod == NO_MODULE) continue;
 		}
 		if (mod == NO_MODULE) {
 			error_report(&l->c->err, ERR_ERROR, use_loc(l, item),
@@ -733,7 +758,7 @@ static uint32_t reuse_module (ImportLoader *l, uint32_t idx, const ImportRequest
 
 static uint32_t open_module (ImportLoader *l, const ImportRequest *req, char **src, R2iHeader *h)
 {
-	const char *path = req->path ? req->path : find_in_dirs(l, req->name, req->len, ".r2i", 0);
+	const char *path = req->path ? req->path : find_in_dirs(l, req->name, req->len, &FIND_FILE);
 
 	if (!path) {
 		error_report(&l->c->err, ERR_ERROR, use_loc(l, req->use),
@@ -789,7 +814,7 @@ static uint32_t load_module (ImportLoader *l, const ImportRequest *req)
 
 static uint32_t load_path (ImportLoader *l, const ImportRequest *req)
 {
-	const char *dir = find_in_dirs(l, req->name, req->len, "", 1);
+	const char *dir = find_in_dirs(l, req->name, req->len, &FIND_DIR);
 
 	if (dir) {
 		ModName name = { req->name, req->len };
@@ -797,6 +822,13 @@ static uint32_t load_path (ImportLoader *l, const ImportRequest *req)
 		FolderLoad fl = { name, alias, req->use, 0 };
 
 		load_folder(l, dir, &fl);
+		return NO_MODULE;
+	}
+	if (find_in_dirs(l, req->name, req->len, &FIND_ANY_DIR)) {
+		error_report(&l->c->err, ERR_ERROR, use_loc(l, req->use),
+				"module folder '%.*s' contains no .r2i files",
+				(int)req->len, req->name);
+		l->failed = 1;
 		return NO_MODULE;
 	}
 	ImportRequest file = *req;

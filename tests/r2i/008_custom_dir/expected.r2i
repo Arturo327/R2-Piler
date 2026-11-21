@@ -6,4 +6,3 @@
 
 pub fn _r2_pf_1a_4main () : i64;
 
-pub fn __r2_init_1a () : void;

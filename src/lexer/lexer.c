@@ -508,7 +508,7 @@ static TokenType id_keyword (char *str, size_t length)
 {
 	KeywordKey key = { .str = str, .len = length };
 	const Keyword *kw = bsearch(&key, keywords, sizeof(keywords) / sizeof(keywords[0]),
-			sizeof *keywords, cmp_keywords);
+			sizeof(*keywords), cmp_keywords);
 	return kw ? kw->type : TOK_ID;
 }
 

@@ -30,4 +30,3 @@ pub fn _r2_pf_3api_3add (a : i32, b : i32 = 3) : i32;
 
 pub fn _r2_pf_3api_4main () : i64;
 
-pub fn __r2_init_3api () : void;

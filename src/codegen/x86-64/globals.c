@@ -88,6 +88,8 @@ void x86_make_globals (CodeGen *c)
 		}
 		make_global_bss(c, i);
 	}
+	if (ir->fns[ir->init_fn].count > 1)
+		cg_printf(c, "\t.comm __r2_init_guard_%s,1,1\n", ir->mod);
 }
 
 void x86_make_ld_global (X86Fn *f, IRInstr *i)

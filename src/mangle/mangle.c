@@ -111,7 +111,7 @@ int mangle_module_relative (const char *path, char *out, size_t cap)
 		fprintf(stderr, "Error: source file '%s' must end in '.r2'\n", path);
 		return 1;
 	}
-	if (!canonical_path(path, full, sizeof full) || !getcwd(cwd, sizeof cwd)) {
+	if (!canonical_path(path, full, sizeof(full)) || !getcwd(cwd, sizeof(cwd))) {
 		fprintf(stderr, "Error: cannot resolve the path of '%s'\n", path);
 		return 1;
 	}
@@ -135,7 +135,7 @@ int mangle_module (Arena *arena, const char *path, const char **out)
 {
 	char rel[PATH_MAX];
 
-	if (mangle_module_relative(path, rel, sizeof rel)) return 1;
+	if (mangle_module_relative(path, rel, sizeof(rel))) return 1;
 	size_t rel_len = strlen(rel);
 
 	*out = encode_module(arena, rel, rel_len - 3);

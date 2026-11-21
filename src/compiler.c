@@ -187,8 +187,8 @@ static int compile_ir (Compiler *c, CompilerOpts *opts, int dumping, R2i *r2i, C
 			opts->opt_level == OPT_FULL && !opts->dump_ir, c->mod);
 	ir_gen(&c->ir);
 
-	memset(r2i, 0, sizeof *r2i);
-	memset(header, 0, sizeof *header);
+	memset(r2i, 0, sizeof(*r2i));
+	memset(header, 0, sizeof(*header));
 	if (!dumping && opts->r2i
 			&& r2i_generate(r2i, &c->ir, &c->sema, opts->path,
 					opts->r2i_dir)) {

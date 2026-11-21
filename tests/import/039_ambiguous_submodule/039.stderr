@@ -1,0 +1,4 @@
+app.r2:1:17: WARNING: 'x' resolves to submodule 'lib::x'; a symbol with that name exported by module 'lib' is ignored
+      1 | from lib import x;
+        |                 ^
+0 errors, 1 warning

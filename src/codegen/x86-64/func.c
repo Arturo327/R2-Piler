@@ -72,11 +72,22 @@ static int make_instr (X86Fn *f, IRInstr *i)
 	}
 }
 
+static int ends_with_ret (IR *ir, IRFn *fn, uint32_t i)
+{
+	IRInstr *in = ir->instrs + fn->start + i;
+
+	if (in->op == IR_RET && i + 1 == fn->count) return 1;
+	return in->op == IR_CALL && i + 2 == fn->count
+		&& ir->instrs[fn->start + i + 1].op == IR_RET;
+}
+
 static void make_body (X86Fn *f)
 {
 	IR *ir = f->cg->ir;
 	IRFn *fn = f->fn;
 	IRInstr *instr, *last;
+	uint32_t idx = (uint32_t)(fn - ir->fns);
+	int guard = idx == ir->init_fn && fn->count > 1;
 	uint32_t i = 0;
 	int dead = 0;
 
@@ -87,6 +98,8 @@ static void make_body (X86Fn *f)
 			i++;
 			continue;
 		}
+		if (guard && ends_with_ret(ir, fn, i))
+			cg_printf(f->cg, ".LIG%u:\n", idx);
 		if (f->ctx.save_in[i]) x86_move_saved(f, f->ctx.save_in[i], 0);
 		uint32_t n = make_instr(f, instr);
 		last = instr + n - 1;
@@ -116,7 +129,14 @@ void x86_make_fn (X86Fn *f)
 	} else {
 		cg_printf(c, "\t.cfi_def_cfa %%rsp, 8\n");
 	}
-	cg_printf(c, ".LS%u:\n", (uint32_t)(fn - c->ir->fns));
+	uint32_t idx = (uint32_t)(fn - c->ir->fns);
+
+	cg_printf(c, ".LS%u:\n", idx);
+	if (idx == c->ir->init_fn && fn->count > 1) {
+		cg_printf(c, "\tcmpb $0, __r2_init_guard_%s(%%rip)\n", c->ir->mod);
+		cg_printf(c, "\tjne .LIG%u\n", idx);
+		cg_printf(c, "\tmovb $1, __r2_init_guard_%s(%%rip)\n", c->ir->mod);
+	}
 
 	make_body(f);
 	x86_make_stubs(f);
