@@ -25,6 +25,11 @@ uint32_t parse_offsetof (Parser *p);
 uint32_t parse_statement (Parser *p);
 uint32_t parse_block (Parser *p);
 uint32_t parse_brace_init (Parser *p);
+uint32_t parse_decl (Parser *p, int is_arr);
+uint32_t parse_static_decl (Parser *p);
+uint32_t parse_for (Parser *p);
+uint32_t parse_body (Parser *p);
+void parse_loop_else (Parser *p, uint32_t node);
 
 uint32_t parse_fn_decl (Parser *p);
 uint32_t parse_extern_decl (Parser *p);

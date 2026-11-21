@@ -19,8 +19,9 @@ uint32_t sema_wrap_addr (Sema *s, uint32_t child);
 uint32_t sema_ref_value (Sema *s, uint32_t idx);
 uint32_t sema_make_id (Sema *s, ASTNode *src);
 
-uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
-		TypeId data_type, uint32_t decl_node);
+uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind, TypeId data_type, uint32_t decl_node);
+uint32_t sema_new_node (Sema *s, ASTNode node);
+void reserve_cast_nodes (Sema *s);
 void sema_decl_type (Sema *s, uint32_t idx);
 void sema_resolve_types (Sema *s);
 void sema_finalize_types (Sema *s);
@@ -66,6 +67,10 @@ int sema_any_packable (TypeId type);
 void check_fn_dec (Sema *s, uint32_t idx);
 void check_extern_fn (Sema *s, uint32_t idx);
 void check_fn_defaults_all (Sema *s);
+void check_var_dec (Sema *s, uint32_t idx);
+void check_main_signature (Sema *s, uint32_t idx);
+void check_signature_types (Sema *s, uint32_t idx, int is_extern);
+void check_export_fn (Sema *s, uint32_t idx);
 void check_export_decls (Sema *s);
 
 void agg_declare (Sema *s, uint32_t sym_idx, uint32_t decl_idx);
