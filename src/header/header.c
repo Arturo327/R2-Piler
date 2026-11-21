@@ -178,16 +178,16 @@ static void init_maps (CHeader *h)
 	h->decl_nodes = arena_alloc(a, sizeof(uint16_t) * type_count);
 	h->type_used = arena_alloc(a, type_count);
 	h->type_done = arena_alloc(a, type_count);
-	h->fn_seen = arena_alloc(a, type_count);
+	h->fn_index = arena_alloc(a, sizeof(uint16_t) * type_count);
 	h->fn_types = arena_alloc(a, sizeof(TypeId) * type_count);
-	h->slice_seen = arena_alloc(a, type_count);
+	h->slice_index = arena_alloc(a, sizeof(uint16_t) * type_count);
 	h->slice_types = arena_alloc(a, sizeof(TypeId) * type_count);
 	memset(h->type_names, 0, sizeof(char *) * type_count);
 	memset(h->decl_nodes, 0xFF, sizeof(uint16_t) * type_count);
 	memset(h->type_used, 0, type_count);
 	memset(h->type_done, 0, type_count);
-	memset(h->fn_seen, 0, type_count);
-	memset(h->slice_seen, 0, type_count);
+	memset(h->fn_index, 0xFF, sizeof(uint16_t) * type_count);
+	memset(h->slice_index, 0xFF, sizeof(uint16_t) * type_count);
 }
 
 int header_generate (CHeader *h, IR *ir, Sema *sema, const char *source, const char *dir)
@@ -197,7 +197,11 @@ int header_generate (CHeader *h, IR *ir, Sema *sema, const char *source, const c
 	h->sema = sema;
 	h->source = source;
 	h->dir = dir;
-	if (!has_exports(sema)) return 0;
+	if (!has_exports(sema)) {
+		fprintf(stderr, "Warning: -H/--header: '%s' has no 'export' declarations;"
+				" no header was generated\n", source);
+		return 0;
+	}
 	if (r2i_build_path(sema, source, dir, ".h", &h->canon, &h->path)) return 1;
 
 	make_guard(h);

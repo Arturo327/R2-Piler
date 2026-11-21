@@ -43,16 +43,14 @@ static void h_print_array (CHeader *h, TypeId type)
 
 static uint16_t h_fn_index (CHeader *h, TypeId type)
 {
-	for (uint16_t i = 0; i < h->fn_count; i++)
-		if (h->fn_types[i] == type) return i;
-	return 0;
+	if (type >= h->type_total || h->fn_index[type] == 0xFFFF) return 0;
+	return h->fn_index[type];
 }
 
 static uint16_t h_slice_index (CHeader *h, TypeId type)
 {
-	for (uint16_t i = 0; i < h->slice_count; i++)
-		if (h->slice_types[i] == type) return i;
-	return 0;
+	if (type >= h->type_total || h->slice_index[type] == 0xFFFF) return 0;
+	return h->slice_index[type];
 }
 
 void h_print_type (CHeader *h, TypeId type)
@@ -96,8 +94,8 @@ static void h_collect_type (CHeader *h, TypeId type)
 		return;
 	case TK_SLICE:
 		h_collect_type(h, types[type].base);
-		if (!h->slice_seen[type]) {
-			h->slice_seen[type] = 1;
+		if (h->slice_index[type] == 0xFFFF) {
+			h->slice_index[type] = h->slice_count;
 			h->slice_types[h->slice_count++] = type;
 		}
 		return;
@@ -108,7 +106,7 @@ static void h_collect_type (CHeader *h, TypeId type)
 		for (uint16_t i = 0; i < types[type].field_count; i++)
 			h_collect_type(h, types[type].fields[i].type);
 		return;
-	case TK_ALIAS:
+	case TK_ALIAS: case TK_ENUM: case TK_NEWTYPE:
 		h_collect_type(h, types[type].base);
 		return;
 	default: return;
@@ -123,8 +121,8 @@ static void h_collect_fn (CHeader *h, TypeId type)
 		h_collect_type(h, fn->params[i]);
 	for (uint16_t i = 0; i < fn->ret_count; i++)
 		h_collect_type(h, fn->rets[i]);
-	if (!h->fn_seen[type]) {
-		h->fn_seen[type] = 1;
+	if (h->fn_index[type] == 0xFFFF) {
+		h->fn_index[type] = h->fn_count;
 		h->fn_types[h->fn_count++] = type;
 	}
 }
@@ -356,7 +354,7 @@ static void h_make_asserts (CHeader *h, TypeId id)
 	for (uint16_t i = 0; i < t->field_count; i++) {
 		StructField *f = t->fields + i;
 
-		if (f->bits) continue;
+		if (t->is_union || f->bits) continue;
 		h_printf(h,
 			"#if defined(__cplusplus)\n"
 			"static_assert(offsetof(%s, %.*s) == %u, \"offset\");\n"

@@ -92,16 +92,6 @@ static_assert(sizeof(U) == 8, "U layout");
 #else
 _Static_assert(sizeof(U) == 8, "U layout");
 #endif
-#if defined(__cplusplus)
-static_assert(offsetof(U, big) == 0, "offset");
-#else
-_Static_assert(offsetof(U, big) == 0, "offset");
-#endif
-#if defined(__cplusplus)
-static_assert(offsetof(U, small) == 0, "offset");
-#else
-_Static_assert(offsetof(U, small) == 0, "offset");
-#endif
 #endif
 
 #ifdef __cplusplus

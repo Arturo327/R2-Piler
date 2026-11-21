@@ -25,11 +25,11 @@ typedef struct CHeader {
 	uint8_t *type_done;
 
 	TypeId *fn_types;
-	uint8_t *fn_seen;
+	uint16_t *fn_index;
 	uint16_t fn_count;
 
 	TypeId *slice_types;
-	uint8_t *slice_seen;
+	uint16_t *slice_index;
 	uint16_t slice_count;
 	uint8_t any_used;
 
