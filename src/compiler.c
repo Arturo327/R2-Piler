@@ -179,7 +179,7 @@ static int apply_module_name (Compiler *c)
 	return 0;
 }
 
-static int compile_ir (Compiler *c, CompilerOpts *opts, int dumping, R2i *r2i, CHeader *header)
+static int compile_ir (Compiler *c, CompilerOpts *opts)
 {
 	if (apply_module_name(c)) return 1;
 
@@ -188,22 +188,6 @@ static int compile_ir (Compiler *c, CompilerOpts *opts, int dumping, R2i *r2i, C
 	c->ir.target = c->codegen.target;
 	ir_gen(&c->ir);
 
-	memset(r2i, 0, sizeof(*r2i));
-	memset(header, 0, sizeof(*header));
-	if (!dumping && opts->r2i
-			&& r2i_generate(r2i, &c->ir, &c->sema, opts->path,
-					opts->r2i_dir)) {
-		r2i_free(r2i);
-		print_err_count(c);
-		return 1;
-	}
-	if (!dumping && opts->header
-			&& header_generate(header, &c->ir, &c->sema, opts->path, opts->header_dir)) {
-		r2i_free(r2i);
-		header_free(header);
-		print_err_count(c);
-		return 1;
-	}
 	if (!opts->dump_ir) return -1;
 
 	dump_ir(&c->ir);
@@ -221,6 +205,24 @@ static int compile_optimize (Compiler *c, CompilerOpts *opts)
 	dump_ir(&c->ir);
 	print_err_count(c);
 	return 0;
+}
+
+static int compile_interfaces (Compiler *c, CompilerOpts *opts, R2i *r2i, CHeader *header)
+{
+	if (opts->r2i && r2i_generate(r2i, &c->ir, &c->sema, opts->path,
+			opts->r2i_dir)) {
+		r2i_free(r2i);
+		print_err_count(c);
+		return 1;
+	}
+	if (opts->header && header_generate(header, &c->ir, &c->sema,
+			opts->path, opts->header_dir)) {
+		r2i_free(r2i);
+		header_free(header);
+		print_err_count(c);
+		return 1;
+	}
+	return -1;
 }
 
 static int compile_backend (Compiler *c, R2i *r2i, CHeader *header)
@@ -250,13 +252,17 @@ int compile (Compiler *c, CompilerOpts *opts)
 
 	R2i r2i;
 	CHeader header;
-	stage = compile_ir(c, opts, dumping, &r2i, &header);
+
+	memset(&r2i, 0, sizeof(r2i));
+	memset(&header, 0, sizeof(header));
+	stage = compile_ir(c, opts);
+	if (stage != -1) return stage;
+	stage = compile_optimize(c, opts);
+	if (stage != -1) return stage;
+	stage = compile_interfaces(c, opts, &r2i, &header);
 	if (stage != -1) return stage;
 
 	release_frontend(c);
-	stage = compile_optimize(c, opts);
-	if (stage != -1) return stage;
-
 	return compile_backend(c, &r2i, &header);
 }
 

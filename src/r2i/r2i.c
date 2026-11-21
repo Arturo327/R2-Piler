@@ -258,43 +258,9 @@ int r2i_check_owner (const char *path, const char *canon)
 	return failed;
 }
 
-static void patch_init_flag (R2i *r)
-{
-	static const char key[] = "// has_dynamic_init: ";
-	size_t klen = sizeof(key) - 1;
-	char *at = strstr(r->code, key);
-
-	if (!at || (size_t)(at - r->code) + klen >= r->len) return;
-	char *digit = at + klen;
-
-	if (*digit != '0' && *digit != '1') return;
-	*digit = r->ir->fns[r->ir->init_fn].count > 1 ? '1' : '0';
-}
-
-static void strip_init_decl (R2i *r)
-{
-	if (r->ir->fns[r->ir->init_fn].count > 1) return;
-	char needle[256];
-	int n = snprintf(needle, sizeof(needle), "pub fn %s () : void;\n",
-			r->ir->fns[r->ir->init_fn].sym);
-
-	if (n <= 0 || (size_t)n >= sizeof(needle)) return;
-	char *at = strstr(r->code, needle);
-
-	if (!at) return;
-	size_t len = (size_t)n;
-	size_t off = (size_t)(at - r->code);
-
-	memmove(at, at + len, r->len - off - len);
-	r->len -= len;
-	r->code[r->len] = '\0';
-}
-
 int r2i_write (R2i *r)
 {
 	if (!r->ready) return 0;
-	patch_init_flag(r);
-	strip_init_decl(r);
 	if (r2i_make_dirs(r->dir) || r2i_make_parent(r->path)
 			|| r2i_check_owner(r->path, r->canon)) return 1;
 
@@ -326,7 +292,7 @@ int r2i_write (R2i *r)
 	return failed;
 }
 
-static int has_init (IR *ir)
+int r2i_has_init (IR *ir)
 {
 	IRFn *fn = ir->fns + ir->init_fn;
 
@@ -377,7 +343,7 @@ int r2i_generate (R2i *r, IR *ir, Sema *sema, const char *source, const char *di
 	}
 	r2i_printf(r, "// r2i v1\n// source: %s\n// target: %s\n// module: %s\n"
 			"// has_dynamic_init: %d\n// imports:",
-			r->canon, ir->target, ir->mod, has_init(ir));
+			r->canon, ir->target, ir->mod, r2i_has_init(ir));
 	int first = 1;
 	for (uint32_t i = 0; i < sema->module_count; i++) {
 		ImportModule *m = sema->modules + i;

@@ -113,7 +113,6 @@ void r2i_make_decls (R2i *r)
 
 void r2i_make_init (R2i *r)
 {
-	IRFn *fn = r->ir->fns + r->ir->init_fn;
-
-	r2i_printf(r, "pub fn %s () : void;\n", fn->sym);
+	if (!r2i_has_init(r->ir)) return;
+	r2i_printf(r, "pub fn %s () : void;\n", r->ir->fns[r->ir->init_fn].sym);
 }

@@ -160,28 +160,13 @@ static void make_prologue (CHeader *h)
 	h_printf(h, "// source: %s\n// module: %s\n// target: %s\n",
 			h->canon, h->ir->mod, h->ir->target);
 	print_header_meta(h);
-	h_printf(h, "#define %s 0\n\n", h->init_macro);
+	h_printf(h, "#define %s %d\n\n", h->init_macro,
+			r2i_has_init(h->ir) != 0);
 	h_printf(h, "#ifndef %s\n#define %s\n\n", h->guard, h->guard);
 	h_printf(h, "#include <stddef.h>\n#include <stdint.h>\n\n");
 	make_api_macro(h);
 	make_packing_macro(h);
 	h_printf(h, "#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n");
-}
-
-static void patch_init_flag (CHeader *h)
-{
-	char key[256];
-	int n = snprintf(key, sizeof(key), "#define %s ", h->init_macro);
-
-	if (n <= 0 || (size_t)n >= sizeof(key)) return;
-	size_t klen = (size_t)n;
-	char *at = strstr(h->code, key);
-
-	if (!at || (size_t)(at - h->code) + klen >= h->len) return;
-	char *digit = at + klen;
-
-	if (*digit != '0' && *digit != '1') return;
-	*digit = h->ir->fns[h->ir->init_fn].count > 1 ? '1' : '0';
 }
 
 static void init_maps (CHeader *h)
@@ -235,7 +220,6 @@ int header_generate (CHeader *h, IR *ir, Sema *sema, const char *source, const c
 int header_write (CHeader *h)
 {
 	if (!h->ready) return 0;
-	patch_init_flag(h);
 	if (r2i_make_dirs(h->dir) || r2i_make_parent(h->path)
 			|| r2i_check_owner(h->path, h->canon)) return 1;
 
