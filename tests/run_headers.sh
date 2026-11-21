@@ -72,7 +72,7 @@ for conf in "$dir"/*/test.conf; do
 	c=""; cpp=""; use_clang=0; want_exit=0; extra=""
 	ok=1
 
-	while read -r key val; do
+	while read -r key val || [ -n "$key" ]; do
 		case "$key" in
 		''|'#'*) continue;;
 		source) src=$val;;

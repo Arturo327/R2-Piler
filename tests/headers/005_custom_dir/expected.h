@@ -41,7 +41,7 @@
 extern "C" {
 #endif
 
-R2_API int64_t forty_two ();
+R2_API int64_t forty_two (void);
 
 #if R2_HAS_DYNAMIC_INIT
 R2_API extern void __r2_init_1a (void);

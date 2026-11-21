@@ -4,12 +4,14 @@
 
 static void h_make_param (CHeader *h, ASTNode *n, int names)
 {
-	if (names && n->str) {
-		h_print_type(h, n->data_type);
+	TypeId type = n->data_type;
+
+	if (type_kind(type) == TK_ARRAY) {
+		h_print_type(h, type_flat_element(type));
+		h_printf(h, " *");
+	} else h_print_type(h, type);
+	if (names && n->str)
 		h_printf(h, " %.*s", (int)n->len, n->str);
-		return;
-	}
-	h_print_type(h, n->data_type);
 }
 
 static void h_make_params (CHeader *h, uint32_t args)
@@ -23,6 +25,7 @@ static void h_make_params (CHeader *h, uint32_t args)
 		first = 0;
 		h_make_param(h, ast->nodes + p, 1);
 	}
+	if (first) h_printf(h, "void");
 }
 
 static void h_make_fn (CHeader *h, ASTNode *n)

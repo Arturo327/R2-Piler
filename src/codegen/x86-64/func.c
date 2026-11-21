@@ -101,6 +101,7 @@ static void make_body (X86Fn *f)
 		if (guard && ends_with_ret(ir, fn, i))
 			cg_printf(f->cg, ".LIG%u:\n", idx);
 		if (f->ctx.save_in[i]) x86_move_saved(f, f->ctx.save_in[i], 0);
+		if (!i) cg_printf(f->cg, ".LS%u:\n", idx);
 		uint32_t n = make_instr(f, instr);
 		last = instr + n - 1;
 		dead = last->op == IR_RET || last->op == IR_JMP
@@ -131,7 +132,6 @@ void x86_make_fn (X86Fn *f)
 	}
 	uint32_t idx = (uint32_t)(fn - c->ir->fns);
 
-	cg_printf(c, ".LS%u:\n", idx);
 	if (idx == c->ir->init_fn && fn->count > 1) {
 		cg_printf(c, "\tcmpb $0, __r2_init_guard_%s(%%rip)\n", c->ir->mod);
 		cg_printf(c, "\tjne .LIG%u\n", idx);

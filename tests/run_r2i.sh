@@ -63,7 +63,7 @@ for conf in "$dir"/*/test.conf; do
 	second=""; second_want=0; second_err=""
 	ok=1
 
-	while read -r key val; do
+	while read -r key val || [ -n "$key" ]; do
 		case "$key" in
 		''|'#'*) continue;;
 		source) src=$val;;

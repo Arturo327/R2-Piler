@@ -137,6 +137,16 @@ void x86_load_reg64 (X86Fn *f, uint8_t reg, uint32_t vreg)
 			op, x86_slot_off(f, f->regs[vreg].slot), f->base, reg_name(reg, w));
 }
 
+void x86_load_reg_keep_flags (X86Fn *f, uint8_t reg, uint32_t vreg)
+{
+	if (f->regs[vreg].cstate != VR_CONST || x86_const_ext(f, vreg) != 0) {
+		x86_load_reg(f, reg, vreg);
+		return;
+	}
+	x86_clobber(f, reg);
+	cg_printf(f->cg, "\tmovl $0, %s\n", reg_name(reg, 4));
+}
+
 void x86_store_reg (X86Fn *f, uint8_t reg, uint32_t vreg)
 {
 	TypeId t = f->fn->reg_types[vreg];

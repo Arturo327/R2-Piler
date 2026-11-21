@@ -53,8 +53,11 @@ static int r2i_print_literal (R2i *r, ASTNode *n)
 {
 	switch (n->type)
 	{
-	case NODE_LIT_i64: r2i_printf(r, "%lld", (long long)n->i64); return 1;
-	case NODE_LIT_u64: r2i_printf(r, "%llu", (unsigned long long)n->u64); return 1;
+	case NODE_LIT_i64: case NODE_LIT_u64:
+		if (types[n->data_type].sign)
+			r2i_printf(r, "%lld", (long long)n->i64);
+		else r2i_printf(r, "%llu", (unsigned long long)n->u64);
+		return 1;
 	case NODE_LIT_CHAR: r2i_print_char(r, n->chr); return 1;
 	case NODE_LIT_STR: r2i_print_string(r, n->str, n->len); return 1;
 	case NODE_LIT_NULL: r2i_printf(r, "NULL"); return 1;

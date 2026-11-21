@@ -55,6 +55,8 @@ uint32_t ptr_scale (IR *ir, uint32_t val, TypeId ptr_type, int up)
 {
 	TypeId repr = type_ptr_repr(ptr_type);
 	if (repr == TYPE_ERROR) return val;
+	if (up && types[ir->reg_types[val]].size < 8)
+		val = make_op(ir, IR_EXTEND, val, NO_REG, TYPE_i64);
 	uint32_t size = types[types[repr].base].size;
 	if (size < 2) return val;
 	uint8_t op = up ? IR_MUL : IR_DIV;

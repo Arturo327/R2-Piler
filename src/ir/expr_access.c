@@ -157,6 +157,8 @@ uint32_t gen_index_addr (IR *ir, ASTNode *n)
 	uint32_t a = kind == TK_ARRAY ? gen_array_addr(ir, base) : gen_expr(ir, base);
 	uint32_t b = gen_expr(ir, ir->ast->nodes + base->next_bro);
 
+	if (kind != TK_PTR && types[ir->reg_types[b]].size < 8)
+		b = make_op(ir, IR_EXTEND, b, NO_REG, TYPE_i64);
 	if (kind == TK_PTR)
 		return make_op(ir, IR_ADD, a, ptr_scale(ir, b, type, 1), type);
 	if (type_is_mixed(type)) {

@@ -89,6 +89,7 @@ int64_t x86_const_ext (X86Fn *f, uint32_t vreg);
 void x86_load_imm (X86Fn *f, uint8_t reg, int64_t v);
 void x86_load_reg (X86Fn *f, uint8_t reg, uint32_t vreg);
 void x86_load_reg64 (X86Fn *f, uint8_t reg, uint32_t vreg);
+void x86_load_reg_keep_flags (X86Fn *f, uint8_t reg, uint32_t vreg);
 void x86_store_reg (X86Fn *f, uint8_t reg, uint32_t vreg);
 void x86_store_imm (X86Fn *f, uint32_t vreg, int64_t v);
 void x86_op_reg (X86Fn *f, const char *op, uint8_t w, uint32_t vreg, uint8_t size);

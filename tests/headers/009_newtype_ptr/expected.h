@@ -44,7 +44,7 @@ extern "C" {
 typedef void * Handle;
 
 
-R2_API Handle make ();
+R2_API Handle make (void);
 
 #if R2_HAS_DYNAMIC_INIT
 R2_API extern void __r2_init_2nh (void);

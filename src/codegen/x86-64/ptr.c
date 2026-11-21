@@ -1,5 +1,7 @@
 #include "codegen/x86-64/common.h"
 
+#include <string.h>
+
 void x86_make_addr_local (X86Fn *f, IRInstr *i)
 {
 	CodeGen *c = f->cg;
@@ -143,11 +145,12 @@ void x86_make_strings (CodeGen *c)
 {
 	IR *ir = c->ir;
 
-	if (!ir->string_count) return;
-	cg_printf(c, "\t.section .rodata\n");
 	for (uint32_t i = 0; i < ir->string_count; i++) {
 		IRString *s = ir->strings + i;
+		int merge = !memchr(s->data, 0, s->len);
 
+		if (merge) cg_printf(c, "\t.section .rodata.str1.1,\"aMS\",@progbits,1\n");
+		else cg_printf(c, "\t.section .rodata\n");
 		cg_printf(c, ".LC%u:\n", i);
 		for (uint32_t j = 0; j < s->len; j += 32) {
 			uint32_t n = s->len - j < 32 ? s->len - j : 32;

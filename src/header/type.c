@@ -268,14 +268,8 @@ typedef struct HFieldState {
 	uint32_t index;
 	uint32_t last_off;
 	uint32_t bit_pos;
+	int packed;
 } HFieldState;
-
-static TypeId h_bitfield_holder (ASTNode *n)
-{
-	if (n->flags & NODE_FLAG_BITFIELD_TYPED) return n->data_type;
-	if (n->data_type == TYPE_UNTYPED_INT) return TYPE_i8;
-	return TYPE_u8;
-}
 
 static void h_make_field (CHeader *h, ASTNode *n, HFieldState *s, int depth)
 {
@@ -288,7 +282,7 @@ static void h_make_field (CHeader *h, ASTNode *n, HFieldState *s, int depth)
 		s->bit_pos = 0;
 		return;
 	}
-	TypeId holder = h_bitfield_holder(n);
+	TypeId holder = f->type;
 
 	if (f->offset != s->last_off) {
 		s->last_off = f->offset;
@@ -314,15 +308,13 @@ static void h_make_members (CHeader *h, uint32_t first, int depth, HFieldState *
 
 		if (n->type == NODE_FIELD_DEC) {
 			h_make_field(h, n, s, depth);
-		} else if (n->flags & NODE_FLAG_UNION) {
-			h_indent(h, depth);
-			h_printf(h, "union {\n");
-			h_make_members(h, n->child, depth + 1, s);
-			h_indent(h, depth);
-			h_printf(h, "};\n");
-		} else {
-			h_make_members(h, n->child, depth, s);
+			continue;
 		}
+		h_indent(h, depth);
+		h_printf(h, "%s {\n", (n->flags & NODE_FLAG_UNION) ? "union" : "struct");
+		h_make_members(h, n->child, depth + 1, s);
+		h_indent(h, depth);
+		h_printf(h, "}%s;\n", s->packed ? " R2_PACKED" : "");
 	}
 }
 
@@ -371,7 +363,7 @@ static void h_make_struct (CHeader *h, TypeId id)
 			"R2_PACK_PUSH\n");
 	h_printf(h, "%s %s {\n",
 			(n->flags & NODE_FLAG_UNION) ? "union" : "struct", name);
-	HFieldState state = { .st = id, .index = 0, .last_off = 0, .bit_pos = 0 };
+	HFieldState state = { .st = id, .index = 0, .last_off = 0, .bit_pos = 0, .packed = packed };
 
 	h_make_members(h, n->child, 1, &state);
 	h_printf(h, "}%s;\n", packed ? " R2_PACKED" : "");
