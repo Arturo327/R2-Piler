@@ -1,2 +1,0 @@
-newtype P [1:9] depth=0 type=error
-fn main [3:8] depth=0 type=i64

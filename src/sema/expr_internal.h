@@ -14,7 +14,8 @@ static inline int is_integer_operand (TypeId type)
 
 static inline int is_pointer_operand (TypeId type)
 {
-	return type_kind(type) == TK_PTR || type == TYPE_NULL || type == TYPE_STR;
+	return type_ptr_repr(type) != TYPE_ERROR
+			|| type == TYPE_NULL || type == TYPE_STR;
 }
 
 TypeId check_literal (Sema *s, uint32_t idx);

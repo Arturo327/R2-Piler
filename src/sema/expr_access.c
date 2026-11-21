@@ -121,17 +121,18 @@ static int operand_ptr_info (Sema *s, ASTNode *n, OperandInfo *info, const char 
 		info_from_type(info, types[base.type].base);
 		return 1;
 	}
-	if (kind != TK_PTR) {
+	TypeId repr = type_ptr_repr(base.type);
+	if (repr == TYPE_ERROR) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot %s a value of type %s", what, type_display_name(base.type));
 		return 0;
 	}
-	if (types[base.type].base == TYPE_VOID) {
+	if (types[repr].base == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot %s 'ptr void'; cast it to a typed pointer first", what);
 		return 0;
 	}
-	info_from_type(info, types[base.type].base);
+	info_from_type(info, types[repr].base);
 	return 1;
 }
 
@@ -171,7 +172,8 @@ static int operand_field_info (Sema *s, ASTNode *n, OperandInfo *info, const cha
 		return 1;
 	}
 	TypeId st = left.type;
-	if (type_kind(st) == TK_PTR) st = types[st].base;
+	TypeId repr = type_ptr_repr(st);
+	if (repr != TYPE_ERROR) st = types[repr].base;
 	if (type_kind(st) != TK_STRUCT) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"operand of %s must be a variable, dereference, index, string literal or type", op);
@@ -333,26 +335,27 @@ TypeId check_deref (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (type_kind(type) != TK_PTR) {
+	TypeId repr = type_ptr_repr(type);
+	if (repr == TYPE_ERROR) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot dereference a value of type %s", type_display_name(type));
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (types[type].base == TYPE_VOID) {
+	if (types[repr].base == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot dereference 'ptr void'; cast it to a typed pointer first");
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (type_kind(types[type].base) == TK_FN) {
+	if (type_kind(types[repr].base) == TK_FN) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot dereference a function pointer; call it directly");
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
 
-	n->data_type = types[type].base;
+	n->data_type = types[repr].base;
 	warn_null_deref(s, idx, n->child);
 	return n->data_type;
 }
@@ -624,11 +627,12 @@ static TypeId check_dot_value (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (type_kind(type) == TK_PTR && type_kind(types[type].base) == TK_STRUCT) {
+	TypeId repr = type_ptr_repr(type);
+	if (repr != TYPE_ERROR && type_kind(types[repr].base) == TK_STRUCT) {
 		uint32_t deref;
 
 		warn_null_deref(s, idx, n->child);
-		type = types[type].base;
+		type = types[repr].base;
 		deref = sema_wrap_deref(s, n->child, type);
 		s->ast->nodes[idx].child = deref;
 		n = s->ast->nodes + idx;
@@ -672,8 +676,9 @@ TypeId check_dot (Sema *s, uint32_t idx)
 		sym_type = types[sym_type].base;
 	TypeKind kind = type_kind(sym_type);
 
-	if (kind == TK_STRUCT || (kind == TK_PTR
-			&& type_kind(types[sym_type].base) == TK_STRUCT))
+	TypeId sym_repr = type_ptr_repr(sym_type);
+	if (kind == TK_STRUCT || (sym_repr != TYPE_ERROR
+			&& type_kind(types[sym_repr].base) == TK_STRUCT))
 		return check_dot_value(s, idx);
 	if (sym->kind == SYMBOL_VAR || sym->kind == SYMBOL_PARAM)
 		return check_dot_var(s, idx, sym);
@@ -700,20 +705,22 @@ TypeId check_index (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
-	TypeKind kind = type_kind(ptr);
+	TypeId repr = type_ptr_repr(ptr);
+	TypeKind kind = repr != TYPE_ERROR ? TK_PTR : type_kind(ptr);
+	TypeId target = repr != TYPE_ERROR ? repr : ptr;
 	if (kind != TK_PTR && kind != TK_ARRAY && kind != TK_SLICE) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot index a value of type %s", type_display_name(ptr));
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (kind == TK_PTR && types[ptr].base == TYPE_VOID) {
+	if (kind == TK_PTR && types[target].base == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot index 'ptr void'; cast it to a typed pointer first");
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (kind == TK_PTR && type_kind(types[ptr].base) == TK_FN) {
+	if (kind == TK_PTR && type_kind(types[target].base) == TK_FN) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot index a function pointer; call it directly");
 		n->data_type = TYPE_ERROR;
@@ -733,7 +740,7 @@ TypeId check_index (Sema *s, uint32_t idx)
 
 	if (kind == TK_ARRAY) {
 		uint64_t bits;
-		uint32_t count = types[ptr].count;
+		uint32_t count = types[target].count;
 
 		if (lit_node_bits(s, s->ast->nodes + index, &bits)) {
 			int neg = types[index_type].sign && (int64_t)bits < 0;
@@ -745,7 +752,7 @@ TypeId check_index (Sema *s, uint32_t idx)
 		}
 	}
 
-	n->data_type = types[ptr].base;
+	n->data_type = types[target].base;
 	if (kind == TK_PTR) warn_null_deref(s, idx, base);
 	agg_member_read(s, idx);
 	return n->data_type;

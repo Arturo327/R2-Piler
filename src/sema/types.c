@@ -129,16 +129,10 @@ static void finalize_one_type (Sema *s, uint32_t idx)
 		types[id].base = TYPE_ERROR;
 		return;
 	}
-	if (type_kind(id) == TK_NEWTYPE && type_kind(repr) == TK_PTR) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"newtype over a pointer is not supported yet");
-		types[id].base = TYPE_ERROR;
-		return;
-	}
 	if (type_kind(id) == TK_NEWTYPE && type_kind(repr) != TK_INT
-			&& type_kind(repr) != TK_ENUM) {
+			&& type_kind(repr) != TK_ENUM && type_kind(repr) != TK_PTR) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
-				"newtype underlying type must be an integer type");
+				"newtype underlying type must be an integer, enum or pointer type");
 		types[id].base = TYPE_ERROR;
 		return;
 	}

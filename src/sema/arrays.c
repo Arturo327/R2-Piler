@@ -455,8 +455,8 @@ void check_global_var_init (Sema *s, uint32_t idx)
 		TypeId init_type = check_expr(s, n->child);
 		n = s->ast->nodes + idx;
 
-		if (n->data_type != TYPE_ERROR && type_kind(n->data_type) == TK_PTR && init_type != TYPE_ERROR
-				&& (type_kind(init_type) == TK_PTR || init_type == TYPE_NULL
+		if (n->data_type != TYPE_ERROR && type_ptr_repr(n->data_type) != TYPE_ERROR && init_type != TYPE_ERROR
+				&& (type_ptr_repr(init_type) != TYPE_ERROR || init_type == TYPE_NULL
 				|| init_type == TYPE_STR) && !is_const_ptr_init(s, n->child))
 			error_report(s->err, ERR_ERROR, node_loc(n),
 					"global pointer initializers only support NULL, a string literal or the address of a global");

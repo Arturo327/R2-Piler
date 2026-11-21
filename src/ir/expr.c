@@ -53,8 +53,9 @@ static uint32_t gen_unary (IR *ir, ASTNode *n)
 
 uint32_t ptr_scale (IR *ir, uint32_t val, TypeId ptr_type, int up)
 {
-	if (type_kind(ptr_type) != TK_PTR) return val;
-	uint32_t size = types[types[ptr_type].base].size;
+	TypeId repr = type_ptr_repr(ptr_type);
+	if (repr == TYPE_ERROR) return val;
+	uint32_t size = types[types[repr].base].size;
 	if (size < 2) return val;
 	uint8_t op = up ? IR_MUL : IR_DIV;
 	return make_op(ir, op, val, make_const(ir, size, TYPE_i64), TYPE_i64);
@@ -63,17 +64,18 @@ uint32_t ptr_scale (IR *ir, uint32_t val, TypeId ptr_type, int up)
 static int is_ptr_arith (ASTNode *n, ASTNode *l, ASTNode *r)
 {
 	if (n->type != NODE_ADD && n->type != NODE_SUB) return 0;
-	return type_kind(l->data_type) == TK_PTR || type_kind(r->data_type) == TK_PTR;
+	return type_ptr_repr(l->data_type) != TYPE_ERROR
+			|| type_ptr_repr(r->data_type) != TYPE_ERROR;
 }
 
 static uint32_t gen_ptr_arith (IR *ir, ASTNode *n, ASTNode *l, ASTNode *r)
 {
-	int ptr_left = type_kind(l->data_type) == TK_PTR;
+	int ptr_left = type_ptr_repr(l->data_type) != TYPE_ERROR;
 	TypeId type = ptr_left ? l->data_type : r->data_type;
 	uint32_t a = gen_expr(ir, l);
 	uint32_t b = gen_expr(ir, r);
 
-	if (ptr_left && type_kind(r->data_type) == TK_PTR)
+	if (ptr_left && type_ptr_repr(r->data_type) != TYPE_ERROR)
 		return ptr_scale(ir, make_op(ir, IR_SUB, a, b, TYPE_i64), type, 0);
 	if (ptr_left)
 		return make_op(ir, node_to_ir[n->type], a, ptr_scale(ir, b, type, 1), type);
@@ -376,8 +378,9 @@ void gen_inc_dec (IR *ir, ASTNode *n)
 	uint32_t a = addr != NO_REG ? make_ld_ptr(ir, addr, type)
 			: load_var(ir, ir->symtab->symbols + target->sym);
 
-	if (type_kind(type) == TK_PTR)
-		step = types[types[type].base].size;
+	TypeId repr = type_ptr_repr(type);
+	if (repr != TYPE_ERROR)
+		step = types[types[repr].base].size;
 
 	uint32_t val = make_op(ir, n->type == NODE_INC ? IR_ADD : IR_SUB, a,
 			make_const(ir, step, type), type);

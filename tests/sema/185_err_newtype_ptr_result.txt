@@ -1,0 +1,13 @@
+newtype P [1:9] depth=0 type=P base=ptr i64
+newtype Q [2:9] depth=0 type=Q base=ptr i64
+newtype V [3:9] depth=0 type=V base=ptr void
+fn f [5:8] depth=0 type=i64
+param p [5:11] depth=1 type=P
+param raw [5:18] depth=1 type=ptr i64
+var _a [6:9] depth=1 type=P
+var _b [7:9] depth=1 type=ptr i64
+var _c [8:9] depth=1 type=Q
+var _d [9:9] depth=1 type=P
+var _e [10:9] depth=1 type=i64
+var v [11:9] depth=1 type=V
+var _f [12:9] depth=1 type=i64

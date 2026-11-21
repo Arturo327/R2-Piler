@@ -151,8 +151,9 @@ uint32_t gen_index_addr (IR *ir, ASTNode *n)
 {
 	ASTNode *base = ir->ast->nodes + n->child;
 	TypeId type = base->data_type;
-	TypeKind kind = type_kind(type);
-	TypeId elem = types[type].base;
+	TypeId repr = type_ptr_repr(type);
+	TypeKind kind = repr != TYPE_ERROR ? TK_PTR : type_kind(type);
+	TypeId elem = repr != TYPE_ERROR ? types[repr].base : types[type].base;
 	uint32_t a = kind == TK_ARRAY ? gen_array_addr(ir, base) : gen_expr(ir, base);
 	uint32_t b = gen_expr(ir, ir->ast->nodes + base->next_bro);
 

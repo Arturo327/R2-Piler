@@ -66,6 +66,7 @@ static void mark_type (R2i *r, TypeId id, uint8_t *seen)
 		int m = type_module(r, id);
 
 		if (m >= 0) r->import_used[m] = 1;
+		if (type_kind(id) == TK_NEWTYPE) mark_type(r, types[id].base, seen);
 		return;
 	}
 	default:

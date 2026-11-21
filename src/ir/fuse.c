@@ -224,7 +224,7 @@ static int image_type_ok (TypeId id)
 	TypeKind kind = type_kind(id);
 	const Type *t = types + id;
 
-	if (kind == TK_PTR || kind == TK_SLICE || kind == TK_STR) return 0;
+	if (type_ptr_repr(id) != TYPE_ERROR || kind == TK_SLICE || kind == TK_STR) return 0;
 	if (kind == TK_ARRAY) return image_type_ok(t->base);
 	if (kind != TK_STRUCT) return 1;
 	for (uint16_t i = 0; i < t->field_count; i++)

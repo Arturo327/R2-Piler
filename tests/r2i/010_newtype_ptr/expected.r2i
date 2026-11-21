@@ -1,0 +1,10 @@
+// r2i v1
+// source: $ROOT/a.r2
+// module: 2np
+// has_dynamic_init: 0
+// imports:
+
+pub newtype _r2_n_2np_1P = ptr i64;
+
+pub newtype _r2_n_2np_2HP = ptr void;
+

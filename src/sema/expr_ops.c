@@ -35,7 +35,7 @@ TypeId check_unary (Sema *s, uint32_t idx)
 	}
 
 	if (operand_type == TYPE_VOID || operand_type == TYPE_STR || (op != NODE_NOT_L
-				&& (type_kind(operand_type) == TK_PTR || operand_type == TYPE_NULL))) {
+				&& (type_ptr_repr(operand_type) != TYPE_ERROR || operand_type == TYPE_NULL))) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"operator cannot be applied to a value of type %s",
 				types[operand_type].name);
@@ -145,16 +145,18 @@ static TypeId pointer_compare (Sema *s, uint32_t idx, uint32_t *left, uint32_t *
 {
 	coerce_string(s, left, l);
 	coerce_string(s, right, r);
+	TypeId lp = type_ptr_repr(*l);
+	TypeId rp = type_ptr_repr(*r);
 
-	if (type_kind(*l) == TK_PTR && type_kind(*r) == TK_PTR) {
+	if (lp != TYPE_ERROR && rp != TYPE_ERROR) {
 		if (*l != *r) return pointer_mismatch(s, idx, *l, *r);
 		return TYPE_i64;
 	}
-	if (type_kind(*l) == TK_PTR && *r == TYPE_NULL) {
+	if (lp != TYPE_ERROR && *r == TYPE_NULL) {
 		coerce_null(s, right, r, *l);
 		return TYPE_i64;
 	}
-	if (*l == TYPE_NULL && type_kind(*r) == TK_PTR) {
+	if (*l == TYPE_NULL && rp != TYPE_ERROR) {
 		coerce_null(s, left, l, *r);
 		return TYPE_i64;
 	}
@@ -172,9 +174,11 @@ static TypeId pointer_arith (Sema *s, uint32_t idx, uint8_t op, uint32_t *left, 
 
 	coerce_string(s, left, l);
 	coerce_string(s, right, r);
+	TypeId lp = type_ptr_repr(*l);
+	TypeId rp = type_ptr_repr(*r);
 
-	if (type_kind(*l) == TK_PTR && is_integer_operand(*r)) {
-		if (types[*l].base == TYPE_VOID) {
+	if (lp != TYPE_ERROR && is_integer_operand(*r)) {
+		if (types[lp].base == TYPE_VOID) {
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 					"pointer arithmetic on 'ptr void' is not allowed");
 			return TYPE_ERROR;
@@ -183,8 +187,8 @@ static TypeId pointer_arith (Sema *s, uint32_t idx, uint8_t op, uint32_t *left, 
 		return *l;
 	}
 	if (op == NODE_ADD && is_integer_operand(*l)
-			&& type_kind(*r) == TK_PTR) {
-		if (types[*r].base == TYPE_VOID) {
+			&& rp != TYPE_ERROR) {
+		if (types[rp].base == TYPE_VOID) {
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 					"pointer arithmetic on 'ptr void' is not allowed");
 			return TYPE_ERROR;
@@ -192,10 +196,10 @@ static TypeId pointer_arith (Sema *s, uint32_t idx, uint8_t op, uint32_t *left, 
 		*l = finalize_type(s, *left, *l);
 		return *r;
 	}
-	if (op == NODE_SUB && type_kind(*l) == TK_PTR
-			&& type_kind(*r) == TK_PTR) {
+	if (op == NODE_SUB && lp != TYPE_ERROR
+			&& rp != TYPE_ERROR) {
 		if (*l != *r) return pointer_mismatch(s, idx, *l, *r);
-		if (types[*l].base == TYPE_VOID) {
+		if (types[lp].base == TYPE_VOID) {
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 					"pointer arithmetic on 'ptr void' is not allowed");
 			return TYPE_ERROR;
@@ -206,7 +210,7 @@ static TypeId pointer_arith (Sema *s, uint32_t idx, uint8_t op, uint32_t *left, 
 					" the result is the byte distance between them");
 		return TYPE_i64;
 	}
-	if (type_kind(*l) == TK_PTR && type_kind(*r) == TK_PTR) {
+	if (lp != TYPE_ERROR && rp != TYPE_ERROR) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"cannot add two pointers");
 		return TYPE_ERROR;
@@ -244,8 +248,10 @@ static int check_pointer_binary (Sema *s, uint32_t idx, uint32_t *left,
 	if (!is_pointer_operand(*l) && !is_pointer_operand(*r)) return 0;
 	if (op == NODE_AND_L || op == NODE_OR_L) return 0;
 
-	int l_fn_ptr = type_kind(*l) == TK_PTR && type_kind(types[*l].base) == TK_FN;
-	int r_fn_ptr = type_kind(*r) == TK_PTR && type_kind(types[*r].base) == TK_FN;
+	TypeId lp = type_ptr_repr(*l);
+	TypeId rp = type_ptr_repr(*r);
+	int l_fn_ptr = lp != TYPE_ERROR && type_kind(types[lp].base) == TK_FN;
+	int r_fn_ptr = rp != TYPE_ERROR && type_kind(types[rp].base) == TK_FN;
 	if ((l_fn_ptr || r_fn_ptr) && op != NODE_EQ && op != NODE_NE)
 		return fn_ptr_operator(s, idx, op);
 
@@ -510,9 +516,9 @@ static TypeId ternary_unify (Sema *s, uint32_t idx, uint32_t *then_idx,
 	decay_operand(s, else_idx, &b);
 	coerce_string(s, then_idx, &a);
 	coerce_string(s, else_idx, &b);
-	if (b == TYPE_NULL && type_kind(a) == TK_PTR)
+	if (b == TYPE_NULL && type_ptr_repr(a) != TYPE_ERROR)
 		coerce_null(s, else_idx, &b, a);
-	else if (a == TYPE_NULL && type_kind(b) == TK_PTR)
+	else if (a == TYPE_NULL && type_ptr_repr(b) != TYPE_ERROR)
 		coerce_null(s, then_idx, &a, b);
 
 	if (a == TYPE_VOID || b == TYPE_VOID) {
@@ -526,8 +532,8 @@ static TypeId ternary_unify (Sema *s, uint32_t idx, uint32_t *then_idx,
 				types[type_is_aggregate(a) ? a : b].name);
 		return TYPE_ERROR;
 	}
-	int a_ptr = type_kind(a) == TK_PTR || a == TYPE_NULL;
-	int b_ptr = type_kind(b) == TK_PTR || b == TYPE_NULL;
+	int a_ptr = type_ptr_repr(a) != TYPE_ERROR || a == TYPE_NULL;
+	int b_ptr = type_ptr_repr(b) != TYPE_ERROR || b == TYPE_NULL;
 
 	if (a != b && a_ptr != b_ptr) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
@@ -602,10 +608,13 @@ static int cast_types_ok (Sema *s, ASTNode *n, TypeId from, TypeId to)
 	}
 	if (type_kind(from) == TK_NEWTYPE && type_kind(to) == TK_NEWTYPE
 			&& from != to) {
+		const char *via = type_ptr_repr(from) != TYPE_ERROR
+				? "pointer type" : "integer type";
+
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot cast between newtype types '%s' and '%s';"
-				" cast through the underlying integer type",
-				types[from].name, types[to].name);
+				" cast through the underlying %s",
+				types[from].name, types[to].name, via);
 		return 0;
 	}
 	if (type_kind(from) == TK_STRUCT || type_kind(to) == TK_STRUCT) {

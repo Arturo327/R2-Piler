@@ -525,12 +525,13 @@ static TypeId check_compound_ptr (Sema *s, uint32_t idx, uint8_t op,
 				types[l].name);
 		return TYPE_ERROR;
 	}
-	if (type_kind(types[l].base) == TK_FN) {
+	TypeId repr = type_ptr_repr(l);
+	if (type_kind(types[repr].base) == TK_FN) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"pointer arithmetic on a function pointer is not allowed");
 		return TYPE_ERROR;
 	}
-	if (types[l].base == TYPE_VOID) {
+	if (types[repr].base == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"pointer arithmetic on 'ptr void' is not allowed");
 		return TYPE_ERROR;
@@ -570,7 +571,7 @@ TypeId check_compound_assign (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
-	if (type_kind(lr.l) == TK_PTR) {
+	if (type_ptr_repr(lr.l) != TYPE_ERROR) {
 		TypeId result = check_compound_ptr(s, idx, op, lr.l, lr.r, right);
 		s->ast->nodes[idx].data_type = result;
 		return result;
@@ -769,7 +770,7 @@ void sym_set_stack_slice (Sema *s, uint32_t sym, uint32_t rhs)
 
 void warn_stack_return (Sema *s, uint32_t val, TypeId ret)
 {
-	if (type_kind(ret) != TK_PTR && type_kind(ret) != TK_ARRAY
+	if (type_ptr_repr(ret) == TYPE_ERROR && type_kind(ret) != TK_ARRAY
 			&& type_dyn_rank(ret) == 0)
 		return;
 
@@ -842,7 +843,7 @@ void check_inc_dec (Sema *s, uint32_t idx)
 		return;
 	}
 	if (type != TYPE_ERROR && type != TYPE_VOID
-			&& type_kind(type) != TK_PTR) {
+			&& type_ptr_repr(type) == TYPE_ERROR) {
 		s->ast->nodes[idx].data_type = type;
 		return;
 	}
@@ -852,7 +853,8 @@ void check_inc_dec (Sema *s, uint32_t idx)
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return;
 	}
-	if (type_kind(type) == TK_PTR && types[type].base == TYPE_VOID) {
+	if (type_ptr_repr(type) != TYPE_ERROR
+			&& types[type_ptr_repr(type)].base == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"pointer arithmetic on 'ptr void' is not allowed");
 		s->ast->nodes[idx].data_type = TYPE_ERROR;

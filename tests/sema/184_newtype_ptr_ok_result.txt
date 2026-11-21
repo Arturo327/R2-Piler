@@ -1,0 +1,14 @@
+newtype P [1:13] depth=0 type=P base=ptr i64
+newtype HP [2:13] depth=0 type=HP base=ptr void
+struct S [4:8] depth=0 size=16 align=8
+  field p type=P offset=0
+  field x type=i64 offset=8
+fn take [6:8] depth=0 type=i64
+fn main [17:8] depth=0 type=i64
+param p [6:14] depth=1 type=P
+var q [7:9] depth=1 type=P
+var v [8:9] depth=1 type=i64
+var d [9:9] depth=1 type=i64
+var s [18:9] depth=1 type=P
+var h [19:9] depth=1 type=HP
+var st [20:9] depth=1 type=S

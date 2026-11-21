@@ -426,7 +426,7 @@ static void h_make_deps (CHeader *h, TypeId type)
 		TypeKind kind = type_kind(type);
 
 		if (kind != TK_PTR && kind != TK_ARRAY && kind != TK_SLICE
-				&& kind != TK_ALIAS)
+				&& kind != TK_ALIAS && kind != TK_NEWTYPE)
 			break;
 		type = types[type].base;
 	}

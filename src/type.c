@@ -597,3 +597,10 @@ TypeId type_repr (TypeId id)
 	}
 	return TYPE_ERROR;
 }
+
+TypeId type_ptr_repr (TypeId id)
+{
+	TypeId repr = type_repr(id);
+
+	return type_kind(repr) == TK_PTR ? repr : TYPE_ERROR;
+}

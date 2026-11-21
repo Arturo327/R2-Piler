@@ -22,7 +22,7 @@ int sema_implicit_cast_ok (TypeId from, TypeId to)
 	TypeKind from_kind = type_kind(from);
 	TypeKind to_kind = type_kind(to);
 
-	if (from == TYPE_NULL) return to_kind == TK_PTR;
+	if (from == TYPE_NULL) return type_ptr_repr(to) != TYPE_ERROR;
 	if (to == TYPE_NULL) return 0;
 	if (from == TYPE_STR)
 		return (to_kind == TK_PTR && types[to].base == TYPE_i8)
@@ -554,7 +554,8 @@ uint32_t force_cast (Sema *s, uint32_t child, TypeId child_type, TypeId target, 
 		return sema_wrap_cast(s, child, target);
 	}
 	if (types[target].size && type_kind(child_type) == TK_UNTYPED_INT
-			&& target_kind != TK_PTR && target_kind != TK_NULL
+			&& target_kind != TK_PTR && type_ptr_repr(target) == TYPE_ERROR
+			&& target_kind != TK_NULL
 			&& target_kind != TK_STR && target_kind != TK_VOID
 			&& target_kind != TK_STRUCT
 			&& target_kind != TK_ARRAY && target_kind != TK_SLICE) {

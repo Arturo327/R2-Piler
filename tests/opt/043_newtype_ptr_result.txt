@@ -1,0 +1,51 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn sum(2 params, 23 regs) : i64
+    r0 = param.P #0
+    r1 = param.i64 #1
+    r2 = const.i64 0
+    r3 = const.i64 0
+    jmp -> L1
+  L0:
+    r7 = const.i64 8
+    r8 = mul.i64 r3, r7
+    r9 = add.P r0, r8
+    r14 = ld_ptr.i64 r9
+    r2 = add.i64 r2, r14
+    r17 = const.i64 1
+    r3 = add.i64 r3, r17
+  L1:
+    r21 = lt.i64 r3, r1
+    jnz r21 -> L0
+    ret.i64 r2
+    ret
+
+fn main(0 params, 39 regs) : i64
+    r2 = const.i64 3
+    str_local.i64 r0, r2
+    r3 = const.i64 5
+    str_local.i64 r0, r3 +8
+    r6 = const.i64 7
+    str_local.i64 r0, r6 +16
+    r9 = const.i64 9
+    str_local.i64 r0, r9 +24
+    r16 = addr_local.i64[4] r0
+    r17 = const.i64 4
+    r18 = const.i64 0
+    r19 = const.i64 0
+    jmp -> L3
+  L2:
+    r23 = const.i64 8
+    r24 = mul.i64 r19, r23
+    r25 = add.P r16, r24
+    r30 = ld_ptr.i64 r25
+    r18 = add.i64 r18, r30
+    r33 = const.i64 1
+    r19 = add.i64 r19, r33
+  L3:
+    r37 = lt.i64 r19, r17
+    jnz r37 -> L2
+    ret.i64 r18
+    ret
+

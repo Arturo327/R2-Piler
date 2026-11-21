@@ -133,5 +133,6 @@ TypeKind type_kind (TypeId id);
 int type_is_nominal (TypeId id);
 TypeId type_canon (TypeId id);
 TypeId type_repr (TypeId id);
+TypeId type_ptr_repr (TypeId id);
 
 #endif

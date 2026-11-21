@@ -501,7 +501,7 @@ static int c_keyword (const char *name, uint16_t len)
 		"thread_local", "throw", "true", "try", "typeid", "typename", "using",
 		"virtual", "wchar_t", "xor", "xor_eq"
 	};
-	for (uint32_t i = 0; i < sizeof words / sizeof words[0]; i++)
+	for (uint32_t i = 0; i < sizeof(words) / sizeof(words[0]); i++)
 		if (strlen(words[i]) == len && memcmp(words[i], name, len) == 0)
 			return 1;
 	return 0;

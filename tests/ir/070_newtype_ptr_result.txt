@@ -1,0 +1,55 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn main(0 params, 44 regs) : i64
+    r1 = addr_local.i64[3] r0
+    r2 = const.i64 1
+    str_ptr.i64 r1, r2
+    r3 = const.i64 2
+    r4 = const.i64 8
+    r5 = add.i64 r1, r4
+    str_ptr.i64 r5, r3
+    r6 = const.i64 3
+    r7 = const.i64 16
+    r8 = add.i64 r1, r7
+    str_ptr.i64 r8, r6
+    r9 = addr_local.i64[3] r0
+    r10 = move.ptr i64 r9
+    r11 = move.P r10
+    r12 = const.i64 1
+    r13 = const.i64 8
+    r14 = mul.i64 r12, r13
+    r15 = add.P r11, r14
+    r16 = move.P r15
+    r17 = move.P r10
+    r18 = sub.i64 r16, r17
+    r19 = const.i64 8
+    r20 = div.i64 r18, r19
+    r21 = move.P r15
+    r22 = const.i64 0
+    r23 = const.i64 8
+    r24 = mul.i64 r22, r23
+    r25 = add.P r21, r24
+    r26 = ld_ptr.i64 r25
+    r27 = move.P r15
+    r28 = ld_ptr.i64 r27
+    r29 = add.i64 r26, r28
+    r30 = move.P r10
+    r31 = const.i64 1
+    r32 = const.i64 8
+    r33 = mul.i64 r31, r32
+    r34 = add.P r30, r33
+    r10 = move.P r34
+    r35 = move.P r10
+    r36 = const.P 8
+    r37 = add.P r35, r36
+    r10 = move.P r37
+    r38 = move.i64 r20
+    r39 = move.i64 r29
+    r40 = add.i64 r38, r39
+    r41 = move.P r10
+    r42 = ld_ptr.i64 r41
+    r43 = add.i64 r40, r42
+    ret.i64 r43
+    ret
+

@@ -1,0 +1,22 @@
+tests/sema/185_err_newtype_ptr_src.r2:6:9: ERROR: can't initialize '_a' (P) with a value of type ptr i64; use an explicit cast with 'as'
+      6 |     var _a : P = raw;
+        |         ^~
+tests/sema/185_err_newtype_ptr_src.r2:7:9: ERROR: can't initialize '_b' (ptr i64) with a value of type P; use an explicit cast with 'as'
+      7 |     var _b : ptr i64 = p;
+        |         ^~
+tests/sema/185_err_newtype_ptr_src.r2:8:20: ERROR: cannot cast between newtype types 'P' and 'Q'; cast through the underlying pointer type
+      8 |     var _c : Q = p as Q;
+        |                    ^~
+tests/sema/185_err_newtype_ptr_src.r2:9:9: ERROR: can't initialize '_d' (P) with a value of type i64; use an explicit cast with 'as'
+      9 |     var _d : P = 0;
+        |         ^~
+tests/sema/185_err_newtype_ptr_src.r2:10:20: ERROR: operator cannot be applied to a value of type P
+     10 |     var _e : i64 = -p;
+        |                    ^
+tests/sema/185_err_newtype_ptr_src.r2:12:20: ERROR: cannot dereference 'ptr void'; cast it to a typed pointer first
+     12 |     var _f : i64 = @v;
+        |                    ^
+tests/sema/185_err_newtype_ptr_src.r2:5:11: ERROR: public declaration exposes non-public type 'P'
+      5 | pub fn f (p : P, raw : ptr i64) : i64 {
+        |           ^
+7 errors, 0 warnings
