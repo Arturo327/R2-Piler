@@ -630,7 +630,13 @@ TypeId check_fn_call (Sema *s, uint32_t idx)
 	Symbol *fn = &s->table.symbols[sym_idx];
 	if (sym_idx != s->curr_fn) fn->read = 1;
 	check_call_args(s, idx, fn->decl);
+	n = s->ast->nodes + idx;
 	n->data_type = fn->type;
+	uint32_t ret = s->ast->nodes[fn->decl].child;
+
+	ret = s->ast->nodes[ret].next_bro;
+	if (ret != NO_NODE && (s->ast->nodes[ret].flags & NODE_FLAG_CONST))
+		n->flags |= NODE_FLAG_CONST;
 	return n->data_type;
 }
 

@@ -43,28 +43,13 @@ static void h_make_fn (CHeader *h, ASTNode *n)
 	h_printf(h, ");\n\n");
 }
 
-static void h_print_global_type (CHeader *h, TypeId type, const char *name)
-{
-	uint32_t counts[16];
-	int rank = 0;
-
-	while (type_kind(type) == TK_ARRAY) {
-		if (rank < 16) counts[rank++] = types[type].count;
-		type = types[type].base;
-	}
-	h_print_type(h, type);
-	h_printf(h, " %s", name);
-	for (int i = 0; i < rank; i++)
-		h_printf(h, "[%u]", counts[i]);
-}
-
 static void h_make_global (CHeader *h, ASTNode *n)
 {
 	Symbol *sym = h->ir->symtab->symbols + n->sym;
 	IRGlobal *g = h->ir->globals + sym->ir_id;
 
 	h_printf(h, "R2_API extern ");
-	h_print_global_type(h, n->data_type, g->sym);
+	h_print_named_type(h, n->data_type, g->sym, (int)strlen(g->sym));
 	h_printf(h, ";\n\n");
 }
 

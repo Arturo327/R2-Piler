@@ -433,6 +433,7 @@ uint32_t parse_statement_inner (Parser *p, int root)
 	case TOK_IMPORT: return parse_import(p, root);
 	case TOK_FROM: return parse_from(p, root);
 	case TOK_VAR: return parse_decl(p, 0);
+	case TOK_CONST: return parse_const_decl(p);
 	case TOK_STATIC: return parse_static_decl(p);
 	case TOK_MODULE: return parse_module(p);
 	case TOK_DEPENDS: return parse_depends(p);

@@ -1,4 +1,4 @@
-from lib import Pair;
+from "lib" import Pair;
 
 pub struct Pair { x : i64; }
 

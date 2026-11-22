@@ -53,6 +53,21 @@ static uint16_t h_slice_index (CHeader *h, TypeId type)
 	return h->slice_index[type];
 }
 
+void h_print_named_type (CHeader *h, TypeId type, const char *name, int len)
+{
+	uint32_t counts[16];
+	int rank = 0;
+
+	while (type_kind(type) == TK_ARRAY) {
+		if (rank < 16) counts[rank++] = types[type].count;
+		type = types[type].base;
+	}
+	h_print_type(h, type);
+	h_printf(h, " %.*s", len, name);
+	for (int i = 0; i < rank; i++)
+		h_printf(h, "[%u]", counts[i]);
+}
+
 void h_print_type (CHeader *h, TypeId type)
 {
 	if (type == TYPE_ERROR || type < TYPE_COUNT) {
@@ -295,8 +310,8 @@ static void h_make_field (CHeader *h, ASTNode *n, HFieldState *s, int depth)
 
 	h_indent(h, depth);
 	if (!(n->flags & NODE_FLAG_BITFIELD)) {
-		h_print_type(h, n->data_type);
-		h_printf(h, " %.*s;\n", (int)n->len, n->str);
+		h_print_named_type(h, n->data_type, n->str, (int)n->len);
+		h_printf(h, ";\n");
 		s->bit_pos = 0;
 		return;
 	}

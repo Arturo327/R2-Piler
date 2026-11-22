@@ -1,0 +1,7 @@
+tests/parser/094_err_import_module_name_src.r2:2:8: ERROR: expected a module name string after 'import'
+      2 | import lib;
+        |        ^~~
+tests/parser/094_err_import_module_name_src.r2:4:8: ERROR: module name cannot be empty
+      4 | import "";
+        |        ^
+2 errors, 0 warnings

@@ -1,4 +1,4 @@
 app.r2:2:1: ERROR: module qualifier 'lib' is already in use
-      2 | import lib;
+      2 | import "lib";
         | ^~~
 1 error, 0 warnings

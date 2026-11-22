@@ -1,0 +1,4 @@
+tests/asm/160_view_src.r2:22:6: WARNING: variable 'c' is a view with no initializer; it reserves no storage (use 'arr' for a stack array)
+     22 |         var c : i32[6];
+        |             ^
+0 errors, 1 warning

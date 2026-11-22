@@ -7,6 +7,9 @@ tests/sema/099_err_array_decl_src.r2:6:2: ERROR: cannot return i64 from a functi
 tests/sema/099_err_array_decl_src.r2:9:27: ERROR: extern functions cannot take slice parameters
       9 | extern fn ext(v : i32[2], s : i32[]) : void;
         |                           ^
+tests/sema/099_err_array_decl_src.r2:12:6: WARNING: variable 'x' is a view with no initializer; it reserves no storage (use 'arr' for a stack array)
+     12 |         var x : i32[3];
+        |             ^
 tests/sema/099_err_array_decl_src.r2:13:6: ERROR: 'arr' declarations must have an array type
      13 |         arr y : i64;
         |             ^
@@ -43,4 +46,4 @@ tests/sema/099_err_array_decl_src.r2:1:4: WARNING: unused function 'arr_param'
 tests/sema/099_err_array_decl_src.r2:5:4: WARNING: unused function 'arr_ret'
       5 | fn arr_ret() : i32[] {
         |    ^~~~~~~
-6 errors, 9 warnings
+6 errors, 10 warnings

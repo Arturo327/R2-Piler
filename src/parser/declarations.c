@@ -6,6 +6,10 @@ static uint32_t parse_param (Parser *p, int *typed)
 	uint16_t col = p->curr.col;
 	uint32_t node = new_node(p, NODE_VAR_DEC, line, col);
 
+	if (p->curr.type == TOK_CONST) {
+		advance(p);
+		p->ast.nodes[node].flags |= NODE_FLAG_CONST;
+	}
 	if (consume(p, TOK_ID, "expected parameter name")) {
 		p->ast.nodes[node].str = p->prev.str;
 		p->ast.nodes[node].len = p->prev.len;
@@ -44,7 +48,7 @@ static uint32_t parse_args_dec (Parser *p)
 
 	consume(p, TOK_LPAREN, "expected '(' after function name");
 
-	while (p->curr.type == TOK_ID) {
+	while (p->curr.type == TOK_ID || p->curr.type == TOK_CONST) {
 		int typed = 0;
 		uint32_t param = parse_param(p, &typed);
 
@@ -89,6 +93,10 @@ static uint32_t parse_ret_dec (Parser *p)
 	}
 
 	advance(p);
+	if (p->curr.type == TOK_CONST) {
+		advance(p);
+		p->ast.nodes[node].flags |= NODE_FLAG_CONST;
+	}
 	uint16_t type_node;
 	TypeId type = parse_type(p, 1, node, &type_node);
 	p->ast.nodes[node].data_type = type;
@@ -105,6 +113,8 @@ static uint32_t parse_ret_dec (Parser *p)
 
 		p->ast.nodes[item].data_type = item_type;
 		p->ast.nodes[item].type_node = item_node;
+		if (p->ast.nodes[node].flags & NODE_FLAG_CONST)
+			p->ast.nodes[item].flags |= NODE_FLAG_CONST;
 		append_child(p, node, &last, item);
 	}
 	return node;

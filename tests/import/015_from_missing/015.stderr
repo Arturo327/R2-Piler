@@ -1,4 +1,4 @@
-app.r2:1:17: ERROR: module 'lib' does not export 'nope'
-      1 | from lib import nope;
-        |                 ^~~~
+app.r2:1:19: ERROR: module 'lib' does not export 'nope'
+      1 | from "lib" import nope;
+        |                   ^~~~
 1 error, 0 warnings

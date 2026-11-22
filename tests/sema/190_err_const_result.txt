@@ -1,0 +1,7 @@
+fn bad [1:4] depth=0 type=void
+fn bad_ret [3:4] depth=0 type=i64
+fn main [5:8] depth=0 type=i64
+param p [1:8] depth=1 type=i64
+var x [6:13] depth=1 type=i64
+var a [7:13] depth=1 type=i64[2]
+var noinit [8:13] depth=1 type=i64

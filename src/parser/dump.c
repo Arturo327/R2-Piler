@@ -134,11 +134,12 @@ static void dump_node_value (ASTNode *n)
 	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
 	case NODE_STRUCT_DEC: case NODE_FIELD_DEC: case NODE_MODULE_DEC:
-	case NODE_DEPENDS_DEC:
+	case NODE_DEPENDS_DEC: case NODE_RET_DEC: case NODE_RET_ITEM:
 	case NODE_IMPORT_DEC: case NODE_FROM_DEC:
 		if (n->str && !(n->flags & NODE_FLAG_INDIRECT))
 			printf(" name=\"%.*s\"", (int)n->len, n->str);
 		if (n->flags & NODE_FLAG_STATIC) printf(" static");
+		if (n->flags & NODE_FLAG_CONST) printf(" const");
 		if (n->flags & NODE_FLAG_PUB) {
 			if (n->flags & NODE_FLAG_EXPORT) printf(" export");
 			else printf(" pub");

@@ -94,7 +94,13 @@ uint32_t parse_decl (Parser *p, int is_arr)
 
 uint32_t parse_static_decl (Parser *p)
 {
+	uint16_t flags = NODE_FLAG_STATIC;
+
 	consume(p, TOK_STATIC, "expected 'static'");
+	if (p->curr.type == TOK_CONST) {
+		flags |= NODE_FLAG_CONST;
+		advance(p);
+	}
 
 	if (p->curr.type != TOK_VAR && p->curr.type != TOK_ARR) {
 		if (!p->panic_mode)
@@ -113,8 +119,7 @@ uint32_t parse_static_decl (Parser *p)
 		return first;
 	}
 
-	for (uint32_t node = first; node != NO_NODE; node = p->ast.nodes[node].next_bro)
-		p->ast.nodes[node].flags |= NODE_FLAG_STATIC;
+	mark_decl_flags(p, first, flags);
 	return first;
 }
 

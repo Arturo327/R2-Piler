@@ -1,4 +1,4 @@
-from lib import val;
+from "lib" import val;
 
 fn helper () : i64 { return val(); }
 

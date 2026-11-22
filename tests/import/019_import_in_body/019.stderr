@@ -1,4 +1,4 @@
 app.r2:3:2: ERROR: import declarations are only allowed at the top level
-      3 |         import nope;
+      3 |         import "nope";
         |         ^~~~~~
 1 error, 0 warnings

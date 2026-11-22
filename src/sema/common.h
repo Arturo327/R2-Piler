@@ -30,6 +30,7 @@ void record_init_order (Sema *s, uint32_t idx);
 void record_static (Sema *s, uint32_t idx);
 void check_var_init_type (Sema *s, ASTNode *n, TypeId init_type);
 void check_storage_decl (Sema *s, ASTNode *n);
+void check_const_init (Sema *s, ASTNode *n);
 void infer_array_dims (Sema *s, uint32_t decl_idx);
 void check_array_init (Sema *s, uint32_t decl_idx);
 void check_array_init_at (Sema *s, TypeId arr, uint32_t init_idx);

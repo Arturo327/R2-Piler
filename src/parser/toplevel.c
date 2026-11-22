@@ -1,17 +1,75 @@
 #include "parser/common.h"
 
-static char *parse_module_path (Parser *p, const char *what, uint16_t *len)
+static void module_path_error (Parser *p, const char *msg)
 {
-	Token first = p->curr;
+	if (!p->panic_mode)
+		error_report(p->err, ERR_ERROR, token_loc(p->curr), "%s", msg);
+}
 
-	if (!consume(p, TOK_ID, what)) {
-		*len = first.len;
-		return first.str;
+static char *make_module_path (Parser *p, Token name, uint16_t *len)
+{
+	uint32_t total = name.len;
+	int has_slash = 0;
+
+	for (uint32_t i = 0; i < name.len; i++) {
+		if (name.str[i] == ':') {
+			module_path_error(p, "module path cannot contain ':'; use '/' as the separator");
+			return NULL;
+		}
+		if (name.str[i] != '/') continue;
+		if (!i || name.str[i - 1] == '/' || i + 1 == name.len) {
+			module_path_error(p, "module path has an empty segment");
+			return NULL;
+		}
+		has_slash = 1;
+		total++;
 	}
-	int ok;
-	char *name = qualify_name(p, first, len, &ok);
+	if (total > UINT16_MAX) {
+		module_path_error(p, "module path is too long");
+		return NULL;
+	}
+	if (!has_slash) {
+		*len = name.len;
+		return name.str;
+	}
+	char *out = arena_alloc(p->arena, (size_t)total + 1);
+	uint32_t at = 0;
 
-	(void)ok;
+	for (uint32_t i = 0; i < name.len; i++) {
+		if (name.str[i] != '/') {
+			out[at++] = name.str[i];
+			continue;
+		}
+		out[at++] = ':';
+		out[at++] = ':';
+	}
+	out[at] = '\0';
+	*len = (uint16_t)total;
+	return out;
+}
+
+static char *parse_module_name (Parser *p, const char *what, uint16_t *len)
+{
+	if (p->curr.type != TOK_LIT_STR) {
+		module_path_error(p, what);
+		p->panic_mode = 1;
+		*len = 0;
+		return NULL;
+	}
+	if (!p->curr.len) {
+		module_path_error(p, "module name cannot be empty");
+		p->panic_mode = 1;
+		*len = 0;
+		return NULL;
+	}
+	char *name = make_module_path(p, p->curr, len);
+
+	if (!name) {
+		p->panic_mode = 1;
+		*len = 0;
+		return NULL;
+	}
+	advance(p);
 	return name;
 }
 
@@ -22,8 +80,8 @@ uint32_t parse_import (Parser *p, int root)
 	advance(p);
 	uint32_t node = new_node(p, NODE_IMPORT_DEC, kw.line, kw.col);
 
-	p->ast.nodes[node].str = parse_module_path(p,
-			"expected a module name after 'import'", &p->ast.nodes[node].len);
+	p->ast.nodes[node].str = parse_module_name(p,
+			"expected a module name string after 'import'", &p->ast.nodes[node].len);
 	if (p->curr.type == TOK_AS) {
 		advance(p);
 		uint32_t alias = new_node(p, NODE_ID, p->curr.line, p->curr.col);
@@ -68,8 +126,8 @@ uint32_t parse_from (Parser *p, int root)
 	advance(p);
 	uint32_t node = new_node(p, NODE_FROM_DEC, kw.line, kw.col);
 
-	p->ast.nodes[node].str = parse_module_path(p,
-			"expected a module name after 'from'", &p->ast.nodes[node].len);
+	p->ast.nodes[node].str = parse_module_name(p,
+			"expected a module name string after 'from'", &p->ast.nodes[node].len);
 	consume(p, TOK_IMPORT, "expected 'import' after the module name");
 	uint32_t last = NO_NODE;
 
@@ -89,7 +147,7 @@ static int pub_target (TokenType type)
 	switch (type)
 	{
 	case TOK_FN: case TOK_VAR: case TOK_ARR: case TOK_ENUM:
-	case TOK_STRUCT: case TOK_UNION: case TOK_PACKED:
+	case TOK_STRUCT: case TOK_UNION: case TOK_PACKED: case TOK_CONST:
 	case TOK_TYPE: case TOK_NEWTYPE: case TOK_EXTERN:
 		return 1;
 	default:
@@ -102,6 +160,39 @@ static uint32_t mark_visibility (Parser *p, uint32_t node, uint16_t flags)
 	for (uint32_t k = node; k != NO_NODE; k = p->ast.nodes[k].next_bro)
 		p->ast.nodes[k].flags |= flags;
 	return node;
+}
+
+void mark_decl_flags (Parser *p, uint32_t node, uint16_t flags)
+{
+	if (p->ast.nodes[node].type == NODE_MULTI_ASSIGN) {
+		for (uint32_t k = p->ast.nodes[node].child; k != NO_NODE;
+				k = p->ast.nodes[k].next_bro)
+			p->ast.nodes[k].flags |= flags;
+		return;
+	}
+	mark_visibility(p, node, flags);
+}
+
+uint32_t parse_const_decl (Parser *p)
+{
+	Token kw = p->curr;
+	uint16_t flags = NODE_FLAG_CONST;
+
+	advance(p);
+	if (p->curr.type == TOK_STATIC) {
+		flags |= NODE_FLAG_STATIC;
+		advance(p);
+	}
+	if (p->curr.type != TOK_VAR && p->curr.type != TOK_ARR) {
+		if (!p->panic_mode)
+			error_report(p->err, ERR_ERROR, token_loc(kw),
+					"expected 'var' or 'arr' after 'const'");
+		p->panic_mode = 1;
+		return new_node(p, NODE_ERROR, kw.line, kw.col);
+	}
+	uint32_t first = parse_decl(p, p->curr.type == TOK_ARR);
+	mark_decl_flags(p, first, flags);
+	return first;
 }
 
 uint32_t parse_pub (Parser *p, int root)

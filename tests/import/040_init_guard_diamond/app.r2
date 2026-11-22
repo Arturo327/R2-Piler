@@ -1,6 +1,6 @@
-import a;
-import b;
-import c;
+import "a";
+import "b";
+import "c";
 
 pub fn main () : i64
 {

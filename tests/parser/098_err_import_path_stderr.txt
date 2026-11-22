@@ -1,0 +1,13 @@
+tests/parser/098_err_import_path_src.r2:2:8: ERROR: module path cannot contain ':'; use '/' as the separator
+      2 | import "std::math";
+        |        ^~~~~~~~~
+tests/parser/098_err_import_path_src.r2:3:8: ERROR: module path has an empty segment
+      3 | import "std//math";
+        |        ^~~~~~~~~
+tests/parser/098_err_import_path_src.r2:4:8: ERROR: module path has an empty segment
+      4 | import "/std";
+        |        ^~~~
+tests/parser/098_err_import_path_src.r2:5:8: ERROR: module path has an empty segment
+      5 | import "std/";
+        |        ^~~~
+4 errors, 0 warnings

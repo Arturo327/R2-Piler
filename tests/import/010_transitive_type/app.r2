@@ -1,4 +1,4 @@
-import libb;
+import "libb";
 
 pub fn main () : i64
 {

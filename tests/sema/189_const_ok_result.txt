@@ -1,0 +1,11 @@
+var g [1:11] depth=0 type=i64
+var ga [2:11] depth=0 type=i64[3]
+fn read [4:4] depth=0 type=i64
+fn ret [6:4] depth=0 type=ptr i64
+fn main [8:8] depth=0 type=i64
+param p [4:9] depth=1 type=i64
+var x [9:13] depth=1 type=i64
+var a [10:13] depth=1 type=i64[3]
+var p [11:7] depth=1 type=ptr i64
+var cp [12:13] depth=1 type=ptr i64
+var c [13:7] depth=1 type=i64

@@ -1,0 +1,4 @@
+tests/sema/179_view_src.r2:13:6: WARNING: variable 'c' is a view with no initializer; it reserves no storage (use 'arr' for a stack array)
+     13 |         var c : i32[6];
+        |             ^
+0 errors, 1 warning

@@ -1,0 +1,37 @@
+tests/sema/190_err_const_src.r2:1:32: ERROR: cannot modify const parameter 'p'
+      1 | fn bad(const p : i64) : void { p = 1; }
+        |                                ^
+tests/sema/190_err_const_src.r2:1:8: WARNING: unused parameter 'p'
+      1 | fn bad(const p : i64) : void { p = 1; }
+        |        ^
+tests/sema/190_err_const_src.r2:3:14: ERROR: a const return type must be a pointer or slice
+      3 | fn bad_ret() : const i64 { return 1; }
+        |              ^
+tests/sema/190_err_const_src.r2:8:13: ERROR: const variable 'noinit' requires an initializer
+      8 |   const var noinit : i64;
+        |             ^~~~~~
+tests/sema/190_err_const_src.r2:9:3: ERROR: cannot modify const variable 'x'
+      9 |   x = 2;
+        |   ^
+tests/sema/190_err_const_src.r2:10:3: ERROR: cannot modify const variable 'a'
+     10 |   a[0] = 3;
+        |   ^
+tests/sema/190_err_const_src.r2:11:3: ERROR: cannot modify const variable 'x'
+     11 |   x += 1;
+        |   ^
+tests/sema/190_err_const_src.r2:12:3: ERROR: cannot modify const variable 'x'
+     12 |   x++;
+        |   ^
+tests/sema/190_err_const_src.r2:6:13: WARNING: value assigned to 'x' is not used
+      6 |   const var x : i64 = 1;
+        |             ^
+tests/sema/190_err_const_src.r2:7:13: WARNING: unused variable 'a'
+      7 |   const arr a : i64[2] = {1, 2};
+        |             ^
+tests/sema/190_err_const_src.r2:8:13: WARNING: unused variable 'noinit'
+      8 |   const var noinit : i64;
+        |             ^~~~~~
+tests/sema/190_err_const_src.r2:3:4: WARNING: unused function 'bad_ret'
+      3 | fn bad_ret() : const i64 { return 1; }
+        |    ^~~~~~~
+7 errors, 5 warnings

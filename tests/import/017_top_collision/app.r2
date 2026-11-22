@@ -1,4 +1,4 @@
-from lib import ok;
+from "lib" import ok;
 
 fn ok () : i64 { return 1; }
 

@@ -1,6 +1,6 @@
-import lib;
+import "lib";
 
-from lib import Pair as P, E, make as mk, Handle;
+from "lib" import Pair as P, E, make as mk, Handle;
 
 pub fn main () : i64
 {

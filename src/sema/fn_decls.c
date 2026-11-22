@@ -203,10 +203,16 @@ void check_var_dec (Sema *s, uint32_t idx)
 	n = s->ast->nodes + idx;
 	if (untyped) check_inferred_decl(s, idx);
 	else check_storage_decl(s, n);
+	check_const_init(s, s->ast->nodes + idx);
 
 	n = s->ast->nodes + idx;
 	int is_view = n->type == NODE_VAR_DEC && !(n->flags & NODE_FLAG_STATIC)
 			&& n->data_type != TYPE_ERROR && type_kind(n->data_type) == TK_ARRAY;
+
+	if (is_view && !has_init && n->str[0] != '_')
+		error_report(s->err, ERR_WARNING, node_loc(n),
+				"variable '%.*s' is a view with no initializer; it reserves no storage"
+				" (use 'arr' for a stack array)", (int)n->len, n->str);
 
 	if (has_init && !untyped) check_decl_init(s, idx, is_view);
 
@@ -251,6 +257,10 @@ static void check_ret_type (Sema *s, uint32_t ret, int is_extern, int multi)
 	if (multi && t == TYPE_VOID)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"void cannot be used as one of several return types");
+	if ((n->flags & NODE_FLAG_CONST) && type_ptr_repr(t) == TYPE_ERROR
+			&& type_kind(t) != TK_SLICE)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"a const return type must be a pointer or slice");
 	if (!is_extern || t == TYPE_VOID) return;
 
 	if (type_kind(t) == TK_STRUCT)

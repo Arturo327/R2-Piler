@@ -43,7 +43,7 @@ TypeId check_unary (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
-	n->data_type = (n->type == NODE_NOT_L) ? TYPE_i64 : operand_type;
+	n->data_type = (n->type == NODE_NOT_L) ? TYPE_UNTYPED_INT : operand_type;
 	is_lit = const_operand(s, n->child);
 	result_type = try_fold_unary(s, idx);
 
@@ -61,7 +61,7 @@ static TypeId binop_result_type (uint8_t node_type, TypeId operand_type)
 	{
 	case NODE_EQ: case NODE_NE: case NODE_GT: case NODE_GE:
 	case NODE_LT: case NODE_LE: case NODE_AND_L: case NODE_OR_L:
-		return TYPE_i64;
+		return TYPE_UNTYPED_INT;
 	default:
 		return operand_type;
 	}
@@ -150,17 +150,17 @@ static TypeId pointer_compare (Sema *s, uint32_t idx, uint32_t *left, uint32_t *
 
 	if (lp != TYPE_ERROR && rp != TYPE_ERROR) {
 		if (*l != *r) return pointer_mismatch(s, idx, *l, *r);
-		return TYPE_i64;
+		return TYPE_UNTYPED_INT;
 	}
 	if (lp != TYPE_ERROR && *r == TYPE_NULL) {
 		coerce_null(s, right, r, *l);
-		return TYPE_i64;
+		return TYPE_UNTYPED_INT;
 	}
 	if (*l == TYPE_NULL && rp != TYPE_ERROR) {
 		coerce_null(s, left, l, *r);
-		return TYPE_i64;
+		return TYPE_UNTYPED_INT;
 	}
-	if (*l == TYPE_NULL && *r == TYPE_NULL) return TYPE_i64;
+	if (*l == TYPE_NULL && *r == TYPE_NULL) return TYPE_UNTYPED_INT;
 
 	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 			"cannot compare a pointer with an integer;"
@@ -208,7 +208,7 @@ static TypeId pointer_arith (Sema *s, uint32_t idx, uint8_t op, uint32_t *left, 
 			error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + idx),
 					"subtracting two string literals is probably a mistake;"
 					" the result is the byte distance between them");
-		return TYPE_i64;
+		return TYPE_UNTYPED_INT;
 	}
 	if (lp != TYPE_ERROR && rp != TYPE_ERROR) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),

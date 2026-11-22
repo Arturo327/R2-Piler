@@ -1,0 +1,16 @@
+// r2i v1
+// source: /home/artu/Documentos/Proyectos/opencode/tests/headers/013_array_fields/a.r2
+// target: x86-64-sysv
+// module: 1a
+// has_dynamic_init: 0
+// imports:
+// depends:
+// total_imports:
+
+export struct S {
+	a : u8[3];
+	b : i32[2];
+};
+
+export fn sum (s : ptr S) : i64;
+

@@ -234,8 +234,8 @@ TypeId try_fold_unary (Sema *s, uint32_t idx)
 	if (c->data_type == TYPE_ERROR) return n->data_type;
 
 	if (n->type == NODE_NOT_L) {
-		make_fold_lit(n, a == 0, TYPE_i64);
-		return TYPE_i64;
+		make_fold_lit(n, a == 0, TYPE_UNTYPED_INT);
+		return TYPE_UNTYPED_INT;
 	}
 
 	TypeId t = n->data_type;
@@ -277,7 +277,7 @@ void try_fold_binary (Sema *s, uint32_t idx)
 
 	if (n->type == NODE_AND_L || n->type == NODE_OR_L) {
 		uint64_t v = n->type == NODE_AND_L ? (a != 0 && b != 0) : (a != 0 || b != 0);
-		make_fold_lit(n, v, TYPE_i64);
+		make_fold_lit(n, v, TYPE_UNTYPED_INT);
 		return;
 	}
 
@@ -292,7 +292,7 @@ void try_fold_binary (Sema *s, uint32_t idx)
 
 	uint64_t v;
 	if (fold_compare(n->type, a, b, t, &v)) {
-		make_fold_lit(n, v, TYPE_i64);
+		make_fold_lit(n, v, TYPE_UNTYPED_INT);
 		return;
 	}
 	if (fold_value(n->type, a, b, t, &v)) {
@@ -494,15 +494,20 @@ static const uint8_t flex_op[NODE_COUNT] = {
 	[NODE_LS] = 3, [NODE_RS] = 3
 };
 
+static void retag_expr (Sema *s, uint32_t idx, TypeId to);
+
+static void retag_flex (Sema *s, uint32_t idx, TypeId to)
+{
+	if (idx != NO_NODE && type_kind(s->ast->nodes[idx].data_type) == TK_UNTYPED_INT)
+		retag_expr(s, idx, to);
+}
+
 static void retag_expr (Sema *s, uint32_t idx, TypeId to)
 {
-	ASTNode *n;
-	uint32_t child;
-
 	if (idx == NO_NODE) return;
 
-	n = &s->ast->nodes[idx];
-	child = n->child;
+	ASTNode *n = s->ast->nodes + idx;
+	uint32_t child = n->child;
 	if (retag_literal(s, idx, to)) return;
 
 	if (n->type == NODE_DOT && type_kind(n->data_type) == TK_UNTYPED_INT) {
@@ -512,15 +517,13 @@ static void retag_expr (Sema *s, uint32_t idx, TypeId to)
 
 	n->data_type = to;
 	if (n->type == NODE_TERNARY) {
-		uint32_t then_idx = s->ast->nodes[child].next_bro;
-
-		retag_expr(s, then_idx, to);
-		retag_expr(s, s->ast->nodes[then_idx].next_bro, to);
+		uint32_t rhs = s->ast->nodes[child].next_bro;
+		retag_flex(s, rhs, to);
+		retag_flex(s, s->ast->nodes[rhs].next_bro, to);
 		return;
 	}
-	retag_expr(s, child, to);
-	if (flex_op[n->type] == 2)
-		retag_expr(s, s->ast->nodes[child].next_bro, to);
+	retag_flex(s, child, to);
+	if (flex_op[n->type] == 2) retag_flex(s, s->ast->nodes[child].next_bro, to);
 }
 
 static TypeId default_type (TypeId type)

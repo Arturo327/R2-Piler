@@ -330,6 +330,7 @@ static void decl_globals (Sema *s)
 			if (n->child != NO_NODE) infer_array_dims(s, idx);
 			resolve_type_node(s, n);
 			check_storage_decl(s, n);
+			check_const_init(s, n);
 			reject_untyped_global(s, n);
 			if (n->len == 4 && memcmp(n->str, "main", 4) == 0)
 				error_report(s->err, ERR_ERROR, node_loc(n),

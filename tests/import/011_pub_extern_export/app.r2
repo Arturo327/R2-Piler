@@ -1,5 +1,5 @@
-import lib;
-from lib import c_entry;
+import "lib";
+from "lib" import c_entry;
 
 pub fn main () : i64
 {

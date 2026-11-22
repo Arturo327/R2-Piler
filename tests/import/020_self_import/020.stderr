@@ -1,4 +1,4 @@
 base.r2:1:1: ERROR: a module cannot import the file being compiled
-      1 | import base;
+      1 | import "base";
         | ^~~~
 1 error, 0 warnings

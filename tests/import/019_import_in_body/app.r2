@@ -1,5 +1,5 @@
 pub fn main () : i64
 {
-	import nope;
+	import "nope";
 	return 0;
 }

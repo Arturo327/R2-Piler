@@ -1,0 +1,10 @@
+tests/sema/191_warn_view_no_init_src.r2:2:7: WARNING: variable 'a' is a view with no initializer; it reserves no storage (use 'arr' for a stack array)
+      2 |   var a : i32[3];
+        |       ^
+tests/sema/191_warn_view_no_init_src.r2:2:7: WARNING: unused variable 'a'
+      2 |   var a : i32[3];
+        |       ^
+tests/sema/191_warn_view_no_init_src.r2:4:7: WARNING: unused variable 'c'
+      4 |   var c : i32[];
+        |       ^
+0 errors, 3 warnings
