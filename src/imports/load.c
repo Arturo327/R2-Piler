@@ -108,22 +108,6 @@ static const char **search_dirs (ImportLoader *l, uint32_t *count)
 	return dirs;
 }
 
-static char *module_fs_path (ImportLoader *l, const char *name, uint16_t len, uint16_t *out_len)
-{
-	char *out = arena_alloc(&l->c->arena, (size_t)len + 1);
-	uint16_t n = 0;
-
-	for (uint16_t i = 0; i < len; i++) {
-		if (name[i] == ':' && i + 1 < len && name[i + 1] == ':') {
-			out[n++] = '/';
-			i++;
-		} else out[n++] = name[i];
-	}
-	out[n] = '\0';
-	*out_len = n;
-	return out;
-}
-
 static char *make_path (ImportLoader *l, const char *dir, const char *rel, uint16_t rel_len, const char *suffix)
 {
 	size_t dlen = strlen(dir);
@@ -172,14 +156,12 @@ static const PathFind FIND_ANY_DIR = { "", 1, 0 };
 
 static const char *find_in_dirs (ImportLoader *l, const char *name, uint16_t len, const PathFind *how)
 {
-	uint16_t fs_len;
-	char *fs = module_fs_path(l, name, len, &fs_len);
 	uint32_t count;
 	const char **dirs = search_dirs(l, &count);
 
 	for (uint32_t i = 0; i < count; i++) {
 		struct stat st;
-		const char *path = make_path(l, dirs[i], fs, fs_len, how->suffix);
+		const char *path = make_path(l, dirs[i], name, len, how->suffix);
 		int found = 0;
 
 		if (stat(path, &st) != 0) continue;
@@ -294,17 +276,12 @@ static int valid_module_name (const char *s, size_t len)
 	size_t seg = 0;
 
 	if (!len) return 0;
-	for (size_t i = 0; i < len;) {
-		if (s[i] == ':') {
-			if (i + 1 >= len || s[i + 1] != ':' || !r2i_valid_name(s + seg, i - seg))
-				return 0;
-			i += 2;
-			seg = i;
-			continue;
-		}
-		i++;
+	for (size_t i = 0; i < len; i++) {
+		if (s[i] != '/') continue;
+		if (i == seg || !r2i_valid_name(s + seg, i - seg)) return 0;
+		seg = i + 1;
 	}
-	return r2i_valid_name(s + seg, len - seg);
+	return seg < len && r2i_valid_name(s + seg, len - seg);
 }
 
 static int parse_deps (ImportLoader *l, const char *path, const char *val, size_t len, R2iHeader *h)
@@ -509,15 +486,14 @@ static int add_binding (ImportLoader *l, uint32_t module, const char *name,
 
 static void join_name (ImportLoader *l, const ModName *prefix, const char *seg, uint16_t slen, ModName *out)
 {
-	uint32_t total = (uint32_t)prefix->len + (prefix->len ? 2u : 0u) + slen;
+	uint32_t total = (uint32_t)prefix->len + (prefix->len ? 1u : 0u) + slen;
 	uint32_t at = 0;
 	char *buf = arena_alloc(&l->c->arena, (size_t)total + 1);
 
 	if (prefix->len) {
 		memcpy(buf, prefix->str, prefix->len);
 		at = prefix->len;
-		buf[at++] = ':';
-		buf[at++] = ':';
+		buf[at++] = '/';
 	}
 	memcpy(buf + at, seg, slen);
 	buf[total] = '\0';

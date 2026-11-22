@@ -5,8 +5,8 @@
 // contra libc. No se genera código propio: este módulo solo es una interfaz.
 //
 // Uso:
-//   import math;              math::abs(-5)
-//   from math import abs;     abs(-5)
+//   import "math";            math::abs(-5)
+//   from "math" import abs;   abs(-5)
 
 module "math";
 

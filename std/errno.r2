@@ -4,7 +4,7 @@
 // __errno_location(). Por eso se declara la función y se lee/escribe el i32
 // apuntado con `@`:
 //
-//   from errno import __errno_location;
+//   from "errno" import __errno_location;
 //   @__errno_location() = 0;              // limpiar errno
 //   var e : i32 = @__errno_location();    // consultar errno
 //

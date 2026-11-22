@@ -3,4 +3,4 @@ NODE_ROOT [0:0]
   NODE_IMPORT_DEC [3:1]
   NODE_IMPORT_DEC [4:1]
   NODE_IMPORT_DEC [5:1]
-  NODE_IMPORT_DEC [6:1] name="std::math"
+  NODE_IMPORT_DEC [6:1] name="std/math"

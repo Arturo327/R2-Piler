@@ -5,8 +5,8 @@
 // `size_t` se declara como `u64`.
 //
 // Uso:
-//   from stdlib import malloc, free, atoi;
-//   import stdlib as c;        c::exit(0);
+//   from "stdlib" import malloc, free, atoi;
+//   import "stdlib" as c;      c::exit(0);
 
 module "stdlib";
 

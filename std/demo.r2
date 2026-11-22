@@ -1,10 +1,10 @@
 // std/demo.r2 — demostración de importación de la librería estándar.
 //
 // Ejercita las cuatro formas de importar:
-//   import math;                       -> math::abs(...)
-//   import io as out;                  -> out::puts(...)
-//   from string import strlen as slen  -> slen(...)
-//   from ctype import toupper          -> toupper(...)
+//   import "math";                     -> math::abs(...)
+//   import "io" as out;                -> out::puts(...)
+//   from "string" import strlen as slen -> slen(...)
+//   from "ctype" import toupper        -> toupper(...)
 //
 // Los `.r2i` están en este mismo directorio, así que no hace falta
 // pasar -p. Compilar con `make -C std demo`.
@@ -12,18 +12,18 @@
 module "demo";
 
 // --- import cualificado ---
-import math;
-import time as tm;
+import "math";
+import "time" as tm;
 
 // --- import con alias ---
-import io as out;
-import string as mem;
+import "io" as out;
+import "string" as mem;
 
 // --- from ... import, con y sin alias ---
-from string import strlen as slen, strcmp as cmp;
-from stdlib import malloc, free, atoi;
-from ctype import toupper, isdigit;
-from io import FILE;                       // tipo importado desde otro módulo
+from "string" import strlen as slen, strcmp as cmp;
+from "stdlib" import malloc, free, atoi;
+from "ctype" import toupper, isdigit;
+from "io" import FILE;                       // tipo importado desde otro módulo
 
 pub fn main () : i64 {
     // math

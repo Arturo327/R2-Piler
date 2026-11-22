@@ -3,12 +3,27 @@
 #include "imports/internal.h"
 #include "sema/common.h"
 
-static int alias_find (Sema *s, const char *name, uint16_t len, uint32_t *module)
+static int alias_match (Sema *s, const char *name, uint16_t len, uint32_t *module)
 {
 	for (uint32_t i = 0; i < s->alias_count; i++) {
 		ImportAlias *a = s->aliases + i;
+		uint16_t at = 0;
+		uint16_t k = 0;
 
-		if (a->len == len && memcmp(a->name, name, len) == 0) {
+		while (at < len && k < a->len) {
+			int sep = name[at] == ':' && at + 1 < len && name[at + 1] == ':';
+
+			if (sep && a->name[k] != '/') break;
+			if (sep) {
+				at += 2;
+				k++;
+				continue;
+			}
+			if (name[at] != a->name[k]) break;
+			at++;
+			k++;
+		}
+		if (at == len && k == a->len) {
 			*module = a->module;
 			return 1;
 		}
@@ -37,7 +52,7 @@ ImportedDecl *imports_lookup (Sema *s, const char *name, uint16_t len)
 		uint16_t mlen = (uint16_t)(len - sep - 2);
 
 		if (!sep || !mlen) return NULL;
-		if (!alias_find(s, name, sep, &mod)) return NULL;
+		if (!alias_match(s, name, sep, &mod)) return NULL;
 		return import_find_item(s->modules + mod, name + sep + 2, mlen);
 	}
 	int idx = binding_find(s, name, len);

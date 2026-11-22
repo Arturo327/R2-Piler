@@ -4,7 +4,7 @@
 // tercer argumento (mode) solo se pasa cuando flags incluye O_CREAT.
 //
 // Uso:
-//   from unistd import read, write, close;
+//   from "unistd" import read, write, close;
 //   write(1, "hola\n" as ptr void, 5);
 
 module "unistd";

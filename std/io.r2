@@ -5,15 +5,15 @@
 // de tipo FILE.
 //
 // Uso:
-//   import io as out;                 out::printf("x=%d\n", x);
-//   from io import printf, puts;      puts("hola");
-//   from io import FILE, fopen;       var f : FILE = fopen("a.txt", "r");
+//   import "io" as out;               out::printf("x=%d\n", x);
+//   from "io" import printf, puts;    puts("hola");
+//   from "io" import FILE, fopen;     var f : FILE = fopen("a.txt", "r");
 
 module "io";
 
 // FILE* de C es un handle opaco: `newtype` sobre `ptr void` lo mantiene
 // nominalmente distinto de cualquier otro puntero, sin poder mezclarlo con
-// ellos sin un `as` explícito. Se nombra como `io::FILE` o `from io import FILE`.
+// ellos sin un `as` explícito. Se nombra como `io::FILE` o `from "io" import FILE`.
 pub newtype FILE = ptr void;
 
 // flujos estándar

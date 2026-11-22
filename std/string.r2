@@ -4,8 +4,8 @@
 // texto usan `ptr i8` (equivalente a char*). `size_t` es `u64` en x86-64.
 //
 // Uso:
-//   from string import strlen as slen, strcmp;
-//   import string as str;      str::memset(buf, 0, 16);
+//   from "string" import strlen as slen, strcmp;
+//   import "string" as str;    str::memset(buf, 0, 16);
 
 module "string";
 

@@ -4,7 +4,7 @@
 // por eso el parámetro es `i32`.
 //
 // Uso:
-//   from ctype import toupper, isdigit;
+//   from "ctype" import toupper, isdigit;
 //   if (isdigit('7') != 0) { ... }
 
 module "ctype";

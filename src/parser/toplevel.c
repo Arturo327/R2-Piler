@@ -6,46 +6,20 @@ static void module_path_error (Parser *p, const char *msg)
 		error_report(p->err, ERR_ERROR, token_loc(p->curr), "%s", msg);
 }
 
-static char *make_module_path (Parser *p, Token name, uint16_t *len)
+static int check_module_path (Parser *p, Token name)
 {
-	uint32_t total = name.len;
-	int has_slash = 0;
-
 	for (uint32_t i = 0; i < name.len; i++) {
 		if (name.str[i] == ':') {
 			module_path_error(p, "module path cannot contain ':'; use '/' as the separator");
-			return NULL;
+			return 0;
 		}
 		if (name.str[i] != '/') continue;
 		if (!i || name.str[i - 1] == '/' || i + 1 == name.len) {
 			module_path_error(p, "module path has an empty segment");
-			return NULL;
+			return 0;
 		}
-		has_slash = 1;
-		total++;
 	}
-	if (total > UINT16_MAX) {
-		module_path_error(p, "module path is too long");
-		return NULL;
-	}
-	if (!has_slash) {
-		*len = name.len;
-		return name.str;
-	}
-	char *out = arena_alloc(p->arena, (size_t)total + 1);
-	uint32_t at = 0;
-
-	for (uint32_t i = 0; i < name.len; i++) {
-		if (name.str[i] != '/') {
-			out[at++] = name.str[i];
-			continue;
-		}
-		out[at++] = ':';
-		out[at++] = ':';
-	}
-	out[at] = '\0';
-	*len = (uint16_t)total;
-	return out;
+	return 1;
 }
 
 static char *parse_module_name (Parser *p, const char *what, uint16_t *len)
@@ -62,13 +36,14 @@ static char *parse_module_name (Parser *p, const char *what, uint16_t *len)
 		*len = 0;
 		return NULL;
 	}
-	char *name = make_module_path(p, p->curr, len);
-
-	if (!name) {
+	if (!check_module_path(p, p->curr)) {
 		p->panic_mode = 1;
 		*len = 0;
 		return NULL;
 	}
+	*len = p->curr.len;
+	char *name = p->curr.str;
+
 	advance(p);
 	return name;
 }

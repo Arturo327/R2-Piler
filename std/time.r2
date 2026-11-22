@@ -4,8 +4,8 @@
 // almacenar el resultado; se pasa NULL para ignorarlo.
 //
 // Uso:
-//   import time as tm;         var t : i64 = tm::time(NULL);
-//   from time import clock;    clock();
+//   import "time" as tm;       var t : i64 = tm::time(NULL);
+//   from "time" import clock;  clock();
 
 module "time";
 
