@@ -1,11 +1,23 @@
-var g [1:11] depth=0 type=i64
-var ga [2:11] depth=0 type=i64[3]
-fn read [4:4] depth=0 type=i64
-fn ret [6:4] depth=0 type=ptr i64
-fn main [8:8] depth=0 type=i64
-param p [4:9] depth=1 type=i64
-var x [9:13] depth=1 type=i64
-var a [10:13] depth=1 type=i64[3]
-var p [11:7] depth=1 type=ptr i64
-var cp [12:13] depth=1 type=ptr i64
-var c [13:7] depth=1 type=i64
+struct S [1:8] depth=0 size=16 align=8
+  field x type=const i64 offset=0
+  field y type=i64 offset=8
+var g [3:5] depth=0 type=const i64
+var ga [4:5] depth=0 type=const i64[3]
+fn read [6:4] depth=0 type=i64
+fn ret [8:4] depth=0 type=ptr const i64
+fn field [10:4] depth=0 type=i64
+fn main [12:8] depth=0 type=i64
+param p [6:9] depth=1 type=const i64
+param p [8:8] depth=1 type=ptr i64
+param s [10:10] depth=1 type=S
+var x [13:7] depth=1 type=const i64
+var a [14:7] depth=1 type=const i64[3]
+var p [15:7] depth=1 type=ptr const i64
+var cp [16:7] depth=1 type=ptr const i64
+var pi [17:7] depth=1 type=ptr i64
+var q [18:7] depth=1 type=const ptr i64
+var s [19:7] depth=1 type=S
+var cs [20:7] depth=1 type=const S
+var v [21:7] depth=1 type=const i64[]
+var sz [22:7] depth=1 type=i64
+var c [23:7] depth=1 type=i64

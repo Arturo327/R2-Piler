@@ -77,6 +77,7 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_SIZEOF] = "NODE_SIZEOF",
 	[NODE_LIT_NULL] = "NODE_LIT_NULL",
 	[NODE_TYPE_PTR] = "NODE_TYPE_PTR",
+	[NODE_TYPE_CONST] = "NODE_TYPE_CONST",
 	[NODE_INDEX] = "NODE_INDEX",
 	[NODE_ARR_DEC] = "NODE_ARR_DEC",
 	[NODE_ARRAY_INIT] = "NODE_ARRAY_INIT",
@@ -139,7 +140,6 @@ static void dump_node_value (ASTNode *n)
 		if (n->str && !(n->flags & NODE_FLAG_INDIRECT))
 			printf(" name=\"%.*s\"", (int)n->len, n->str);
 		if (n->flags & NODE_FLAG_STATIC) printf(" static");
-		if (n->flags & NODE_FLAG_CONST) printf(" const");
 		if (n->flags & NODE_FLAG_PUB) {
 			if (n->flags & NODE_FLAG_EXPORT) printf(" export");
 			else printf(" pub");
@@ -248,6 +248,16 @@ static void dump_type_name (AST *ast, ASTNode *n)
 {
 	if (n->type == NODE_TYPE_PTR) {
 		printf("ptr ");
+		if (n->type_node != NO_TYPE_NODE) {
+			uint32_t idx = (uint32_t)(n - ast->nodes) + n->type_node;
+			dump_type_name(ast, &ast->nodes[idx]);
+		} else {
+			printf("%s", types[n->data_type].name);
+		}
+		return;
+	}
+	if (n->type == NODE_TYPE_CONST) {
+		printf("const ");
 		if (n->type_node != NO_TYPE_NODE) {
 			uint32_t idx = (uint32_t)(n - ast->nodes) + n->type_node;
 			dump_type_name(ast, &ast->nodes[idx]);

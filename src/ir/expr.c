@@ -286,6 +286,8 @@ static uint32_t gen_any_pack (IR *ir, uint32_t src, TypeId from)
 {
 	uint32_t addr = new_struct_temp(ir, TYPE_ANY);
 	TypeId ptr = type_ptr_to(TYPE_i8);
+
+	from = type_unconst_of(from);
 	uint32_t tag = make_str_bytes(ir, types[from].name, types[from].len, ptr);
 	int narrow = types[from].size < 8;
 	uint32_t value = narrow ? make_op(ir, IR_EXTEND, src, NO_REG, TYPE_i64) : src;

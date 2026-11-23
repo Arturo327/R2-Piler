@@ -122,7 +122,7 @@ static int pub_target (TokenType type)
 	switch (type)
 	{
 	case TOK_FN: case TOK_VAR: case TOK_ARR: case TOK_ENUM:
-	case TOK_STRUCT: case TOK_UNION: case TOK_PACKED: case TOK_CONST:
+	case TOK_STRUCT: case TOK_UNION: case TOK_PACKED:
 	case TOK_TYPE: case TOK_NEWTYPE: case TOK_EXTERN:
 		return 1;
 	default:
@@ -146,28 +146,6 @@ void mark_decl_flags (Parser *p, uint32_t node, uint16_t flags)
 		return;
 	}
 	mark_visibility(p, node, flags);
-}
-
-uint32_t parse_const_decl (Parser *p)
-{
-	Token kw = p->curr;
-	uint16_t flags = NODE_FLAG_CONST;
-
-	advance(p);
-	if (p->curr.type == TOK_STATIC) {
-		flags |= NODE_FLAG_STATIC;
-		advance(p);
-	}
-	if (p->curr.type != TOK_VAR && p->curr.type != TOK_ARR) {
-		if (!p->panic_mode)
-			error_report(p->err, ERR_ERROR, token_loc(kw),
-					"expected 'var' or 'arr' after 'const'");
-		p->panic_mode = 1;
-		return new_node(p, NODE_ERROR, kw.line, kw.col);
-	}
-	uint32_t first = parse_decl(p, p->curr.type == TOK_ARR);
-	mark_decl_flags(p, first, flags);
-	return first;
 }
 
 uint32_t parse_pub (Parser *p, int root)

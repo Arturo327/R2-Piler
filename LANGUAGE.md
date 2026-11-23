@@ -333,6 +333,28 @@ pub fn main () : i64 {
 - **`any` (valores heterogéneos)**: `any` es un struct builtin de 16 bytes (`tag : ptr i8` en el offset 0, `value : i64` en el 8, align 8) pensado para colecciones de valores de tipos distintos. Cualquier **escalar** (los ocho enteros, `char`), un **enum**, un **newtype**, un **puntero**, un **string** o **`NULL`** se empaqueta en silencio en un `any` en init, asignación, argumento, `return` y campo de struct (`var a : any = 41;`, `var b : any = NULL;`), sin `as`. El empaquetado guarda en `value` el valor canónico de 64 bits (extendiendo los tipos más estrechos) y en `tag` un puntero al nombre del tipo **original** (`"i64"`, `"u8"`, `"ptr i8"`, `"string"`, `"nil"`, `"ptr fn(i32) : i32"`, el nombre de un enum/newtype...). `a.tag` es un `ptr i8` que apunta al nombre **canónico** del tipo, así que `a.tag == "i8"` compara con el literal string; los alias no cambian el tag (se canonicalizan), pero un `newtype` conserva el suyo. Un `any` se desembala con un **cast explícito** `a as T`; T puede ser cualquier tipo empaquetable y el resultado es el valor guardado (truncado al ancho de T si es más estrecho), **sin comprobación de tipo** en runtime: `a as i64` sobre un `any` que guarda un `u8` reinterpreta el payload. No se empaqueta un array, un slice, un struct ni un `any` (un `any` se copia tal cual), y un cast a/desde un struct sigue siendo `cannot cast to or from a struct type`. Un `any` en un global/`static` no se liga a `.data` (contiene un puntero) y se inicializa desde `__r2_init`. `.tag`/`.value` son de solo lectura por sí; se modifican asignando el `any` entero.
 - **Tipos**: `struct`/`union` se pueden usar en `var`, `arr`, parámetros, retorno, punteros y alias (`type A = Punto;`); no hay conversión implícita entre structs distintos ni con otros tipos. El cast explícito entre punteros (`p as ptr Punto`, `p as ptr void`) sigue las reglas de §3. **Limitación conocida**: un alias cuyo destino es un array de structs (`type SA = S[2];`) falla con `array element type cannot be void`, porque los alias se resuelven antes de que el struct tenga layout; se evita usando una variable/parámetro de tipo `S[2]` o declarando el array con `arr`/`var` directamente.
 
+### 3.5 `const`
+
+`const` es un **calificador de tipo**, no un prefijo de declaración: se escribe en el tipo y se aplica al **átomo de tipo** que sigue.
+
+```r2
+var x : const i64 = 3;          // objeto const
+var p : ptr const i64 = $x;     // puntero a i64 const: @p no se puede escribir
+var q : const ptr i64 = $g;     // puntero const: q no se puede reasignar, @q = ... sí
+arr a : const i32[2] = {1, 2};  // array cuyos ELEMENTOS son const i32
+```
+
+- **Dónde se pega**: `const` califica al siguiente átomo **antes** de los sufijos `[...]`. Por eso `const T[N]` es `(const T)[N]` —un array de elementos const, así que `v[i] = ...` se rechaza— y `const (T[N])` es equivalente: los arrays y los slices son const a través de sus elementos (no existe la “vista const” independiente; una forma para eso queda pendiente). En punteros, `ptr const T` es “puntero a `T` const” y `const ptr T` es “puntero const a `T`”, igual que en C leído de derecha a izquierda. Repetir el calificador (`const const T`) no es error: se colapsa. La sintaxis antigua (`const var x : T`, `const arr a`, y `const` delante de un parámetro o del tipo de retorno) ya no existe: es error de parser con el hint `write the type as 'var x : const T'`.
+- **Tipos que no admiten `const`**: `void`, `any` y una firma `fn(...)` desnuda son error al resolver el tipo (`'const' cannot be applied to type any; only object types can be const`). Sí valen enteros, `char`, enums, `newtype`, alias, structs/uniones, punteros, arrays, slices y `const ptr fn(...)` (el puntero a función sí es un objeto).
+- **Inicialización obligatoria**: una `var`/`arr`/`static` cuyo tipo es const **necesita inicializador** (`const variable 'x' requires an initializer`, también para arrays); las declaraciones `extern` y las importadas desde `.r2i` están exentas.
+- **Escrituras**: el tipo de un *lvalue* const es de solo lectura. Se rechazan `x = ...`, `x += ...`, `x++`, `@p` con `p : ptr const T`, `p[i]` con `p : ptr const T`, un campo declarado `f : const T` (`s.f = ...`), y `q = ...` cuando `q : const ptr T` (el objeto puntero es const), aunque `@q = ...` sí vale (el pointee no lo es). Mensajes: `cannot modify const variable 'x'` / `cannot modify const parameter 'x'` cuando el objeto raíz es const, y `cannot modify a const value of type T` cuando el const viene del tipo del lvalue (pointee, campo, elemento).
+- **Propagación (como C)**: un miembro de un valor `const S` es de solo lectura aunque el campo esté declarado sin `const` (`var s : const S; s.x = 1;` es error), y un parámetro `const S` no puede modificar sus campos. Los elementos de un array/slice de elementos const se comportan igual.
+- **Lectura**: leer un objeto const da un **rvalue sin const** (conversión lvalue-to-rvalue de C): `var y : i32 = x;` con `x : const i32` vale, y `x + 1` tiene tipo `i32`. Las operaciones (aritmética, bitwise, shifts, comparaciones, `-`, `~`, `!`) nunca propagan el const externo. **El const anidado no se descarta nunca al leer**: `ptr const i32` sigue siendo “puntero a const” como valor.
+- **Conversiones implícitas**: añadir const es implícito (`i32` → `const i32`, `ptr i32` → `ptr const i32`, `i32[4]`/`i32[]` → `const i32[4]`/`const i32[]`, y un lvalue no-const como argumento de un parámetro `&const T`); **quitar const nunca es implícito**: pasar `p : ptr const i64` a una `var` de tipo `ptr i64`, o a `ptr void`, es error (`use an explicit cast with 'as'`). El cast explícito `x as T` sí puede quitar const. Las comparaciones y la resta de punteros aceptan el mismo pointee salvo por su const (`p == cp` vale).
+- **Firmas de función**: el const **externo** de un parámetro o del valor de retorno no forma parte de la firma `ptr fn(...)`: `fn f(x : const i32) : const i32` tiene tipo `ptr fn(i32) : i32` y una variable de ese tipo se puede llamar con cualquier `i32`. El const **anidado** sí cuenta (`ptr const i32` en la firma es distinto de `ptr i32`). En el cuerpo, el parámetro const sigue siendo de solo lectura.
+- **Interfaces**: el `.r2i` imprime el calificador tal cual (`pub var g : const i64;`, `items : const i32[2]`, `q : const ptr i64`). La cabecera C lo traduce a C: `const int64_t f;`, `const int32_t items[2];`, `const int64_t * p;` y `int64_t * const q;`.
+- **`sizeof`/`alignof`**: aceptan `const T` (`sizeof(const i64)` es 8).
+
 ---
 
 ## 4. Operadores: precedencia y asociatividad
@@ -422,6 +444,7 @@ Con punteros: `@p + 1` es `(@p) + 1` (suma al *valor* apuntado, no al puntero) y
 - Una `static` sigue las reglas de scope del nombre (shadowing incluido) pero su **almacenamiento es único por declaración** y se inicializa una sola vez, antes de los inicializadores dinámicos de globales (ver §6).
 - Una local no puede referenciarse antes de su declaración (el init se chequea antes de declarar la variable).
 - **Local sin init**: permitida. Si se lee sin haberse asignado, sema emite un **warning** (no error). Su valor en runtime es **indefinido** (lo que haya en el stack).
+- **Local `const`**: un tipo const exige inicializador (§3.5) y el lvalue es de solo lectura: `var x : const i64;` es error y `x = ...`, `x += ...` y `x++` se rechazan (`cannot modify const variable 'x'`). Un `static var y : const i64 = ...` sigue las mismas reglas.
 - El análisis de "asignada" es conservador y sensible al flujo: una variable cuenta como asignada si tiene init, si es parámetro, si se le asignó antes en el mismo flujo incondicional, o si **todas** las ramas de un `if`/`elif`/`else` la asignan (un `if` sin `else` no cuenta; lo asignado dentro de un `while`/`for` tampoco escapa del cuerpo). En otro caso la lectura emite el warning (`'x' is used without being assigned`). El cuerpo de un `if` con condición siempre-true se trata como incondicional.
 - **Local no leída**: una local que nunca se lee emite un **warning** (`unused variable 'x'`) al cerrar su scope, salvo que su nombre empiece por `_`. Escribirla no cuenta como leerla: `var x : i64 = 1; x = 2;` también advierte. Leerla en cualquier expresión (incluidas una condición, un `return`, `$x`, `@p`, el destino de una asignación compuesta o un `++`/`--`) cuenta. La advertencia se reporta en el nombre declarado.
 - **Valor asignado no usado**: si a una local o parámetro se le asigna un valor que una escritura posterior del mismo flujo sobrescribe sin que se haya leído antes, sema emite un **warning** (`value assigned to 'x' is not used`) en el punto del init o de la asignación: `var x : i32 = 7; x = 6; return x;` advierte sobre el `7`. Una lectura de la variable anula el seguimiento pendiente; entrar en una región condicional (cuerpo de un `if` con condición no constante, `elif`/`else`, cuerpo de `while`/`for`, RHS de `&&`/`||`) o volver de una bifurcación lo descarta, de modo que el análisis solo puede omitir avisos, nunca inventarlos. No se aplica a globales ni a variables cuya dirección se toma (`$x`). Si la variable nunca se lee, se emite solo el warning de local no leída.
@@ -462,7 +485,7 @@ Con punteros: `@p + 1` es `(@p) + 1` (suma al *valor* apuntado, no al puntero) y
 
 ### 8.2 Punteros a función
 
-`ptr fn(a : i32, b : i32) : i32` es **un puntero** (§3) a una firma de función; `fn(...)` sin `ptr` es un alias del mismo tipo. La firma lleva tipos, no nombres (los nombres de los parámetros son opcionales: `fn(i32, i32) : i32`), los parámetros `&T` se guardan ya bajados a `ptr T` (a través del puntero se pasa `$x`, como en cualquier `ptr T`) y `void` no vale como tipo de parámetro ni de retorno (error de parser: `expected type`). Los varios retornos se escriben entre paréntesis **en el tipo**: `ptr fn(a : i32) : (i32, u32)`; el `void` de un único retorno se puede omitir, así que `fn(i32)` y `fn(i32) : void` son el mismo tipo. El `...` final marca un variádico estilo C (`ptr fn(fmt : ptr i8, ...) : i32`). Dos firmas son el mismo tipo si coinciden sus parámetros, sus retornos y el `...`; como todo `Type` se interna estructuralmente, dos escrituras equivalentes son intercambiables sin cast. Un parámetro puede ser a su vez un puntero a función (`ptr fn(cmp : ptr fn(a : i64, b : i64) : i32) : void`).
+`ptr fn(a : i32, b : i32) : i32` es **un puntero** (§3) a una firma de función; `fn(...)` sin `ptr` es un alias del mismo tipo. La firma lleva tipos, no nombres (los nombres de los parámetros son opcionales: `fn(i32, i32) : i32`), los parámetros `&T` se guardan ya bajados a `ptr T` (a través del puntero se pasa `$x`, como en cualquier `ptr T`) y `void` no vale como tipo de parámetro ni de retorno (error de parser: `expected type`). Los varios retornos se escriben entre paréntesis **en el tipo**: `ptr fn(a : i32) : (i32, u32)`; el `void` de un único retorno se puede omitir, así que `fn(i32)` y `fn(i32) : void` son el mismo tipo. El `...` final marca un variádico estilo C (`ptr fn(fmt : ptr i8, ...) : i32`). Dos firmas son el mismo tipo si coinciden sus parámetros, sus retornos y el `...`; como todo `Type` se interna estructuralmente, dos escrituras equivalentes son intercambiables sin cast. El `const` **externo** de un parámetro o del retorno se ignora al construir la firma (§3.5): `fn f(x : const i32) : const i32` encaja con `ptr fn(i32) : i32`; el const **anidado** (`ptr const i32`) sí forma parte del tipo. Un parámetro puede ser a su vez un puntero a función (`ptr fn(cmp : ptr fn(a : i64, b : i64) : i32) : void`).
 
 Son **valores** las funciones de firma fija —`fn`, `extern fn` y `export fn`—: el nombre de la función, usado como expresión, tiene tipo `ptr fn(...)` y vale en init, asignación, argumento, `return`, elemento de array, campo de struct y global. No son valores las que tienen **valores por defecto** ni las **variádicas tipadas** de R2 (`'f' cannot be used as a value; it has optional or variadic parameters`); un `extern fn` variádico de C **sí** encaja con un tipo `ptr fn(..., ...)` y se llama con argumentos extra. `$f` sigue siendo error (`'f' is a function; use it directly as a pointer value`): el nombre suelto ya es el puntero.
 
@@ -549,15 +572,20 @@ Un `static var cb : Op = suma;` guarda el puntero en el almacenamiento estático
   `./build/r2p a.r2 -m modules`, `./build/r2p b.r2 -m modules`, `gcc a.s b.s -o prog`.
   Un normal compile escribe `modules/<módulo>.r2i` (nombre plano; véase §9.1) con la
   interfaz pública; el importador lee ese fichero.
-- `import m;` hace visibles los símbolos `pub`/`export`/`pub extern` de `m` con el
+- `import "m";` hace visibles los símbolos `pub`/`export`/`pub extern` de `m` con el
   cualificador `m::`: `m::add(1, 2)`, `m::g`, `m::tabla[0]`, `m::Pair`, `m::E.Two`,
   `$m::g`, `sizeof(m::Pair)`, `offsetof(m::Pair, b)` y
-  `var f : ptr fn(i64) : i64 = m::twice;`. `import m as x;` cambia el cualificador
-  (`x::add`); el nombre `m::` ya no existe en ese fichero.
-- `from m import a;` trae `a` sin cualificar (`a(1, 2)`); `from m import a as b, Pair, E;`
+  `var f : ptr fn(i64) : i64 = m::twice;`. El módulo va entre comillas, igual que en
+  `module "name"`; una ruta de carpetas se escribe con `/` dentro del string
+  (`"std/math"`), con segmentos no vacíos; `::` dentro del string es error. El nombre
+  se guarda y se escribe en las cabeceras con `/`; solo los calificadores del código
+  siguen usando `::` (`std::math::abs`). `import "m" as x;` cambia el cualificador
+  (`x::add`);
+  el nombre `m::` ya no existe en ese fichero.
+- `from "m" import a;` trae `a` sin cualificar (`a(1, 2)`); `from "m" import a as b, Pair, E;`
   permite alias y tipos. Cargar con `from` no liga el cualificador: para `m::otro` hace
-  falta además `import m;` (se pueden mezclar). No hay comodín (`from m import *` es error)
-  ni `use`. Con carpetas, `from std import math;` carga **solo** `std::math`, no los
+  falta además `import "m";` (se pueden mezclar). No hay comodín (`from "m" import *` es error)
+  ni `use`. Con carpetas, `from "std" import math;` carga **solo** `std::math`, no los
   módulos hermanos; si un nombre es a la vez submódulo y símbolo exportado por
   `std.r2i`, gana el submódulo y se emite un aviso.
 - Los `import`/`from` son de ámbito de fichero y pueden aparecer en cualquier punto
@@ -569,7 +597,7 @@ Un `static var cb : Op = suma;` guarda el puntero en el almacenamiento estático
   `from` no puede repetirse en top-level (error de colisión); una variable o parámetro
   **local** sí puede hacer shadowing. Dos `from` con el mismo nombre local y dos
   cualificadores iguales son error.
-- Búsqueda del `.r2i` de `import m;`: primero el directorio del fuente, luego el de `-m`
+- Búsqueda del `.r2i` de `import "m";`: primero el directorio del fuente, luego el de `-m`
   (por defecto `modules`), luego cada `-p DIR` en orden. Si no aparece:
   `cannot find module 'm' (.r2i not found in the source directory, the modules directory
   or a -p path)`. Los `.r2i` son caché de build: si cambia un módulo, recompílalo antes
@@ -577,12 +605,12 @@ Un `static var cb : Op = suma;` guarda el puntero en el almacenamiento estático
 - **Carpetas de módulos**: si en vez de un `.r2i` hay un directorio con ese nombre en
   alguno de los search paths, se importan **todos** los `.r2i` que contiene,
   recursivamente. Cada módulo queda bajo un cualificador con la ruta completa: con
-  `std/math.r2i`, `std/time.r2i` y `std/net/http.r2i`, `import std;` permite
+  `std/math.r2i`, `std/time.r2i` y `std/net/http.r2i`, `import "std";` permite
   `std::math::abs(x)`, `std::time::now()` y `std::net::http::get()`. Un directorio
-  sin ningún `.r2i` (ni en subcarpetas) no cuenta como módulo. `import std as s;`
-  cambia el prefijo (`s::math::abs`), `import std::math;` importa solo ese submódulo
-  (mantiene `std::math::abs`), `from std import math;` liga `math::abs` y
-  `from std::math import abs;` liga `abs` directamente. Las rutas también valen en
+  sin ningún `.r2i` (ni en subcarpetas) no cuenta como módulo. `import "std" as s;`
+  cambia el prefijo (`s::math::abs`), `import "std/math";` importa solo ese submódulo
+  (mantiene `std::math::abs`), `from "std" import math;` liga `math::abs` y
+  `from "std/math" import abs;` liga `abs` directamente. Las rutas también valen en
   tipos (`std::base::Point`) y en la cabecera `// imports:` de un `.r2i`.
 - Un compile normal escribe el `.r2i` **espejando las carpetas del fuente** respecto
   al directorio de trabajo (`std/math.r2` → `modules/std/math.r2i`, y el `.h` en
@@ -593,8 +621,9 @@ Un `static var cb : Op = suma;` guarda el puntero en el almacenamiento estático
   sí mismo son error.
 - Además, la cabecera del `.r2i` y de la `.h` incluye `// depends:` (las librerías de la
   sección anterior) y `// total_imports:` con **todos** los módulos importados, directos
-  y transitivos, con el nombre tal como se escribe en `import` (rutas con `::`). A
-  diferencia de `imports:`, no se limita a los módulos que aparecen en la API pública,
+  y transitivos, con el nombre del módulo tal cual se escribe en el fuente (`/` entre
+  segmentos). A diferencia de `imports:`, no se limita a los módulos que aparecen en
+  la API pública,
   así que el gestor de proyectos puede recorrerlos y reunir los `depends` de cada uno
   sin que importe qué símbolos sean públicos. Las dos líneas se emiten siempre, aunque
   estén vacías.
@@ -723,15 +752,16 @@ extern_decl    = "extern" ( "fn" IDENT "(" [ params ] ")" [ ":" ret_type ] ";"
                           | "var" IDENT ":" type ";" ) ;
 module_decl    = "module" STRING_LIT ";" ;
 depends_decl   = "depends" STRING_LIT { "," STRING_LIT } ";" ;
-qual_path      = IDENT { "::" IDENT } ;
-import_decl    = "import" qual_path [ "as" IDENT ] ";" ;
-from_decl      = "from" qual_path "import" from_item { "," from_item } ";" ;
+module_name    = STRING_LIT ;
+import_decl    = "import" module_name [ "as" IDENT ] ";" ;
+from_decl      = "from" module_name "import" from_item { "," from_item } ";" ;
 from_item      = IDENT [ "as" IDENT ] ;
 fn_decl        = "fn" IDENT "(" [ params ] ")" [ ":" ret_type { "," ret_type } ] block ;
 params         = param { "," param } ;
 param          = IDENT ":" [ "&" | "..." ] type [ "=" expr ] ;
 ret_type       = "void" | type ;
-type           = ( "(" type ")" | "ptr" type | fn_type | builtin_or_ident ) { "[" [ expr ] "]" } ;
+type           = type_atom { "[" [ expr ] "]" } ;
+type_atom      = [ "const" ] ( "(" type ")" | "ptr" type | fn_type | builtin_or_ident ) ;
 fn_type        = "fn" "(" [ fn_param_list ] ")" [ ":" fn_ret ] ;
 fn_param_list  = "..." | fn_param { "," fn_param } [ "," "..." ] ;
 fn_param       = [ IDENT ":" ] ( "&" type | type ) ;

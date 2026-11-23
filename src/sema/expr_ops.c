@@ -43,9 +43,9 @@ TypeId check_unary (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
-	n->data_type = (n->type == NODE_NOT_L) ? TYPE_UNTYPED_INT : operand_type;
+	n->data_type = (n->type == NODE_NOT_L) ? TYPE_UNTYPED_INT : type_unconst_of(operand_type);
 	is_lit = const_operand(s, n->child);
-	result_type = try_fold_unary(s, idx);
+	result_type = type_unconst_of(try_fold_unary(s, idx));
 
 	if (op == NODE_NEG && !types[result_type].sign && !is_lit)
 		error_report(s->err, ERR_WARNING, node_loc(n),
@@ -63,7 +63,7 @@ static TypeId binop_result_type (uint8_t node_type, TypeId operand_type)
 	case NODE_LT: case NODE_LE: case NODE_AND_L: case NODE_OR_L:
 		return TYPE_UNTYPED_INT;
 	default:
-		return operand_type;
+		return type_unconst_of(operand_type);
 	}
 }
 
@@ -141,6 +141,14 @@ static TypeId pointer_mismatch (Sema *s, uint32_t idx, TypeId l, TypeId r)
 	return TYPE_ERROR;
 }
 
+static int same_pointee (TypeId l, TypeId r)
+{
+	TypeId lb = types[l].base;
+	TypeId rb = types[r].base;
+
+	return lb == rb || type_unconst_of(lb) == type_unconst_of(rb);
+}
+
 static TypeId pointer_compare (Sema *s, uint32_t idx, uint32_t *left, uint32_t *right, TypeId *l, TypeId *r)
 {
 	coerce_string(s, left, l);
@@ -149,7 +157,7 @@ static TypeId pointer_compare (Sema *s, uint32_t idx, uint32_t *left, uint32_t *
 	TypeId rp = type_ptr_repr(*r);
 
 	if (lp != TYPE_ERROR && rp != TYPE_ERROR) {
-		if (*l != *r) return pointer_mismatch(s, idx, *l, *r);
+		if (!same_pointee(*l, *r)) return pointer_mismatch(s, idx, *l, *r);
 		return TYPE_UNTYPED_INT;
 	}
 	if (lp != TYPE_ERROR && *r == TYPE_NULL) {
@@ -198,7 +206,7 @@ static TypeId pointer_arith (Sema *s, uint32_t idx, uint8_t op, uint32_t *left, 
 	}
 	if (op == NODE_SUB && lp != TYPE_ERROR
 			&& rp != TYPE_ERROR) {
-		if (*l != *r) return pointer_mismatch(s, idx, *l, *r);
+		if (!same_pointee(*l, *r)) return pointer_mismatch(s, idx, *l, *r);
 		if (types[lp].base == TYPE_VOID) {
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 					"pointer arithmetic on 'ptr void' is not allowed");

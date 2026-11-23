@@ -7,7 +7,10 @@ static void h_make_param (CHeader *h, ASTNode *n, int names)
 	TypeId type = n->data_type;
 
 	if (type_kind(type) == TK_ARRAY) {
-		h_print_type(h, type_flat_element(type));
+		TypeId leaf = type_flat_element(type);
+
+		if (type_is_const(type) && !type_is_const(leaf)) leaf = type_const_of(leaf);
+		h_print_type(h, leaf);
 		h_printf(h, " *");
 	} else h_print_type(h, type);
 	if (names && n->str)

@@ -292,13 +292,13 @@ static TypeId build_fn_value (Sema *s, uint32_t idx)
 	TypeId *rets = arena_alloc(s->arena, sizeof(TypeId) * (ret_count + 1u));
 
 	for (uint32_t p = param; p != NO_NODE; p = s->ast->nodes[p].next_bro) {
-		TypeId t = s->ast->nodes[p].data_type;
+		TypeId t = type_unconst_of(s->ast->nodes[p].data_type);
 
 		if (t == TYPE_ERROR) return TYPE_ERROR;
 		params[k++] = t;
 	}
 	for (uint16_t i = 0; i < ret_count; i++) {
-		TypeId t = s->ast->nodes[ast_ret_at(s->ast, ret, i)].data_type;
+		TypeId t = type_unconst_of(s->ast->nodes[ast_ret_at(s->ast, ret, i)].data_type);
 
 		if (t == TYPE_ERROR) return TYPE_ERROR;
 		if (t == TYPE_VOID && ret_count == 1) continue;
@@ -364,6 +364,7 @@ static void mark_exposed_struct (TypeId id)
 
 static void mark_exposed_type (TypeId type)
 {
+	type = type_unconst_of(type);
 	for (int i = 0; i < TYPE_MAX; i++) {
 		TypeKind kind = type_kind(type);
 
@@ -450,6 +451,7 @@ static void require_public_fields (Sema *s, uint32_t first)
 
 static void require_public_type (Sema *s, TypeId type, uint32_t use)
 {
+	type = type_unconst_of(type);
 	if (type == TYPE_ERROR || type < TYPE_COUNT) return;
 
 	switch (type_kind(type))
@@ -564,6 +566,7 @@ static inline void check_export_name (Sema *s, ASTNode *n)
 
 static void check_export_type (Sema *s, TypeId type, uint32_t use)
 {
+	type = type_unconst_of(type);
 	if (type == TYPE_ERROR || type < TYPE_COUNT) return;
 	switch (type_kind(type))
 	{
@@ -739,8 +742,10 @@ void sema_run (Sema *s)
 	resolve_enum_bases(s);
 	sema_finalize_types(s);
 	sema_layout_structs(s);
+	types_refresh_const();
 	decl_globals(s);
 	bind_enums(s);
+	types_refresh_const();
 	imports_check_collisions(s);
 
 	check_fn_defaults_all(s);

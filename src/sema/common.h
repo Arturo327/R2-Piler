@@ -61,6 +61,7 @@ void sym_set_stack_slice (Sema *s, uint32_t sym, uint32_t rhs);
 void warn_stack_return (Sema *s, uint32_t val, TypeId ret);
 int sema_dims_match (TypeId arg, TypeId param);
 int sema_array_slice_compat (TypeId arg, TypeId param);
+int sema_const_compat (TypeId from, TypeId to);
 int sema_implicit_cast_ok (TypeId from, TypeId to);
 int sema_any_packable (TypeId type);
 void check_fn_dec (Sema *s, uint32_t idx);

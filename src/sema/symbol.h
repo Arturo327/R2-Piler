@@ -54,7 +54,6 @@ typedef struct Symbol {
 	uint8_t stack_slice : 1;
 	uint8_t by_ref : 1;
 	uint8_t view : 1;
-	uint8_t is_const : 1;
 } Symbol;
 
 #define SYM_FLAG_ASSIGNED 1

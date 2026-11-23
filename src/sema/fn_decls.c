@@ -257,10 +257,6 @@ static void check_ret_type (Sema *s, uint32_t ret, int is_extern, int multi)
 	if (multi && t == TYPE_VOID)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"void cannot be used as one of several return types");
-	if ((n->flags & NODE_FLAG_CONST) && type_ptr_repr(t) == TYPE_ERROR
-			&& type_kind(t) != TK_SLICE)
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"a const return type must be a pointer or slice");
 	if (!is_extern || t == TYPE_VOID) return;
 
 	if (type_kind(t) == TK_STRUCT)

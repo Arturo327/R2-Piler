@@ -1,3 +1,3 @@
-const var x : i64 = 1;
-const arr a : i32[2] = {1, 2};
-fn f(const p : i64) : const ptr i64 { return $x; }
+var x : const i64 = 1;
+arr a : const i32[2] = {1, 2};
+fn f(p : ptr const i64) : const ptr i64 { return NULL; }

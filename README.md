@@ -13,10 +13,10 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **558 fixtures** pass (`make test`): 55 lexer, 96 parser, 186 sema, 70 IR,
-  43 optimizer, 46 mangling/visibility/export, 11 `.r2i`, 10 C/C++ header and
-  41 import cases.
-- **171 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+- **580 fixtures** pass (`make test`): 56 lexer, 100 parser, 192 sema, 72 IR,
+  44 optimizer, 46 mangling/visibility/export, 14 `.r2i`, 14 C/C++ header and
+  42 import cases.
+- **174 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
@@ -53,6 +53,13 @@ tested:
   emits `leaq` (or `sym@GOTPCREL` for an `extern`), copies the callee to a
   scratch register and calls through it with `%al` zeroed; indirect calls are
   never tail calls.
+- **`const`** is a type qualifier (`var x : const i64`, `ptr const T`,
+  `const ptr T`, `const T[N]` for const elements). A const object needs an
+  initializer and its lvalue is read-only, including members of a `const`
+  struct and elements of a const array; reads drop only the outer qualifier
+  (C lvalue-to-rvalue), implicit conversions may add const but never drop it
+  (an explicit `as` is required), function signatures ignore the outer const
+  of parameters/returns, and the `.r2i`/C header carry the qualifier.
 - **C interop** through `extern fn` / `extern var` declarations: they have no
   body or initializer, calls are type-checked like normal functions, and the
   emitted symbol keeps its plain C name (`call puts`, `optind(%rip)`) with
@@ -112,9 +119,9 @@ tested:
 - Top-level visibility: private by default, `pub` for public symbols (`.globl`,
   `_r2_pf_...`/`_r2_pv_...`) and `export` for plain C-linkable definitions;
   module names come from the canonical source path with `$xx`-escaped bytes.
-- **Modules and imports**: one file is one module. `import m;` exposes
-  `m::name`, `import m as x;` renames the qualifier, and
-  `from m import a as b, T;` brings names into scope. The importer reads
+- **Modules and imports**: one file is one module. `import "m";` exposes
+  `m::name`, `import "m" as x;` renames the qualifier, and
+  `from "m" import a as b, T;` brings names into scope. The importer reads
   `m.r2i` (source directory, then the `-m` directory, then each `-p DIR`),
   reconstructs the module's public types/signatures/defaults, treats its
   functions and globals as external symbols, and calls its `__r2_init_<mod>`
@@ -172,7 +179,7 @@ never overwritten. Modules are compiled one at a time and linked afterwards:
 
 ```bash
 ./build/r2p a.r2 -m modules      # writes a.s and modules/a.r2i
-./build/r2p b.r2 -m modules      # b.r2 has `import a;`, reads modules/a.r2i
+./build/r2p b.r2 -m modules      # b.r2 has `import "a";`, reads modules/a.r2i
 gcc a.s b.s -o prog
 ```
 

@@ -1,0 +1,4 @@
+tests/parser/099_const_prefix_err_src.r2:1:1: ERROR: the 'const' declaration prefix was removed; write the type as 'var x : const T'
+      1 | const var g : i64 = 1;
+        | ^~~~~
+1 error, 0 warnings

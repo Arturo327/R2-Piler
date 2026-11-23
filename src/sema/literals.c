@@ -12,6 +12,20 @@ int sema_any_packable (TypeId type)
 	return size == 1 || size == 2 || size == 4 || size == 8;
 }
 
+int sema_const_compat (TypeId from, TypeId to)
+{
+	if (type_unconst_of(from) != type_unconst_of(to)) return 0;
+	return !(type_is_const(from) && !type_is_const(to));
+}
+
+static int decay_to_ptr_ok (TypeId elem, TypeId to)
+{
+	TypeId base = types[to].base;
+
+	if (type_unconst_of(base) == TYPE_VOID) return !type_is_const(elem);
+	return sema_const_compat(elem, base);
+}
+
 int sema_implicit_cast_ok (TypeId from, TypeId to)
 {
 	if (from == to) return 1;
@@ -19,30 +33,43 @@ int sema_implicit_cast_ok (TypeId from, TypeId to)
 	if (from == TYPE_VOID || to == TYPE_VOID) return 0;
 	if (to == TYPE_ANY) return sema_any_packable(from);
 
+	from = type_unconst_of(from);
+	to = type_unconst_of(to);
+	if (from == to) return 1;
+
 	TypeKind from_kind = type_kind(from);
 	TypeKind to_kind = type_kind(to);
 
 	if (from == TYPE_NULL) return type_ptr_repr(to) != TYPE_ERROR;
 	if (to == TYPE_NULL) return 0;
 	if (from == TYPE_STR)
-		return (to_kind == TK_PTR && types[to].base == TYPE_i8)
-				|| (to_kind == TK_SLICE && types[to].base == TYPE_i8);
+		return (to_kind == TK_PTR && type_unconst_of(types[to].base) == TYPE_i8)
+				|| (to_kind == TK_SLICE && type_unconst_of(types[to].base) == TYPE_i8);
 
 	if (to == TYPE_STR) return 0;
 
 	if (from_kind == TK_ARRAY && type_dyn_rank(to) > 0)
-		return type_flat_element(from) == type_flat_element(to)
+		return sema_const_compat(type_flat_element(from), type_flat_element(to))
 				&& sema_dims_match(from, to);
 
 	if (from_kind == TK_ARRAY || from_kind == TK_SLICE)
-		return to_kind == TK_PTR && (types[to].base == type_flat_element(from) || types[to].base == TYPE_VOID);
+		return to_kind == TK_PTR && decay_to_ptr_ok(type_flat_element(from), to);
 
-	if (type_dyn_rank(from) > 0 && type_dyn_rank(to) > 0) return from == to;
+	if (type_dyn_rank(from) > 0 && type_dyn_rank(to) > 0)
+		return sema_const_compat(type_flat_element(from), type_flat_element(to))
+				&& sema_dims_match(from, to);
 	if (to_kind == TK_ARRAY) return 0;
-	if (to_kind == TK_SLICE) return from_kind == TK_SLICE && from == to;
+	if (to_kind == TK_SLICE) return 0;
 	if (from_kind == TK_STRUCT || to_kind == TK_STRUCT) return 0;
-	if (from_kind == TK_PTR && to_kind == TK_PTR)
-		return types[from].base == TYPE_VOID || types[to].base == TYPE_VOID;
+	if (from_kind == TK_PTR && to_kind == TK_PTR) {
+		TypeId fb = types[from].base;
+		TypeId tb = types[to].base;
+
+		if (fb == tb) return 1;
+		if (type_unconst_of(fb) == TYPE_VOID || type_unconst_of(tb) == TYPE_VOID)
+			return !type_is_const(fb);
+		return sema_const_compat(fb, tb);
+	}
 
 	if (from_kind == TK_PTR || to_kind == TK_PTR) return 0;
 	if (type_is_nominal(from) || type_is_nominal(to)) return 0;
@@ -579,6 +606,8 @@ static TypeId common_type (TypeId l, TypeId r)
 	int l_flex = type_kind(l) == TK_UNTYPED_INT;
 	int r_flex = type_kind(r) == TK_UNTYPED_INT;
 
+	l = type_unconst_of(l);
+	r = type_unconst_of(r);
 	if (type_kind(l) == TK_PTR && type_kind(r) == TK_PTR) {
 		if (types[l].base == TYPE_VOID) return l;
 		if (types[r].base == TYPE_VOID) return r;

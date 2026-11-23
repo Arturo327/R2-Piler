@@ -1,0 +1,63 @@
+global g : const i64
+
+fn __r2_init(0 params, 1 regs) : void
+    r0 = const.const i64 5
+    str_global.const i64 r0 @g
+    ret
+
+fn add(1 params, 4 regs) : i64
+    r0 = param.const i64 #0
+    r1 = move.const i64 r0
+    r2 = const.i64 1
+    r3 = add.i64 r1, r2
+    ret.i64 r3
+    ret
+
+fn main(0 params, 40 regs) : i64
+    r1 = addr_local.const i64[2] r0
+    r2 = const.const i64 1
+    str_ptr.const i64 r1, r2
+    r3 = const.const i64 2
+    r4 = const.i64 8
+    r5 = add.i64 r1, r4
+    str_ptr.const i64 r5, r3
+    r7 = addr_local.S r6
+    r8 = const.const i64 3
+    str_ptr.const i64 r7, r8
+    r9 = const.i64 8
+    r10 = add.i64 r7, r9
+    r11 = const.i64 4
+    str_ptr.i64 r10, r11
+    r13 = addr_local.const S r12
+    r14 = addr_local.S r6
+    r15 = ld_ptr.const i64 r14
+    str_ptr.const i64 r13, r15
+    r16 = const.i64 8
+    r17 = add.i64 r14, r16
+    r18 = ld_ptr.i64 r17
+    r19 = const.i64 8
+    r20 = add.i64 r13, r19
+    str_ptr.i64 r20, r18
+    r21 = addr_global.ptr const i64 @g
+    r22 = move.ptr const i64 r21
+    r23 = ld_ptr.const i64 r22
+    arg r23 #0
+    r24 = call.i64 add
+    r25 = addr_local.const i64[2] r0
+    r26 = const.i64 1
+    r27 = const.i64 8
+    r28 = mul.i64 r26, r27
+    r29 = add.i64 r25, r28
+    r30 = ld_ptr.const i64 r29
+    r31 = add.i64 r24, r30
+    r32 = addr_local.const S r12
+    r33 = ld_ptr.const i64 r32
+    r34 = add.i64 r31, r33
+    r35 = addr_local.const S r12
+    r36 = const.i64 8
+    r37 = add.i64 r35, r36
+    r38 = ld_ptr.const i64 r37
+    r39 = add.i64 r34, r38
+    ret.i64 r39
+    ret
+

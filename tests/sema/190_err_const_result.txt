@@ -1,7 +1,16 @@
-fn bad [1:4] depth=0 type=void
-fn bad_ret [3:4] depth=0 type=i64
+struct S [1:8] depth=0 size=16 align=8
+  field x type=i64 offset=0
+  field y type=const i64 offset=8
+fn bad [3:4] depth=0 type=void
 fn main [5:8] depth=0 type=i64
-param p [1:8] depth=1 type=i64
-var x [6:13] depth=1 type=i64
-var a [7:13] depth=1 type=i64[2]
-var noinit [8:13] depth=1 type=i64
+param p [3:8] depth=1 type=const i64
+var x [6:7] depth=1 type=const i64
+var noinit [7:7] depth=1 type=const i64
+var a [8:7] depth=1 type=const i64[2]
+var n [9:7] depth=1 type=i64
+var p [10:7] depth=1 type=ptr i64
+var cp [11:7] depth=1 type=ptr const i64
+var q [12:7] depth=1 type=const ptr i64
+var s [13:7] depth=1 type=S
+var cs [14:7] depth=1 type=const S
+var badany [26:7] depth=1 type=error

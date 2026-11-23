@@ -317,9 +317,13 @@ static TypeId check_field (Sema *s, uint32_t idx, TypeId st)
 		return TYPE_ERROR;
 	}
 	if (f->bits) n->flags |= NODE_FLAG_BITFIELD;
-	n->data_type = f->type;
+
+	TypeId ft = f->type;
+
+	if (type_is_const(st) && !type_is_const(ft)) ft = type_const_of(ft);
+	n->data_type = ft;
 	agg_member_read(s, idx);
-	return f->type;
+	return ft;
 }
 
 static TypeId check_dot_value (Sema *s, uint32_t idx)

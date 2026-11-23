@@ -11,6 +11,7 @@ uint16_t type_count;
 static uint16_t derived_tab[TYPE_HASH_SIZE];
 static uint16_t name_tab[TYPE_HASH_SIZE];
 static uint16_t fn_tab[TYPE_HASH_SIZE];
+static uint16_t const_tab[TYPE_HASH_SIZE];
 
 static Arena type_arena;
 static int type_arena_ready;
@@ -69,6 +70,21 @@ static uint16_t *derived_slot (uint8_t kind, TypeId base, uint32_t count)
 	return derived_tab + h;
 }
 
+static uint16_t *const_slot (TypeId base)
+{
+	uint32_t h = 2166136261u;
+
+	h = (h ^ 0x636F6E73u) * 16777619u;
+	h = (h ^ base) * 16777619u;
+	h ^= h >> 15;
+	h &= TYPE_HASH_SIZE - 1;
+	while (const_tab[h]) {
+		if (types[const_tab[h]].plain == base) break;
+		h = (h + 1) & (TYPE_HASH_SIZE - 1);
+	}
+	return const_tab + h;
+}
+
 static uint16_t *name_slot (const char *name, uint16_t len)
 {
 	uint32_t h = 2166136261u;
@@ -96,6 +112,7 @@ void init_types (void)
 	memset(derived_tab, 0, sizeof(derived_tab));
 	memset(name_tab, 0, sizeof(name_tab));
 	memset(fn_tab, 0, sizeof(fn_tab));
+	memset(const_tab, 0, sizeof(const_tab));
 	for (int i = 0; i < TYPE_COUNT; i++) {
 		types[i] = builtin_types[i];
 		types[i].len = (uint16_t)strlen(types[i].name);
@@ -126,6 +143,7 @@ void types_destroy (void)
 	memset(derived_tab, 0, sizeof(derived_tab));
 	memset(name_tab, 0, sizeof(name_tab));
 	memset(fn_tab, 0, sizeof(fn_tab));
+	memset(const_tab, 0, sizeof(const_tab));
 }
 
 static const char *copy_name (const char *name, uint16_t len)
@@ -153,6 +171,8 @@ TypeId add_type (const char *name, uint16_t len, TypeKind kind, TypeId base)
 	t->builtin = 0;
 	t->used = 0;
 	t->exposed = 0;
+	t->is_const = 0;
+	t->plain = 0;
 	t->base = base;
 	t->variant_count = 0;
 	t->variants = NULL;
@@ -409,6 +429,76 @@ TypeId type_slice_of (TypeId base)
 	return id;
 }
 
+TypeId type_const_of (TypeId base)
+{
+	if (base == TYPE_ERROR || base >= type_count) return TYPE_ERROR;
+	if (types[base].is_const) return base;
+
+	if (type_kind(base) == TK_ARRAY || type_kind(base) == TK_SLICE) {
+		TypeId elem = type_const_of(types[base].base);
+
+		if (elem == TYPE_ERROR) return TYPE_ERROR;
+		return type_kind(base) == TK_ARRAY
+				? type_array_of(elem, types[base].count) : type_slice_of(elem);
+	}
+
+	uint16_t *slot = const_slot(base);
+	if (*slot) return *slot;
+	if (type_count >= TYPE_MAX) return TYPE_ERROR;
+
+	uint32_t total = (uint32_t)types[base].len + 6;
+	if (total > UINT16_MAX) return TYPE_ERROR;
+
+	char *name = arena_alloc(&type_arena, (size_t)total + 1);
+	memcpy(name, "const ", 6);
+	memcpy(name + 6, types[base].name, types[base].len);
+	name[total] = '\0';
+
+	TypeId id = type_count++;
+	types[id] = types[base];
+	types[id].name = name;
+	types[id].len = (uint16_t)total;
+	types[id].is_const = 1;
+	types[id].plain = base;
+	types[id].builtin = 0;
+	types[base].used = 1;
+	*slot = id;
+	return id;
+}
+
+TypeId type_unconst_of (TypeId id)
+{
+	if (id >= type_count || !types[id].is_const) return id;
+	return types[id].plain;
+}
+
+int type_is_const (TypeId id)
+{
+	return id < type_count && types[id].is_const;
+}
+
+void types_refresh_const (void)
+{
+	for (TypeId id = TYPE_COUNT; id < type_count; id++) {
+		TypeId p = types[id].plain;
+
+		if (!types[id].is_const || p >= type_count) continue;
+		types[id].size = types[p].size;
+		types[id].count = types[p].count;
+		types[id].sign = types[p].sign;
+		types[id].base = types[p].base;
+		types[id].align = types[p].align;
+		types[id].decl = types[p].decl;
+		types[id].fields = types[p].fields;
+		types[id].field_count = types[p].field_count;
+		types[id].layout = types[p].layout;
+		types[id].is_union = types[p].is_union;
+		types[id].is_packed = types[p].is_packed;
+		types[id].variants = types[p].variants;
+		types[id].variant_count = types[p].variant_count;
+	}
+}
+
 TypeId type_flat_element (TypeId id)
 {
 	for (int i = 0; i < TYPE_MAX; i++) {
@@ -603,16 +693,21 @@ int type_is_nominal (TypeId id)
 
 TypeId type_canon (TypeId id)
 {
-	if (type_kind(id) == TK_ALIAS) return types[id].base;
-	return id;
+	if (type_kind(id) != TK_ALIAS) return id;
+	if (type_is_const(id)) return type_const_of(types[id].base);
+	return types[id].base;
 }
 
 TypeId type_repr (TypeId id)
 {
+	int is_const = 0;
+
 	for (int i = 0; i < TYPE_MAX; i++) {
 		TypeKind kind = type_kind(id);
 
-		if (kind != TK_ALIAS && kind != TK_NEWTYPE) return id;
+		if (type_is_const(id)) is_const = 1;
+		if (kind != TK_ALIAS && kind != TK_NEWTYPE)
+			return is_const ? type_const_of(id) : id;
 		id = types[id].base;
 	}
 	return TYPE_ERROR;

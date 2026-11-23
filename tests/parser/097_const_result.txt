@@ -1,31 +1,38 @@
 NODE_ROOT [0:0]
-  NODE_VAR_DEC [1:11] name="g" const type=i64
+  NODE_VAR_DEC [1:5] name="g" type=const i64
     NODE_LIT_i64 [1:21] i64=1
-  NODE_ARR_DEC [2:11] name="ga" const type=i64[2]
+  NODE_ARR_DEC [2:5] name="ga" type=const i64[2]
     NODE_ARRAY_INIT [2:25]
       NODE_LIT_i64 [2:26] i64=1
       NODE_LIT_i64 [2:29] i64=2
   NODE_FN_DEC [4:4] name="f"
     NODE_ARGS_DEC [4:5]
-      NODE_VAR_DEC [4:6] name="p" const type=i64
-    NODE_RET_DEC [4:21] const type=ptr i64
-    NODE_BLOCK [4:37]
-      NODE_RET [4:39]
-        NODE_ADDR [4:46]
-          NODE_ID [4:47] str="g"
+      NODE_VAR_DEC [4:6] name="p" type=ptr const i64
+    NODE_RET_DEC [4:25] type=const ptr i64
+    NODE_BLOCK [4:41]
+      NODE_RET [4:43]
+        NODE_ADDR [4:50]
+          NODE_ID [4:51] str="g"
   NODE_FN_DEC [6:8] name="main" pub
     NODE_ARGS_DEC [6:12]
     NODE_RET_DEC [6:15] type=i64
     NODE_BLOCK [6:21]
-      NODE_VAR_DEC [7:13] name="x" const type=i8
+      NODE_VAR_DEC [7:7] name="x" type=const i8
         NODE_LIT_i64 [7:22] i64=3
-      NODE_VAR_DEC [8:20] name="y" static const type=i64
+      NODE_VAR_DEC [8:14] name="y" static type=const i64
         NODE_LIT_i64 [8:30] i64=4
-      NODE_VAR_DEC [9:20] name="z" static const type=i64
-        NODE_LIT_i64 [9:30] i64=5
-      NODE_RET [10:3]
-        NODE_ADD [10:16]
-          NODE_ADD [10:12]
-            NODE_ID [10:10] str="x"
-            NODE_ID [10:14] str="y"
-          NODE_ID [10:18] str="z"
+      NODE_ARR_DEC [9:7] name="z" type=const i64[2]
+        NODE_ARRAY_INIT [9:28]
+          NODE_LIT_i64 [9:29] i64=5
+          NODE_LIT_i64 [9:32] i64=6
+      NODE_VAR_DEC [10:7] name="v" type=const i64[]
+        NODE_ID [10:25] str="z"
+      NODE_RET [11:3]
+        NODE_ADD [11:25]
+          NODE_ADD [11:21]
+            NODE_CAST [11:13] type=i64
+              NODE_ID [11:11] str="x"
+            NODE_ID [11:23] str="y"
+          NODE_INDEX [11:28]
+            NODE_ID [11:27] str="v"
+            NODE_LIT_i64 [11:29] i64=0

@@ -115,8 +115,7 @@ uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 		.kind = (uint8_t)kind,
 		.type = data_type,
 		.view = kind == SYMBOL_VAR && decl->type == NODE_VAR_DEC
-				&& type_kind(data_type) == TK_ARRAY,
-		.is_const = (decl->flags & NODE_FLAG_CONST) != 0
+				&& type_kind(data_type) == TK_ARRAY
 	};
 
 	int aggregate = decl->data_type != TYPE_ERROR
@@ -258,7 +257,8 @@ void reserve_cast_nodes (Sema *s)
 
 void check_const_init (Sema *s, ASTNode *n)
 {
-	if (!(n->flags & NODE_FLAG_CONST) || n->child != NO_NODE) return;
+	if (!type_is_const(n->data_type) || n->child != NO_NODE) return;
+	if (n->type == NODE_EXTERN_VAR_DEC || (n->flags & NODE_FLAG_IMPORTED)) return;
 	error_report(s->err, ERR_ERROR, node_loc(n),
 			"const %s '%.*s' requires an initializer",
 			n->type == NODE_ARR_DEC ? "array" : "variable",

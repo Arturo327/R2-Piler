@@ -1,0 +1,25 @@
+type CI [1:6] depth=0 type=CI base=const i32
+type CP [2:6] depth=0 type=CP base=ptr const i32
+struct Inner [4:8] depth=0 size=4 align=4
+  field v type=const i32 offset=0
+struct Outer [5:8] depth=0 size=24 align=8
+  field in type=Inner offset=0
+  field items type=const i32[2] offset=4
+  field p type=ptr const Inner offset=16
+fn cb [7:4] depth=0 type=const i32
+fn use [9:4] depth=0 type=i64
+fn main [13:8] depth=0 type=i64
+param a [7:7] depth=1 type=const i32
+param f [9:8] depth=1 type=ptr fn(i32) : i32
+param p [9:31] depth=1 type=ptr const i32
+param q [9:39] depth=1 type=const ptr i64
+var msg [14:7] depth=1 type=const i8[3]
+var a [15:7] depth=1 type=const i32
+var v [16:7] depth=1 type=i32
+var o [17:7] depth=1 type=Outer
+var oc [18:7] depth=1 type=const Outer
+var f [19:7] depth=1 type=ptr fn(i32) : i32
+var p [20:7] depth=1 type=ptr const i32
+var q [21:7] depth=1 type=const ptr i64
+var s [22:7] depth=1 type=i64
+var eq [23:7] depth=1 type=i32

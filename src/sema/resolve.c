@@ -168,10 +168,12 @@ static TypeId resolve_fn_spec (Sema *s, ASTNode *ref, uint8_t *done, int *deferr
 	for (uint16_t i = 0; i < param_count; i++) {
 		if (resolve_fn_item(s, &item, params + i, done, deferred, "parameter") == TYPE_ERROR)
 			return TYPE_ERROR;
+		params[i] = type_unconst_of(params[i]);
 	}
 	for (uint16_t i = 0; i < ret_count; i++) {
 		if (resolve_fn_item(s, &item, rets + i, done, deferred, "return") == TYPE_ERROR)
 			return TYPE_ERROR;
+		rets[i] = type_unconst_of(rets[i]);
 	}
 
 	TypeId fn = type_fn_of(params, param_count, rets, ret_count,
@@ -185,6 +187,32 @@ static TypeId resolve_fn_spec (Sema *s, ASTNode *ref, uint8_t *done, int *deferr
 }
 
 static TypeId resolve_spec_at (Sema *s, ASTNode *owner,
+		uint8_t *done, int *deferred, int bare_fn);
+
+static TypeId resolve_const_spec (Sema *s, ASTNode *ref, uint8_t *done, int *deferred, int bare_fn)
+{
+	TypeId base = ref->type_node != NO_TYPE_NODE
+			? resolve_spec_at(s, ref, done, deferred, bare_fn) : ref->data_type;
+
+	if (deferred && *deferred) return TYPE_ERROR;
+	if (base == TYPE_ERROR) return TYPE_ERROR;
+	if (base == TYPE_VOID || base == TYPE_ANY || type_kind(base) == TK_FN) {
+		error_report(s->err, ERR_ERROR, node_loc(ref),
+				"'const' cannot be applied to type %s;"
+				" only object types can be const", types[base].name);
+		return TYPE_ERROR;
+	}
+
+	TypeId id = type_const_of(base);
+
+	if (id == TYPE_ERROR) {
+		error_report(s->err, ERR_ERROR, node_loc(ref), "too many types");
+		return TYPE_ERROR;
+	}
+	return id;
+}
+
+static TypeId resolve_spec_at (Sema *s, ASTNode *owner,
 		uint8_t *done, int *deferred, int bare_fn)
 {
 	if (owner->type_node == NO_TYPE_NODE) return owner->data_type;
@@ -192,6 +220,8 @@ static TypeId resolve_spec_at (Sema *s, ASTNode *owner,
 	uint32_t ref_idx = (uint32_t)(owner - s->ast->nodes) + owner->type_node;
 	ASTNode *ref = s->ast->nodes + ref_idx;
 
+	if (ref->type == NODE_TYPE_CONST)
+		return resolve_const_spec(s, ref, done, deferred, bare_fn);
 	if (ref->type == NODE_TYPE_ARRAY || ref->type == NODE_TYPE_SLICE)
 		return resolve_array_spec(s, ref, done, deferred,
 				ref->type == NODE_TYPE_SLICE);

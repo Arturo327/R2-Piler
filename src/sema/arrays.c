@@ -84,8 +84,19 @@ static void infer_str_dim (Sema *s, uint32_t ref_idx, uint32_t init_idx)
 	ASTNode *ref = s->ast->nodes + ref_idx;
 	TypeId elem = ref->data_type;
 
-	if (ref->type != NODE_TYPE_SLICE || ref->type_node != NO_TYPE_NODE)
-		return;
+	if (ref->type != NODE_TYPE_SLICE) return;
+	if (ref->type_node != NO_TYPE_NODE) {
+		uint32_t elem_idx = ref_idx + ref->type_node;
+		if (s->ast->nodes[elem_idx].type != NODE_TYPE_CONST) return;
+		if (s->ast->nodes[elem_idx].type_node != NO_TYPE_NODE) {
+			elem_idx += s->ast->nodes[elem_idx].type_node;
+			if (s->ast->nodes[elem_idx].type == NODE_TYPE_CONST
+					|| s->ast->nodes[elem_idx].type == NODE_TYPE_ARRAY
+					|| s->ast->nodes[elem_idx].type == NODE_TYPE_SLICE)
+				return;
+		}
+		elem = s->ast->nodes[elem_idx].data_type;
+	}
 	if (elem != TYPE_i8 && elem != TYPE_u8) return;
 	patch_array_dim(s, ref_idx, (uint32_t)s->ast->nodes[init_idx].len + 1);
 }
@@ -316,7 +327,9 @@ static int check_array_init_head (Sema *s, TypeId arr, uint32_t init_idx, TypeId
 	ASTNode *init = s->ast->nodes + init_idx;
 
 	if (init->type == NODE_LIT_STR) {
-		if (types[elem].size != 1 || (elem != TYPE_i8 && elem != TYPE_u8))
+		TypeId leaf = type_unconst_of(elem);
+
+		if (types[leaf].size != 1 || (leaf != TYPE_i8 && leaf != TYPE_u8))
 			error_report(s->err, ERR_ERROR, node_loc(init),
 					"string initializer requires an i8, u8 or char array");
 		else if ((uint32_t)init->len + 1 > count)

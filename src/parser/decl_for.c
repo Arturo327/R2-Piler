@@ -97,10 +97,6 @@ uint32_t parse_static_decl (Parser *p)
 	uint16_t flags = NODE_FLAG_STATIC;
 
 	consume(p, TOK_STATIC, "expected 'static'");
-	if (p->curr.type == TOK_CONST) {
-		flags |= NODE_FLAG_CONST;
-		advance(p);
-	}
 
 	if (p->curr.type != TOK_VAR && p->curr.type != TOK_ARR) {
 		if (!p->panic_mode)

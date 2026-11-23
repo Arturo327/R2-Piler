@@ -189,33 +189,29 @@ void warn_null_deref (Sema *s, uint32_t idx, uint32_t child)
 			(int)n->len, n->str);
 }
 
-static void check_const_write (Sema *s, uint32_t idx)
-{
-	ASTNode *n = s->ast->nodes + idx;
-	int through_ptr = 0;
+static uint32_t lvalue_root (Sema *s, uint32_t idx);
 
-	while (n->type == NODE_INDEX || n->type == NODE_DOT) {
-		if (n->child == NO_NODE) return;
-		ASTNode *base = s->ast->nodes + n->child;
-		if (type_ptr_repr(base->data_type) != TYPE_ERROR) return;
-		n = base;
+static void check_const_write (Sema *s, uint32_t idx, TypeId type)
+{
+	if (!type_is_const(type)) return;
+
+	uint32_t root = lvalue_root(s, idx);
+
+	if (root != NO_NODE) {
+		ASTNode *id = s->ast->nodes + root;
+
+		if (id->sym != NO_SYMBOL && type_is_const(s->table.symbols[id->sym].type)) {
+			Symbol *sym = &s->table.symbols[id->sym];
+
+			error_report(s->err, ERR_ERROR, node_loc(id),
+					"cannot modify const %s '%.*s'",
+					sym->kind == SYMBOL_PARAM ? "parameter" : "variable",
+					(int)sym->len, sym->name);
+			return;
+		}
 	}
-	if (n->type == NODE_DEREF && n->child != NO_NODE) {
-		through_ptr = 1;
-		n = s->ast->nodes + n->child;
-	}
-	if (n->type == NODE_FN_CALL && (n->flags & NODE_FLAG_CONST)) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"cannot write through a const pointer returned by a function");
-		return;
-	}
-	if (through_ptr || n->type != NODE_ID || n->sym == NO_SYMBOL) return;
-	Symbol *sym = s->table.symbols + n->sym;
-	if (!sym->is_const) return;
-	error_report(s->err, ERR_ERROR, node_loc(n),
-			"cannot modify const %s '%.*s'",
-			sym->kind == SYMBOL_PARAM ? "parameter" : "variable",
-			(int)sym->len, sym->name);
+	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+			"cannot modify a const value of type %s", types[type].name);
 }
 
 static TypeId check_lvalue (Sema *s, uint32_t idx)
@@ -405,7 +401,7 @@ TypeId check_assign (Sema *s, uint32_t idx)
 	s->write_root = lvalue_root(s, left);
 	TypeId l = check_lvalue(s, left);
 	s->write_root = saved_root;
-	check_const_write(s, left);
+	check_const_write(s, left, l);
 
 	if (left_kind == NODE_DOT && s->ast->nodes[left].type != NODE_DOT)
 		return reject_place(s, idx, right, "left side of '='");
@@ -523,7 +519,7 @@ static CompoundLhsResult check_compound_lhs (Sema *s, uint32_t idx, uint32_t lef
 	CompoundLhsResult res;
 
 	res.l = check_lvalue(s, left);
-	check_const_write(s, left);
+	check_const_write(s, left, res.l);
 
 	if (left_kind == NODE_DOT && s->ast->nodes[left].type != NODE_DOT) {
 		res.l = reject_place(s, idx, right, "left side of compound assignment");
@@ -694,7 +690,7 @@ static void check_multi_lvalue (Sema *s, uint32_t target, TypeId want, uint32_t 
 	s->write_root = lvalue_root(s, target);
 	TypeId l = check_lvalue(s, target);
 	s->write_root = saved_root;
-	check_const_write(s, target);
+	check_const_write(s, target, l);
 
 	if (l == TYPE_ERROR) return;
 
@@ -864,7 +860,7 @@ void check_inc_dec (Sema *s, uint32_t idx)
 	}
 
 	TypeId type = check_lvalue(s, target);
-	check_const_write(s, target);
+	check_const_write(s, target, type);
 
 	if (target_kind == NODE_DOT && s->ast->nodes[target].type != NODE_DOT) {
 		reject_place(s, idx, NO_NODE,

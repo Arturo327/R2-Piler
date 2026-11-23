@@ -6,6 +6,7 @@ enum {
 	TS_BUILTIN = 0,
 	TS_REF,
 	TS_PTR,
+	TS_CONST,
 	TS_ARRAY,
 	TS_SLICE,
 	TS_FN
@@ -66,7 +67,7 @@ static int is_type_token (TokenType type)
 	case TOK_i8: case TOK_u8: case TOK_i16: case TOK_u16:
 	case TOK_i32: case TOK_u32: case TOK_i64: case TOK_u64:
 	case TOK_CHAR: case TOK_VOID: case TOK_PTR: case TOK_ANY:
-	case TOK_FN:
+	case TOK_FN: case TOK_CONST:
 		return 1;
 	default:
 		return 0;
@@ -182,17 +183,42 @@ static FnSig *parse_fn_sig (Parser *p, Token fn)
 	return sig;
 }
 
-static TypeSpec *parse_type_spec (Parser *p, int allow_void, int bare_fn)
+static TypeSpec *parse_type_atom (Parser *p, int allow_void, int bare_fn);
+
+static TypeSpec *parse_const_type (Parser *p, Token kw, int allow_void, int bare_fn)
+{
+	if (p->curr.type == TOK_VAR || p->curr.type == TOK_ARR) {
+		if (!p->panic_mode)
+			error_report(p->err, ERR_ERROR, token_loc(kw),
+					"the 'const' declaration prefix was removed;"
+					" write the type as 'var x : const T'");
+		p->panic_mode = 1;
+		return NULL;
+	}
+	if (!enter_depth(p, "type")) return NULL;
+
+	TypeSpec *inner = parse_type_atom(p, allow_void, bare_fn);
+
+	p->depth--;
+	if (!inner) return NULL;
+	TypeSpec *ts = new_spec(p, TS_CONST, kw);
+
+	ts->base = inner;
+	return ts;
+}
+
+static TypeSpec *parse_type_atom (Parser *p, int allow_void, int bare_fn)
 {
 	Token t = p->curr;
 	TypeSpec *ts;
-
-	if (!enter_depth(p, "type")) return NULL;
 
 	if (t.type == TOK_LPAREN) {
 		advance(p);
 		ts = parse_type_spec(p, allow_void, bare_fn);
 		consume(p, TOK_RPAREN, "expected ')' after type");
+	} else if (t.type == TOK_CONST) {
+		advance(p);
+		return parse_const_type(p, t, allow_void, bare_fn);
 	} else if (t.type == TOK_PTR) {
 		advance(p);
 		ts = new_spec(p, TS_PTR, t);
@@ -227,6 +253,18 @@ static TypeSpec *parse_type_spec (Parser *p, int allow_void, int bare_fn)
 			else error_report(p->err, ERR_ERROR, token_loc(t), "expected type");
 		}
 		p->panic_mode = 1;
+		return NULL;
+	}
+	return ts;
+}
+
+static TypeSpec *parse_type_spec (Parser *p, int allow_void, int bare_fn)
+{
+	TypeSpec *ts;
+
+	if (!enter_depth(p, "type")) return NULL;
+	ts = parse_type_atom(p, allow_void, bare_fn);
+	if (!ts) {
 		p->depth--;
 		return NULL;
 	}
@@ -324,6 +362,15 @@ static TypeId make_type_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t 
 		return TYPE_ERROR;
 	}
 	if (ts->kind == TS_FN) return make_fn_spec(p, ts, owner, type_node);
+	if (ts->kind == TS_CONST) {
+		node = new_node(p, NODE_TYPE_CONST, ts->line, ts->col);
+		base = ts->base ? make_type_spec(p, ts->base, node, &base_node) : TYPE_ERROR;
+		if (!ts->base) base_node = NO_TYPE_NODE;
+		p->ast.nodes[node].data_type = base;
+		p->ast.nodes[node].type_node = base_node;
+		*type_node = (uint16_t)(node - owner);
+		return TYPE_ERROR;
+	}
 
 	switch (ts->kind)
 	{

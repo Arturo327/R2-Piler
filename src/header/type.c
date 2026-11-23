@@ -57,11 +57,18 @@ void h_print_named_type (CHeader *h, TypeId type, const char *name, int len)
 {
 	uint32_t counts[16];
 	int rank = 0;
+	int prefix = 0;
 
 	while (type_kind(type) == TK_ARRAY) {
+		if (type_is_const(type)) prefix = 1;
 		if (rank < 16) counts[rank++] = types[type].count;
 		type = types[type].base;
 	}
+	if (type_is_const(type) && type_kind(type) != TK_PTR) {
+		prefix = 1;
+		type = type_unconst_of(type);
+	}
+	if (prefix) h_printf(h, "const ");
 	h_print_type(h, type);
 	h_printf(h, " %.*s", len, name);
 	for (int i = 0; i < rank; i++)
@@ -70,6 +77,16 @@ void h_print_named_type (CHeader *h, TypeId type, const char *name, int len)
 
 void h_print_type (CHeader *h, TypeId type)
 {
+	if (type != TYPE_ERROR && type_is_const(type)) {
+		if (type_kind(type) == TK_PTR) {
+			h_print_type(h, type_unconst_of(type));
+			h_printf(h, " const");
+		} else {
+			h_printf(h, "const ");
+			h_print_type(h, type_unconst_of(type));
+		}
+		return;
+	}
 	if (type == TYPE_ERROR || type < TYPE_COUNT) {
 		h_print_builtin(h, type);
 		return;
@@ -99,6 +116,10 @@ void h_print_type (CHeader *h, TypeId type)
 static void h_collect_type (CHeader *h, TypeId type)
 {
 	if (type == TYPE_ERROR || type >= type_count) return;
+	if (type_is_const(type)) {
+		h_collect_type(h, type_unconst_of(type));
+		return;
+	}
 	if (h->type_used[type]) return;
 	h->type_used[type] = 1;
 	if (type == TYPE_ANY) h->any_used = 1;

@@ -80,8 +80,10 @@ typedef struct TypeDesc {
 	uint8_t builtin;
 	uint8_t used;
 	uint8_t exposed;
+	uint8_t is_const;
 
 	TypeId base;
+	TypeId plain;
 	uint16_t variant_count;
 	EnumVariant *variants;
 
@@ -115,6 +117,11 @@ TypeId type_fn_of (const TypeId *params, uint16_t param_count,
 TypeId type_array_of (TypeId base, uint32_t count);
 TypeId type_slice_of (TypeId base);
 TypeId type_flat_element (TypeId id);
+
+TypeId type_const_of (TypeId base);
+TypeId type_unconst_of (TypeId id);
+int type_is_const (TypeId id);
+void types_refresh_const (void);
 
 int type_array_rank (TypeId id);
 int type_slice_rank (TypeId id);

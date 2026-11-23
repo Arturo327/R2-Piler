@@ -22,7 +22,7 @@ int sema_dims_match (TypeId arg, TypeId param)
 int sema_array_slice_compat (TypeId arg, TypeId param)
 {
 	if (type_kind(param) != TK_ARRAY && type_kind(param) != TK_SLICE) return 0;
-	if (type_flat_element(arg) != type_flat_element(param)) return 0;
+	if (!sema_const_compat(type_flat_element(arg), type_flat_element(param))) return 0;
 	return sema_dims_match(arg, param);
 }
 
@@ -82,6 +82,15 @@ static uint32_t find_param (Sema *s, uint32_t params_node, char *name, uint16_t 
 	return NO_NODE;
 }
 
+static int ref_types_match (TypeId got, TypeId want)
+{
+	if (got == want) return 1;
+	if (type_kind(got) != TK_PTR || type_kind(want) != TK_PTR) return 0;
+	TypeId gb = types[got].base;
+	TypeId wb = types[want].base;
+	return gb == wb || (type_is_const(wb) && gb == type_unconst_of(wb));
+}
+
 static uint32_t check_ref_arg (Sema *s, uint32_t arg, uint32_t param)
 {
 	uint8_t kind = s->ast->nodes[arg].type;
@@ -104,7 +113,7 @@ static uint32_t check_ref_arg (Sema *s, uint32_t arg, uint32_t param)
 	s->ref_arg = saved;
 
 	if (got == TYPE_ERROR) return node;
-	if (got != want) {
+	if (!ref_types_match(got, want)) {
 		ASTNode *p = s->ast->nodes + param;
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + arg),
 				"argument type %s does not match reference parameter '%.*s' (&%s)",
@@ -631,12 +640,7 @@ TypeId check_fn_call (Sema *s, uint32_t idx)
 	if (sym_idx != s->curr_fn) fn->read = 1;
 	check_call_args(s, idx, fn->decl);
 	n = s->ast->nodes + idx;
-	n->data_type = fn->type;
-	uint32_t ret = s->ast->nodes[fn->decl].child;
-
-	ret = s->ast->nodes[ret].next_bro;
-	if (ret != NO_NODE && (s->ast->nodes[ret].flags & NODE_FLAG_CONST))
-		n->flags |= NODE_FLAG_CONST;
+	n->data_type = type_unconst_of(fn->type);
 	return n->data_type;
 }
 

@@ -142,12 +142,13 @@ static TypeId field_struct_dep (Sema *s, uint32_t idx)
 	if (f->type_node == NO_TYPE_NODE) return TYPE_ERROR;
 	ASTNode *ref = f + f->type_node;
 
-	while ((ref->type == NODE_TYPE_ARRAY || ref->type == NODE_TYPE_SLICE)
+	while ((ref->type == NODE_TYPE_ARRAY || ref->type == NODE_TYPE_SLICE
+			|| ref->type == NODE_TYPE_CONST)
 			&& ref->type_node != NO_TYPE_NODE)
 		ref = ref + ref->type_node;
 
 	if (ref->type != NODE_TYPE_REF) return TYPE_ERROR;
-	TypeId id = type_canon(sema_lookup_type(s, ref->str, ref->len));
+	TypeId id = type_unconst_of(type_canon(sema_lookup_type(s, ref->str, ref->len)));
 	return type_kind(id) == TK_STRUCT ? id : TYPE_ERROR;
 }
 

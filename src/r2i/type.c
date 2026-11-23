@@ -120,6 +120,11 @@ void r2i_print_type (R2i *r, TypeId t)
 		r2i_printf(r, "void");
 		return;
 	}
+	if (type_is_const(t)) {
+		r2i_printf(r, "const ");
+		r2i_print_type(r, type_unconst_of(t));
+		return;
+	}
 	if (t < TYPE_COUNT) {
 		r2i_print_builtin(r, t);
 		return;
