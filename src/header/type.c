@@ -4,14 +4,15 @@
 
 static void h_collect_type (CHeader *h, TypeId type);
 static void h_collect_fn (CHeader *h, TypeId type);
+static void h_print_at (CHeader *h, TypeId type, int pointee);
 
-static void h_print_builtin (CHeader *h, TypeId type)
+static void h_print_builtin (CHeader *h, TypeId type, int pointee)
 {
 	switch (type)
 	{
 	case TYPE_VOID: h_printf(h, "void"); return;
 	case TYPE_ANY: h_printf(h, "r2_any"); h->any_used = 1; return;
-	case TYPE_i8: h_printf(h, "int8_t"); return;
+	case TYPE_i8: h_printf(h, pointee ? "char" : "int8_t"); return;
 	case TYPE_u8: h_printf(h, "uint8_t"); return;
 	case TYPE_i16: h_printf(h, "int16_t"); return;
 	case TYPE_u16: h_printf(h, "uint16_t"); return;
@@ -36,7 +37,7 @@ static void h_print_array (CHeader *h, TypeId type)
 		if (rank < 16) counts[rank++] = types[type].count;
 		type = types[type].base;
 	}
-	h_print_type(h, type);
+	h_print_at(h, type, 1);
 	for (int i = 0; i < rank; i++)
 		h_printf(h, "[%u]", counts[i]);
 }
@@ -69,32 +70,32 @@ void h_print_named_type (CHeader *h, TypeId type, const char *name, int len)
 		type = type_unconst_of(type);
 	}
 	if (prefix) h_printf(h, "const ");
-	h_print_type(h, type);
+	h_print_at(h, type, rank > 0);
 	h_printf(h, " %.*s", len, name);
 	for (int i = 0; i < rank; i++)
 		h_printf(h, "[%u]", counts[i]);
 }
 
-void h_print_type (CHeader *h, TypeId type)
+static void h_print_at (CHeader *h, TypeId type, int pointee)
 {
 	if (type != TYPE_ERROR && type_is_const(type)) {
 		if (type_kind(type) == TK_PTR) {
-			h_print_type(h, type_unconst_of(type));
+			h_print_at(h, type_unconst_of(type), pointee);
 			h_printf(h, " const");
 		} else {
 			h_printf(h, "const ");
-			h_print_type(h, type_unconst_of(type));
+			h_print_at(h, type_unconst_of(type), pointee);
 		}
 		return;
 	}
 	if (type == TYPE_ERROR || type < TYPE_COUNT) {
-		h_print_builtin(h, type);
+		h_print_builtin(h, type, pointee);
 		return;
 	}
 	switch (type_kind(type))
 	{
 	case TK_PTR:
-		h_print_type(h, types[type].base);
+		h_print_at(h, types[type].base, 1);
 		if (type_kind(types[type].base) != TK_FN) h_printf(h, " *");
 		return;
 	case TK_ARRAY:
@@ -111,6 +112,16 @@ void h_print_type (CHeader *h, TypeId type)
 		else h_printf(h, "%s", types[type].name);
 		return;
 	}
+}
+
+void h_print_type (CHeader *h, TypeId type)
+{
+	h_print_at(h, type, 0);
+}
+
+void h_print_pointee (CHeader *h, TypeId type)
+{
+	h_print_at(h, type, 1);
 }
 
 static void h_collect_type (CHeader *h, TypeId type)
@@ -281,7 +292,7 @@ static void h_make_slices (CHeader *h)
 
 		while (type_kind(leaf) == TK_SLICE) leaf = types[leaf].base;
 		h_printf(h, "typedef struct {\n\t");
-		h_print_type(h, leaf);
+		h_print_pointee(h, leaf);
 		h_printf(h, " *data;\n\tint64_t len[%d];\n} r2_slice_%u;\n\n",
 				rank, (unsigned)i);
 	}
@@ -312,7 +323,7 @@ static void h_make_any (CHeader *h)
 	if (!h->any_used) return;
 	h_printf(h,
 		"typedef struct {\n"
-		"\tconst int8_t *tag;\n"
+		"\tconst char *tag;\n"
 		"\tint64_t value;\n"
 		"} r2_any;\n\n");
 }

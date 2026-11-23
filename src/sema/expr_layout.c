@@ -101,7 +101,7 @@ static int operand_ptr_info (Sema *s, ASTNode *n, OperandInfo *info, const char 
 				"cannot %s a value of type %s", what, type_display_name(base.type));
 		return 0;
 	}
-	if (types[repr].base == TYPE_VOID) {
+	if (type_unconst_of(types[repr].base) == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot %s 'ptr void'; cast it to a typed pointer first", what);
 		return 0;

@@ -186,17 +186,23 @@ static TypeId resolve_fn_spec (Sema *s, ASTNode *ref, uint8_t *done, int *deferr
 	return fn;
 }
 
-static TypeId resolve_spec_at (Sema *s, ASTNode *owner,
-		uint8_t *done, int *deferred, int bare_fn);
+enum {
+	SPEC_BARE_FN = 1,
+	SPEC_PTR_BASE = 2
+};
 
-static TypeId resolve_const_spec (Sema *s, ASTNode *ref, uint8_t *done, int *deferred, int bare_fn)
+static TypeId resolve_spec_at (Sema *s, ASTNode *owner,
+		uint8_t *done, int *deferred, int flags);
+
+static TypeId resolve_const_spec (Sema *s, ASTNode *ref, uint8_t *done, int *deferred, int flags)
 {
 	TypeId base = ref->type_node != NO_TYPE_NODE
-			? resolve_spec_at(s, ref, done, deferred, bare_fn) : ref->data_type;
+			? resolve_spec_at(s, ref, done, deferred, flags) : ref->data_type;
 
 	if (deferred && *deferred) return TYPE_ERROR;
 	if (base == TYPE_ERROR) return TYPE_ERROR;
-	if (base == TYPE_VOID || base == TYPE_ANY || type_kind(base) == TK_FN) {
+	if ((base == TYPE_VOID && !(flags & SPEC_PTR_BASE))
+			|| base == TYPE_ANY || type_kind(base) == TK_FN) {
 		error_report(s->err, ERR_ERROR, node_loc(ref),
 				"'const' cannot be applied to type %s;"
 				" only object types can be const", types[base].name);
@@ -212,8 +218,7 @@ static TypeId resolve_const_spec (Sema *s, ASTNode *ref, uint8_t *done, int *def
 	return id;
 }
 
-static TypeId resolve_spec_at (Sema *s, ASTNode *owner,
-		uint8_t *done, int *deferred, int bare_fn)
+static TypeId resolve_spec_at (Sema *s, ASTNode *owner, uint8_t *done, int *deferred, int flags)
 {
 	if (owner->type_node == NO_TYPE_NODE) return owner->data_type;
 
@@ -221,14 +226,14 @@ static TypeId resolve_spec_at (Sema *s, ASTNode *owner,
 	ASTNode *ref = s->ast->nodes + ref_idx;
 
 	if (ref->type == NODE_TYPE_CONST)
-		return resolve_const_spec(s, ref, done, deferred, bare_fn);
+		return resolve_const_spec(s, ref, done, deferred, flags);
 	if (ref->type == NODE_TYPE_ARRAY || ref->type == NODE_TYPE_SLICE)
 		return resolve_array_spec(s, ref, done, deferred,
 				ref->type == NODE_TYPE_SLICE);
 	if (ref->type == NODE_TYPE_FN) {
 		TypeId fn = resolve_fn_spec(s, ref, done, deferred);
 
-		if (fn == TYPE_ERROR || bare_fn) return fn;
+		if (fn == TYPE_ERROR || (flags & SPEC_BARE_FN)) return fn;
 		TypeId id = type_ptr_to(fn);
 
 		if (id == TYPE_ERROR) {
@@ -240,7 +245,7 @@ static TypeId resolve_spec_at (Sema *s, ASTNode *owner,
 	if (ref->type != NODE_TYPE_PTR)
 		return resolve_type_ref(s, ref, done, deferred);
 
-	TypeId id = resolve_spec_at(s, ref, done, deferred, 1);
+	TypeId id = resolve_spec_at(s, ref, done, deferred, SPEC_BARE_FN | SPEC_PTR_BASE);
 	if (deferred && *deferred) return TYPE_ERROR;
 	if (id == TYPE_ERROR) return TYPE_ERROR;
 	if (!ptr_base_ok(id)) {

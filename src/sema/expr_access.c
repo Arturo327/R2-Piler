@@ -47,7 +47,7 @@ TypeId check_deref (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (types[repr].base == TYPE_VOID) {
+	if (type_unconst_of(types[repr].base) == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot dereference 'ptr void'; cast it to a typed pointer first");
 		n->data_type = TYPE_ERROR;
@@ -423,7 +423,7 @@ TypeId check_index (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (kind == TK_PTR && types[target].base == TYPE_VOID) {
+	if (kind == TK_PTR && type_unconst_of(types[target].base) == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot index 'ptr void'; cast it to a typed pointer first");
 		n->data_type = TYPE_ERROR;

@@ -67,7 +67,7 @@ int sema_implicit_cast_ok (TypeId from, TypeId to)
 
 		if (fb == tb) return 1;
 		if (type_unconst_of(fb) == TYPE_VOID || type_unconst_of(tb) == TYPE_VOID)
-			return !type_is_const(fb);
+			return type_is_const(tb) || !type_is_const(fb);
 		return sema_const_compat(fb, tb);
 	}
 
@@ -609,8 +609,8 @@ static TypeId common_type (TypeId l, TypeId r)
 	l = type_unconst_of(l);
 	r = type_unconst_of(r);
 	if (type_kind(l) == TK_PTR && type_kind(r) == TK_PTR) {
-		if (types[l].base == TYPE_VOID) return l;
-		if (types[r].base == TYPE_VOID) return r;
+		if (type_unconst_of(types[l].base) == TYPE_VOID) return l;
+		if (type_unconst_of(types[r].base) == TYPE_VOID) return r;
 	}
 
 	if (l_flex != r_flex) return l_flex ? r : l;

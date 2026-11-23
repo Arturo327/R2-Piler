@@ -568,7 +568,7 @@ static TypeId check_compound_ptr (Sema *s, uint32_t idx, uint8_t op,
 				"pointer arithmetic on a function pointer is not allowed");
 		return TYPE_ERROR;
 	}
-	if (types[repr].base == TYPE_VOID) {
+	if (type_unconst_of(types[repr].base) == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"pointer arithmetic on 'ptr void' is not allowed");
 		return TYPE_ERROR;
@@ -893,7 +893,7 @@ void check_inc_dec (Sema *s, uint32_t idx)
 		return;
 	}
 	if (type_ptr_repr(type) != TYPE_ERROR
-			&& types[type_ptr_repr(type)].base == TYPE_VOID) {
+			&& type_unconst_of(types[type_ptr_repr(type)].base) == TYPE_VOID) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"pointer arithmetic on 'ptr void' is not allowed");
 		s->ast->nodes[idx].data_type = TYPE_ERROR;

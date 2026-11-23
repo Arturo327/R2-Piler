@@ -186,7 +186,7 @@ static TypeId pointer_arith (Sema *s, uint32_t idx, uint8_t op, uint32_t *left, 
 	TypeId rp = type_ptr_repr(*r);
 
 	if (lp != TYPE_ERROR && is_integer_operand(*r)) {
-		if (types[lp].base == TYPE_VOID) {
+		if (type_unconst_of(types[lp].base) == TYPE_VOID) {
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 					"pointer arithmetic on 'ptr void' is not allowed");
 			return TYPE_ERROR;
@@ -196,7 +196,7 @@ static TypeId pointer_arith (Sema *s, uint32_t idx, uint8_t op, uint32_t *left, 
 	}
 	if (op == NODE_ADD && is_integer_operand(*l)
 			&& rp != TYPE_ERROR) {
-		if (types[rp].base == TYPE_VOID) {
+		if (type_unconst_of(types[rp].base) == TYPE_VOID) {
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 					"pointer arithmetic on 'ptr void' is not allowed");
 			return TYPE_ERROR;
@@ -207,7 +207,7 @@ static TypeId pointer_arith (Sema *s, uint32_t idx, uint8_t op, uint32_t *left, 
 	if (op == NODE_SUB && lp != TYPE_ERROR
 			&& rp != TYPE_ERROR) {
 		if (!same_pointee(*l, *r)) return pointer_mismatch(s, idx, *l, *r);
-		if (types[lp].base == TYPE_VOID) {
+		if (type_unconst_of(types[lp].base) == TYPE_VOID) {
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 					"pointer arithmetic on 'ptr void' is not allowed");
 			return TYPE_ERROR;
