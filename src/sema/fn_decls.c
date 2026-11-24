@@ -62,15 +62,43 @@ static void check_default_syms (Sema *s, uint32_t node, const char *param, uint1
 		check_default_syms(s, c, param, plen);
 }
 
+static int new_init (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+
+	while (n->type == NODE_CAST && n->child != NO_NODE)
+		n = s->ast->nodes + n->child;
+	return n->type == NODE_NEW;
+}
+
+static int refs_local (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+
+	if (n->type == NODE_ID && n->sym != NO_SYMBOL
+			&& s->table.symbols[n->sym].depth > 0)
+		return 1;
+	for (uint32_t c = n->child; c != NO_NODE; c = s->ast->nodes[c].next_bro) {
+		if (refs_local(s, c)) return 1;
+	}
+	return 0;
+}
+
 static void check_static_decl (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
 	int has_init = n->child != NO_NODE;
 
-	if (has_init && n->data_type != TYPE_ERROR
-			&& !is_static_const(s, n->child))
-		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + n->child),
-				"a 'static' initializer must be a constant expression");
+	if (has_init && n->data_type != TYPE_ERROR) {
+		if (new_init(s, n->child)) {
+			if (refs_local(s, n->child))
+				error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + n->child),
+						"a 'static' initializer with 'new' cannot reference locals");
+		} else if (!is_static_const(s, n->child)) {
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + n->child),
+					"a 'static' initializer must be a constant expression");
+		}
+	}
 
 	uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_VAR, n->data_type, idx);
 

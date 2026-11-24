@@ -29,6 +29,7 @@ static TypeId check_expr_node (Sema *s, uint32_t idx)
 	case NODE_ALIGNOF: return check_alignof(s, idx);
 	case NODE_OFFSETOF: return check_offsetof(s, idx);
 	case NODE_DOT: return check_dot(s, idx);
+	case NODE_NEW: return check_new(s, idx);
 	case NODE_FN_CALL: return check_fn_call(s, idx);
 	case NODE_ASSIGN: return check_assign(s, idx);
 	case NODE_ADD_ASSIGN: case NODE_SUB_ASSIGN: case NODE_MUL_ASSIGN:
@@ -87,7 +88,7 @@ int expr_has_effect (Sema *s, uint32_t idx)
 	switch (n->type)
 	{
 	case NODE_FN_CALL: case NODE_INC: case NODE_DEC:
-	case NODE_ASSIGN: return 1;
+	case NODE_ASSIGN: case NODE_NEW: return 1;
 	case NODE_LIT_i64: case NODE_LIT_u64: case NODE_LIT_CHAR:
 	case NODE_LIT_STR: case NODE_LIT_NULL: case NODE_EMPTY:
 		return 0;

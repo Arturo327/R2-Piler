@@ -185,6 +185,46 @@ static uint32_t parse_unary (Parser *p)
 	return node;
 }
 
+static uint32_t parse_new (Parser *p)
+{
+	Token kw = p->curr;
+	uint32_t node = new_node(p, NODE_NEW, kw.line, kw.col);
+	uint32_t last = NO_NODE;
+
+	p->ast.nodes[node].len = kw.len;
+	advance(p);
+	if (p->curr.type == TOK_LPAREN) {
+		advance(p);
+		uint32_t alloc = parse_expr(p, 0);
+		consume(p, TOK_RPAREN, "expected ')' after the allocator expression");
+		append_child(p, node, &last, alloc);
+		p->ast.nodes[node].flags |= NODE_FLAG_CUSTOM_ALLOC;
+	}
+
+	uint16_t type_node;
+	TypeId base = parse_new_type(p, node, &type_node);
+
+	p->ast.nodes[node].data_type = base;
+	p->ast.nodes[node].type_node = type_node;
+	uint32_t dims = 0;
+
+	while (p->curr.type == TOK_LBRACE && !p->panic_mode) {
+		advance(p);
+		if (p->curr.type == TOK_RBRACE) {
+			error_report(p->err, ERR_ERROR, token_loc(p->curr),
+					"expected the allocation size after '['");
+			p->panic_mode = 1;
+			break;
+		}
+		uint32_t dim = parse_expr(p, 0);
+		consume(p, TOK_RBRACE, "expected ']' after the allocation size");
+		append_child(p, node, &last, dim);
+		dims++;
+	}
+	p->ast.nodes[node].u64 = dims;
+	return node;
+}
+
 static uint32_t parse_primary_inner (Parser *p)
 {
 	uint16_t line = p->curr.line;
@@ -196,6 +236,8 @@ static uint32_t parse_primary_inner (Parser *p)
 	case TOK_SUB: case TOK_NOT_L: case TOK_NOT_A:
 	case TOK_AT: case TOK_DOLLAR:
 		return parse_unary(p);
+	case TOK_NEW:
+		return parse_new(p);
 	case TOK_SIZEOF:
 		return parse_sizeof(p);
 	case TOK_ALIGNOF:

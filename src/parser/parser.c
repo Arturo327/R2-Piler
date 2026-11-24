@@ -81,7 +81,7 @@ static void syncro_advance (Parser *p)
 			return;
 
 		case TOK_FN: case TOK_VAR: case TOK_ARR: case TOK_IF:
-		case TOK_WHILE: case TOK_FOR: case TOK_RET:
+		case TOK_WHILE: case TOK_FOR: case TOK_RET: case TOK_DELETE:
 		case TOK_BREAK: case TOK_CONTINUE: case TOK_PUB: case TOK_EXPORT: case TOK_CONST:
 		case TOK_SWITCH: case TOK_CASE: case TOK_DEFAULT:
 		case TOK_EXTERN: case TOK_IMPORT: case TOK_FROM: case TOK_RKEY:

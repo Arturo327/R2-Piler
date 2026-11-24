@@ -1,0 +1,21 @@
+struct Buf [1:8] depth=0 size=16 align=8
+  field p type=ptr const void offset=0
+  field q type=ptr void offset=8
+fn memcpy [3:11] depth=0 type=ptr void
+var ro [5:5] depth=0 type=ptr const void
+fn same [7:4] depth=0 type=i64
+fn to_ro [9:4] depth=0 type=ptr const void
+fn from_ro [11:4] depth=0 type=ptr const i8
+fn use [13:4] depth=0 type=i64
+fn main [23:8] depth=0 type=i64
+param a [7:10] depth=1 type=ptr const void
+param b [7:30] depth=1 type=ptr const void
+param p [9:11] depth=1 type=ptr i8
+param p [11:13] depth=1 type=ptr const void
+param s [13:9] depth=1 type=ptr const i8
+param n [13:27] depth=1 type=u64
+var p [14:7] depth=1 type=ptr const void
+var q [15:7] depth=1 type=ptr void
+var r [16:7] depth=1 type=ptr const i8
+var b [17:7] depth=1 type=Buf
+var s [24:7] depth=1 type=i8[2]

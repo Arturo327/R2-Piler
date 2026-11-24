@@ -10,7 +10,7 @@ for src in "$dir"/*_src.r2; do
 	base=${src%_src.r2}
 	want_status=0
 	[ -f "${base}_status.txt" ] && want_status=$(cat "${base}_status.txt")
-	"$bin" "$flag" "$src" >"$tmp_out" 2>"$tmp_err"
+	"$bin" "$flag" -p std "$src" >"$tmp_out" 2>"$tmp_err"
 	status=$?
 	ok=1
 	if [ ! -f "${base}_result.txt" ]; then

@@ -1,0 +1,11 @@
+// r2i v1
+// source: /home/artu/Documentos/Proyectos/opencode/std/errno.r2
+// target: x86-64-sysv
+// module: 5errno
+// has_dynamic_init: 0
+// imports:
+// depends:
+// total_imports:
+
+pub extern fn __errno_location () : ptr i32;
+

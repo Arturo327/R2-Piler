@@ -1,0 +1,43 @@
+// r2i v1
+// source: /home/artu/Documentos/Proyectos/opencode/std/string.r2
+// target: x86-64-sysv
+// module: 6string
+// has_dynamic_init: 0
+// imports:
+// depends:
+// total_imports:
+
+pub extern fn strlen (s : ptr i8) : u64;
+
+pub extern fn strcmp (a : ptr i8, b : ptr i8) : i32;
+
+pub extern fn strncmp (a : ptr i8, b : ptr i8, n : u64) : i32;
+
+pub extern fn strcpy (dst : ptr i8, src : ptr i8) : ptr i8;
+
+pub extern fn strncpy (dst : ptr i8, src : ptr i8, n : u64) : ptr i8;
+
+pub extern fn strcat (dst : ptr i8, src : ptr i8) : ptr i8;
+
+pub extern fn strncat (dst : ptr i8, src : ptr i8, n : u64) : ptr i8;
+
+pub extern fn strchr (s : ptr i8, c : i32) : ptr i8;
+
+pub extern fn strrchr (s : ptr i8, c : i32) : ptr i8;
+
+pub extern fn strstr (s : ptr i8, sub : ptr i8) : ptr i8;
+
+pub extern fn memchr (s : ptr void, c : i32, n : u64) : ptr void;
+
+pub extern fn strtok (s : ptr i8, delim : ptr i8) : ptr i8;
+
+pub extern fn strerror (errnum : i32) : ptr i8;
+
+pub extern fn memcpy (dst : ptr void, src : ptr void, n : u64) : ptr void;
+
+pub extern fn memmove (dst : ptr void, src : ptr void, n : u64) : ptr void;
+
+pub extern fn memset (dst : ptr void, c : i32, n : u64) : ptr void;
+
+pub extern fn memcmp (a : ptr void, b : ptr void, n : u64) : i32;
+

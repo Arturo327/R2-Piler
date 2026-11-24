@@ -439,6 +439,33 @@ static uint32_t error_const_prefix (Parser *p)
 	return new_node(p, NODE_ERROR, kw.line, kw.col);
 }
 
+static uint32_t parse_delete (Parser *p)
+{
+	Token kw = p->curr;
+	uint32_t node = new_node(p, NODE_DELETE, kw.line, kw.col);
+	uint32_t last = NO_NODE;
+	uint32_t target;
+
+	p->ast.nodes[node].len = kw.len;
+	advance(p);
+	if (p->curr.type == TOK_LPAREN) {
+		advance(p);
+		target = parse_expr(p, 0);
+		consume(p, TOK_RPAREN, "expected ')' after the deallocator expression");
+		if (p->curr.type != TOK_SEMCOL) {
+			append_child(p, node, &last, target);
+			p->ast.nodes[node].flags |= NODE_FLAG_CUSTOM_ALLOC;
+			target = parse_expr(p, 0);
+		}
+	} else {
+		target = parse_expr(p, 0);
+	}
+
+	append_child(p, node, &last, target);
+	consume(p, TOK_SEMCOL, "expected ';' after 'delete'");
+	return node;
+}
+
 uint32_t parse_statement_inner (Parser *p, int root)
 {
 	switch (p->curr.type)
@@ -477,6 +504,7 @@ uint32_t parse_statement_inner (Parser *p, int root)
 	case TOK_WHILE: return parse_while(p);
 	case TOK_FOR: return parse_for(p);
 	case TOK_SWITCH: return parse_switch(p);
+	case TOK_DELETE: return parse_delete(p);
 	case TOK_INC: case TOK_DEC: return error_prefix_inc(p);
 	default: {
 		uint32_t node = parse_expr(p, 0);

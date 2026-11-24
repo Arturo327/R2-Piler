@@ -1,0 +1,13 @@
+type Slice [3:6] depth=0 type=Slice base=i32[]
+fn my_alloc [1:11] depth=0 type=ptr void
+fn no_args [5:4] depth=0 type=void
+fn takes_i64 [6:4] depth=0 type=void
+fn ret_slice [7:4] depth=0 type=i32[]
+fn main [9:8] depth=0 type=i64
+param p [6:15] depth=1 type=ptr i64
+param p [7:15] depth=1 type=ptr void
+var s [7:43] depth=1 type=i32[]
+var a [10:6] depth=1 type=i32[]
+var b [11:6] depth=1 type=i32[]
+var c [12:6] depth=1 type=i32[][]
+var d [13:6] depth=1 type=i32

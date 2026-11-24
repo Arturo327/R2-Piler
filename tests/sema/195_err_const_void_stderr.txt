@@ -1,0 +1,7 @@
+tests/sema/195_err_const_void_src.r2:1:17: ERROR: 'const' cannot be applied to type void; only object types can be const
+      1 | pub fn bad () : const void { return; }
+        |                 ^
+tests/sema/195_err_const_void_src.r2:4:17: ERROR: 'const' cannot be applied to type void; only object types can be const
+      4 |   return sizeof(const void) as i64;
+        |                 ^
+2 errors, 0 warnings

@@ -68,6 +68,8 @@ void check_fn_dec (Sema *s, uint32_t idx);
 void check_extern_fn (Sema *s, uint32_t idx);
 void check_fn_defaults_all (Sema *s);
 void check_var_dec (Sema *s, uint32_t idx);
+TypeId check_new (Sema *s, uint32_t idx);
+void check_delete (Sema *s, uint32_t idx);
 void check_main_signature (Sema *s, uint32_t idx);
 void check_signature_types (Sema *s, uint32_t idx, int is_extern);
 void check_export_fn (Sema *s, uint32_t idx);

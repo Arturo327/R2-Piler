@@ -18,6 +18,7 @@ uint32_t maybe_inc_dec (Parser *p, uint32_t node);
 uint32_t parse_postfix (Parser *p, uint32_t node);
 
 TypeId parse_type (Parser *p, int allow_void, uint32_t owner, uint16_t *type_node);
+TypeId parse_new_type (Parser *p, uint32_t owner, uint16_t *type_node);
 uint32_t parse_sizeof (Parser *p);
 uint32_t parse_alignof (Parser *p);
 uint32_t parse_offsetof (Parser *p);

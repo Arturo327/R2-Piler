@@ -447,6 +447,7 @@ uint32_t gen_expr (IR *ir, ASTNode *n)
 	case NODE_ADDR: return gen_addr(ir, n);
 	case NODE_LIT_NULL: return make_const(ir, 0, TYPE_NULL);
 	case NODE_LIT_STR: return make_str_lit(ir, n);
+	case NODE_NEW: return gen_new(ir, n);
 	case NODE_FN_CALL: return gen_call_value(ir, n);
 	case NODE_ASSIGN: return gen_assign(ir, n);
 	case NODE_ADD_ASSIGN: case NODE_SUB_ASSIGN: case NODE_MUL_ASSIGN:

@@ -521,6 +521,7 @@ static void gen_stmt_inner (IR *ir, ASTNode *n)
 	case NODE_IF: gen_if(ir, n); return;
 	case NODE_SWITCH: gen_switch(ir, n); return;
 	case NODE_INC: case NODE_DEC: gen_inc_dec(ir, n); return;
+	case NODE_DELETE: gen_delete(ir, n); return;
 	case NODE_MULTI_ASSIGN: gen_multi_assign(ir, n); return;
 	case NODE_EMPTY: return;
 	default: gen_expr(ir, n); return;

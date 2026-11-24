@@ -13,10 +13,10 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **580 fixtures** pass (`make test`): 56 lexer, 100 parser, 192 sema, 72 IR,
-  44 optimizer, 46 mangling/visibility/export, 14 `.r2i`, 14 C/C++ header and
+- **591 fixtures** pass (`make test`): 57 lexer, 102 parser, 196 sema, 73 IR,
+  45 optimizer, 46 mangling/visibility/export, 14 `.r2i`, 16 C/C++ header and
   42 import cases.
-- **174 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+- **178 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
@@ -87,7 +87,14 @@ tested:
   arguments and `sret` returns, arrays of structs, globals/`static` structs
   (constant initializers become a `.data` image at any level; pointer/slice/
   bitfield initializers are written from `__r2_init`) and `sizeof`.
-- Not implemented yet: classes, floating point, heap arrays and `defer`.
+- **Heap arrays**: `new T[N]` returns a `T[]` slice backed by `malloc`, `new T`
+  returns a `ptr T`, and `new T[D1][D2]...` allocates a rank-N slice (one
+  runtime length per dimension). A custom allocator can be supplied with
+  `new(expr) T[N]`; `delete x;` frees a pointer or the data buffer of a slice,
+  and `delete(expr) x;` calls a custom deallocator. The default forms need
+  `import "stdlib";` (the built-in `malloc`/`free`), while the explicit
+  allocator/deallocator forms do not.
+- Not implemented yet: classes, floating point and `defer`.
 
 ---
 
@@ -115,6 +122,12 @@ tested:
   `for (var i : i64 : a)`, `for (var i : a)` and `for (i : a)` — and one index
   per dimension (`for (var i : i64, j : i64 : mat)`), desugared by the parser
   into ordinary `for`s bounded by `a.len`, `a[i].len`, ...
+- Heap allocation: `new T[N]` / `new T[D1][D2]...` (a `T[]`-style slice) and
+  `new T` (a `ptr T`), `new(allocator_expr)` for custom allocators,
+  `delete x;` and `delete(deallocator_expr) x;`. The default allocator/free
+  require `import "stdlib";` and use `malloc`/`free`; memory is not
+  zero-initialized. `new`/`delete` are also allowed in global and `static`
+  initializers (they run from `__r2_init`, setting `has_dynamic_init`).
 - String literals, typed as `string` and usable wherever `ptr i8` is expected.
 - Top-level visibility: private by default, `pub` for public symbols (`.globl`,
   `_r2_pf_...`/`_r2_pv_...`) and `export` for plain C-linkable definitions;

@@ -66,6 +66,37 @@ uint32_t gen_field (IR *ir, ASTNode *n)
 	return make_ld_ptr(ir, addr, n->data_type);
 }
 
+static uint32_t slice_desc_addr (IR *ir, ASTNode *n, int *level)
+{
+	while (n->type == NODE_CAST && n->child != NO_NODE)
+		n = ir->ast->nodes + n->child;
+	if (n->type == NODE_INDEX) {
+		ASTNode *base = ir->ast->nodes + n->child;
+
+		if (type_kind(base->data_type) != TK_SLICE) {
+			*level = 0;
+			return gen_index_addr(ir, n);
+		}
+		uint32_t addr = slice_desc_addr(ir, base, level);
+
+		(*level)++;
+		return addr;
+	}
+	*level = 0;
+	switch (n->type)
+	{
+	case NODE_ID: {
+		Symbol *s = ir->symtab->symbols + n->sym;
+		return local_storage_addr(ir, s, s->type);
+	}
+	case NODE_DOT: return gen_field_addr(ir, n);
+	case NODE_DEREF: return gen_expr(ir, n);
+	case NODE_FN_CALL: return gen_call_desc(ir, n);
+	case NODE_NEW: return gen_new_desc(ir, n);
+	default: return gen_expr(ir, n);
+	}
+}
+
 uint32_t slice_dim_reg (IR *ir, ASTNode *n, int dim, TypeId type)
 {
 	ASTNode *str = n;
@@ -79,7 +110,9 @@ uint32_t slice_dim_reg (IR *ir, ASTNode *n, int dim, TypeId type)
 	ASTNode *root = n;
 	TypeId t = n->data_type;
 
-	while (root->type == NODE_INDEX) root = ir->ast->nodes + root->child;
+	while (root->type == NODE_INDEX
+			|| (root->type == NODE_CAST && root->child != NO_NODE))
+		root = ir->ast->nodes + root->child;
 	for (int d = 0; d < dim; d++) t = types[t].base;
 	if (type_kind(t) == TK_ARRAY) return make_const(ir, types[t].count, type);
 
@@ -95,23 +128,11 @@ uint32_t slice_dim_reg (IR *ir, ASTNode *n, int dim, TypeId type)
 		}
 	}
 
-	uint32_t addr;
-	switch (n->type)
-	{
-	case NODE_ID: {
-		Symbol *s = ir->symtab->symbols + n->sym;
-		addr = local_storage_addr(ir, s, s->type);
-		break;
-	}
-	case NODE_INDEX: addr = gen_index_addr(ir, n); break;
-	case NODE_DOT: addr = gen_field_addr(ir, n); break;
-	case NODE_DEREF: addr = gen_expr(ir, n); break;
-	case NODE_FN_CALL: addr = gen_call_desc(ir, n); break;
-	default: addr = gen_expr(ir, n); break;
-	}
-
+	int level;
 	int dyn_idx = type_dyn_rank(n->data_type) - type_dyn_rank(t);
-	uint32_t off = (uint32_t)(8 * (dyn_idx + 1));
+	uint32_t addr = slice_desc_addr(ir, n, &level);
+	uint64_t off = (uint64_t)8 * (uint32_t)(level + dyn_idx + 1);
+
 	return make_ld_ptr(ir, add_offset(ir, addr, off), type);
 }
 

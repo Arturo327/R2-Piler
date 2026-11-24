@@ -1,0 +1,19 @@
+// r2i v1
+// source: /home/artu/Documentos/Proyectos/opencode/std/unistd.r2
+// target: x86-64-sysv
+// module: 6unistd
+// has_dynamic_init: 0
+// imports:
+// depends:
+// total_imports:
+
+pub extern fn read (fd : i32, buf : ptr void, n : u64) : i64;
+
+pub extern fn write (fd : i32, buf : ptr void, n : u64) : i64;
+
+pub extern fn open (path : ptr i8, flags : i32, ...) : i32;
+
+pub extern fn close (fd : i32) : i32;
+
+pub extern fn sleep (seconds : u32) : u32;
+

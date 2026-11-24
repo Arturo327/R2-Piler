@@ -1,0 +1,61 @@
+// r2i v1
+// source: /home/artu/Documentos/Proyectos/opencode/std/io.r2
+// target: x86-64-sysv
+// module: 2io
+// has_dynamic_init: 0
+// imports:
+// depends:
+// total_imports:
+
+pub newtype _r2_n_2io_4FILE = ptr void;
+
+pub extern var stdin : _r2_n_2io_4FILE;
+
+pub extern var stdout : _r2_n_2io_4FILE;
+
+pub extern var stderr : _r2_n_2io_4FILE;
+
+pub extern fn fopen (path : ptr i8, mode : ptr i8) : _r2_n_2io_4FILE;
+
+pub extern fn fclose (stream : _r2_n_2io_4FILE) : i32;
+
+pub extern fn printf (fmt : ptr i8, ...) : i32;
+
+pub extern fn fprintf (stream : _r2_n_2io_4FILE, fmt : ptr i8, ...) : i32;
+
+pub extern fn sprintf (dst : ptr i8, fmt : ptr i8, ...) : i32;
+
+pub extern fn snprintf (dst : ptr i8, n : u64, fmt : ptr i8, ...) : i32;
+
+pub extern fn scanf (fmt : ptr i8, ...) : i32;
+
+pub extern fn fscanf (stream : _r2_n_2io_4FILE, fmt : ptr i8, ...) : i32;
+
+pub extern fn sscanf (s : ptr i8, fmt : ptr i8, ...) : i32;
+
+pub extern fn puts (s : ptr i8) : i32;
+
+pub extern fn putchar (c : i32) : i32;
+
+pub extern fn fputs (s : ptr i8, stream : _r2_n_2io_4FILE) : i32;
+
+pub extern fn fflush (stream : _r2_n_2io_4FILE) : i32;
+
+pub extern fn getchar () : i32;
+
+pub extern fn fgets (dst : ptr i8, n : i32, stream : _r2_n_2io_4FILE) : ptr i8;
+
+pub extern fn fread (dst : ptr void, size : u64, n : u64, stream : _r2_n_2io_4FILE) : u64;
+
+pub extern fn fwrite (src : ptr void, size : u64, n : u64, stream : _r2_n_2io_4FILE) : u64;
+
+pub extern fn fseek (stream : _r2_n_2io_4FILE, offset : i64, whence : i32) : i32;
+
+pub extern fn ftell (stream : _r2_n_2io_4FILE) : i64;
+
+pub extern fn rewind (stream : _r2_n_2io_4FILE) : void;
+
+pub extern fn feof (stream : _r2_n_2io_4FILE) : i32;
+
+pub extern fn perror (s : ptr i8) : void;
+

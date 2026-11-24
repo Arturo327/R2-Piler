@@ -1,0 +1,40 @@
+tests/sema/197_heap_err_src.r2:6:15: WARNING: unused parameter 'p'
+      6 | fn takes_i64 (p : ptr i64) : void {}
+        |               ^
+tests/sema/197_heap_err_src.r2:10:18: ERROR: 'new' requires the R2 standard library; add 'import "stdlib";'
+     10 |         var a : i32[] = new i32[4];
+        |                         ^~~
+tests/sema/197_heap_err_src.r2:11:22: ERROR: the allocator expression of 'new' must be a pointer, not i64
+     11 |         var b : i32[] = new(4) i32[4];
+        |                             ^
+tests/sema/197_heap_err_src.r2:12:20: ERROR: 'new' requires the R2 standard library; add 'import "stdlib";'
+     12 |         var c : Slice[] = new Slice[3];
+        |                           ^~~
+tests/sema/197_heap_err_src.r2:12:20: ERROR: cannot allocate a value of type i32[] with 'new'
+     12 |         var c : Slice[] = new Slice[3];
+        |                           ^~~
+tests/sema/197_heap_err_src.r2:14:2: ERROR: 'delete' requires the R2 standard library; add 'import "stdlib";'
+     14 |         delete a;
+        |         ^~~~~~
+tests/sema/197_heap_err_src.r2:15:2: ERROR: 'delete' requires the R2 standard library; add 'import "stdlib";'
+     15 |         delete d;
+        |         ^~~~~~
+tests/sema/197_heap_err_src.r2:15:9: ERROR: 'delete' requires a pointer or a slice, not i32
+     15 |         delete d;
+        |                ^
+tests/sema/197_heap_err_src.r2:16:2: ERROR: the deallocator must take exactly one pointer argument
+     16 |         delete(no_args) a;
+        |         ^~~~~~
+tests/sema/197_heap_err_src.r2:17:2: ERROR: cannot pass a value of type i32[] to the deallocator parameter of type ptr i64
+     17 |         delete(takes_i64) a;
+        |         ^~~~~~
+tests/sema/197_heap_err_src.r2:18:2: ERROR: the deallocator return type is not supported; use a scalar or void
+     18 |         delete(ret_slice) a;
+        |         ^~~~~~
+tests/sema/197_heap_err_src.r2:11:6: WARNING: unused variable 'b'
+     11 |         var b : i32[] = new(4) i32[4];
+        |             ^
+tests/sema/197_heap_err_src.r2:12:6: WARNING: unused variable 'c'
+     12 |         var c : Slice[] = new Slice[3];
+        |             ^
+10 errors, 3 warnings

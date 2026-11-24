@@ -405,6 +405,17 @@ TypeId parse_type (Parser *p, int allow_void, uint32_t owner, uint16_t *type_nod
 	return make_type_spec(p, ts, owner, type_node);
 }
 
+TypeId parse_new_type (Parser *p, uint32_t owner, uint16_t *type_node)
+{
+	TypeSpec *ts = parse_type_atom(p, 0, 0);
+
+	if (!ts) {
+		*type_node = NO_TYPE_NODE;
+		return TYPE_ERROR;
+	}
+	return make_type_spec(p, ts, owner, type_node);
+}
+
 uint32_t parse_sizeof (Parser *p)
 {
 	uint16_t line = p->curr.line;

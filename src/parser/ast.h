@@ -23,6 +23,7 @@
 #define NODE_FLAG_VARARG_TYPED 2
 #define NODE_FLAG_VARARG_LOWERED 4
 #define NODE_FLAG_INDIRECT 8
+#define NODE_FLAG_CUSTOM_ALLOC 1
 
 typedef enum {
 	NODE_ERROR = 0, NODE_EMPTY,
@@ -54,6 +55,7 @@ typedef enum {
 	NODE_TYPE_FN, NODE_FN_PARAM,						// function pointer types
 	NODE_IMPORT_DEC, NODE_FROM_DEC,						// imported modules
 	NODE_DEPENDS_DEC,							// native library dependencies
+	NODE_NEW, NODE_DELETE,							// heap
 	NODE_COUNT
 } NodeType;
 

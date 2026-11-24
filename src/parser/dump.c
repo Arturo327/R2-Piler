@@ -100,6 +100,8 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_FN_PARAM] = "NODE_FN_PARAM",
 	[NODE_IMPORT_DEC] = "NODE_IMPORT_DEC",
 	[NODE_FROM_DEC] = "NODE_FROM_DEC",
+	[NODE_NEW] = "NODE_NEW",
+	[NODE_DELETE] = "NODE_DELETE",
 };
 
 static inline void indent (int depth)
@@ -165,6 +167,13 @@ static void dump_node_value (ASTNode *n)
 		break;
 	case NODE_CAST:
 		if (n->flags & NODE_FLAG_LITERAL) printf(" literal");
+		break;
+	case NODE_NEW:
+		printf(" dims=%llu", (unsigned long long)n->u64);
+		if (n->flags & NODE_FLAG_CUSTOM_ALLOC) printf(" custom-alloc");
+		break;
+	case NODE_DELETE:
+		if (n->flags & NODE_FLAG_CUSTOM_ALLOC) printf(" custom-free");
 		break;
 	default:
 		break;

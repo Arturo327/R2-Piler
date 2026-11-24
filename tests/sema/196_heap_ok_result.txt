@@ -1,0 +1,9 @@
+fn my_alloc [1:11] depth=0 type=ptr void
+fn my_free [2:11] depth=0 type=void
+fn make [4:4] depth=0 type=i32[][]
+fn main [8:8] depth=0 type=i64
+param n [4:10] depth=1 type=i64
+var a [9:6] depth=1 type=i32[]
+var b [10:6] depth=1 type=i32[][]
+var p [11:6] depth=1 type=ptr i32
+var q [12:6] depth=1 type=ptr i32

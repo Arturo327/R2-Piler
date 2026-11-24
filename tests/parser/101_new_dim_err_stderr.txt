@@ -1,0 +1,7 @@
+tests/parser/101_new_dim_err_src.r2:2:26: ERROR: expected the allocation size after '['
+      2 |         var a : i32[] = new i32[];
+        |                                 ^
+tests/parser/101_new_dim_err_src.r2:3:29: ERROR: expected the allocation size after '['
+      3 |         var b : i32[] = new i32[2][];
+        |                                    ^
+2 errors, 0 warnings

@@ -135,6 +135,8 @@ typedef struct IR {
 	uint32_t string_tab_cap;
 
 	uint32_t init_fn;
+	uint32_t fn_malloc;
+	uint32_t fn_free;
 
 	uint32_t *init_deps;
 	uint32_t init_dep_count;
