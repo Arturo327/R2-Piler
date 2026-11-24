@@ -64,16 +64,29 @@ uint32_t sema_lookup (Sema *s, const char *name, uint16_t len)
 {
 	uint32_t sym = symtab_find(&s->table, (char *)name, len);
 
-	if (sym != NO_SYMBOL) return sym;
+	if (sym != NO_SYMBOL) {
+		uint32_t src = s->table.symbols[sym].decl;
+		if (src == NO_NODE || s->in_imported
+				|| !(s->ast->nodes[src].flags & NODE_FLAG_IMPORTED))
+			return sym;
+	}
 	ImportedDecl *decl = imports_lookup(s, name, len);
 	if (!decl) return NO_SYMBOL;
 	return s->ast->nodes[decl->node].sym;
 }
 
-TypeId sema_lookup_type (Sema *s, const char *name, uint16_t len)
+TypeId sema_lookup_type (Sema *s, const char *name, uint16_t len, int in_import)
 {
 	TypeId id = find_type(name, len);
+	uint32_t tsym = symtab_find(&s->table, (char *)name, len);
 
+	if (tsym != NO_SYMBOL && !in_import) {
+		uint32_t src = s->table.symbols[tsym].decl;
+
+		if (src != NO_NODE && (s->ast->nodes[src].flags & NODE_FLAG_EXPORT)
+				&& (s->ast->nodes[src].flags & NODE_FLAG_IMPORTED))
+			id = TYPE_ERROR;
+	}
 	if (id != TYPE_ERROR) return id;
 	ImportedDecl *decl = imports_lookup(s, name, len);
 

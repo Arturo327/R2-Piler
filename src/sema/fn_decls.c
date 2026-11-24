@@ -454,8 +454,11 @@ void check_fn_defaults_all (Sema *s)
 	while (idx != NO_NODE) {
 		ASTNode *n = s->ast->nodes + idx;
 
-		if (n->type == NODE_FN_DEC || n->type == NODE_EXTERN_FN_DEC)
+		if (n->type == NODE_FN_DEC || n->type == NODE_EXTERN_FN_DEC) {
+			s->in_imported = (n->flags & NODE_FLAG_IMPORTED) != 0;
 			check_fn_defaults(s, idx);
+			s->in_imported = 0;
+		}
 		idx = n->next_bro;
 	}
 }

@@ -60,6 +60,7 @@ typedef struct Sema {
 	uint32_t curr_ret_list;
 	uint8_t too_deep;
 	uint8_t ref_arg;
+	uint8_t in_imported;
 
 	const char *mod_name;
 	uint16_t mod_len;

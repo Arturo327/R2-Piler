@@ -5,7 +5,7 @@
 
 ErrorLoc node_loc (ASTNode *n);
 uint32_t sema_lookup (Sema *s, const char *name, uint16_t len);
-TypeId sema_lookup_type (Sema *s, const char *name, uint16_t len);
+TypeId sema_lookup_type (Sema *s, const char *name, uint16_t len, int in_import);
 ImportedDecl *imports_lookup (Sema *s, const char *name, uint16_t len);
 void imports_check_collisions (Sema *s);
 TypeId resolve_type_node (Sema *s, ASTNode *n);

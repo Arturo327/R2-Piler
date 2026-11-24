@@ -21,6 +21,7 @@ static void rewrite_positions (AST *ast, uint32_t start, uint32_t use)
 	for (uint32_t i = start; i < ast->count; i++) {
 		ast->nodes[i].line = line;
 		ast->nodes[i].col = col;
+		ast->nodes[i].flags |= NODE_FLAG_IMPORT_BODY;
 	}
 }
 

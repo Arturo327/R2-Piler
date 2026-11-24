@@ -1,0 +1,13 @@
+bad.r2:5:10: ERROR: unknown type 'Box'
+      5 |         var q : Box = {.v = 1} as Box;
+        |                 ^~~
+bad.r2:5:28: ERROR: unknown type 'Box'
+      5 |         var q : Box = {.v = 1} as Box;
+        |                                   ^~~
+bad.r2:6:10: ERROR: unknown type 'Color'
+      6 |         var c : Color = b::red();
+        |                 ^~~~~
+bad.r2:5:6: WARNING: unused variable 'q'
+      5 |         var q : Box = {.v = 1} as Box;
+        |             ^
+3 errors, 1 warning

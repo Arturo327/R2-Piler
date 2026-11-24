@@ -10,7 +10,8 @@ static int ptr_base_ok (TypeId base)
 
 static TypeId resolve_type_ref (Sema *s, ASTNode *ref, uint8_t *done, int *deferred)
 {
-	TypeId id = sema_lookup_type(s, ref->str, ref->len);
+	TypeId id = sema_lookup_type(s, ref->str, ref->len,
+			(ref->flags & NODE_FLAG_IMPORT_BODY) != 0);
 
 	if (id == TYPE_ERROR) {
 		error_report(s->err, ERR_ERROR, node_loc(ref),

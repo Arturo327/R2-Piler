@@ -1,0 +1,7 @@
+app.r2:3:31: ERROR: 'abs' is not a known function
+      3 | pub fn main () : i64 { return abs(-7) + twice(2); }
+        |                               ^~~
+app.r2:3:41: ERROR: 'twice' is not a known function
+      3 | pub fn main () : i64 { return abs(-7) + twice(2); }
+        |                                         ^~~~~
+2 errors, 0 warnings

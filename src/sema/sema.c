@@ -49,6 +49,7 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->expr_depth = 0;
 	s->too_deep = 0;
 	s->ref_arg = 0;
+	s->in_imported = 0;
 	s->mod_name = NULL;
 	s->mod_len = 0;
 	s->mod_seen = 0;

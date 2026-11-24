@@ -148,7 +148,8 @@ static TypeId field_struct_dep (Sema *s, uint32_t idx)
 		ref = ref + ref->type_node;
 
 	if (ref->type != NODE_TYPE_REF) return TYPE_ERROR;
-	TypeId id = type_unconst_of(type_canon(sema_lookup_type(s, ref->str, ref->len)));
+	TypeId id = type_unconst_of(type_canon(sema_lookup_type(s, ref->str, ref->len,
+			(ref->flags & NODE_FLAG_IMPORT_BODY) != 0)));
 	return type_kind(id) == TK_STRUCT ? id : TYPE_ERROR;
 }
 

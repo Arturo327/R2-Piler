@@ -15,7 +15,7 @@ tested:
 
 - **591 fixtures** pass (`make test`): 57 lexer, 102 parser, 196 sema, 73 IR,
   45 optimizer, 46 mangling/visibility/export, 14 `.r2i`, 16 C/C++ header and
-  42 import cases.
+  44 import cases.
 - **178 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
