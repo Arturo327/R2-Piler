@@ -84,6 +84,7 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_TYPE_ARRAY] = "NODE_TYPE_ARRAY",
 	[NODE_TYPE_SLICE] = "NODE_TYPE_SLICE",
 	[NODE_STRUCT_DEC] = "NODE_STRUCT_DEC",
+	[NODE_CLASS_DEC] = "NODE_CLASS_DEC",
 	[NODE_FIELD_DEC] = "NODE_FIELD_DEC",
 	[NODE_STRUCT_INIT] = "NODE_STRUCT_INIT",
 	[NODE_FIELD_INIT] = "NODE_FIELD_INIT",
@@ -136,7 +137,8 @@ static void dump_node_value (ASTNode *n)
 	case NODE_ENUM_DEC: case NODE_ENUM_VAL:
 	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
-	case NODE_STRUCT_DEC: case NODE_FIELD_DEC: case NODE_MODULE_DEC:
+	case NODE_STRUCT_DEC: case NODE_CLASS_DEC: case NODE_FIELD_DEC:
+	case NODE_MODULE_DEC:
 	case NODE_DEPENDS_DEC: case NODE_RET_DEC: case NODE_RET_ITEM:
 	case NODE_IMPORT_DEC: case NODE_FROM_DEC:
 		if (n->str && !(n->flags & NODE_FLAG_INDIRECT))
@@ -150,6 +152,9 @@ static void dump_node_value (ASTNode *n)
 			printf(" ref");
 		if (n->flags & NODE_FLAG_UNION) printf(" union");
 		if (n->flags & NODE_FLAG_PACKED) printf(" packed");
+		if (n->flags & NODE_FLAG_PRIV) printf(" priv");
+		if (n->flags & NODE_FLAG_SELF) printf(" self");
+		if (n->flags & NODE_FLAG_METHOD) printf(" method");
 		if (n->flags & NODE_FLAG_BITFIELD) {
 			printf(" bitfield=%u", n->sym);
 			if (n->flags & NODE_FLAG_BITFIELD_TYPED) printf(" typed");

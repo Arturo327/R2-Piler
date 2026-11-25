@@ -65,7 +65,7 @@ static void scan_defs (Sroa *s)
 
 static void derive_addr (Sroa *s, IRInstr *in)
 {
-	if (type_kind(s->fn->reg_types[in->src1]) != TK_STRUCT) return;
+	if (!type_is_struct_like(s->fn->reg_types[in->src1])) return;
 	if (s->defs[in->dst] != 1 || !reg_addressed(s->fn, in->src1)) {
 		s->bad[in->src1] = 1;
 		return;
@@ -113,7 +113,7 @@ static int access_key (Sroa *s, IRInstr *in, Access *key)
 	int local = in->op == IR_LD_LOCAL || in->op == IR_STR_LOCAL;
 	int ptr = in->op == IR_LD_PTR || in->op == IR_STR_PTR;
 
-	if (local && type_kind(s->fn->reg_types[in->src1]) == TK_STRUCT) {
+	if (local && type_is_struct_like(s->fn->reg_types[in->src1])) {
 		key->slot = in->src1;
 		key->off = in->imm64;
 		return 1;

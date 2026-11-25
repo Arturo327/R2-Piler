@@ -137,7 +137,7 @@ static void put_value (Fuse *f, uint32_t idx, TypeId type, uint32_t off)
 		return;
 	}
 	if (n->type == NODE_LIT_STR) put_string(f, n, type, off);
-	else if (kind == TK_STRUCT) put_struct(f, idx, type, off);
+	else if ((kind == TK_STRUCT || kind == TK_CLASS)) put_struct(f, idx, type, off);
 	else if (kind == TK_ARRAY) put_array(f, idx, type, off);
 	else put_scalar(f, off, types[type].size, fuse_bits(n));
 }
@@ -148,7 +148,7 @@ int type_has_bitfield (TypeId id)
 
 	if (type_kind(id) == TK_ARRAY || type_kind(id) == TK_SLICE)
 		return type_has_bitfield(t->base);
-	if (type_kind(id) != TK_STRUCT) return 0;
+	if (!type_is_struct_like(id)) return 0;
 
 	for (uint16_t i = 0; i < t->field_count; i++) {
 		if (t->fields[i].bits) return 1;
@@ -226,7 +226,7 @@ static int image_type_ok (TypeId id)
 
 	if (type_ptr_repr(id) != TYPE_ERROR || kind == TK_SLICE || kind == TK_STR) return 0;
 	if (kind == TK_ARRAY) return image_type_ok(t->base);
-	if (kind != TK_STRUCT) return 1;
+	if ((kind != TK_STRUCT && kind != TK_CLASS)) return 1;
 	for (uint16_t i = 0; i < t->field_count; i++)
 		if (!image_type_ok(t->fields[i].type)) return 0;
 	return 1;

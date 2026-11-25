@@ -203,7 +203,7 @@ static void check_decl_init (Sema *s, uint32_t idx, int is_view)
 		check_view_init(s, idx);
 	} else if (kind == TK_ARRAY) {
 		check_array_init(s, idx);
-	} else if (kind == TK_STRUCT && (s->ast->nodes[n->child].type == NODE_STRUCT_INIT
+	} else if ((kind == TK_STRUCT || kind == TK_CLASS) && (s->ast->nodes[n->child].type == NODE_STRUCT_INIT
 			|| s->ast->nodes[n->child].type == NODE_ARRAY_INIT)) {
 		check_struct_init(s, n->child, n->data_type);
 	} else if (s->ast->nodes[n->child].type == NODE_STRUCT_INIT) {
@@ -287,7 +287,7 @@ static void check_ret_type (Sema *s, uint32_t ret, int is_extern, int multi)
 				"void cannot be used as one of several return types");
 	if (!is_extern || t == TYPE_VOID) return;
 
-	if (type_kind(t) == TK_STRUCT)
+	if (type_is_struct_like(t))
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"extern functions cannot return structs by value yet");
 	else if (type_kind(t) == TK_ARRAY || type_kind(t) == TK_SLICE)
@@ -324,7 +324,7 @@ void check_signature_types (Sema *s, uint32_t idx, int is_extern)
 		if (is_extern && type_dyn_rank(type) > 0)
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
 					"extern functions cannot take slice parameters");
-		if (is_extern && type_kind(type) == TK_STRUCT)
+		if (is_extern && type_is_struct_like(type))
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
 					"extern functions cannot take structs by value yet");
 
@@ -338,7 +338,7 @@ static void check_export_ret (Sema *s, uint32_t ret)
 	TypeId t = n->data_type;
 
 	if (t == TYPE_ERROR) return;
-	if (type_kind(t) == TK_STRUCT)
+	if (type_is_struct_like(t))
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"export functions cannot return structs by value yet");
 	else if (type_kind(t) == TK_ARRAY || type_dyn_rank(t) > 0)
@@ -367,7 +367,7 @@ void check_export_fn (Sema *s, uint32_t idx)
 	while (p != NO_NODE) {
 		TypeId type = s->ast->nodes[p].data_type;
 
-		if (type_kind(type) == TK_STRUCT)
+		if (type_is_struct_like(type))
 			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
 					"export functions cannot take structs by value yet");
 		else if (type_dyn_rank(type) > 0)
@@ -384,6 +384,7 @@ static void check_param_default (Sema *s, uint32_t param, int is_public)
 	TypeId type = p->data_type;
 
 	if (def == NO_NODE || type == TYPE_ERROR) return;
+	if (p->flags & NODE_FLAG_SELF) return;
 	if (p->flags & NODE_FLAG_REF_LOWERED) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + def),
 				"a reference parameter cannot have a default value");
@@ -458,6 +459,14 @@ void check_fn_defaults_all (Sema *s)
 			s->in_imported = (n->flags & NODE_FLAG_IMPORTED) != 0;
 			check_fn_defaults(s, idx);
 			s->in_imported = 0;
+		} else if (n->type == NODE_CLASS_DEC && n->sym != NO_SYMBOL) {
+			TypeId saved = s->curr_class;
+
+			s->curr_class = s->table.symbols[n->sym].type;
+			for (uint32_t m = n->child; m != NO_NODE; m = s->ast->nodes[m].next_bro)
+				if (s->ast->nodes[m].type == NODE_FN_DEC)
+					check_fn_defaults(s, m);
+			s->curr_class = saved;
 		}
 		idx = n->next_bro;
 	}

@@ -475,7 +475,7 @@ static int collect_typed_variadic_args (Sema *s, uint32_t call_idx, uint32_t par
 	return v.bad;
 }
 
-static void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
+void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx)
 {
 	uint32_t params_node = s->ast->nodes[fn_idx].child;
 	uint32_t flags = s->ast->nodes[params_node].flags;
@@ -619,12 +619,49 @@ static int reject_bad_callee (Sema *s, uint32_t idx, uint32_t sym_idx)
 	return 1;
 }
 
+static uint32_t class_qualified_sym (Sema *s, ASTNode *n)
+{
+	uint16_t sep = 0;
+
+	for (uint16_t i = 0; i + 1 < n->len; i++)
+		if (n->str[i] == ':' && n->str[i + 1] == ':') { sep = i; break; }
+	if (!sep) return NO_SYMBOL;
+
+	TypeId cls = type_canon(sema_lookup_type(s, n->str, sep, 0));
+	uint16_t mlen = (uint16_t)(n->len - sep - 2);
+
+	if (type_kind(cls) != TK_CLASS || !mlen) return NO_SYMBOL;
+	uint32_t method = class_method_node(s, cls, n->str + sep + 2, mlen);
+
+	return method == NO_NODE ? NO_SYMBOL : s->ast->nodes[method].sym;
+}
+
+static uint32_t lookup_fn_name (Sema *s, ASTNode *n)
+{
+	uint32_t sym = sema_lookup(s, n->str, n->len);
+	int local = sym != NO_SYMBOL && s->table.symbols[sym].depth > 0;
+
+	if (sym == NO_SYMBOL) sym = class_qualified_sym(s, n);
+	if (!local && s->curr_class != TYPE_ERROR) {
+		uint32_t method = class_method_node(s, s->curr_class, n->str, n->len);
+
+		if (method != NO_NODE) sym = s->ast->nodes[method].sym;
+	}
+	return sym;
+}
+
 TypeId check_fn_call (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
 
-	if (n->flags & NODE_FLAG_INDIRECT) return check_indirect_call(s, idx);
-	uint32_t sym_idx = sema_lookup(s, n->str, n->len);
+	if (n->flags & NODE_FLAG_INDIRECT) {
+		int handled = 0;
+		TypeId method = check_method_call(s, idx, &handled);
+
+		if (handled) return method;
+		return check_indirect_call(s, idx);
+	}
+	uint32_t sym_idx = lookup_fn_name(s, n);
 
 	if (sym_idx != NO_SYMBOL && value_is_fn_ptr(s, sym_idx)) {
 		uint32_t callee = sema_make_id(s, s->ast->nodes + idx);
@@ -635,6 +672,7 @@ TypeId check_fn_call (Sema *s, uint32_t idx)
 		return check_indirect_call(s, idx);
 	}
 	if (reject_bad_callee(s, idx, sym_idx)) return TYPE_ERROR;
+	check_method_visibility(s, sym_idx, idx);
 	n->sym = sym_idx;
 	Symbol *fn = &s->table.symbols[sym_idx];
 	if (sym_idx != s->curr_fn) fn->read = 1;

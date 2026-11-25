@@ -46,6 +46,7 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->write_root = NO_NODE;
 	s->addr_operand = 0;
 	s->curr_fn = NO_SYMBOL;
+	s->curr_class = TYPE_ERROR;
 	s->expr_depth = 0;
 	s->too_deep = 0;
 	s->ref_arg = 0;

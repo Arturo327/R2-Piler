@@ -60,7 +60,8 @@ int sema_implicit_cast_ok (TypeId from, TypeId to)
 				&& sema_dims_match(from, to);
 	if (to_kind == TK_ARRAY) return 0;
 	if (to_kind == TK_SLICE) return 0;
-	if (from_kind == TK_STRUCT || to_kind == TK_STRUCT) return 0;
+	if (from_kind == TK_STRUCT || from_kind == TK_CLASS
+			|| to_kind == TK_STRUCT || to_kind == TK_CLASS) return 0;
 	if (from_kind == TK_PTR && to_kind == TK_PTR) {
 		TypeId fb = types[from].base;
 		TypeId tb = types[to].base;
@@ -587,7 +588,7 @@ uint32_t force_cast (Sema *s, uint32_t child, TypeId child_type, TypeId target, 
 			&& target_kind != TK_PTR && type_ptr_repr(target) == TYPE_ERROR
 			&& target_kind != TK_NULL
 			&& target_kind != TK_STR && target_kind != TK_VOID
-			&& target_kind != TK_STRUCT
+			&& target_kind != TK_STRUCT && target_kind != TK_CLASS
 			&& target_kind != TK_ARRAY && target_kind != TK_SLICE) {
 		retag_expr(s, child, target);
 		return child;

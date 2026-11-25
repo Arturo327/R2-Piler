@@ -70,7 +70,7 @@ static void mark_type (R2i *r, TypeId id, uint8_t *seen)
 		for (uint16_t i = 0; i < types[id].ret_count; i++)
 			mark_type(r, types[id].rets[i], seen);
 		return;
-	case TK_STRUCT: case TK_ENUM: case TK_ALIAS: case TK_NEWTYPE: {
+	case TK_STRUCT: case TK_CLASS: case TK_ENUM: case TK_ALIAS: case TK_NEWTYPE: {
 		int m = type_module(r, id);
 
 		if (m >= 0) r->import_used[m] = 1;

@@ -87,7 +87,7 @@ static uint32_t push_arg_t (IR *ir, ASTNode *call, uint32_t arg, TypeId pt,
 		pack_struct(ir, gen_expr(ir, a), pt, regs + k);
 		return k + n8;
 	}
-	regs[k++] = type_kind(pt) == TK_STRUCT
+	regs[k++] = type_is_struct_like(pt)
 			? gen_struct_arg(ir, a, param != NO_NODE && can_alias_arg(ir, call, arg, param))
 			: gen_expr(ir, a);
 	return push_dims(ir, a, pt, regs, k);
@@ -137,13 +137,15 @@ static uint32_t push_varargs (IR *ir, uint32_t arg, TypeId slice, uint32_t *regs
 	uint32_t base = new_struct_temp(ir, type_array_of(elem, count));
 	uint32_t at = base;
 
-	for (; arg != NO_NODE; arg = ir->ast->nodes[arg].next_bro) {
+	while (arg != NO_NODE) {
 		ASTNode *e = ir->ast->nodes + arg;
 
-		if (kind == TK_STRUCT) gen_struct_into(ir, at, arg, elem, 1);
+		if ((kind == TK_STRUCT || kind == TK_CLASS)) gen_struct_into(ir, at, arg, elem, 1);
 		else if (kind == TK_ARRAY) gen_copy(ir, at, gen_expr(ir, e), elem);
 		else make_str_ptr(ir, at, gen_expr(ir, e), elem);
 		at = add_offset(ir, at, types[elem].size);
+
+		arg = ir->ast->nodes[arg].next_bro;
 	}
 	regs[k++] = base;
 	regs[k++] = make_const(ir, count, TYPE_i64);
@@ -260,7 +262,7 @@ uint32_t gen_call_value (IR *ir, ASTNode *n)
 	if (!call_uses_sret(ir, n)) return gen_call(ir, n, NO_REG);
 	TypeId type = n->data_type;
 
-	if (type_kind(type) == TK_STRUCT) return gen_call(ir, n, NO_REG);
+	if (type_is_struct_like(type)) return gen_call(ir, n, NO_REG);
 	if (type_dyn_rank(type) > 0)
 		return make_ld_ptr(ir, gen_call_desc(ir, n),
 				type_ptr_to(type_flat_element(type)));

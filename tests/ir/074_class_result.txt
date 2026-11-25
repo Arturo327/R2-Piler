@@ -1,0 +1,60 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn Caja::valida(1 params, 3 regs) : i64
+    r0 = param.ptr Caja #0
+    r1 = move.ptr Caja r0
+    r2 = ld_ptr.i64 r1
+    ret.i64 r2
+    ret
+
+fn Caja::cambia(2 params, 7 regs) : void
+    r0 = param.ptr Caja #0
+    r1 = param.i64 #1
+    r2 = move.ptr Caja r0
+    r3 = move.ptr Caja r0
+    arg r3 #0
+    r4 = call.i64 Caja::valida
+    r5 = move.i64 r1
+    r6 = add.i64 r4, r5
+    str_ptr.i64 r2, r6
+    ret
+
+fn Caja::suma(1 params, 6 regs) : i64
+    r0 = param.ptr Caja #0
+    r1 = move.ptr Caja r0
+    arg r1 #0
+    r2 = call.i64 Caja::valida
+    r3 = move.ptr Caja r0
+    r4 = ld_ptr.i64 r3
+    r5 = add.i64 r2, r4
+    ret.i64 r5
+    ret
+
+fn Caja::doble(1 params, 4 regs) : i64
+    r0 = param.i64 #0
+    r1 = move.i64 r0
+    r2 = const.i64 2
+    r3 = mul.i64 r1, r2
+    ret.i64 r3
+    ret
+
+fn main(0 params, 10 regs) : i64
+    r1 = addr_local.Caja r0
+    r2 = const.u64 1
+    str_ptr.u64 r1, r2
+    r3 = addr_local.Caja r0
+    r4 = const.i64 4
+    arg r3 #0
+    arg r4 #1
+    call Caja::cambia
+    r5 = addr_local.Caja r0
+    arg r5 #0
+    r6 = call.i64 Caja::suma
+    r7 = const.i64 3
+    arg r7 #0
+    r8 = call.i64 Caja::doble
+    r9 = add.i64 r6, r8
+    ret.i64 r9
+    ret
+

@@ -21,7 +21,7 @@ static void gen_array_elem (IR *ir, uint32_t at, uint32_t item, TypeId elem, int
 {
 	if (type_kind(elem) == TK_ARRAY) {
 		gen_array_init(ir, at, item, elem, zero);
-	} else if (type_kind(elem) == TK_STRUCT) {
+	} else if (type_is_struct_like(elem)) {
 		gen_struct_into(ir, at, item, elem, 1);
 	} else if (type_kind(elem) == TK_SLICE) {
 		gen_slice_desc(ir, at, ir->ast->nodes + item, elem);
@@ -82,7 +82,7 @@ void gen_array_init (IR *ir, uint32_t base, uint32_t init_idx, TypeId arr, int z
 			uint32_t at = add_offset(ir, base, (uint64_t)i * elem_size);
 
 			gen_array_init(ir, at, item, elem, zero);
-		} else if (type_kind(elem) == TK_STRUCT) {
+		} else if (type_is_struct_like(elem)) {
 			uint32_t at = add_offset(ir, base, (uint64_t)i * elem_size);
 
 			gen_struct_into(ir, at, item, elem, 1);
@@ -221,7 +221,7 @@ static int init_needs_zero (IR *ir, uint32_t idx, TypeId type)
 	const Type *t = types + type;
 
 	if (type_kind(type) == TK_ARRAY) return arr_needs_zero(ir, n, type);
-	if (type_kind(type) != TK_STRUCT || n->type != NODE_STRUCT_INIT) return 0;
+	if (!type_is_struct_like(type) || n->type != NODE_STRUCT_INIT) return 0;
 
 	for (uint32_t k = 0; k < t->field_count; k++) {
 		const StructField *f = t->fields + k;
@@ -262,7 +262,7 @@ void gen_struct_init (IR *ir, uint32_t base, ASTNode *init, TypeId type)
 
 		if (f->bits)
 			gen_bitfield_store(ir, at, f, gen_expr(ir, ir->ast->nodes + fi->child));
-		else if (type_kind(f->type) == TK_STRUCT)
+		else if (type_is_struct_like(f->type))
 			gen_struct_into(ir, at, fi->child, f->type, 1);
 		else if (type_dyn_rank(f->type) > 0) {
 			ASTNode *val = ir->ast->nodes + fi->child;

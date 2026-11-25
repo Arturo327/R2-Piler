@@ -139,7 +139,7 @@ static void check_deallocator (Sema *s, TypeId d, TypeId target, uint32_t idx)
 	if (fn->ret_count > 1)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"the deallocator return type is not supported; use a scalar or void");
-	else if (fn->ret_count == 1 && (type_kind(fn->rets[0]) == TK_STRUCT
+	else if (fn->ret_count == 1 && (type_is_struct_like(fn->rets[0])
 			|| type_kind(fn->rets[0]) == TK_SLICE || type_kind(fn->rets[0]) == TK_ARRAY
 			|| type_dyn_rank(fn->rets[0]) > 0))
 		error_report(s->err, ERR_ERROR, node_loc(n),

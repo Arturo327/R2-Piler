@@ -37,7 +37,7 @@ void gen_var_dec (IR *ir, ASTNode *n)
 					ir->ast->nodes + n->child, s->type);
 		return;
 	}
-	if (type_kind(s->type) == TK_STRUCT) {
+	if (type_is_struct_like(s->type)) {
 		if (n->sym == ir->nrvo) {
 			s->ir_id = ir->sret;
 			if (n->child != NO_NODE)
@@ -80,7 +80,7 @@ static void gen_ret_slot (IR *ir, uint32_t dst, uint32_t val_idx, TypeId type)
 		gen_slice_desc(ir, dst, val, type);
 		return;
 	}
-	if (type_kind(type) == TK_STRUCT) {
+	if (type_is_struct_like(type)) {
 		gen_struct_into(ir, dst, val_idx, type, 1);
 		return;
 	}
@@ -600,7 +600,7 @@ static void gen_args_dec (IR *ir, uint32_t node)
 
 		if (struct_eightbytes(s->type)) {
 			idx = dec_struct_regs(ir, s, idx);
-		} else if (kind == TK_ARRAY || kind == TK_SLICE || kind == TK_STRUCT) {
+		} else if (kind == TK_ARRAY || kind == TK_SLICE || (kind == TK_STRUCT || kind == TK_CLASS)) {
 			idx = dec_aggregate_param(ir, s, idx);
 		} else {
 			s->ir_id = new_reg(ir, s->type);
@@ -645,7 +645,7 @@ static uint32_t find_nrvo (IR *ir, uint32_t ret, uint32_t body)
 {
 	TypeId type = ir->ast->nodes[ret].data_type;
 
-	if (ir->sret == NO_REG || type_kind(type) != TK_STRUCT) return NO_SYMBOL;
+	if (ir->sret == NO_REG || !type_is_struct_like(type)) return NO_SYMBOL;
 	if (ir->ast->nodes[ret].child != NO_NODE || struct_is_small(type)) return NO_SYMBOL;
 
 	uint32_t sym = NO_SYMBOL;
@@ -693,7 +693,7 @@ static int bind_image (IR *ir, ASTNode *n, Symbol *s)
 	IRGlobal *g = ir->globals + s->ir_id;
 	TypeKind kind = type_kind(s->type);
 
-	if (kind != TK_STRUCT && kind != TK_ARRAY) return 0;
+	if ((kind != TK_STRUCT && kind != TK_CLASS) && kind != TK_ARRAY) return 0;
 	if (type_dyn_rank(s->type) > 0) return 0;
 	uint8_t *img = const_image(ir, n->child, s->type);
 	if (!img) return 0;
@@ -711,13 +711,13 @@ static void gen_var_init (IR *ir, uint32_t idx)
 	if (n->child == NO_NODE) return;
 	if (bind_image(ir, n, s)) return;
 	if (type_dyn_rank(s->type) > 0 || type_kind(s->type) == TK_SLICE
-			|| type_kind(s->type) == TK_ARRAY || type_kind(s->type) == TK_STRUCT) {
+			|| type_kind(s->type) == TK_ARRAY || type_is_struct_like(s->type)) {
 		uint32_t base = new_reg(ir, TYPE_i64);
 
 		make_addr_global(ir, base, s->ir_id, s->type);
 		if (type_dyn_rank(s->type) > 0 || type_kind(s->type) == TK_SLICE)
 			gen_slice_desc(ir, base, ir->ast->nodes + n->child, s->type);
-		else if (type_kind(s->type) == TK_STRUCT)
+		else if (type_is_struct_like(s->type))
 			gen_struct_into(ir, base, n->child, s->type, 1);
 		else gen_array_init(ir, base, n->child, s->type, 0);
 		return;
@@ -760,6 +760,16 @@ static void gen_init_fn (IR *ir)
 	fn_end(ir, ir->init_fn);
 }
 
+static void gen_class_fns (IR *ir, ASTNode *cls)
+{
+	for (uint32_t m = cls->child; m != NO_NODE; m = ir->ast->nodes[m].next_bro) {
+		ASTNode *fn = ir->ast->nodes + m;
+
+		if (fn->type == NODE_FN_DEC)
+			gen_fn(ir, fn, ir->symtab->symbols[fn->sym].ir_id);
+	}
+}
+
 static void gen_fns (IR *ir)
 {
 	uint32_t idx = ir->ast->nodes[0].child;
@@ -767,6 +777,8 @@ static void gen_fns (IR *ir)
 		ASTNode *n = ir->ast->nodes + idx;
 		if (n->type == NODE_FN_DEC && !(n->flags & NODE_FLAG_IMPORTED))
 			gen_fn(ir, n, ir->symtab->symbols[n->sym].ir_id);
+		else if (n->type == NODE_CLASS_DEC)
+			gen_class_fns(ir, n);
 		idx = n->next_bro;
 	}
 }

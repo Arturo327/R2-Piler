@@ -21,7 +21,7 @@ static uint32_t slot_count (TypeId type)
 {
 	TypeKind kind = type_kind(type);
 
-	if (kind == TK_STRUCT) return struct_slots(type);
+	if ((kind == TK_STRUCT || kind == TK_CLASS)) return struct_slots(type);
 	if (kind == TK_ARRAY)
 		return types[type].count <= AGG_MAX_SLOTS ? types[type].count : 0;
 	return 0;
@@ -122,7 +122,7 @@ static uint32_t resolve_place (Sema *s, uint32_t access, uint32_t *slot, uint32_
 	Symbol *sym = s->table.symbols + r->sym;
 	TypeKind kind = type_kind(sym->type);
 	if (!sym->agg_slots || sym->addressed) return NO_SYMBOL;
-	if (kind != TK_STRUCT && kind != TK_ARRAY) return NO_SYMBOL;
+	if ((kind != TK_STRUCT && kind != TK_CLASS) && kind != TK_ARRAY) return NO_SYMBOL;
 
 	*slot = slot_of(s, first_node);
 	if (*slot != AGG_ANY && *slot >= sym->agg_slots) *slot = AGG_ANY;

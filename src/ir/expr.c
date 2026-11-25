@@ -323,7 +323,7 @@ static uint32_t gen_cast (IR *ir, ASTNode *n)
 		return src;
 	if (type_kind(operand->data_type) == TK_ARRAY
 			|| type_kind(operand->data_type) == TK_SLICE
-			|| type_kind(operand->data_type) == TK_STRUCT)
+			|| type_is_struct_like(operand->data_type))
 		return src;
 	if (types[n->data_type].size == 8 && types[operand->data_type].size == 8) {
 		ir->reg_types[src] = n->data_type;
@@ -408,7 +408,7 @@ static uint32_t gen_id (IR *ir, ASTNode *n)
 		if (s->kind == SYMBOL_PARAM) return read_reg(ir, s->ir_id, elem_ptr);
 		return make_ld_ptr(ir, local_storage_addr(ir, s, s->type), elem_ptr);
 	}
-	if (type_kind(s->type) == TK_ARRAY || type_kind(s->type) == TK_STRUCT)
+	if (type_kind(s->type) == TK_ARRAY || type_is_struct_like(s->type))
 		return gen_array_addr(ir, n);
 	return load_var(ir, s);
 }
@@ -417,7 +417,7 @@ static uint32_t gen_dot (IR *ir, ASTNode *n)
 {
 	TypeId type = n->data_type;
 
-	if (type_kind(ir->ast->nodes[n->child].data_type) == TK_STRUCT)
+	if (type_is_struct_like(ir->ast->nodes[n->child].data_type))
 		return gen_field(ir, n);
 	if (type_kind(type) == TK_UNTYPED_INT) type = TYPE_i64;
 	return slice_dim_reg(ir, ir->ast->nodes + n->child, 0, type);

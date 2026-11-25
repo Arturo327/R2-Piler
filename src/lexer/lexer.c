@@ -473,9 +473,11 @@ static const Keyword keywords[] = {
 	KW("else", TOK_ELSE),
 	KW("enum", TOK_ENUM),
 	KW("from", TOK_FROM),
+	KW("priv", TOK_PRIV),
 	KW("type", TOK_TYPE),
 	KW("void", TOK_VOID),
 	KW("break", TOK_BREAK),
+	KW("class", TOK_CLASS),
 	KW("const", TOK_CONST),
 	KW("union", TOK_UNION),
 	KW("while", TOK_WHILE),
@@ -654,6 +656,7 @@ static const char *const token_names[TOK_COUNT] = {
 	TN(TOK_PTR), TN(TOK_NULL), TN(TOK_SIZEOF), TN(TOK_AT), TN(TOK_DOLLAR),
 	TN(TOK_PACKED), TN(TOK_ALIGNOF), TN(TOK_OFFSETOF), TN(TOK_PUB),
 	TN(TOK_IMPORT), TN(TOK_FROM), TN(TOK_PATHSEP),
+	TN(TOK_CLASS), TN(TOK_PRIV),
 	TN(TOK_NEW), TN(TOK_DELETE)
 };
 

@@ -189,7 +189,8 @@ TypeId add_type (const char *name, uint16_t len, TypeKind kind, TypeId base)
 	t->ret_count = 0;
 	t->fn_variadic = 0;
 
-	if (kind == TK_ENUM || kind == TK_ALIAS || kind == TK_NEWTYPE || kind == TK_STRUCT) {
+	if (kind == TK_ENUM || kind == TK_ALIAS || kind == TK_NEWTYPE
+			|| kind == TK_STRUCT || kind == TK_CLASS) {
 		uint16_t *slot = name_slot(name, len);
 		*slot = id;
 	}
@@ -560,14 +561,14 @@ int type_is_aggregate (TypeId id)
 {
 	TypeKind kind = type_kind(id);
 
-	return kind == TK_ARRAY || kind == TK_SLICE || kind == TK_STRUCT;
+	return kind == TK_ARRAY || kind == TK_SLICE || type_is_struct_like(id);
 }
 
 int type_scalar_leaves (TypeId id, int *budget)
 {
 	const Type *t = types + id;
 
-	if (t->kind != TK_STRUCT) {
+	if (t->kind != TK_STRUCT && t->kind != TK_CLASS) {
 		(*budget)--;
 		return !type_is_aggregate(id) && *budget >= 0;
 	}
@@ -589,7 +590,7 @@ uint32_t type_align (TypeId id)
 	}
 
 	if (cur == TYPE_ERROR) return 8;
-	if (types[cur].kind == TK_STRUCT) {
+	if (types[cur].kind == TK_STRUCT || types[cur].kind == TK_CLASS) {
 		uint32_t a = types[cur].align;
 		if (has_slice && a < 8) a = 8;
 		return a;
@@ -666,7 +667,7 @@ int bind_struct_type (TypeId id, const StructField *fields, uint16_t count, uint
 
 StructField *find_field (TypeId id, const char *name, uint16_t len)
 {
-	if (type_kind(id) != TK_STRUCT) return NULL;
+	if (!type_is_struct_like(id)) return NULL;
 
 	for (uint16_t i = 0; i < types[id].field_count; i++) {
 		StructField *f = types[id].fields + i;
@@ -689,6 +690,13 @@ int type_is_nominal (TypeId id)
 	TypeKind kind = type_kind(id);
 
 	return kind == TK_ENUM || kind == TK_NEWTYPE;
+}
+
+int type_is_struct_like (TypeId id)
+{
+	TypeKind kind = type_kind(id);
+
+	return kind == TK_STRUCT || kind == TK_CLASS;
 }
 
 TypeId type_canon (TypeId id)

@@ -87,7 +87,7 @@ static void gen_copy_fields (IR *ir, uint32_t dst, uint32_t src, TypeId type, ui
 		uint32_t off = base + f->offset;
 		uint32_t val;
 
-		if (type_kind(f->type) == TK_STRUCT) {
+		if (type_is_struct_like(f->type)) {
 			gen_copy_fields(ir, dst, src, f->type, off);
 			continue;
 		}

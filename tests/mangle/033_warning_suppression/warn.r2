@@ -1,6 +1,6 @@
 pub fn helper () : i64 { return 1; }
 export fn cb () : i64 { return 2; }
-fn priv () : i64 { return 3; }
+fn prv () : i64 { return 3; }
 pub var pv : i64 = 1;
 export var ev : i64 = 2;
 var pvv : i64 = 3;

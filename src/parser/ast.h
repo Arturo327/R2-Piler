@@ -20,6 +20,10 @@
 #define NODE_FLAG_PUB 512
 #define NODE_FLAG_IMPORTED 8
 #define NODE_FLAG_IMPORT_BODY 1024
+#define NODE_FLAG_METHOD 2048
+#define NODE_FLAG_PRIV 4096
+#define NODE_FLAG_SELF 8192
+#define NODE_FLAG_TEMP_ADDR 16384
 #define NODE_FLAG_VARARG 1
 #define NODE_FLAG_VARARG_TYPED 2
 #define NODE_FLAG_VARARG_LOWERED 4
@@ -57,6 +61,7 @@ typedef enum {
 	NODE_IMPORT_DEC, NODE_FROM_DEC,						// imported modules
 	NODE_DEPENDS_DEC,							// native library dependencies
 	NODE_NEW, NODE_DELETE,							// heap
+	NODE_CLASS_DEC,								// classes
 	NODE_COUNT
 } NodeType;
 

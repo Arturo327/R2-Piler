@@ -13,10 +13,10 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **591 fixtures** pass (`make test`): 57 lexer, 102 parser, 196 sema, 73 IR,
-  45 optimizer, 46 mangling/visibility/export, 14 `.r2i`, 16 C/C++ header and
+- **600 fixtures** pass (`make test`): 58 lexer, 103 parser, 198 sema, 74 IR,
+  46 optimizer, 47 mangling/visibility/export, 14 `.r2i`, 16 C/C++ header and
   44 import cases.
-- **178 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+- **179 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
@@ -80,6 +80,16 @@ tested:
   the file (basename if only `/` is shared): `src/math.r2` → `3src4math`,
   with unsafe path bytes escaped as `$xx`. The generated-symbol prefixes
   `__r2_` and `_r2_` are reserved for top-level names.
+- **Classes**: `class C { x : i64; fn m(self, ...) ...; priv fn p(self) ...;
+  fn assoc(...) ... }`. Methods are ordinary functions whose first parameter is
+  an implicit `self : ptr C`; `p.m(args)` inserts the receiver automatically
+  (values are passed by address, pointers as-is, temporaries included),
+  `C::m(args)` calls directly (an explicit receiver is required for methods),
+  and bare `m(args)` inside a class resolves to a sibling method. `priv`
+  members are visible only inside the class, fields and methods cannot share a
+  name, and methods are emitted as local `_r2_m_<mod>_<class>_<method>`
+  functions. Classes still cannot be `pub`/`export`, and there is no
+  `init`/`op`/`destroy` yet.
 - Multidimensional arrays and slices of any rank are supported
   (`arr m : i32[R][C]`, `i32[][]` slice parameters), and structs/unions
   with C-like layout, designated `{.field = ...}` exhaustive initializers,
@@ -94,7 +104,8 @@ tested:
   and `delete(expr) x;` calls a custom deallocator. The default forms need
   `import "stdlib";` (the built-in `malloc`/`free`), while the explicit
   allocator/deallocator forms do not.
-- Not implemented yet: classes, floating point and `defer`.
+- Not implemented yet: floating point, `defer`, class `init`/`op`/`destroy`
+  and exported classes.
 
 ---
 

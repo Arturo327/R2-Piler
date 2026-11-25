@@ -186,6 +186,10 @@ static TypeId check_addr_finish (Sema *s, uint32_t idx, TypeId type)
 
 TypeId check_addr (Sema *s, uint32_t idx)
 {
+	ASTNode *n = s->ast->nodes + idx;
+
+	if (n->flags & NODE_FLAG_TEMP_ADDR) return n->data_type;
+
 	uint32_t saved_addr = s->addr_operand;
 
 	s->addr_operand = 1;
@@ -235,7 +239,7 @@ static TypeId check_dot_index (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (type_kind(type) == TK_STRUCT) return check_field(s, idx, type);
+	if (type_is_struct_like(type)) return check_field(s, idx, type);
 	if (type_kind(type) == TK_ARRAY || type_kind(type) == TK_SLICE)
 		return check_len_field(s, idx, n->child, type);
 
@@ -311,8 +315,9 @@ static TypeId check_field (Sema *s, uint32_t idx, TypeId st)
 
 	if (!f) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
-				"struct '%s' has no field '%.*s'", types[st].name,
-				(int)n->len, n->str);
+				"%s '%s' has no field '%.*s'",
+				type_kind(st) == TK_CLASS ? "class" : "struct",
+				types[st].name, (int)n->len, n->str);
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
@@ -337,7 +342,7 @@ static TypeId check_dot_value (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 	TypeId repr = type_ptr_repr(type);
-	if (repr != TYPE_ERROR && type_kind(types[repr].base) == TK_STRUCT) {
+	if (repr != TYPE_ERROR && type_is_struct_like(types[repr].base)) {
 		uint32_t deref;
 
 		warn_null_deref(s, idx, n->child);
@@ -346,7 +351,7 @@ static TypeId check_dot_value (Sema *s, uint32_t idx)
 		s->ast->nodes[idx].child = deref;
 		n = s->ast->nodes + idx;
 	}
-	if (type_kind(type) == TK_STRUCT) return check_field(s, idx, type);
+	if (type_is_struct_like(type)) return check_field(s, idx, type);
 	if (type_kind(type) == TK_ARRAY || type_kind(type) == TK_SLICE)
 		return check_len_field(s, idx, n->child, type);
 	if (n->len == 3 && memcmp(n->str, "len", 3) == 0)
@@ -386,8 +391,8 @@ TypeId check_dot (Sema *s, uint32_t idx)
 	TypeKind kind = type_kind(sym_type);
 
 	TypeId sym_repr = type_ptr_repr(sym_type);
-	if (kind == TK_STRUCT || (sym_repr != TYPE_ERROR
-			&& type_kind(types[sym_repr].base) == TK_STRUCT))
+	if ((kind == TK_STRUCT || kind == TK_CLASS) || (sym_repr != TYPE_ERROR
+			&& type_is_struct_like(types[sym_repr].base)))
 		return check_dot_value(s, idx);
 	if (sym->kind == SYMBOL_VAR || sym->kind == SYMBOL_PARAM)
 		return check_dot_var(s, idx, sym);

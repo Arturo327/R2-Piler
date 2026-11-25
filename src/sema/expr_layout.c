@@ -148,7 +148,7 @@ static int operand_field_info (Sema *s, ASTNode *n, OperandInfo *info, const cha
 	TypeId st = left.type;
 	TypeId repr = type_ptr_repr(st);
 	if (repr != TYPE_ERROR) st = types[repr].base;
-	if (type_kind(st) != TK_STRUCT) {
+	if (!type_is_struct_like(st)) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"operand of %s must be a variable, dereference, index, string literal or type", op);
 		return 0;
@@ -232,7 +232,7 @@ TypeId check_alignof (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 	TypeId repr = type_repr(info.type);
-	if (type_kind(repr) == TK_STRUCT && types[repr].layout != 2)
+	if (type_is_struct_like(repr) && types[repr].layout != 2)
 		return err_incomplete_type(s, idx, repr);
 	return fold_layout_lit(s, idx, info.align);
 }
@@ -253,7 +253,7 @@ static int offsetof_step (Sema *s, ASTNode *field, TypeId *type, uint64_t *off, 
 				(int)field->len, field->str);
 		return 0;
 	}
-	if (!last && type_kind(f->type) != TK_STRUCT) {
+	if (!last && !type_is_struct_like(f->type)) {
 		error_report(s->err, ERR_ERROR, node_loc(field),
 				"offsetof cannot traverse field '%.*s' of type %s",
 				(int)field->len, field->str, types[f->type].name);
@@ -275,7 +275,7 @@ TypeId check_offsetof (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (type_kind(type) != TK_STRUCT) {
+	if (!type_is_struct_like(type)) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"offsetof requires a struct or union type, not '%s'",
 				types[type].name);

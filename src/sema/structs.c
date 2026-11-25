@@ -108,28 +108,34 @@ static TypeId bitfield_holder (Sema *s, uint32_t idx)
 void sema_decl_struct (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
+	int is_class = n->type == NODE_CLASS_DEC;
 
 	if (!n->str) {
-		error_report(s->err, ERR_ERROR, node_loc(n), "a top-level struct needs a name");
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				is_class ? "a top-level class needs a name" : "a top-level struct needs a name");
 		return;
 	}
 	if (n->len == 4 && memcmp(n->str, "main", 4) == 0) {
 		error_report(s->err, ERR_ERROR, node_loc(n), "'main' must be a function");
 		return;
 	}
+	if (is_class && (n->flags & (NODE_FLAG_PUB | NODE_FLAG_EXPORT))) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"classes cannot be 'pub' or 'export' yet");
+	}
 	if (symtab_find(&s->table, n->str, n->len) != NO_SYMBOL) {
 		sema_declare(s, n->str, n->len, SYMBOL_TYPE, TYPE_ERROR, idx);
 		return;
 	}
 
-	TypeId id = add_type(n->str, n->len, TK_STRUCT, TYPE_VOID);
+	TypeId id = add_type(n->str, n->len, is_class ? TK_CLASS : TK_STRUCT, TYPE_VOID);
 	if (id == TYPE_ERROR) {
 		error_report(s->err, ERR_ERROR, node_loc(n), "too many types");
 		return;
 	}
 	types[id].base = id;
 	types[id].decl = idx;
-	types[id].is_union = (n->flags & NODE_FLAG_UNION) != 0;
+	types[id].is_union = !is_class && (n->flags & NODE_FLAG_UNION) != 0;
 	types[id].is_packed = (n->flags & NODE_FLAG_PACKED) != 0;
 	sema_declare(s, n->str, n->len, SYMBOL_TYPE, id, idx);
 }
@@ -150,7 +156,7 @@ static TypeId field_struct_dep (Sema *s, uint32_t idx)
 	if (ref->type != NODE_TYPE_REF) return TYPE_ERROR;
 	TypeId id = type_unconst_of(type_canon(sema_lookup_type(s, ref->str, ref->len,
 			(ref->flags & NODE_FLAG_IMPORT_BODY) != 0)));
-	return type_kind(id) == TK_STRUCT ? id : TYPE_ERROR;
+	return type_is_struct_like(id) ? id : TYPE_ERROR;
 }
 
 static TypeId field_type (Sema *s, uint32_t idx)
@@ -257,6 +263,7 @@ static void place (StructLayout *l, uint32_t node)
 		uint32_t fa = 1;
 		uint32_t bit_off = 0;
 
+		if (s->ast->nodes[c].type == NODE_FN_DEC) continue;
 		if (uni && record) l->alt = ++k;
 		if (!measure_member(l, c)) continue;
 		ft = l->ft;
@@ -298,8 +305,11 @@ static uint32_t count_fields (Sema *s, uint32_t node)
 	uint32_t n = 0;
 
 	for (; c != NO_NODE; c = s->ast->nodes[c].next_bro) {
-		if (s->ast->nodes[c].type == NODE_FIELD_DEC) n++;
-		else n += count_fields(s, c);
+		uint8_t type = s->ast->nodes[c].type;
+
+		if (type == NODE_FIELD_DEC) n++;
+		else if (type != NODE_FN_DEC && type != NODE_ERROR)
+			n += count_fields(s, c);
 	}
 	return n;
 }
@@ -330,10 +340,12 @@ static int layout_struct (Sema *s, TypeId id)
 
 	if (!count && s->err->err_count == errs)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + t->decl),
-				"struct '%s' must have at least one field", t->name);
+				"%s '%s' must have at least one field",
+				t->kind == TK_CLASS ? "class" : "struct", t->name);
 	if (size > UINT32_MAX || count > UINT16_MAX)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + t->decl),
-				"struct '%s' is too large", t->name);
+				"%s '%s' is too large",
+				t->kind == TK_CLASS ? "class" : "struct", t->name);
 	if (s->err->err_count != errs) {
 		t->layout = 3;
 		return 0;
@@ -351,9 +363,10 @@ void sema_layout_structs (Sema *s)
 		ASTNode *n = s->ast->nodes + idx;
 		TypeId id;
 
-		if (n->type != NODE_STRUCT_DEC || n->sym == NO_SYMBOL) continue;
+		if ((n->type != NODE_STRUCT_DEC && n->type != NODE_CLASS_DEC)
+				|| n->sym == NO_SYMBOL) continue;
 		id = s->table.symbols[n->sym].type;
-		if (type_kind(id) == TK_STRUCT) layout_struct(s, id);
+		if (type_is_struct_like(id)) layout_struct(s, id);
 	}
 }
 
@@ -365,7 +378,7 @@ static void check_field_value (Sema *s, uint32_t item, const StructField *f)
 	TypeKind kind = type_kind(f->type);
 
 	int has_slice = type_dyn_rank(f->type) > 0;
-	if (kind == TK_STRUCT && (vt == NODE_STRUCT_INIT || vt == NODE_ARRAY_INIT)) {
+	if ((kind == TK_STRUCT || kind == TK_CLASS) && (vt == NODE_STRUCT_INIT || vt == NODE_ARRAY_INIT)) {
 		if (as_struct_init(s, val, f->type)) check_struct_init(s, val, f->type);
 	} else if (kind == TK_ARRAY && !has_slice
 			&& (vt == NODE_ARRAY_INIT || vt == NODE_LIT_STR)) {
@@ -411,7 +424,9 @@ static void check_field_init (Sema *s, uint32_t item, TypeId st, uint8_t *seen)
 	const StructField *f = find_field(st, fi->str, fi->len);
 
 	if (!f) {
-		error_report(s->err, ERR_ERROR, node_loc(fi), "struct '%s' has no field '%.*s'",
+		error_report(s->err, ERR_ERROR, node_loc(fi),
+				"%s '%s' has no field '%.*s'",
+				type_kind(st) == TK_CLASS ? "class" : "struct",
 				types[st].name, (int)fi->len, fi->str);
 		return;
 	}
@@ -437,8 +452,9 @@ int as_struct_init (Sema *s, uint32_t idx, TypeId st)
 	if (n->type != NODE_ARRAY_INIT) return 0;
 	if (n->child != NO_NODE) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
-				"positional '{...}' initializers are not valid for struct '%s';"
-				" use '.field = value'", types[st].name);
+				"positional '{...}' initializers are not valid for %s '%s';"
+				" use '.field = value'",
+				type_kind(st) == TK_CLASS ? "class" : "struct", types[st].name);
 		return 0;
 	}
 	n->type = NODE_STRUCT_INIT;

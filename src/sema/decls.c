@@ -33,7 +33,8 @@ static void decl_types (Sema *s)
 		if (n->type == NODE_ENUM_DEC) decl_enum(s, idx);
 		else if (n->type == NODE_TYPE_DEC || n->type == NODE_NEWTYPE_DEC)
 			sema_decl_type(s, idx);
-		else if (n->type == NODE_STRUCT_DEC) sema_decl_struct(s, idx);
+		else if (n->type == NODE_STRUCT_DEC || n->type == NODE_CLASS_DEC)
+			sema_decl_struct(s, idx);
 		idx = n->next_bro;
 	}
 }
@@ -246,14 +247,20 @@ static void check_root (Sema *s)
 						"static variables can only be declared inside a function");
 			check_global_var_init(s, idx);
 		}
-		else if (n->type == NODE_FN_DEC) check_fn_dec(s, idx);
+		else if (n->type == NODE_FN_DEC) {
+			if (n->flags & NODE_FLAG_PRIV)
+				error_report(s->err, ERR_ERROR, node_loc(n),
+						"'priv' is only allowed inside a class");
+			check_fn_dec(s, idx);
+		}
+		else if (n->type == NODE_CLASS_DEC) check_class_methods(s, idx);
 		else if (n->type == NODE_EXTERN_FN_DEC) check_extern_fn(s, idx);
 		else if (n->type == NODE_MODULE_DEC) check_module_decl(s, n);
 		else if (n->type == NODE_DEPENDS_DEC) check_depends_decl(s, n);
 		else if (n->type != NODE_ENUM_DEC && n->type != NODE_TYPE_DEC
 				&& n->type != NODE_NEWTYPE_DEC && n->type != NODE_EXTERN_VAR_DEC
-				&& n->type != NODE_STRUCT_DEC && n->type != NODE_IMPORT_DEC
-				&& n->type != NODE_FROM_DEC)
+				&& n->type != NODE_STRUCT_DEC && n->type != NODE_CLASS_DEC
+				&& n->type != NODE_IMPORT_DEC && n->type != NODE_FROM_DEC)
 			error_report(s->err, ERR_ERROR, node_loc(n),
 					"only variable, function, enum and type declarations are allowed at the top level");
 		idx = n->next_bro;
@@ -271,7 +278,7 @@ static void reject_untyped_global (Sema *s, ASTNode *n)
 	n->data_type = TYPE_ERROR;
 }
 
-static TypeId build_fn_value (Sema *s, uint32_t idx)
+TypeId build_fn_value (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
 	uint32_t args = n->child;
@@ -325,6 +332,8 @@ static void decl_globals (Sema *s)
 			uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_FN,
 					s->ast->nodes[ret].data_type, idx);
 			s->table.symbols[sym].fn_type = build_fn_value(s, idx);
+		} else if (n->type == NODE_CLASS_DEC) {
+			decl_class_methods(s, idx);
 		} else if (n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC
 				|| n->type == NODE_EXTERN_VAR_DEC) {
 			if (n->child != NO_NODE) infer_array_dims(s, idx);
@@ -373,7 +382,7 @@ static void mark_exposed_type (TypeId type)
 			break;
 		type = types[type].base;
 	}
-	if (type_kind(type) == TK_STRUCT) mark_exposed_struct(type);
+	if (type_is_struct_like(type)) mark_exposed_struct(type);
 }
 
 static void mark_exposed_sig (Sema *s, uint32_t idx)
@@ -407,8 +416,8 @@ static void mark_exposed_decls (Sema *s)
 				|| ((n->type == NODE_VAR_DEC || n->type == NODE_ARR_DEC) && exported))
 			mark_exposed_type(n->data_type);
 		else if (exported && (n->type == NODE_STRUCT_DEC
-				|| n->type == NODE_ENUM_DEC || n->type == NODE_TYPE_DEC
-				|| n->type == NODE_NEWTYPE_DEC))
+				|| n->type == NODE_CLASS_DEC || n->type == NODE_ENUM_DEC
+				|| n->type == NODE_TYPE_DEC || n->type == NODE_NEWTYPE_DEC))
 			mark_exposed_type(n->data_type);
 		idx = n->next_bro;
 	}
@@ -416,7 +425,7 @@ static void mark_exposed_decls (Sema *s)
 
 static ASTNode *named_type_decl (Sema *s, TypeId id)
 {
-	if (type_kind(id) == TK_STRUCT) {
+	if (type_is_struct_like(id)) {
 		uint32_t decl = types[id].decl;
 
 		if (decl < s->ast->count) return s->ast->nodes + decl;
@@ -441,7 +450,7 @@ static void require_public_fields (Sema *s, uint32_t first)
 	for (uint32_t m = first; m != NO_NODE; m = s->ast->nodes[m].next_bro) {
 		ASTNode *n = s->ast->nodes + m;
 
-		if (n->type == NODE_STRUCT_DEC)
+		if (n->type == NODE_STRUCT_DEC || n->type == NODE_CLASS_DEC)
 			require_public_fields(s, n->child);
 		else if (n->type == NODE_FIELD_DEC
 				&& !(n->flags & NODE_FLAG_BITFIELD))
@@ -465,7 +474,7 @@ static void require_public_type (Sema *s, TypeId type, uint32_t use)
 		for (uint16_t i = 0; i < types[type].ret_count; i++)
 			require_public_type(s, types[type].rets[i], use);
 		return;
-	case TK_STRUCT: case TK_ENUM: case TK_ALIAS: case TK_NEWTYPE: {
+	case TK_STRUCT: case TK_CLASS: case TK_ENUM: case TK_ALIAS: case TK_NEWTYPE: {
 		ASTNode *decl = named_type_decl(s, type);
 
 		if (decl && !(decl->flags & NODE_FLAG_PUB))
@@ -506,7 +515,7 @@ static void require_public_decl (Sema *s, uint32_t idx)
 	case NODE_VAR_DEC: case NODE_ARR_DEC: case NODE_EXTERN_VAR_DEC:
 		require_public_type(s, n->data_type, idx);
 		return;
-	case NODE_STRUCT_DEC:
+	case NODE_STRUCT_DEC: case NODE_CLASS_DEC:
 		require_public_fields(s, n->child);
 		return;
 	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
@@ -582,7 +591,7 @@ static void check_export_type (Sema *s, TypeId type, uint32_t use)
 			check_export_type(s, fn->rets[i], use);
 		return;
 	}
-	case TK_STRUCT: case TK_ENUM: case TK_ALIAS: case TK_NEWTYPE: {
+	case TK_STRUCT: case TK_CLASS: case TK_ENUM: case TK_ALIAS: case TK_NEWTYPE: {
 		ASTNode *decl = named_type_decl(s, type);
 		int visible = decl && ((decl->flags & NODE_FLAG_EXPORT)
 				|| ((decl->flags & NODE_FLAG_IMPORTED)
@@ -603,7 +612,8 @@ static void check_export_fields (Sema *s, uint32_t first)
 	for (uint32_t m = first; m != NO_NODE; m = s->ast->nodes[m].next_bro) {
 		ASTNode *n = s->ast->nodes + m;
 
-		if (n->type == NODE_STRUCT_DEC) check_export_fields(s, n->child);
+		if (n->type == NODE_STRUCT_DEC || n->type == NODE_CLASS_DEC)
+			check_export_fields(s, n->child);
 		else if (n->type == NODE_FIELD_DEC)
 			check_export_type(s, n->data_type, m);
 	}
@@ -630,7 +640,7 @@ static void check_export_decl (Sema *s, ASTNode *n, uint32_t idx)
 	case NODE_VAR_DEC: case NODE_ARR_DEC: case NODE_EXTERN_VAR_DEC:
 		check_export_type(s, n->data_type, idx);
 		return;
-	case NODE_STRUCT_DEC: check_export_fields(s, n->child); return;
+	case NODE_STRUCT_DEC: case NODE_CLASS_DEC: check_export_fields(s, n->child); return;
 	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 		check_export_type(s, n->data_type, idx);
 		return;
@@ -658,6 +668,7 @@ static const char *type_decl_kind (ASTNode *n)
 	switch (n->type)
 	{
 	case NODE_STRUCT_DEC: return (n->flags & NODE_FLAG_UNION) ? "union" : "struct";
+	case NODE_CLASS_DEC: return "class";
 	case NODE_ENUM_DEC: return "enum";
 	case NODE_NEWTYPE_DEC: return "newtype";
 	case NODE_TYPE_DEC: return "type";
@@ -675,7 +686,7 @@ static void warn_unused_fields (Sema *s, Type *t)
 		if (f->used || f->name[0] == '_') continue;
 		error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + f->decl),
 				"unused field '%.*s' of %s '%s'", (int)f->len, f->name,
-				t->is_union ? "union" : "struct", t->name);
+				t->kind == TK_CLASS ? "class" : t->is_union ? "union" : "struct", t->name);
 	}
 }
 
@@ -703,7 +714,8 @@ static void warn_unused_type (Sema *s, Symbol *sym)
 				kind, (int)sym->len, sym->name);
 		return;
 	}
-	if (decl->type == NODE_STRUCT_DEC) warn_unused_fields(s, t);
+	if (decl->type == NODE_STRUCT_DEC || decl->type == NODE_CLASS_DEC)
+		warn_unused_fields(s, t);
 	else if (decl->type == NODE_ENUM_DEC) warn_unused_variants(s, t);
 }
 
@@ -719,6 +731,14 @@ static void warn_unused_top (Sema *s)
 			continue;
 		if (sym->kind == SYMBOL_TYPE || sym->kind == SYMBOL_ENUM) {
 			if (sym->type != TYPE_ERROR) warn_unused_type(s, sym);
+			continue;
+		}
+		if (sym->kind == SYMBOL_FN && sym->decl != NO_NODE
+				&& (s->ast->nodes[sym->decl].flags & NODE_FLAG_METHOD)) {
+			if ((s->ast->nodes[sym->decl].flags & NODE_FLAG_PRIV)
+					&& !sym->read && types[sym->owner].used)
+				error_report(s->err, ERR_WARNING, loc,
+						"unused private method '%.*s'", (int)sym->len, sym->name);
 			continue;
 		}
 		if (sym->read || is_extern_decl(s, sym) || sym->name[0] == '_') continue;

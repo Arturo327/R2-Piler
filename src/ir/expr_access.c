@@ -56,7 +56,7 @@ uint32_t gen_field (IR *ir, ASTNode *n)
 
 		return bitfield_extract(ir, make_ld_ptr(ir, addr, f->type), f);
 	}
-	if (type_kind(n->data_type) == TK_STRUCT)
+	if (type_is_struct_like(n->data_type))
 		return addr;
 	if (type_dyn_rank(n->data_type) > 0)
 		return make_ld_ptr(ir, addr,
@@ -219,6 +219,7 @@ uint32_t gen_addr (IR *ir, ASTNode *n)
 {
 	ASTNode *child = ir->ast->nodes + n->child;
 
+	if (n->flags & NODE_FLAG_TEMP_ADDR) return gen_expr(ir, child);
 	if (child->type == NODE_DEREF)
 		return gen_expr(ir, ir->ast->nodes + child->child);
 	if (child->type == NODE_INDEX)
@@ -227,7 +228,7 @@ uint32_t gen_addr (IR *ir, ASTNode *n)
 		return gen_field_addr(ir, child);
 
 	Symbol *s = ir->symtab->symbols + child->sym;
-	if (type_kind(s->type) == TK_STRUCT)
+	if (type_is_struct_like(s->type))
 		return gen_array_addr(ir, child);
 	uint32_t dst = new_reg(ir, n->data_type);
 	if (!s->depth || s->is_static) {
@@ -243,7 +244,7 @@ uint32_t gen_deref (IR *ir, ASTNode *n)
 {
 	uint32_t ptr = gen_expr(ir, ir->ast->nodes + n->child);
 
-	if (type_kind(n->data_type) == TK_STRUCT) return ptr;
+	if (type_is_struct_like(n->data_type)) return ptr;
 	return make_ld_ptr(ir, ptr, n->data_type);
 }
 

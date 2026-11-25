@@ -18,6 +18,7 @@ uint32_t sema_ref_value (Sema *s, uint32_t idx);
 uint32_t sema_make_id (Sema *s, ASTNode *src);
 
 uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind, TypeId data_type, uint32_t decl_node);
+TypeId build_fn_value (Sema *s, uint32_t idx);
 uint32_t sema_new_node (Sema *s, ASTNode node);
 void reserve_cast_nodes (Sema *s);
 void sema_decl_type (Sema *s, uint32_t idx);
@@ -64,6 +65,7 @@ int sema_array_slice_compat (TypeId arg, TypeId param);
 int sema_const_compat (TypeId from, TypeId to);
 int sema_implicit_cast_ok (TypeId from, TypeId to);
 int sema_any_packable (TypeId type);
+void check_call_args (Sema *s, uint32_t call_idx, uint32_t fn_idx);
 void check_fn_dec (Sema *s, uint32_t idx);
 void check_extern_fn (Sema *s, uint32_t idx);
 void check_fn_defaults_all (Sema *s);
@@ -74,6 +76,13 @@ void check_main_signature (Sema *s, uint32_t idx);
 void check_signature_types (Sema *s, uint32_t idx, int is_extern);
 void check_export_fn (Sema *s, uint32_t idx);
 void check_export_decls (Sema *s);
+
+void decl_class_methods (Sema *s, uint32_t idx);
+void check_class_methods (Sema *s, uint32_t idx);
+uint32_t class_method_node (Sema *s, TypeId cls, const char *name, uint16_t len);
+uint32_t class_fn_has_self (Sema *s, uint32_t fn_idx);
+TypeId check_method_call (Sema *s, uint32_t idx, int *handled);
+void check_method_visibility (Sema *s, uint32_t sym, uint32_t use);
 
 void agg_declare (Sema *s, uint32_t sym_idx, uint32_t decl_idx);
 void agg_init_all (Sema *s, uint32_t sym_idx);

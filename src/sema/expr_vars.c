@@ -59,6 +59,7 @@ TypeId check_var_ref (Sema *s, uint32_t idx, int init_refs)
 	if (s->table.symbols[sym_idx].kind == SYMBOL_FN) {
 		Symbol *fn = s->table.symbols + sym_idx;
 
+		check_method_visibility(s, sym_idx, idx);
 		if (fn->fn_type == TYPE_ERROR) {
 			error_report(s->err, ERR_ERROR, node_loc(n),
 					"'%.*s' cannot be used as a value; it has optional or variadic parameters",
@@ -793,7 +794,7 @@ static int stack_storage (Symbol *sym)
 	TypeId t = sym->type;
 
 	if (sym->view) return sym->stack_slice;
-	if (type_kind(t) == TK_ARRAY || type_kind(t) == TK_STRUCT) return 1;
+	if (type_kind(t) == TK_ARRAY || type_is_struct_like(t)) return 1;
 	return type_dyn_rank(t) > 0 && sym->stack_slice;
 }
 

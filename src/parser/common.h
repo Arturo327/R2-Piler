@@ -44,5 +44,7 @@ uint32_t parse_extern_decl (Parser *p);
 uint32_t parse_enum (Parser *p);
 uint32_t parse_type_dec (Parser *p, int is_newtype);
 uint32_t parse_struct (Parser *p, int packed);
+uint32_t parse_class (Parser *p);
+uint32_t parse_priv_method (Parser *p);
 
 #endif

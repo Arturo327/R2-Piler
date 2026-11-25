@@ -123,7 +123,7 @@ static int pub_target (TokenType type)
 	{
 	case TOK_FN: case TOK_VAR: case TOK_ARR: case TOK_ENUM:
 	case TOK_STRUCT: case TOK_UNION: case TOK_PACKED:
-	case TOK_TYPE: case TOK_NEWTYPE: case TOK_EXTERN:
+	case TOK_TYPE: case TOK_NEWTYPE: case TOK_EXTERN: case TOK_CLASS:
 		return 1;
 	default:
 		return 0;

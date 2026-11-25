@@ -58,8 +58,15 @@ void ir_scan_structs (IR *ir)
 	uint32_t idx = ir->ast->nodes[0].child;
 
 	while (idx != NO_NODE) {
-		if (ir->ast->nodes[idx].type == NODE_FN_DEC)
-			scan_node(ir, idx, 0);
-		idx = ir->ast->nodes[idx].next_bro;
+		ASTNode *n = ir->ast->nodes + idx;
+
+		if (n->type == NODE_FN_DEC) scan_node(ir, idx, 0);
+		else if (n->type == NODE_CLASS_DEC) {
+			for (uint32_t m = n->child; m != NO_NODE;
+					m = ir->ast->nodes[m].next_bro)
+				if (ir->ast->nodes[m].type == NODE_FN_DEC)
+					scan_node(ir, m, 0);
+		}
+		idx = n->next_bro;
 	}
 }

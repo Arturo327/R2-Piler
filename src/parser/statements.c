@@ -487,6 +487,8 @@ uint32_t parse_statement_inner (Parser *p, int root)
 	case TOK_TYPE: return parse_type_dec(p, 0);
 	case TOK_NEWTYPE: return parse_type_dec(p, 1);
 	case TOK_STRUCT: case TOK_UNION: return parse_struct(p, 0);
+	case TOK_CLASS: return parse_class(p);
+	case TOK_PRIV: return parse_priv_method(p);
 	case TOK_PACKED: {
 		advance(p);
 		if (p->curr.type != TOK_STRUCT && p->curr.type != TOK_UNION) {

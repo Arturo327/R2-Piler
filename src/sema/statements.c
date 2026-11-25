@@ -47,6 +47,8 @@ static void warn_dead_writes (Sema *s, uint32_t idx, Symbol *sym)
 static void warn_unused (Sema *s, uint32_t idx, Symbol *sym)
 {
 	if (sym->kind != SYMBOL_VAR && sym->kind != SYMBOL_PARAM) return;
+	if (sym->decl != NO_NODE
+			&& (s->ast->nodes[sym->decl].flags & NODE_FLAG_SELF)) return;
 
 	if (sym->read) {
 		warn_dead_writes(s, idx, sym);
@@ -95,7 +97,17 @@ void check_fn_dec (Sema *s, uint32_t idx)
 	}
 	check_signature_types(s, idx, 0);
 	check_export_fn(s, idx);
-	check_main_signature(s, idx);
+	if (!(s->ast->nodes[idx].flags & NODE_FLAG_METHOD)) {
+		uint32_t p = s->ast->nodes[s->ast->nodes[idx].child].child;
+
+		while (p != NO_NODE) {
+			if (s->ast->nodes[p].flags & NODE_FLAG_SELF)
+				error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
+						"'self' is only valid as the first parameter of a method");
+			p = s->ast->nodes[p].next_bro;
+		}
+		check_main_signature(s, idx);
+	}
 	uint32_t args = s->ast->nodes[idx].child;
 	uint32_t ret = s->ast->nodes[args].next_bro;
 	uint32_t body = s->ast->nodes[ret].next_bro;
@@ -796,6 +808,10 @@ static void check_statement (Sema *s, uint32_t idx)
 	case NODE_STRUCT_DEC:
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"structs can only be declared at the top level");
+		return;
+	case NODE_CLASS_DEC:
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"classes can only be declared at the top level");
 		return;
 	case NODE_MODULE_DEC:
 		error_report(s->err, ERR_ERROR, node_loc(n),

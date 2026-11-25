@@ -1,14 +1,29 @@
 #include "parser/common.h"
 
+#include <string.h>
+
 static uint32_t parse_param (Parser *p, int *typed)
 {
 	uint16_t line = p->curr.line;
 	uint16_t col = p->curr.col;
 	uint32_t node = new_node(p, NODE_VAR_DEC, line, col);
+	int is_self = 0;
 
 	if (consume(p, TOK_ID, "expected parameter name")) {
 		p->ast.nodes[node].str = p->prev.str;
 		p->ast.nodes[node].len = p->prev.len;
+		is_self = p->prev.len == 4 && memcmp(p->prev.str, "self", 4) == 0;
+	}
+
+	if (is_self) {
+		p->ast.nodes[node].flags |= NODE_FLAG_SELF;
+		if (p->curr.type != TOK_COL) {
+			p->ast.nodes[node].data_type = TYPE_VOID;
+			p->ast.nodes[node].type_node = NO_TYPE_NODE;
+			return node;
+		}
+		error_report(p->err, ERR_ERROR, token_loc(p->curr),
+				"'self' has an implicit type and cannot declare one");
 	}
 
 	consume(p, TOK_COL, "expected ':' followed by the parameter type");
@@ -352,6 +367,64 @@ static uint32_t parse_field (Parser *p)
 	consume(p, TOK_COL, "expected ':' followed by the field type");
 	parse_field_type(p, node);
 	consume(p, TOK_SEMCOL, "expected ';' after the field");
+	return node;
+}
+
+uint32_t parse_priv_method (Parser *p)
+{
+	Token kw = p->curr;
+
+	advance(p);
+	if (p->curr.type != TOK_FN) {
+		error_report(p->err, ERR_ERROR, token_loc(kw),
+				"expected 'fn' after 'priv'");
+		p->panic_mode = 1;
+		return new_node(p, NODE_ERROR, kw.line, kw.col);
+	}
+
+	uint32_t fn = parse_fn_decl(p);
+
+	p->ast.nodes[fn].flags |= NODE_FLAG_PRIV;
+	return fn;
+}
+
+uint32_t parse_class (Parser *p)
+{
+	consume(p, TOK_CLASS, "expected 'class'");
+	uint16_t line = p->curr.line;
+	uint16_t col = p->curr.col;
+	uint32_t node = new_node(p, NODE_CLASS_DEC, line, col);
+	uint32_t last = NO_NODE;
+
+	if (consume(p, TOK_ID, "expected class name")) {
+		p->ast.nodes[node].str = p->prev.str;
+		p->ast.nodes[node].len = p->prev.len;
+	}
+	consume(p, TOK_LKEY, "expected '{' after the class name");
+
+	while (p->curr.type != TOK_RKEY && p->curr.type != TOK_EOF) {
+		Token start = p->curr;
+		uint32_t member;
+
+		if (p->curr.type == TOK_PRIV) member = parse_priv_method(p);
+		else if (p->curr.type == TOK_FN) member = parse_fn_decl(p);
+		else if (p->curr.type == TOK_STRUCT || p->curr.type == TOK_UNION)
+			member = parse_struct(p, 0);
+		else if (p->curr.type == TOK_PACKED) {
+			advance(p);
+			if (p->curr.type != TOK_STRUCT && p->curr.type != TOK_UNION) {
+				error_report(p->err, ERR_ERROR, token_loc(p->curr),
+						"expected 'struct' or 'union' after 'packed'");
+				p->panic_mode = 1;
+				member = new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
+			} else member = parse_struct(p, 1);
+		} else member = parse_field(p);
+
+		append_child(p, node, &last, member);
+		if (p->panic_mode) syncro(p, start);
+	}
+	consume(p, TOK_RKEY, "expected '}' at the end of the class");
+	if (p->curr.type == TOK_SEMCOL) advance(p);
 	return node;
 }
 

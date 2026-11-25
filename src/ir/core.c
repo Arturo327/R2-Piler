@@ -190,7 +190,7 @@ int fn_uses_sret (IR *ir, uint32_t ret)
 
 	if (ir->ast->nodes[ret].child != NO_NODE) return 1;
 	if (type_dyn_rank(t) > 0) return 1;
-	return type_kind(t) == TK_STRUCT && !struct_eightbytes(t);
+	return type_is_struct_like(t) && !struct_eightbytes(t);
 }
 
 TypeId ret_slot_type (TypeId t)
@@ -265,7 +265,7 @@ int call_uses_sret (IR *ir, ASTNode *call)
 	TypeId t = call_ret_type(ir, call, 0);
 	if (count > 1) return 1;
 	if (type_dyn_rank(t) > 0) return 1;
-	return type_kind(t) == TK_STRUCT && !struct_eightbytes(t);
+	return type_is_struct_like(t) && !struct_eightbytes(t);
 }
 
 TypeId call_buf_type (IR *ir, ASTNode *call)
@@ -327,12 +327,37 @@ static char *decl_symbol (IR *ir, ASTNode *n, int is_extern,
 	return mangle_symbol(ir->arena, &m);
 }
 
+static char *method_name (IR *ir, ASTNode *n, Symbol *sym, uint16_t *len)
+{
+	Type *cls = types + sym->owner;
+	size_t cap = (size_t)cls->len + (size_t)n->len + 3;
+	char *name = arena_alloc(ir->arena, cap);
+	int at = snprintf(name, cap, "%.*s::%.*s", (int)cls->len, cls->name,
+			(int)n->len, n->str);
+
+	*len = (uint16_t)at;
+	return name;
+}
+
+static char *method_symbol (IR *ir, ASTNode *n, Symbol *sym)
+{
+	MangleName m = {
+		.kind = "m", .mod = ir->mod,
+		.a = types[sym->owner].name, .alen = types[sym->owner].len,
+		.b = n->str, .blen = n->len
+	};
+
+	return mangle_symbol(ir->arena, &m);
+}
+
 static uint32_t declare_fn (IR *ir, ASTNode *n, Symbol *sym)
 {
 	IRFn fn = {0};
 	uint32_t ret = ir->ast->nodes[n->child].next_bro;
-	fn.name = n->str;
-	fn.len = n->len;
+	int method = (n->flags & NODE_FLAG_METHOD) != 0;
+
+	fn.name = method ? method_name(ir, n, sym, &fn.len) : n->str;
+	if (!method) fn.len = n->len;
 
 	if (fn_uses_sret(ir, ret)) fn.ret_type = TYPE_VOID;
 	else if (type_kind(sym->type) == TK_ARRAY)
@@ -341,10 +366,11 @@ static uint32_t declare_fn (IR *ir, ASTNode *n, Symbol *sym)
 	else fn.ret_type = sym->type;
 
 	fn.param_count = param_slots(ir, n);
-	fn.is_extern = n->type == NODE_EXTERN_FN_DEC
-			|| (n->flags & NODE_FLAG_IMPORTED);
-	fn.is_pub = (n->flags & NODE_FLAG_PUB) != 0;
-	fn.sym = decl_symbol(ir, n, fn.is_extern, "pf", "f");
+	fn.is_extern = !method && (n->type == NODE_EXTERN_FN_DEC
+			|| (n->flags & NODE_FLAG_IMPORTED));
+	fn.is_pub = !method && (n->flags & NODE_FLAG_PUB) != 0;
+	fn.sym = method ? method_symbol(ir, n, sym)
+			: decl_symbol(ir, n, fn.is_extern, "pf", "f");
 	return push_fn(ir, fn);
 }
 
@@ -398,6 +424,18 @@ static uint32_t declare_static (IR *ir, uint32_t node_idx, uint32_t k)
 	return push_global(ir, global);
 }
 
+static void declare_class_fns (IR *ir, ASTNode *cls)
+{
+	for (uint32_t m = cls->child; m != NO_NODE; m = ir->ast->nodes[m].next_bro) {
+		ASTNode *fn = ir->ast->nodes + m;
+
+		if (fn->type != NODE_FN_DEC) continue;
+		Symbol *s = ir->symtab->symbols + fn->sym;
+
+		s->ir_id = declare_fn(ir, fn, s);
+	}
+}
+
 void declare_globals (IR *ir)
 {
 	uint32_t idx = ir->ast->nodes[0].child;
@@ -405,6 +443,11 @@ void declare_globals (IR *ir)
 	while (idx != NO_NODE) {
 		ASTNode *n = ir->ast->nodes + idx;
 
+		if (n->type == NODE_CLASS_DEC) {
+			declare_class_fns(ir, n);
+			idx = n->next_bro;
+			continue;
+		}
 		if (n->type != NODE_FN_DEC && n->type != NODE_VAR_DEC && n->type != NODE_ARR_DEC
 				&& n->type != NODE_EXTERN_FN_DEC && n->type != NODE_EXTERN_VAR_DEC) {
 			idx = n->next_bro;

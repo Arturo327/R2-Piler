@@ -1,0 +1,31 @@
+tests/sema/199_class_err_src.r2:12:11: ERROR: classes cannot be 'pub' or 'export' yet
+     12 | pub class Publica {
+        |           ^~~~~~~
+tests/sema/199_class_err_src.r2:8:7: ERROR: class 'Vacia' must have at least one field
+      8 | class Vacia {
+        |       ^~~~~
+tests/sema/199_class_err_src.r2:3:5: ERROR: class 'Caja' already has a field named 'valor'
+      3 |         fn valor(self) : i64 { return 1; }
+        |            ^~~~~
+tests/sema/199_class_err_src.r2:5:16: ERROR: 'self' must be the first parameter of a method
+      5 |         fn malo(self, self) : i64 { return 1; }
+        |                       ^~~~
+tests/sema/199_class_err_src.r2:5:16: ERROR: 'self' already declared in this scope
+      5 |         fn malo(self, self) : i64 { return 1; }
+        |                       ^~~~
+tests/sema/199_class_err_src.r2:18:35: ERROR: method 'Caja::oculto' is private
+     18 |         var f : ptr fn(ptr Caja) : i64 = Caja::oculto;
+        |                                          ^~~~~~~~~~~~
+tests/sema/199_class_err_src.r2:19:10: ERROR: method 'Caja::oculto' is private
+     19 |         return c.oculto() + c.no_existe();
+        |                 ^~~~~~
+tests/sema/199_class_err_src.r2:19:23: ERROR: class 'Caja' has no method 'no_existe'
+     19 |         return c.oculto() + c.no_existe();
+        |                              ^~~~~~~~~
+tests/sema/199_class_err_src.r2:18:6: WARNING: unused variable 'f'
+     18 |         var f : ptr fn(ptr Caja) : i64 = Caja::oculto;
+        |             ^
+tests/sema/199_class_err_src.r2:8:7: WARNING: unused class 'Vacia'
+      8 | class Vacia {
+        |       ^~~~~
+8 errors, 2 warnings

@@ -12,7 +12,7 @@ uint32_t struct_eightbytes (TypeId type)
 {
 	uint32_t size = types[type].size;
 
-	if (type_kind(type) != TK_STRUCT || size > ABI_REG_BYTES) return 0;
+	if (!type_is_struct_like(type) || size > ABI_REG_BYTES) return 0;
 	return (size + 7) >> 3;
 }
 
@@ -24,7 +24,7 @@ static uint32_t collect_leaves (TypeId type, uint32_t base, Leaf *out, uint32_t 
 		const StructField *f = t->fields + i;
 
 		if (f->grp) return UINT32_MAX;
-		if (type_kind(f->type) == TK_STRUCT) {
+		if (type_is_struct_like(f->type)) {
 			n = collect_leaves(f->type, base + f->offset, out, n);
 			continue;
 		}

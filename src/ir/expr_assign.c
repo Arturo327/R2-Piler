@@ -54,7 +54,7 @@ uint32_t gen_assign (IR *ir, ASTNode *n)
 		return gen_bitfield_store(ir, addr, f, val);
 	}
 
-	if (type_kind(lhs->data_type) == TK_STRUCT) {
+	if (type_is_struct_like(lhs->data_type)) {
 		uint32_t dst = gen_expr(ir, lhs);
 		gen_struct_into(ir, dst, lhs->next_bro, lhs->data_type, dest_is_private(ir, lhs));
 		return dst;

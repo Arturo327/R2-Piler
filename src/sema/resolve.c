@@ -5,7 +5,8 @@ static int ptr_base_ok (TypeId base)
 	TypeKind kind = type_kind(base);
 
 	return kind == TK_VOID || kind == TK_INT || kind == TK_ENUM || kind == TK_FN
-			|| kind == TK_NEWTYPE || kind == TK_PTR || kind == TK_STRUCT;
+			|| kind == TK_NEWTYPE || kind == TK_PTR || kind == TK_STRUCT
+			|| kind == TK_CLASS;
 }
 
 static TypeId resolve_type_ref (Sema *s, ASTNode *ref, uint8_t *done, int *deferred)

@@ -631,7 +631,7 @@ static int cast_types_ok (Sema *s, ASTNode *n, TypeId from, TypeId to)
 				types[from].name, types[to].name, via);
 		return 0;
 	}
-	if (type_kind(from) == TK_STRUCT || type_kind(to) == TK_STRUCT) {
+	if (type_is_struct_like(from) || type_is_struct_like(to)) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot cast to or from a struct type");
 		return 0;
@@ -646,7 +646,7 @@ static TypeId check_cast_literal (Sema *s, uint32_t idx, TypeId to)
 
 	if (child_type != NODE_STRUCT_INIT && child_type != NODE_ARRAY_INIT)
 		return TYPE_VOID;
-	if (type_kind(to) != TK_STRUCT) {
+	if (!type_is_struct_like(to)) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"a '{...}' literal can only be cast to a struct or union type");
 		n->data_type = TYPE_ERROR;

@@ -74,9 +74,10 @@ void dump_symbols (Sema *s)
 			dump_variants(sym->type);
 			continue;
 		}
-		if (sym->kind == SYMBOL_TYPE && type_kind(sym->type) == TK_STRUCT) {
+		if (sym->kind == SYMBOL_TYPE && type_is_struct_like(sym->type)) {
 			printf("%s %.*s [%u:%u] depth=%u size=%u align=%u%s\n",
-					types[sym->type].is_union ? "union" : "struct",
+					type_kind(sym->type) == TK_CLASS ? "class"
+					: types[sym->type].is_union ? "union" : "struct",
 					(int)sym->len, sym->name, sym->line, sym->col, sym->depth,
 					types[sym->type].size, types[sym->type].align,
 					types[sym->type].is_packed ? " packed" : "");

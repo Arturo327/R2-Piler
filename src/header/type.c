@@ -149,7 +149,7 @@ static void h_collect_type (CHeader *h, TypeId type)
 	case TK_FN:
 		h_collect_fn(h, type);
 		return;
-	case TK_STRUCT:
+	case TK_STRUCT: case TK_CLASS:
 		for (uint16_t i = 0; i < types[type].field_count; i++)
 			h_collect_type(h, types[type].fields[i].type);
 		return;
@@ -488,7 +488,7 @@ static void h_make_deps (CHeader *h, TypeId type)
 		type = types[type].base;
 	}
 	if (type >= type_count) return;
-	if (type_kind(type) == TK_STRUCT) h_make_nominal(h, type);
+	if (type_is_struct_like(type)) h_make_nominal(h, type);
 	if (type_kind(type) == TK_FN) {
 		Type *fn = types + type;
 
