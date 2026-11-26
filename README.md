@@ -11,99 +11,17 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 ## Status
 
 R2-Piler is a work in progress, but the implemented subset is usable and well
-tested:
+tested: `make test` passes 612 fixtures and `make bench` passes 185 executable
+assembly fixtures at `-O0` through `-O3`.
 
-- **612 fixtures** pass (`make test`): 58 lexer, 105 parser, 202 sema, 76 IR,
-  48 optimizer, 49 mangling/visibility/export, 14 `.r2i`, 16 C/C++ header and
-  44 import cases.
+The only working backend is **x86-64** (System V AMD64 ABI); ARM, RISC-V and
+the interpreter are not implemented.
 
-- **185 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
-  `-O2` and `-O3`, including register-allocation and ABI stress tests.
+See **Features** below for a language overview, and [LANGUAGE.md](LANGUAGE.md)
+for the full specification.
 
-- The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
-  the interpreter are recognized on the command line but rejected as
-  “backend is not implemented”.
-
-- The language currently has integers, `enum`/`type`/`newtype` declarations,
-  functions, locals, globals, blocks, `if`/`elif`/`else`, `while`, `for`,
-  `switch`, `return`, casts, the ternary `?:`, short-circuit logic,
-  the full integer/bitwise operator set, compound assignment (`+=`, `-=`, …)
-  and postfix statement-only `++`/`--` (also in the `for` update), plus
-  `static var`/`static arr` locals with static storage duration and
-  constant initializers.
-
-- **Pointer** support is complete end to end: `ptr T` types, `@` deref and
-  `$` address-of, `NULL`, `sizeof`, C-like pointer arithmetic and comparison,
-  explicit pointer casts and string literals (`TYPE_STR`, adopting `ptr i8`).
-  Pointer arithmetic is lowered with C semantics: `p + n` scales by
-  `sizeof(T)` and `p - q` yields the distance in elements.
-
-- **Function pointers** are supported end to end: `ptr fn(a : i32) : i32`
-  (`fn(...)` is an alias), signatures with pointers, arrays, slices, structs,
-  `&T` parameters, multi-return (`(i32, u32)`) and C variadics (`...`),
-  checked structurally on init/assignment/argument/return.
-
-- **`const`** is a type qualifier (`var x : const i64`, `ptr const T`,
-  `const ptr T`, `const T[N]` for const elements). A const object needs an
-  initializer and its lvalue is read-only, including members of a `const`
-  struct and elements of a const array.
-
-- **C interop** through `extern fn` / `extern var` declarations: they have no
-  body or initializer, calls are type-checked like normal functions, and the
-  emitted symbol keeps its plain C name.
-
-- Top-level symbols are file-private by default and mangled
-  (`_r2_f_<mod>_<len><name>`, `.local` in assembly); `pub` makes them public
-  (`_r2_pf_...` / `_r2_pv_...`, `.globl`) and `fn main` must be
-  `pub fn main() : i64`.
-
-- **Classes**: `class C { x : i64; init (self, ...) ...; fn m(self, ...) ...;
-  priv fn p(self) ...; fn assoc(...) ... }`. Methods are ordinary functions
-  whose first parameter is an implicit `self : ptr C`; `p.m(args)` inserts the
-  receiver automatically (values are passed by address, pointers as-is,
-  temporaries included), `C::m(args)` calls directly (an explicit receiver is
-  required for methods), and bare `m(args)` inside a class resolves to a
-  sibling method. `priv` members are visible only inside the class, fields and
-  methods cannot share a name, and methods are emitted as local
-  `_r2_m_<mod>_<class>_<method>` functions. `var p : C = C(args);` calls the
-  class initializer, which is declared as `init (self, ...) { ... }` (no `fn`,
-  no return type, at most one per class) and can only be invoked through
-  `C(...)`, `new C(...)` or placement `new(slot) C(...)`. Construction is
-  direct when the destination is fresh (locals, globals, `static`, returns,
-  array elements and struct fields) and goes through a temporary elsewhere;
-  `new C` without parentheses allocates without calling `init`. A class may
-  declare one optional destructor as `destroy (self) { ... }`; it cannot be
-  called directly. `drop x;` calls `destroy` without freeing (a class lvalue or
-  any `ptr C`, including a leaked pointer from `new`), `reset x(args);` requires
-  both `destroy` and `init`, runs `destroy` and then `init` on the same lvalue,
-  and `delete p;` calls `destroy` before `free`/the deallocator when the pointer
-  type is a class with a destructor. `drop`/`delete` on parameters (including
-  `self`) are rejected as borrowed; `reset` on parameters/`self` is allowed.
-  `drop`/`reset` do not check `NULL`, and a class slice passed to `delete` frees
-  its memory without destroying elements. Class literals `{...}` are rejected.
-  Classes still cannot be `pub`/`export`, and `op`, automatic destruction at
-  scope exit and `defer` are not implemented.
-- Multidimensional arrays and slices of any rank are supported
-  (`arr m : i32[R][C]`, `i32[][]` slice parameters), and structs/unions
-  with C-like layout, designated `{.field = ...}` exhaustive initializers,
-  field access `.` (auto-deref on `ptr struct`), by-value copies, by-value
-  arguments and `sret` returns, arrays of structs, globals/`static` structs
-  (constant initializers become a `.data` image at any level; pointer/slice/
-  bitfield initializers are written from `__r2_init`) and `sizeof`.
-- **Heap arrays**: `new T[N]` returns a `T[]` slice backed by `malloc`, `new T`
-  returns a `ptr T`, and `new T[D1][D2]...` allocates a rank-N slice (one
-  runtime length per dimension). A custom allocator can be supplied with
-  `new(expr) T[N]`; `delete x;` frees a pointer or the data buffer of a slice,
-  and `delete(expr) x;` calls a custom deallocator. The default forms need
-  `import "stdlib";` (the built-in `malloc`/`free`), while the explicit
-  allocator/deallocator forms do not. For classes, `new C(args)` allocates and
-  calls `init`, while `new(slot) C(args)` initializes memory supplied by the
-  caller (the slot must be `ptr C` or `ptr void`); bindings created with a
-  custom allocator require `delete(deallocator) p;` rather than a plain
-  `delete p;`. When the pointee is a class with a destructor, both delete
-  forms call `destroy` before freeing.
-- Not implemented yet: floating point, `defer`, class `op`, automatic
-  destruction at scope exit and exported classes.
+Not implemented yet: floating point, `defer`, class `op`, automatic destruction
+at scope exit and exported classes.
 
 ---
 
@@ -116,52 +34,45 @@ tested:
   `for`, `switch` and `return`, plus top-level functions with parameters by
   value, recursion and forward references. `static var`/`static arr` locals
   keep one instance with static storage duration and a constant initializer.
-- Pointers: `ptr T` and `ptr void` types, `@` dereference, `$` address-of,
-  the `NULL` literal, `sizeof`, C-like pointer arithmetic and comparison, and
-  explicit pointer-to-pointer casts.
+- Pointers: `ptr T` and `ptr void`, `@` dereference, `$` address-of, `NULL`,
+  `sizeof`, C-like pointer arithmetic and comparison, explicit pointer casts,
+  and string literals (usable wherever `ptr i8` is expected).
 - Function pointers: `ptr fn(a : i32, b : i32) : i32` (bare `fn(...)` is the
-  same type) with structurally checked signatures, callable through any
-  postfix expression, storable in globals, `static`, struct fields and arrays,
-  and convertible implicitly to/from `ptr void`.
-- Arrays and slices: `arr a : T[N]` with `{...}` and string initializers,
-  element-scaled indexing, `.len`, `sizeof`, decay to `ptr T` (including in
-  `a + i` / `a - i` / `a - b`), slice parameters `T[]` (pointer + hidden
-  length) and fixed-length array parameters `T[N]` — passed as a bare pointer
-  and length-checked at the call site, plus the index loop over them:
-  `for (var i : i64 : a)`, `for (var i : a)` and `for (i : a)` — and one index
-  per dimension (`for (var i : i64, j : i64 : mat)`), desugared by the parser
-  into ordinary `for`s bounded by `a.len`, `a[i].len`, ...
-- Heap allocation: `new T[N]` / `new T[D1][D2]...` (a `T[]`-style slice) and
-  `new T` (a `ptr T`), `new(allocator_expr)` for custom allocators,
-  `delete x;` and `delete(deallocator_expr) x;`. The default allocator/free
-  require `import "stdlib";` and use `malloc`/`free`; memory is not
-  zero-initialized. `new`/`delete` are also allowed in global and `static`
-  initializers (they run from `__r2_init`, setting `has_dynamic_init`).
-- String literals, typed as `string` and usable wherever `ptr i8` is expected.
-- Top-level visibility: private by default, `pub` for public symbols (`.globl`,
-  `_r2_pf_...`/`_r2_pv_...`) and `export` for plain C-linkable definitions;
-  module names come from the canonical source path with `$xx`-escaped bytes.
-- **Modules and imports**: one file is one module. `import "m";` exposes
-  `m::name`, `import "m" as x;` renames the qualifier, and
-  `from "m" import a as b, T;` brings names into scope. The importer reads
-  `m.r2i` (source directory, then the `-m` directory, then each `-p DIR`),
-  reconstructs the module's public types/signatures/defaults, treats its
-  functions and globals as external symbols, and calls its `__r2_init_<mod>`
-  when it has dynamic initializers. Only `pub`/`export`/`pub extern`
-  declarations are visible; `from` does not bind the qualifier; local
-  variables may shadow imported names but a top-level name collision is an
-  error. Dependencies listed in the `.r2i` `imports:` header are loaded
-  recursively (cycle-checked), so a module can re-export imported types.
-- Top-level globals with well-defined initialization order; cyclic initializers
-  are diagnosed.
-- Short-circuit `&&` and `||`, and the ternary `cond ? a : b` (lowered to
-  `select`/`cmov` when the condition and both arms are pure).
-- Strict diagnostics with `file:line:column` locations: uninitialized-variable
-  warnings, missing-`return` checks and constant conditions.
+  same type), with signatures checked on initialization, assignment, arguments
+  and returns.
+- Arrays and slices of any rank: `arr a : T[N]` with `{...}` and string
+  initializers, designated initializers, element-scaled indexing, `.len`,
+  `sizeof`, decay to `ptr T`, slice parameters `T[]` and fixed-size array
+  parameters `T[N]`. The index form of `for` iterates over any number of
+  dimensions.
+- Structs and unions with C-like layout: designated `{.field = ...}`
+  initializers (omitted fields are zero-filled), field access with auto-deref
+  on pointers, by-value copies, arguments and returns, arrays of structs,
+  globals and `static` structs, and `sizeof`.
+- Classes: `class C { x : i64; init(self, ...) {...} fn m(self, ...) {...} }`.
+  Methods take an implicit `self : ptr C`; `p.m(...)` inserts the receiver and
+  `C::m(...)` calls directly. `priv` members are visible only inside the
+  class. A class may define an initializer, invoked with `C(...)` or
+  `new C(...)`, and an optional destructor, invoked through `drop`, `reset`
+  and `delete`. `new(slot) C(...)` constructs into caller-provided memory.
+- Heap allocation: `new T[N]` / `new T[D1][D2]...` (slices) and `new T`
+  (a `ptr T`), with optional custom allocators `new(allocator_expr) T[N]`;
+  `delete x;` and `delete(expr) x;` free them. The default forms use
+  `malloc`/`free` from `import "stdlib";`; memory is not zero-initialized.
+- Modules and imports: `import "m";` exposes `m::name`, `import "m" as x;`
+  renames the qualifier, and `from "m" import a as b, T;` brings names into
+  scope. Only public declarations are visible; imported interfaces are read
+  from `.r2i` files and transitive dependencies are loaded automatically.
+- Visibility: top-level names are file-private by default; `pub` makes them
+  public and `export` gives them a plain C-linkable name. `main` must be
+  `pub fn main() : i64`.
+- C interop: `extern fn` / `extern var` declarations refer to plain C symbols.
+- Short-circuit `&&` and `||`, the ternary `cond ? a : b`, and strict
+  diagnostics with `file:line:column` locations.
 - Compiles to x86-64 AT&T assembly (System V AMD64 ABI) that links with `gcc`.
-- Four optimization levels: `-O0` to `-O3` (default `-O2`).
-- Stage-inspection flags: `--dump-tokens`, `--dump-ast`, `--dump-symbols`,
-  `--dump-ir` and `--dump-opt`.
+  Four optimization levels (`-O0` to `-O3`, default `-O2`) and stage-inspection
+  flags `--dump-tokens`, `--dump-ast`, `--dump-symbols`, `--dump-ir` and
+  `--dump-opt`.
 
 ---
 
@@ -185,23 +96,14 @@ gcc prog.s -o prog
 ./prog; echo $?          # exit code = value returned by main
 ```
 
-A plain compile (no dump flag) writes assembly to `<source>.s` (or the `-o`
-target; `-` for stdout). Assemble with gcc and run it.
-
-It also writes the module interface to `modules/<module>.r2i` (the module is
-the source stem, or the name of a top-level `module "..."`; the directory is
-flat). The file lists the `pub`/`export` interface in R2 declaration syntax
-with already-mangled top-level symbols; its comment header carries the module
-id, the modules whose types appear in that interface (`imports:`) and the
-`has_dynamic_init` flag. Use `-m DIR`/`--modules-dir DIR` to change the
-directory, `-n`/`--no-r2i` to skip it and `-p DIR`/`--path DIR` (repeatable) to
-add directories searched by importers. The `.r2i` is written only after the
-assembly succeeds, and an existing file generated from a different source is
-never overwritten. Modules are compiled one at a time and linked afterwards:
+A plain compile writes assembly to `<source>.s` (or the `-o` target; `-` for
+stdout) and the module interface `modules/<module>.r2i` used by importers
+(`-n`/`--no-r2i` skips it). Modules are compiled one at a time and linked
+afterwards:
 
 ```bash
 ./build/r2p a.r2 -m modules      # writes a.s and modules/a.r2i
-./build/r2p b.r2 -m modules      # b.r2 has `import "a";`, reads modules/a.r2i
+./build/r2p b.r2 -m modules      # b.r2 has `import "a";`
 gcc a.s b.s -o prog
 ```
 
@@ -224,9 +126,8 @@ Some debug flags:
 ./build/r2p --dump-opt path/to/file.r2
 ```
 
-`--dump-ir` never runs the optimizer and never shows `select`.
-`--dump-opt` without `-O` forces the maximum (`-O3`) level; with `-O0`/`-O1`
-it prints the unoptimized IR.
+`--dump-ir` shows the unoptimized IR; `--dump-opt` without `-O` uses the
+maximum optimization level.
 
 ---
 
@@ -362,9 +263,9 @@ list of source files to maintain.
 source -> lexer -> parser -> imports (.r2i) -> sema -> IR -> optimize_ir (-O2/-O3) -> x86-64 asm
 ```
 
-An error in a stage stops the compilation before the next stage; warnings do
-not. The IR optimizer only runs at `-O2`/`-O3`; `-O1` keeps the IR unoptimized
-but runs register allocation, and `-O0` spills every value to the stack.
+An error in a stage stops compilation before the next one; warnings do not.
+The optimizer runs at `-O2`/`-O3`; `-O1` keeps the IR unoptimized but allocates
+registers, and `-O0` spills every value to the stack.
 
 ---
 
