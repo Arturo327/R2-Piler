@@ -102,7 +102,9 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_IMPORT_DEC] = "NODE_IMPORT_DEC",
 	[NODE_FROM_DEC] = "NODE_FROM_DEC",
 	[NODE_NEW] = "NODE_NEW",
+	[NODE_NEW_CTOR] = "NODE_NEW_CTOR",
 	[NODE_DELETE] = "NODE_DELETE",
+	[NODE_CTOR_CALL] = "NODE_CTOR_CALL",
 };
 
 static inline void indent (int depth)
@@ -155,6 +157,7 @@ static void dump_node_value (ASTNode *n)
 		if (n->flags & NODE_FLAG_PRIV) printf(" priv");
 		if (n->flags & NODE_FLAG_SELF) printf(" self");
 		if (n->flags & NODE_FLAG_METHOD) printf(" method");
+		if (n->flags & NODE_FLAG_INIT) printf(" init");
 		if (n->flags & NODE_FLAG_BITFIELD) {
 			printf(" bitfield=%u", n->sym);
 			if (n->flags & NODE_FLAG_BITFIELD_TYPED) printf(" typed");
@@ -175,6 +178,9 @@ static void dump_node_value (ASTNode *n)
 		break;
 	case NODE_NEW:
 		printf(" dims=%llu", (unsigned long long)n->u64);
+		if (n->flags & NODE_FLAG_CUSTOM_ALLOC) printf(" custom-alloc");
+		break;
+	case NODE_NEW_CTOR:
 		if (n->flags & NODE_FLAG_CUSTOM_ALLOC) printf(" custom-alloc");
 		break;
 	case NODE_DELETE:
@@ -347,7 +353,8 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 		if (n->type == NODE_FN_CALL && (n->flags & NODE_FLAG_INDIRECT))
 			dump_node(ast, (uint32_t)n->u64, depth + 1);
 		dump_node(ast, child, depth + 1);
-		if (n->type == NODE_INDEX_INIT)
+		if (n->type == NODE_INDEX_INIT || (n->type == NODE_NEW_CTOR
+				&& (n->flags & NODE_FLAG_CUSTOM_ALLOC)))
 			dump_node(ast, (uint32_t)n->u64, depth + 1);
 		idx = next;
 	}

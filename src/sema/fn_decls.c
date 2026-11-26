@@ -68,7 +68,18 @@ static int new_init (Sema *s, uint32_t idx)
 
 	while (n->type == NODE_CAST && n->child != NO_NODE)
 		n = s->ast->nodes + n->child;
-	return n->type == NODE_NEW;
+	if (n->type == NODE_NEW || n->type == NODE_NEW_CTOR
+			|| n->type == NODE_CTOR_CALL)
+		return 1;
+	if (n->type == NODE_STRUCT_INIT || n->type == NODE_ARRAY_INIT) {
+		for (uint32_t c = n->child; c != NO_NODE; c = s->ast->nodes[c].next_bro)
+			if (new_init(s, c)) return 1;
+	}
+	if (n->type == NODE_FIELD_INIT)
+		return n->child != NO_NODE && new_init(s, n->child);
+	if (n->type == NODE_INDEX_INIT)
+		return n->u64 != NO_NODE && new_init(s, (uint32_t)n->u64);
+	return 0;
 }
 
 static int refs_local (Sema *s, uint32_t idx)
@@ -77,6 +88,9 @@ static int refs_local (Sema *s, uint32_t idx)
 
 	if (n->type == NODE_ID && n->sym != NO_SYMBOL
 			&& s->table.symbols[n->sym].depth > 0)
+		return 1;
+	if (n->type == NODE_NEW_CTOR && (n->flags & NODE_FLAG_CUSTOM_ALLOC)
+			&& refs_local(s, (uint32_t)n->u64))
 		return 1;
 	for (uint32_t c = n->child; c != NO_NODE; c = s->ast->nodes[c].next_bro) {
 		if (refs_local(s, c)) return 1;
@@ -102,6 +116,7 @@ static void check_static_decl (Sema *s, uint32_t idx)
 
 	uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_VAR, n->data_type, idx);
 
+	if (has_init) mark_placement(s, sym, s->ast->nodes[idx].child);
 	s->table.symbols[sym].is_static = 1;
 	s->table.symbols[sym].assigned = 1;
 	s->table.symbols[sym].owner = s->curr_fn;
@@ -253,6 +268,7 @@ void check_var_dec (Sema *s, uint32_t idx)
 
 	if (is_null) s->table.symbols[sym].null_known = 1;
 	if (has_init) {
+		mark_placement(s, sym, s->ast->nodes[idx].child);
 		sym_set_stack_slice(s, sym, s->ast->nodes[idx].child);
 		sym_write(s, sym, idx);
 	}

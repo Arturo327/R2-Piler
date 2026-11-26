@@ -354,19 +354,57 @@ static void parse_field_type (Parser *p, uint32_t node)
 	if (p->curr.type == TOK_COL) parse_bitfield_width(p, node);
 }
 
-static uint32_t parse_field (Parser *p)
+static uint32_t parse_field_named (Parser *p, Token name)
 {
-	uint16_t line = p->curr.line;
-	uint16_t col = p->curr.col;
-	uint32_t node = new_node(p, NODE_FIELD_DEC, line, col);
+	uint32_t node = new_node(p, NODE_FIELD_DEC, name.line, name.col);
 
-	if (consume(p, TOK_ID, "expected field name")) {
-		p->ast.nodes[node].str = p->prev.str;
-		p->ast.nodes[node].len = p->prev.len;
-	}
+	p->ast.nodes[node].str = name.str;
+	p->ast.nodes[node].len = name.len;
 	consume(p, TOK_COL, "expected ':' followed by the field type");
 	parse_field_type(p, node);
 	consume(p, TOK_SEMCOL, "expected ';' after the field");
+	return node;
+}
+
+static uint32_t parse_field (Parser *p)
+{
+	Token name = p->curr;
+
+	if (consume(p, TOK_ID, "expected field name")) name = p->prev;
+	return parse_field_named(p, name);
+}
+
+static inline int member_named (Token t, const char *name, uint16_t len)
+{
+	return t.type == TOK_ID && t.len == len && memcmp(t.str, name, len) == 0;
+}
+
+static uint32_t parse_special_method (Parser *p, Token name, uint16_t flags)
+{
+	uint32_t node = new_node(p, NODE_FN_DEC, name.line, name.col);
+	p->ast.nodes[node].str = name.str;
+	p->ast.nodes[node].len = name.len;
+	p->ast.nodes[node].flags = flags;
+
+	uint32_t args = parse_args_dec(p);
+	uint32_t ret = new_node(p, NODE_RET_DEC, name.line, name.col);
+	p->ast.nodes[ret].data_type = TYPE_VOID;
+	p->ast.nodes[ret].type_node = NO_TYPE_NODE;
+
+	if (p->curr.type == TOK_COL) {
+		error_report(p->err, ERR_ERROR, token_loc(p->curr),
+				"a special class member cannot declare a return type");
+		advance(p);
+		uint16_t type_node;
+		parse_type(p, 0, ret, &type_node);
+	}
+
+	uint32_t body = parse_block(p);
+	uint32_t last = NO_NODE;
+
+	append_child(p, node, &last, args);
+	append_child(p, node, &last, ret);
+	if (body != NO_NODE) append_child(p, node, &last, body);
 	return node;
 }
 
@@ -408,6 +446,17 @@ uint32_t parse_class (Parser *p)
 
 		if (p->curr.type == TOK_PRIV) member = parse_priv_method(p);
 		else if (p->curr.type == TOK_FN) member = parse_fn_decl(p);
+		else if (p->curr.type == TOK_ID
+				&& (member_named(p->curr, "init", 4)
+					|| member_named(p->curr, "destroy", 7))) {
+			Token name = p->curr;
+			uint16_t flags = member_named(name, "init", 4) ? NODE_FLAG_INIT : 0;
+
+			advance(p);
+			if (p->curr.type == TOK_LPAREN)
+				member = parse_special_method(p, name, flags);
+			else member = parse_field_named(p, name);
+		}
 		else if (p->curr.type == TOK_STRUCT || p->curr.type == TOK_UNION)
 			member = parse_struct(p, 0);
 		else if (p->curr.type == TOK_PACKED) {

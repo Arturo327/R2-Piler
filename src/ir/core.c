@@ -341,9 +341,14 @@ static char *method_name (IR *ir, ASTNode *n, Symbol *sym, uint16_t *len)
 
 static char *method_symbol (IR *ir, ASTNode *n, Symbol *sym)
 {
+	Type *cls = types + sym->owner;
+
+	if (n->flags & NODE_FLAG_INIT)
+		return mangle_class_special(ir->arena, ir->mod, cls->name, cls->len, "init");
+
 	MangleName m = {
 		.kind = "m", .mod = ir->mod,
-		.a = types[sym->owner].name, .alen = types[sym->owner].len,
+		.a = cls->name, .alen = cls->len,
 		.b = n->str, .blen = n->len
 	};
 

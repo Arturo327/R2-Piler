@@ -444,7 +444,7 @@ static int is_const_ptr_init (Sema *s, uint32_t idx)
 		n = &s->ast->nodes[n->child];
 
 	if (n->type == NODE_LIT_NULL || n->type == NODE_LIT_STR) return 1;
-	if (n->type == NODE_NEW) return 1;
+	if (n->type == NODE_NEW || n->type == NODE_NEW_CTOR) return 1;
 	if (n->type == NODE_ID && n->sym != NO_SYMBOL)
 		return s->table.symbols[n->sym].kind == SYMBOL_FN;
 	if (n->type != NODE_ADDR || n->child == NO_NODE) return 0;

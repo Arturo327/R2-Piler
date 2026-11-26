@@ -85,6 +85,22 @@ uint32_t gen_new (IR *ir, ASTNode *n)
 	return ptr;
 }
 
+uint32_t gen_new_ctor (IR *ir, ASTNode *n)
+{
+	uint32_t ptr;
+
+	if (n->flags & NODE_FLAG_CUSTOM_ALLOC) {
+		ptr = gen_expr(ir, ir->ast->nodes + (uint32_t)n->u64);
+	} else {
+		TypeId base = types[type_ptr_repr(n->data_type)].base;
+		uint32_t size = make_const(ir, types[base].size, TYPE_i64);
+
+		make_arg(ir, size, 0);
+		ptr = make_call(ir, libc_fn(ir, 0), 1, type_ptr_to(TYPE_VOID));
+	}
+	return gen_ctor_call(ir, n, ptr);
+}
+
 void gen_delete (IR *ir, ASTNode *n)
 {
 	uint32_t child = n->child;

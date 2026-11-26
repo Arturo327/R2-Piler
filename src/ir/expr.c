@@ -205,11 +205,31 @@ int gen_select (IR *ir, ASTNode *n)
 	return 1;
 }
 
+static uint32_t gen_ternary_agg (IR *ir, ASTNode *n)
+{
+	ASTNode *nodes = ir->ast->nodes;
+	uint32_t then_idx = nodes[n->child].next_bro;
+	uint32_t else_idx = nodes[then_idx].next_bro;
+	uint32_t l_else = ir->label_count++;
+	uint32_t l_end = ir->label_count++;
+	uint32_t dst = new_struct_temp(ir, n->data_type);
+
+	gen_jump_if(ir, nodes + n->child, l_else, 0);
+	gen_struct_into(ir, dst, then_idx, n->data_type, 1);
+	make_jump(ir, IR_JMP, NO_REG, l_end);
+	make_label(ir, l_else);
+	gen_struct_into(ir, dst, else_idx, n->data_type, 1);
+	make_label(ir, l_end);
+	return dst;
+}
+
 static uint32_t gen_ternary (IR *ir, ASTNode *n)
 {
 	ASTNode *nodes = ir->ast->nodes;
 	uint32_t then_idx = nodes[n->child].next_bro;
 	uint32_t else_idx = nodes[then_idx].next_bro;
+
+	if (type_kind(n->data_type) == TK_CLASS) return gen_ternary_agg(ir, n);
 
 	if (ir->use_select) {
 		int cbudget = LOGIC_BUDGET;
@@ -448,6 +468,13 @@ uint32_t gen_expr (IR *ir, ASTNode *n)
 	case NODE_LIT_NULL: return make_const(ir, 0, TYPE_NULL);
 	case NODE_LIT_STR: return make_str_lit(ir, n);
 	case NODE_NEW: return gen_new(ir, n);
+	case NODE_NEW_CTOR: return gen_new_ctor(ir, n);
+	case NODE_CTOR_CALL: {
+		uint32_t tmp = new_struct_temp(ir, n->data_type);
+
+		gen_ctor_call(ir, n, tmp);
+		return tmp;
+	}
 	case NODE_FN_CALL: return gen_call_value(ir, n);
 	case NODE_ASSIGN: return gen_assign(ir, n);
 	case NODE_ADD_ASSIGN: case NODE_SUB_ASSIGN: case NODE_MUL_ASSIGN:

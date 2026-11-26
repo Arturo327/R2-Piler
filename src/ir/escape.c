@@ -48,6 +48,8 @@ static void scan_node (IR *ir, uint32_t idx, uint32_t parent)
 	else if (n->type == NODE_MULTI_ASSIGN) taint_multi(ir, n);
 	else if (n->type == NODE_ADDR) taint(ir, n->child, 1);
 	else if (array_decay(ir, idx, parent)) taint(ir, idx, 1);
+	if (n->type == NODE_NEW_CTOR && (n->flags & NODE_FLAG_CUSTOM_ALLOC))
+		scan_node(ir, (uint32_t)n->u64, idx);
 
 	for (uint32_t k = n->child; k != NO_NODE; k = ir->ast->nodes[k].next_bro)
 		scan_node(ir, k, idx);

@@ -540,7 +540,8 @@ static TypeId ternary_unify (Sema *s, uint32_t idx, uint32_t *then_idx,
 				"operator cannot be applied to a value of type void");
 		return TYPE_ERROR;
 	}
-	if (type_is_aggregate(a) || type_is_aggregate(b)) {
+	if ((type_is_aggregate(a) || type_is_aggregate(b))
+			&& !(type_kind(a) == TK_CLASS && a == b)) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"operator cannot be applied to a value of type %s",
 				types[type_is_aggregate(a) ? a : b].name);

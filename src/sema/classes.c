@@ -31,9 +31,40 @@ uint32_t class_method_node (Sema *s, TypeId cls, const char *name, uint16_t len)
 		ASTNode *fn = s->ast->nodes + m;
 
 		if (fn->type != NODE_FN_DEC || !(fn->flags & NODE_FLAG_METHOD)) continue;
+		if (fn->sym == NO_SYMBOL) continue;
 		if (fn->len == len && memcmp(fn->str, name, len) == 0) return m;
 	}
 	return NO_NODE;
+}
+
+uint32_t class_init_node (Sema *s, TypeId cls)
+{
+	uint32_t decl = class_decl_node(s, cls);
+
+	if (decl == NO_NODE) return NO_NODE;
+	for (uint32_t m = s->ast->nodes[decl].child; m != NO_NODE; m = s->ast->nodes[m].next_bro) {
+		ASTNode *fn = s->ast->nodes + m;
+
+		if (fn->type == NODE_FN_DEC && (fn->flags & NODE_FLAG_INIT)
+				&& fn->sym != NO_SYMBOL)
+			return m;
+	}
+	return NO_NODE;
+}
+
+int reject_special_call (Sema *s, uint32_t use, uint32_t sym)
+{
+	if (sym == NO_SYMBOL) return 0;
+
+	Symbol *fn = s->table.symbols + sym;
+
+	if (fn->kind != SYMBOL_FN || fn->decl == NO_NODE) return 0;
+	if (!(s->ast->nodes[fn->decl].flags & NODE_FLAG_INIT)) return 0;
+	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + use),
+			"the initializer of class '%s' cannot be called directly;"
+			" use '%s(...)'", types[fn->owner].name, types[fn->owner].name);
+	s->ast->nodes[use].data_type = TYPE_ERROR;
+	return 1;
 }
 
 void check_method_visibility (Sema *s, uint32_t sym, uint32_t use)
@@ -80,14 +111,51 @@ static void mark_class_self (Sema *s, uint32_t fn_idx, TypeId owner)
 	}
 }
 
-static void declare_class_method (Sema *s, uint32_t fn_idx, TypeId owner)
+static inline int fn_named (ASTNode *fn, const char *name, uint16_t len)
 {
-	mark_class_self(s, fn_idx, owner);
-	resolve_fn_types(s, fn_idx);
+	return fn->len == len && memcmp(fn->str, name, len) == 0;
+}
 
+static int reject_normal_special (Sema *s, uint32_t fn_idx, TypeId owner)
+{
 	ASTNode *fn = s->ast->nodes + fn_idx;
-	uint32_t ret = s->ast->nodes[fn->child].next_bro;
 	Type *ct = types + owner;
+
+	if (fn_named(fn, "init", 4)) {
+		if (fn->flags & NODE_FLAG_PRIV)
+			error_report(s->err, ERR_ERROR, node_loc(fn),
+					"an initializer cannot be private");
+		else error_report(s->err, ERR_ERROR, node_loc(fn),
+					"the initializer of class '%s' must be declared as"
+					" 'init (self, ...)' without 'fn'", ct->name);
+	} else if (fn_named(fn, "destroy", 7))
+		error_report(s->err, ERR_ERROR, node_loc(fn),
+				"destructors are not implemented yet");
+	else if (fn->len == ct->len && memcmp(fn->str, ct->name, ct->len) == 0)
+		error_report(s->err, ERR_ERROR, node_loc(fn),
+				"a method cannot have the same name as its class");
+	else return 0;
+	return 1;
+}
+
+static int class_has_init_before (Sema *s, TypeId owner, uint32_t fn_idx)
+{
+	uint32_t decl = class_decl_node(s, owner);
+
+	for (uint32_t m = s->ast->nodes[decl].child; m != NO_NODE && m != fn_idx;
+			m = s->ast->nodes[m].next_bro) {
+		ASTNode *fn = s->ast->nodes + m;
+
+		if (fn->type == NODE_FN_DEC && (fn->flags & NODE_FLAG_INIT)) return 1;
+	}
+	return 0;
+}
+
+static void register_class_method (Sema *s, uint32_t fn_idx, TypeId owner)
+{
+	ASTNode *fn = s->ast->nodes + fn_idx;
+	Type *ct = types + owner;
+	uint32_t ret = s->ast->nodes[fn->child].next_bro;
 	size_t cap = (size_t)ct->len + (size_t)fn->len + 3;
 	char *qname = arena_alloc(s->arena, cap);
 	int qlen = snprintf(qname, cap, "%.*s::%.*s", (int)ct->len, ct->name,
@@ -107,6 +175,29 @@ static void declare_class_method (Sema *s, uint32_t fn_idx, TypeId owner)
 		error_report(s->err, ERR_ERROR, node_loc(fn),
 				"class '%s' already has a field named '%.*s'",
 				ct->name, (int)fn->len, fn->str);
+}
+
+static void declare_class_method (Sema *s, uint32_t fn_idx, TypeId owner)
+{
+	ASTNode *fn = s->ast->nodes + fn_idx;
+	int is_init = (fn->flags & NODE_FLAG_INIT) != 0;
+
+	if (!is_init && reject_normal_special(s, fn_idx, owner)) return;
+	if (is_init && (fn->flags & NODE_FLAG_PRIV))
+		error_report(s->err, ERR_ERROR, node_loc(fn),
+				"an initializer cannot be private");
+	if (is_init && class_has_init_before(s, owner, fn_idx)) {
+		error_report(s->err, ERR_ERROR, node_loc(fn),
+				"class '%s' already has an initializer", types[owner].name);
+		return;
+	}
+
+	mark_class_self(s, fn_idx, owner);
+	if (is_init && !class_fn_has_self(s, fn_idx))
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + fn_idx),
+				"an initializer must take 'self' as its first parameter");
+	resolve_fn_types(s, fn_idx);
+	register_class_method(s, fn_idx, owner);
 }
 
 void decl_class_methods (Sema *s, uint32_t idx)
@@ -137,7 +228,9 @@ void check_class_methods (Sema *s, uint32_t idx)
 	while (m != NO_NODE) {
 		uint32_t next = s->ast->nodes[m].next_bro;
 
-		if (s->ast->nodes[m].type == NODE_FN_DEC) check_fn_dec(s, m);
+		if (s->ast->nodes[m].type == NODE_FN_DEC
+				&& s->ast->nodes[m].sym != NO_SYMBOL)
+			check_fn_dec(s, m);
 		m = next;
 	}
 	s->curr_class = saved;
@@ -232,6 +325,10 @@ static TypeId dispatch_method (Sema *s, uint32_t idx, MethodCall *mc)
 	uint32_t sym = s->ast->nodes[mc->method].sym;
 	uint32_t receiver = NO_NODE;
 
+	if (reject_special_call(s, mc->dot, sym)) {
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
 	check_method_visibility(s, sym, mc->dot);
 	if (class_fn_has_self(s, mc->method)) {
 		TypeId ptr = type_ptr_to(mc->cls);
@@ -255,6 +352,67 @@ static TypeId dispatch_method (Sema *s, uint32_t idx, MethodCall *mc)
 	call->str = mc->name;
 	call->len = mc->len;
 	return finish_method_call(s, idx, sym, receiver, mc->args);
+}
+
+static uint32_t ctor_args_node (Sema *s, uint32_t init)
+{
+	uint32_t params = s->ast->nodes[init].child;
+	uint32_t first = s->ast->nodes[params].child;
+	uint32_t rest = first;
+
+	if (first != NO_NODE && (s->ast->nodes[first].flags & NODE_FLAG_SELF))
+		rest = s->ast->nodes[first].next_bro;
+	ASTNode args = s->ast->nodes[params];
+	args.child = rest;
+	return sema_new_node(s, args);
+}
+
+static uint32_t ctor_fn_node (Sema *s, uint32_t init, uint32_t args_node)
+{
+	ASTNode fn = s->ast->nodes[init];
+
+	fn.child = args_node;
+	return sema_new_node(s, fn);
+}
+
+void check_ctor_args (Sema *s, uint32_t call, uint32_t init)
+{
+	uint32_t args = ctor_args_node(s, init);
+	uint32_t fn = ctor_fn_node(s, init, args);
+
+	check_call_args(s, call, fn);
+}
+
+TypeId check_ctor_call (Sema *s, uint32_t idx, TypeId cls)
+{
+	uint32_t init = class_init_node(s, cls);
+	uint32_t argc = 0;
+
+	for (uint32_t a = s->ast->nodes[idx].child; a != NO_NODE;
+			a = s->ast->nodes[a].next_bro)
+		argc++;
+
+	if (init != NO_NODE) {
+		check_ctor_args(s, idx, init);
+	} else if (argc) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"class '%s' has no initializer; '%.*s(...)' cannot take arguments",
+				types[cls].name, (int)s->ast->nodes[idx].len,
+				s->ast->nodes[idx].str);
+		for (uint32_t a = s->ast->nodes[idx].child; a != NO_NODE; ) {
+			uint32_t next = s->ast->nodes[a].next_bro;
+
+			check_expr(s, a);
+			a = next;
+		}
+	}
+
+	ASTNode *n = s->ast->nodes + idx;
+
+	n->type = NODE_CTOR_CALL;
+	n->sym = init == NO_NODE ? NO_SYMBOL : s->ast->nodes[init].sym;
+	n->data_type = cls;
+	return cls;
 }
 
 TypeId check_method_call (Sema *s, uint32_t idx, int *handled)

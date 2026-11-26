@@ -185,27 +185,8 @@ static uint32_t parse_unary (Parser *p)
 	return node;
 }
 
-static uint32_t parse_new (Parser *p)
+static uint32_t parse_new_dims (Parser *p, uint32_t node, uint32_t *last)
 {
-	Token kw = p->curr;
-	uint32_t node = new_node(p, NODE_NEW, kw.line, kw.col);
-	uint32_t last = NO_NODE;
-
-	p->ast.nodes[node].len = kw.len;
-	advance(p);
-	if (p->curr.type == TOK_LPAREN) {
-		advance(p);
-		uint32_t alloc = parse_expr(p, 0);
-		consume(p, TOK_RPAREN, "expected ')' after the allocator expression");
-		append_child(p, node, &last, alloc);
-		p->ast.nodes[node].flags |= NODE_FLAG_CUSTOM_ALLOC;
-	}
-
-	uint16_t type_node;
-	TypeId base = parse_new_type(p, node, &type_node);
-
-	p->ast.nodes[node].data_type = base;
-	p->ast.nodes[node].type_node = type_node;
 	uint32_t dims = 0;
 
 	while (p->curr.type == TOK_LBRACE && !p->panic_mode) {
@@ -217,9 +198,61 @@ static uint32_t parse_new (Parser *p)
 			break;
 		}
 		uint32_t dim = parse_expr(p, 0);
+
 		consume(p, TOK_RBRACE, "expected ']' after the allocation size");
-		append_child(p, node, &last, dim);
+		append_child(p, node, last, dim);
 		dims++;
+	}
+	return dims;
+}
+
+static uint32_t parse_new_alloc (Parser *p, uint32_t node, int *custom)
+{
+	uint32_t alloc = NO_NODE;
+
+	if (p->curr.type != TOK_LPAREN) return NO_NODE;
+	advance(p);
+	alloc = parse_expr(p, 0);
+	consume(p, TOK_RPAREN, "expected ')' after the allocator expression");
+	*custom = 1;
+	p->ast.nodes[node].flags |= NODE_FLAG_CUSTOM_ALLOC;
+	return alloc;
+}
+
+static uint32_t parse_new (Parser *p)
+{
+	Token kw = p->curr;
+	uint32_t node = new_node(p, NODE_NEW, kw.line, kw.col);
+	uint32_t last = NO_NODE;
+	int custom = 0;
+
+	p->ast.nodes[node].len = kw.len;
+	advance(p);
+	uint32_t alloc = parse_new_alloc(p, node, &custom);
+
+	uint16_t type_node;
+	TypeId base = parse_new_type(p, node, &type_node);
+
+	p->ast.nodes[node].data_type = base;
+	p->ast.nodes[node].type_node = type_node;
+	if (custom) append_child(p, node, &last, alloc);
+
+	uint32_t dims = parse_new_dims(p, node, &last);
+
+	if (p->curr.type == TOK_LPAREN && !p->panic_mode) {
+		if (dims) {
+			error_report(p->err, ERR_ERROR, token_loc(p->curr),
+					"constructor arguments are not supported on array allocations yet");
+			uint32_t skip = new_node(p, NODE_FN_CALL, kw.line, kw.col);
+
+			parse_call_args(p, skip);
+		} else {
+			p->ast.nodes[node].child = NO_NODE;
+			p->ast.nodes[node].type = NODE_NEW_CTOR;
+			p->ast.nodes[node].u64 = custom ? alloc : NO_NODE;
+			parse_call_args(p, node);
+			return node;
+		}
 	}
 	p->ast.nodes[node].u64 = dims;
 	return node;

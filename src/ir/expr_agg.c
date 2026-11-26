@@ -292,6 +292,17 @@ void gen_struct_into (IR *ir, uint32_t dst, uint32_t expr, TypeId type, int fres
 		gen_struct_init(ir, dst, e, type);
 		return;
 	}
+	if (e->type == NODE_CTOR_CALL) {
+		if (!fresh) {
+			uint32_t tmp = new_struct_temp(ir, type);
+
+			gen_ctor_call(ir, e, tmp);
+			gen_copy(ir, dst, tmp, type);
+			return;
+		}
+		gen_ctor_call(ir, e, dst);
+		return;
+	}
 	if (e->type == NODE_FN_CALL && (fresh || struct_eightbytes(type))
 			&& call_ret_count(ir, e) == 1) {
 		gen_call(ir, e, dst);

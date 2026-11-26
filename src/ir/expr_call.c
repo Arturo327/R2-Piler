@@ -246,6 +246,38 @@ uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest)
 	return make_call(ir, fn->ir_id, (uint16_t)k, ir->fns[fn->ir_id].ret_type);
 }
 
+uint32_t gen_ctor_call (IR *ir, ASTNode *n, uint32_t dst)
+{
+	if (n->sym == NO_SYMBOL) return dst;
+
+	Symbol *fn = ir->symtab->symbols + n->sym;
+	uint32_t params = ir->ast->nodes[fn->decl].child;
+	uint32_t param = ir->ast->nodes[params].child;
+	uint32_t arg = n->child;
+	uint32_t argc = count_bros(ir, arg);
+	uint32_t regs[ir->fns[fn->ir_id].param_count + argc + 2];
+	uint32_t k = 0;
+
+	if (param != NO_NODE && (ir->ast->nodes[param].flags & NODE_FLAG_SELF))
+		param = ir->ast->nodes[param].next_bro;
+	regs[k++] = dst;
+
+	if (ir->ast->nodes[params].flags & NODE_FLAG_VARARG_TYPED) {
+		k = push_typed_args(ir, n, arg, param, regs, k);
+	} else {
+		for (uint32_t i = 0; i < argc; i++) {
+			k = push_arg(ir, n, arg, param, regs, k);
+			arg = ir->ast->nodes[arg].next_bro;
+			if (param != NO_NODE) param = ir->ast->nodes[param].next_bro;
+		}
+	}
+
+	for (uint32_t i = 0; i < k; i++)
+		make_arg(ir, regs[i], i);
+	make_call(ir, fn->ir_id, (uint16_t)k, TYPE_VOID);
+	return dst;
+}
+
 uint32_t gen_call_desc (IR *ir, ASTNode *n)
 {
 	uint32_t idx = (uint32_t)(n - ir->ast->nodes);

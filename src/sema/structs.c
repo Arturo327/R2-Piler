@@ -314,6 +314,21 @@ static uint32_t count_fields (Sema *s, uint32_t node)
 	return n;
 }
 
+static void check_class_field_names (Sema *s, TypeId id)
+{
+	uint32_t fields = s->ast->nodes[types[id].decl].child;
+
+	for (; fields != NO_NODE; fields = s->ast->nodes[fields].next_bro) {
+		ASTNode *f = s->ast->nodes + fields;
+
+		if (f->type != NODE_FIELD_DEC) continue;
+		if ((f->len == 4 && memcmp(f->str, "init", 4) == 0)
+				|| (f->len == 7 && memcmp(f->str, "destroy", 7) == 0))
+			error_report(s->err, ERR_ERROR, node_loc(f),
+					"a class field cannot be named '%.*s'", (int)f->len, f->str);
+	}
+}
+
 static int layout_struct (Sema *s, TypeId id)
 {
 	Type *t = types + id;
@@ -326,6 +341,7 @@ static int layout_struct (Sema *s, TypeId id)
 	if (t->layout == 2) return 1;
 	if (t->layout != 0) return 0;
 
+	if (t->kind == TK_CLASS) check_class_field_names(s, id);
 	t->layout = 1;
 	StructLayout l = {
 		.s = s, .out = out,
@@ -444,7 +460,14 @@ static void check_field_init (Sema *s, uint32_t item, TypeId st, uint8_t *seen)
 int as_struct_init (Sema *s, uint32_t idx, TypeId st)
 {
 	ASTNode *n = s->ast->nodes + idx;
+	TypeId cls = st == TYPE_ERROR ? TYPE_ERROR : type_repr(st);
 
+	if (cls != TYPE_ERROR && type_kind(cls) == TK_CLASS) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"class '%s' cannot be initialized with '{...}'; use '%s(...)'",
+				types[cls].name, types[cls].name);
+		return 0;
+	}
 	if (n->type == NODE_STRUCT_INIT) {
 		n->data_type = st;
 		return 1;

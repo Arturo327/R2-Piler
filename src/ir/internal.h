@@ -72,6 +72,7 @@ void gen_struct_into (IR *ir, uint32_t dst, uint32_t expr, TypeId type, int fres
 void gen_struct_init (IR *ir, uint32_t base, ASTNode *init, TypeId type);
 uint32_t gen_slice_desc (IR *ir, uint32_t dst, ASTNode *val, TypeId type);
 uint32_t gen_new (IR *ir, ASTNode *n);
+uint32_t gen_new_ctor (IR *ir, ASTNode *n);
 uint32_t gen_new_desc (IR *ir, ASTNode *n);
 void gen_delete (IR *ir, ASTNode *n);
 uint32_t local_storage_addr (IR *ir, Symbol *s, TypeId type);
@@ -92,6 +93,7 @@ uint32_t new_struct_temp (IR *ir, TypeId type);
 uint32_t bitfield_extract (IR *ir, uint32_t raw, const StructField *f);
 uint32_t gen_bitfield_store (IR *ir, uint32_t addr, const StructField *f, uint32_t value);
 uint32_t gen_call (IR *ir, ASTNode *n, uint32_t dest);
+uint32_t gen_ctor_call (IR *ir, ASTNode *n, uint32_t dst);
 uint32_t gen_call_desc (IR *ir, ASTNode *n);
 uint32_t gen_call_value (IR *ir, ASTNode *n);
 uint32_t gen_assign (IR *ir, ASTNode *n);

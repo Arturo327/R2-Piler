@@ -344,7 +344,10 @@ static void decl_globals (Sema *s)
 			if (n->len == 4 && memcmp(n->str, "main", 4) == 0)
 				error_report(s->err, ERR_ERROR, node_loc(n),
 						"'main' must be a function");
-			sema_declare(s, n->str, n->len, SYMBOL_VAR, n->data_type, idx);
+			uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_VAR,
+					n->data_type, idx);
+
+			if (n->child != NO_NODE) mark_placement(s, sym, n->child);
 		}
 
 		idx = n->next_bro;

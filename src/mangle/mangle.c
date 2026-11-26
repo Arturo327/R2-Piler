@@ -170,6 +170,17 @@ char *mangle_symbol (Arena *arena, const MangleName *m)
 	return out;
 }
 
+char *mangle_class_special (Arena *arena, const char *mod, const char *cls,
+		uint16_t clen, const char *canon)
+{
+	size_t cap = strlen(mod) + strlen(canon) + (size_t)clen + 32;
+	char *out = arena_alloc(arena, cap);
+
+	snprintf(out, cap, "_r2_o_%s_%u%.*s_%s", mod, (unsigned)clen,
+			(int)clen, cls, canon);
+	return out;
+}
+
 char *mangle_init (Arena *arena, const char *mod)
 {
 	size_t cap = strlen(mod) + 16;

@@ -13,10 +13,10 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **600 fixtures** pass (`make test`): 58 lexer, 103 parser, 198 sema, 74 IR,
-  46 optimizer, 47 mangling/visibility/export, 14 `.r2i`, 16 C/C++ header and
+- **606 fixtures** pass (`make test`): 58 lexer, 104 parser, 200 sema, 75 IR,
+  47 optimizer, 48 mangling/visibility/export, 14 `.r2i`, 16 C/C++ header and
   44 import cases.
-- **179 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+- **182 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
@@ -80,16 +80,23 @@ tested:
   the file (basename if only `/` is shared): `src/math.r2` → `3src4math`,
   with unsafe path bytes escaped as `$xx`. The generated-symbol prefixes
   `__r2_` and `_r2_` are reserved for top-level names.
-- **Classes**: `class C { x : i64; fn m(self, ...) ...; priv fn p(self) ...;
-  fn assoc(...) ... }`. Methods are ordinary functions whose first parameter is
-  an implicit `self : ptr C`; `p.m(args)` inserts the receiver automatically
-  (values are passed by address, pointers as-is, temporaries included),
-  `C::m(args)` calls directly (an explicit receiver is required for methods),
-  and bare `m(args)` inside a class resolves to a sibling method. `priv`
-  members are visible only inside the class, fields and methods cannot share a
-  name, and methods are emitted as local `_r2_m_<mod>_<class>_<method>`
-  functions. Classes still cannot be `pub`/`export`, and there is no
-  `init`/`op`/`destroy` yet.
+- **Classes**: `class C { x : i64; init (self, ...) ...; fn m(self, ...) ...;
+  priv fn p(self) ...; fn assoc(...) ... }`. Methods are ordinary functions
+  whose first parameter is an implicit `self : ptr C`; `p.m(args)` inserts the
+  receiver automatically (values are passed by address, pointers as-is,
+  temporaries included), `C::m(args)` calls directly (an explicit receiver is
+  required for methods), and bare `m(args)` inside a class resolves to a
+  sibling method. `priv` members are visible only inside the class, fields and
+  methods cannot share a name, and methods are emitted as local
+  `_r2_m_<mod>_<class>_<method>` functions. `var p : C = C(args);` calls the
+  class initializer, which is declared as `init (self, ...) { ... }` (no `fn`,
+  no return type, at most one per class) and can only be invoked through
+  `C(...)`, `new C(...)` or placement `new(slot) C(...)`. Construction is
+  direct when the destination is fresh (locals, globals, `static`, returns,
+  array elements and struct fields) and goes through a temporary elsewhere;
+  `new C` without parentheses allocates without calling `init`. Class literals
+  `{...}` are rejected. Classes still cannot be `pub`/`export`, and `op` and
+  `destroy` are not implemented.
 - Multidimensional arrays and slices of any rank are supported
   (`arr m : i32[R][C]`, `i32[][]` slice parameters), and structs/unions
   with C-like layout, designated `{.field = ...}` exhaustive initializers,
@@ -103,9 +110,13 @@ tested:
   `new(expr) T[N]`; `delete x;` frees a pointer or the data buffer of a slice,
   and `delete(expr) x;` calls a custom deallocator. The default forms need
   `import "stdlib";` (the built-in `malloc`/`free`), while the explicit
-  allocator/deallocator forms do not.
-- Not implemented yet: floating point, `defer`, class `init`/`op`/`destroy`
-  and exported classes.
+  allocator/deallocator forms do not. For classes, `new C(args)` allocates and
+  calls `init`, while `new(slot) C(args)` initializes memory supplied by the
+  caller (the slot must be `ptr C` or `ptr void`); bindings created with a
+  custom allocator require `delete(deallocator) p;` rather than a plain
+  `delete p;`.
+- Not implemented yet: floating point, `defer`, class `op`/`destroy` and
+  exported classes.
 
 ---
 

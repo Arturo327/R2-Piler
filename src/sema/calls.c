@@ -663,6 +663,12 @@ TypeId check_fn_call (Sema *s, uint32_t idx)
 	}
 	uint32_t sym_idx = lookup_fn_name(s, n);
 
+	if (sym_idx != NO_SYMBOL && s->table.symbols[sym_idx].kind == SYMBOL_TYPE) {
+		TypeId cls = type_canon(s->table.symbols[sym_idx].type);
+
+		if (type_kind(cls) == TK_CLASS) return check_ctor_call(s, idx, cls);
+	}
+	if (reject_special_call(s, idx, sym_idx)) return TYPE_ERROR;
 	if (sym_idx != NO_SYMBOL && value_is_fn_ptr(s, sym_idx)) {
 		uint32_t callee = sema_make_id(s, s->ast->nodes + idx);
 

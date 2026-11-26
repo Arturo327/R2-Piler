@@ -34,6 +34,26 @@ static void check_allocator (Sema *s, uint32_t alloc)
 				type_display_name(type));
 }
 
+static int class_slot_ok (TypeId slot, TypeId cls)
+{
+	TypeId ptr = type_ptr_repr(slot);
+
+	if (ptr == TYPE_ERROR) return 0;
+	TypeId base = type_canon(type_unconst_of(types[ptr].base));
+	return base == TYPE_VOID || base == cls;
+}
+
+static void check_class_slot (Sema *s, uint32_t alloc, TypeId cls, uint32_t at)
+{
+	TypeId slot = s->ast->nodes[alloc].data_type;
+
+	if (slot != TYPE_ERROR && type_ptr_repr(slot) != TYPE_ERROR
+			&& !class_slot_ok(slot, cls))
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + at),
+				"the placement slot of a class must be 'ptr %s' or 'ptr void', not %s",
+				types[cls].name, type_display_name(slot));
+}
+
 static int check_new_dims (Sema *s, uint32_t dim, uint32_t dims)
 {
 	int ok = 1;
@@ -79,6 +99,7 @@ TypeId check_new (Sema *s, uint32_t idx)
 	ASTNode *n = s->ast->nodes + idx;
 	int custom = (n->flags & NODE_FLAG_CUSTOM_ALLOC) != 0;
 	uint32_t dims = (uint32_t)n->u64;
+	uint32_t alloc = custom ? n->child : NO_NODE;
 	uint32_t dim = n->child;
 
 	if (custom) {
@@ -102,11 +123,105 @@ TypeId check_new (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+	if (custom && !dims && type_kind(type_canon(base)) == TK_CLASS)
+		check_class_slot(s, alloc, type_canon(base), idx);
 	if (!check_new_dims(s, dim, dims)) {
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
 	return new_result_type(s, idx, base, dims);
+}
+
+static void check_new_ctor_args (Sema *s, uint32_t idx, TypeId cls, uint32_t init, uint32_t argc)
+{
+	if (init != NO_NODE) {
+		ASTNode call = {0};
+
+		call.type = NODE_FN_CALL;
+		call.child = s->ast->nodes[idx].child;
+		call.str = (char *)types[cls].name;
+		call.len = types[cls].len;
+		call.sym = NO_SYMBOL;
+		call.type_node = NO_TYPE_NODE;
+		call.line = s->ast->nodes[idx].line;
+		call.col = s->ast->nodes[idx].col;
+		uint32_t call_idx = sema_new_node(s, call);
+
+		check_ctor_args(s, call_idx, init);
+		s->ast->nodes[idx].child = s->ast->nodes[call_idx].child;
+	} else if (argc) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"class '%s' has no initializer; 'new' cannot take arguments",
+				types[cls].name);
+	}
+}
+
+static TypeId check_ctor_class (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	TypeId base = resolve_type_node(s, n);
+
+	n = s->ast->nodes + idx;
+	if (base == TYPE_ERROR) {
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	TypeId cls = type_canon(base);
+
+	if (type_kind(cls) == TK_CLASS) return cls;
+	error_report(s->err, ERR_ERROR, node_loc(n),
+			"constructor syntax requires a class type, not %s",
+			type_display_name(base));
+	n->data_type = TYPE_ERROR;
+	return TYPE_ERROR;
+}
+
+TypeId check_new_ctor (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	int custom = (n->flags & NODE_FLAG_CUSTOM_ALLOC) != 0;
+	uint32_t alloc = custom ? (uint32_t)n->u64 : NO_NODE;
+	uint32_t argc = 0;
+
+	for (uint32_t a = n->child; a != NO_NODE; a = s->ast->nodes[a].next_bro)
+		argc++;
+
+	TypeId cls = check_ctor_class(s, idx);
+
+	if (cls == TYPE_ERROR) return TYPE_ERROR;
+	n = s->ast->nodes + idx;
+	if (custom) {
+		check_allocator(s, alloc);
+		n = s->ast->nodes + idx;
+		check_class_slot(s, alloc, cls, idx);
+	} else {
+		require_stdlib(s, n, "new");
+	}
+
+	uint32_t init = class_init_node(s, cls);
+
+	check_new_ctor_args(s, idx, cls, init, argc);
+	n = s->ast->nodes + idx;
+	n->sym = init == NO_NODE ? NO_SYMBOL : s->ast->nodes[init].sym;
+	n->data_type = type_ptr_to(cls);
+	if (n->data_type == TYPE_ERROR) {
+		error_report(s->err, ERR_ERROR, node_loc(n), "too many types");
+		return TYPE_ERROR;
+	}
+	return n->data_type;
+}
+
+void mark_placement (Sema *s, uint32_t sym, uint32_t init)
+{
+	if (init == NO_NODE) return;
+
+	ASTNode *n = s->ast->nodes + init;
+
+	while (n->type == NODE_CAST && n->child != NO_NODE)
+		n = s->ast->nodes + n->child;
+	if ((n->type == NODE_NEW || n->type == NODE_NEW_CTOR)
+			&& (n->flags & NODE_FLAG_CUSTOM_ALLOC))
+		s->table.symbols[sym].placement = 1;
 }
 
 static void check_deallocator (Sema *s, TypeId d, TypeId target, uint32_t idx)
@@ -146,6 +261,19 @@ static void check_deallocator (Sema *s, TypeId d, TypeId target, uint32_t idx)
 				"the deallocator return type is not supported; use a scalar or void");
 }
 
+static int placement_target (Sema *s, uint32_t target)
+{
+	ASTNode *n = s->ast->nodes + target;
+
+	while (n->type == NODE_CAST && n->child != NO_NODE)
+		n = s->ast->nodes + n->child;
+	if ((n->type == NODE_NEW || n->type == NODE_NEW_CTOR)
+			&& (n->flags & NODE_FLAG_CUSTOM_ALLOC))
+		return 1;
+	return n->type == NODE_ID && n->sym != NO_SYMBOL
+			&& s->table.symbols[n->sym].placement;
+}
+
 void check_delete (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -168,5 +296,9 @@ void check_delete (Sema *s, uint32_t idx)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + target),
 				"'delete' requires a pointer or a slice, not %s",
 				type_display_name(type));
+	else if (!custom && placement_target(s, target))
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + target),
+				"memory from a custom allocator must be freed with"
+				" 'delete(deallocator) pointer'");
 	n->data_type = TYPE_VOID;
 }
