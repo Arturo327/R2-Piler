@@ -378,6 +378,73 @@ uint32_t parse_postfix (Parser *p, uint32_t node)
 	return node;
 }
 
+static uint32_t parse_reset_atom (Parser *p)
+{
+	Token tok = p->curr;
+
+	if (tok.type != TOK_ID) {
+		error_report(p->err, ERR_ERROR, token_loc(tok),
+				"expected a variable, a field or an index as the target of 'reset'");
+		p->panic_mode = 1;
+		return new_node(p, NODE_ERROR, tok.line, tok.col);
+	}
+
+	uint16_t len;
+	int ok;
+	uint32_t node = new_node(p, NODE_ID, tok.line, tok.col);
+
+	advance(p);
+	char *name = qualify_name(p, tok, &len, &ok);
+
+	(void)ok;
+	p->ast.nodes[node].str = name;
+	p->ast.nodes[node].len = len;
+	return node;
+}
+
+static uint32_t parse_reset_target (Parser *p)
+{
+	if (p->curr.type == TOK_AT) {
+		Token tok = p->curr;
+		uint32_t node = new_node(p, NODE_DEREF, tok.line, tok.col);
+
+		advance(p);
+		uint32_t child = parse_reset_target(p);
+
+		p->ast.nodes[node].len = tok.len;
+		p->ast.nodes[node].child = child;
+		return node;
+	}
+	uint32_t node = parse_reset_atom(p);
+
+	while (!p->panic_mode && (p->curr.type == TOK_DOT || p->curr.type == TOK_LBRACE)) {
+		if (p->curr.type == TOK_DOT) node = parse_dot(p, node);
+		else node = parse_index(p, node);
+	}
+	return node;
+}
+
+uint32_t parse_reset (Parser *p)
+{
+	Token kw = p->curr;
+	uint32_t node = new_node(p, NODE_RESET, kw.line, kw.col);
+
+	p->ast.nodes[node].len = kw.len;
+	advance(p);
+	uint32_t target = parse_reset_target(p);
+
+	p->ast.nodes[node].u64 = target;
+	if (p->curr.type != TOK_LPAREN) {
+		error_report(p->err, ERR_ERROR, token_loc(p->curr),
+				"expected '(' and the initializer arguments after the target of 'reset'");
+		p->panic_mode = 1;
+		return node;
+	}
+	parse_call_args(p, node);
+	consume(p, TOK_SEMCOL, "expected ';' after 'reset'");
+	return node;
+}
+
 static uint32_t parse_primary (Parser *p)
 {
 	if (!enter_depth(p, "expression or statement"))

@@ -1,6 +1,8 @@
 class Caja {
 	x : i64;
 
+	init (self, x : i64) { self.x = x; }
+
 	priv fn base(self) : i64 { return self.x; }
 
 	fn add(self, v : i64) : void { self.x = base(self) + v; }
@@ -10,11 +12,11 @@ class Caja {
 	fn twice(a : i64) : i64 { return a * 2; }
 }
 
-fn make(n : i64) : Caja { return {.x = n} as Caja; }
+fn make(n : i64) : Caja { return Caja(n); }
 
 pub fn main() : i64
 {
-	var c : Caja = {.x = 1};
+	var c : Caja = Caja(1);
 	c.add(4);
 	var p : ptr Caja = $c;
 	p.add(2);

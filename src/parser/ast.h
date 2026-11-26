@@ -24,6 +24,7 @@
 #define NODE_FLAG_PRIV 4096
 #define NODE_FLAG_SELF 8192
 #define NODE_FLAG_TEMP_ADDR 16384
+#define NODE_FLAG_DESTROY 16384
 #define NODE_FLAG_INIT 32768
 #define NODE_FLAG_VARARG 1
 #define NODE_FLAG_VARARG_TYPED 2
@@ -62,6 +63,7 @@ typedef enum {
 	NODE_IMPORT_DEC, NODE_FROM_DEC,						// imported modules
 	NODE_DEPENDS_DEC,							// native library dependencies
 	NODE_NEW, NODE_NEW_CTOR, NODE_DELETE, NODE_CTOR_CALL,			// heap/constructors
+	NODE_DROP, NODE_RESET,							// lifetime
 	NODE_CLASS_DEC,								// classes
 	NODE_COUNT
 } NodeType;

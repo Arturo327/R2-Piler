@@ -507,6 +507,35 @@ static void gen_switch (IR *ir, ASTNode *n)
 	make_label(ir, end);
 }
 
+static void gen_drop (IR *ir, ASTNode *n)
+{
+	if (n->sym == NO_SYMBOL) return;
+
+	uint32_t ptr = gen_expr(ir, ir->ast->nodes + n->child);
+
+	make_arg(ir, ptr, 0);
+	make_call(ir, ir->symtab->symbols[n->sym].ir_id, 1, TYPE_VOID);
+}
+
+static void gen_reset (IR *ir, ASTNode *n)
+{
+	ASTNode *target = ir->ast->nodes + n->child;
+	uint32_t args = target->next_bro;
+	uint32_t ptr = gen_expr(ir, target);
+
+	if (n->sym != NO_SYMBOL) {
+		make_arg(ir, ptr, 0);
+		make_call(ir, ir->symtab->symbols[n->sym].ir_id, 1, TYPE_VOID);
+	}
+	if ((uint32_t)n->u64 != NO_SYMBOL) {
+		ASTNode call = *n;
+
+		call.child = args;
+		call.sym = (uint32_t)n->u64;
+		gen_ctor_call(ir, &call, ptr);
+	}
+}
+
 static void gen_stmt_inner (IR *ir, ASTNode *n)
 {
 	switch (n->type)
@@ -522,6 +551,8 @@ static void gen_stmt_inner (IR *ir, ASTNode *n)
 	case NODE_SWITCH: gen_switch(ir, n); return;
 	case NODE_INC: case NODE_DEC: gen_inc_dec(ir, n); return;
 	case NODE_DELETE: gen_delete(ir, n); return;
+	case NODE_DROP: gen_drop(ir, n); return;
+	case NODE_RESET: gen_reset(ir, n); return;
 	case NODE_MULTI_ASSIGN: gen_multi_assign(ir, n); return;
 	case NODE_EMPTY: return;
 	default: gen_expr(ir, n); return;

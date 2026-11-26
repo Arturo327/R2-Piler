@@ -1,0 +1,35 @@
+class C [3:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+fn C::init [5:2] depth=0 type=void
+fn C::destroy [6:2] depth=0 type=void
+fn C::renew [7:5] depth=0 type=void
+fn by_value [10:4] depth=0 type=i64
+fn by_ptr [15:4] depth=0 type=i64
+fn main [20:8] depth=0 type=i64
+fn malloc [1:1] depth=0 type=ptr void
+fn calloc [1:1] depth=0 type=ptr void
+fn realloc [1:1] depth=0 type=ptr void
+fn free [1:1] depth=0 type=void
+fn atoi [1:1] depth=0 type=i32
+fn atol [1:1] depth=0 type=i64
+fn getenv [1:1] depth=0 type=ptr i8
+fn strtol [1:1] depth=0 type=i64
+fn strtoul [1:1] depth=0 type=u64
+fn strtoll [1:1] depth=0 type=i64
+fn strtoull [1:1] depth=0 type=u64
+fn qsort [1:1] depth=0 type=void
+fn bsearch [1:1] depth=0 type=ptr void
+fn system [1:1] depth=0 type=i32
+fn exit [1:1] depth=0 type=void
+fn abort [1:1] depth=0 type=void
+param self [5:8] depth=1 type=ptr C
+param x [5:14] depth=1 type=i64
+param self [6:11] depth=1 type=ptr C
+param self [7:11] depth=1 type=ptr C
+param c [10:13] depth=1 type=C
+param p [15:11] depth=1 type=ptr C
+var c [21:6] depth=1 type=C
+var p [24:6] depth=1 type=ptr C
+var q [26:6] depth=1 type=ptr C
+var r [28:6] depth=1 type=ptr C
+var v [29:6] depth=1 type=i64

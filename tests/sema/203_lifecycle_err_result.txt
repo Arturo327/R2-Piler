@@ -1,0 +1,62 @@
+class NoDestroy [3:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class NoInit [8:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class BadSelf [13:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class BadDecl [19:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class Extra [24:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class Dup [29:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class C [35:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+fn NoDestroy::init [5:2] depth=0 type=void
+fn NoInit::destroy [10:2] depth=0 type=void
+fn BadSelf::destroy [15:2] depth=0 type=void
+fn BadSelf::bad [16:5] depth=0 type=void
+fn Dup::destroy [31:2] depth=0 type=void
+fn C::init [37:2] depth=0 type=void
+fn C::destroy [38:2] depth=0 type=void
+fn take [41:4] depth=0 type=void
+fn byval [46:4] depth=0 type=void
+fn byref [50:4] depth=0 type=void
+fn byref_ptr [54:4] depth=0 type=void
+fn main [58:8] depth=0 type=i64
+fn malloc [1:1] depth=0 type=ptr void
+fn calloc [1:1] depth=0 type=ptr void
+fn realloc [1:1] depth=0 type=ptr void
+fn free [1:1] depth=0 type=void
+fn atoi [1:1] depth=0 type=i32
+fn atol [1:1] depth=0 type=i64
+fn getenv [1:1] depth=0 type=ptr i8
+fn strtol [1:1] depth=0 type=i64
+fn strtoul [1:1] depth=0 type=u64
+fn strtoll [1:1] depth=0 type=i64
+fn strtoull [1:1] depth=0 type=u64
+fn qsort [1:1] depth=0 type=void
+fn bsearch [1:1] depth=0 type=ptr void
+fn system [1:1] depth=0 type=i32
+fn exit [1:1] depth=0 type=void
+fn abort [1:1] depth=0 type=void
+param self [5:8] depth=1 type=ptr NoDestroy
+param x [5:14] depth=1 type=i64
+param self [10:11] depth=1 type=ptr NoInit
+param self [15:11] depth=1 type=ptr BadSelf
+param self [16:9] depth=1 type=ptr BadSelf
+param self [31:11] depth=1 type=ptr Dup
+param self [37:8] depth=1 type=ptr C
+param x [37:14] depth=1 type=i64
+param self [38:11] depth=1 type=ptr C
+param p [41:9] depth=1 type=ptr C
+param c [46:10] depth=1 type=C
+param c [50:10] depth=1 type=ptr C
+param p [54:14] depth=1 type=ptr ptr C
+var d [59:6] depth=1 type=NoDestroy
+var e [62:6] depth=1 type=NoInit
+var c [64:6] depth=1 type=C
+var cp [67:6] depth=1 type=ptr const C
+var _d [70:6] depth=1 type=ptr fn(ptr C)
+var _i [71:6] depth=1 type=ptr fn(ptr C)
+var n [72:6] depth=1 type=i64

@@ -1,0 +1,91 @@
+tests/sema/203_lifecycle_err_src.r2:21:5: ERROR: the destructor of class 'BadDecl' must be declared as 'destroy (self) { ... }' without 'fn'
+     21 |         fn destroy(self) { }
+        |            ^~~~~~~
+tests/sema/203_lifecycle_err_src.r2:26:2: ERROR: a destructor cannot take parameters other than 'self'
+     26 |         destroy (self, n : i64) { }
+        |         ^~~~~~~
+tests/sema/203_lifecycle_err_src.r2:32:2: ERROR: class 'Dup' already has a destructor
+     32 |         destroy (self) { }
+        |         ^~~~~~~
+tests/sema/203_lifecycle_err_src.r2:16:22: ERROR: cannot 'drop' a parameter; parameters are borrowed
+     16 |         fn bad(self) { drop self; }
+        |                             ^~~~
+tests/sema/203_lifecycle_err_src.r2:42:9: ERROR: cannot 'delete' a parameter; parameters are borrowed
+     42 |         delete p;
+        |                ^
+tests/sema/203_lifecycle_err_src.r2:43:7: ERROR: cannot 'drop' a parameter; parameters are borrowed
+     43 |         drop p;
+        |              ^
+tests/sema/203_lifecycle_err_src.r2:47:7: ERROR: cannot 'drop' a parameter; parameters are borrowed
+     47 |         drop c;
+        |              ^
+tests/sema/203_lifecycle_err_src.r2:51:7: ERROR: cannot 'drop' a parameter; parameters are borrowed
+     51 |         drop c;
+        |              ^
+tests/sema/203_lifecycle_err_src.r2:55:9: ERROR: cannot 'delete' a parameter; parameters are borrowed
+     55 |         delete p;
+        |                ^
+tests/sema/203_lifecycle_err_src.r2:60:2: ERROR: class 'NoDestroy' has no destructor; 'drop' is not available
+     60 |         drop d;
+        |         ^~~~
+tests/sema/203_lifecycle_err_src.r2:61:2: ERROR: class 'NoDestroy' has no destructor; 'reset' is not available
+     61 |         reset d(2);
+        |         ^~~~~
+tests/sema/203_lifecycle_err_src.r2:63:2: ERROR: class 'NoInit' has no initializer; 'reset' is not available
+     63 |         reset e();
+        |         ^~~~~
+tests/sema/203_lifecycle_err_src.r2:65:3: ERROR: the destructor of class 'C' cannot be called directly; use 'drop', 'delete' or 'reset'
+     65 |         c.destroy();
+        |          ^~~~~~~
+tests/sema/203_lifecycle_err_src.r2:66:2: ERROR: the destructor of class 'C' cannot be called directly; use 'drop', 'delete' or 'reset'
+     66 |         C::destroy($c);
+        |         ^~~~~~~~~~
+tests/sema/203_lifecycle_err_src.r2:68:2: ERROR: the target of 'drop' cannot be const
+     68 |         drop cp;
+        |         ^~~~
+tests/sema/203_lifecycle_err_src.r2:69:2: ERROR: the target of 'reset' cannot be const
+     69 |         reset cp(1);
+        |         ^~~~~
+tests/sema/203_lifecycle_err_src.r2:70:34: ERROR: the destructor of class 'C' cannot be used as a value
+     70 |         var _d : ptr fn(ptr C) : void = C::destroy;
+        |                                         ^~~~~~~~~~
+tests/sema/203_lifecycle_err_src.r2:71:34: ERROR: the initializer of class 'C' cannot be used as a value
+     71 |         var _i : ptr fn(ptr C) : void = C::init;
+        |                                         ^~~~~~~
+tests/sema/203_lifecycle_err_src.r2:73:2: ERROR: 'drop' requires a class or a pointer to a class, not i64
+     73 |         drop n;
+        |         ^~~~
+tests/sema/203_lifecycle_err_src.r2:74:2: ERROR: 'reset' requires a class or a pointer to a class, not i64
+     74 |         reset n(1);
+        |         ^~~~~
+tests/sema/203_lifecycle_err_src.r2:75:7: ERROR: the target of 'drop' must be a variable, a field, an index or a dereference
+     75 |         drop C(1);
+        |              ^
+tests/sema/203_lifecycle_err_src.r2:9:2: WARNING: unused field 'x' of class 'NoInit'
+      9 |         x : i64;
+        |         ^
+tests/sema/203_lifecycle_err_src.r2:13:7: WARNING: unused class 'BadSelf'
+     13 | class BadSelf {
+        |       ^~~~~~~
+tests/sema/203_lifecycle_err_src.r2:19:7: WARNING: unused class 'BadDecl'
+     19 | class BadDecl {
+        |       ^~~~~~~
+tests/sema/203_lifecycle_err_src.r2:24:7: WARNING: unused class 'Extra'
+     24 | class Extra {
+        |       ^~~~~
+tests/sema/203_lifecycle_err_src.r2:29:7: WARNING: unused class 'Dup'
+     29 | class Dup {
+        |       ^~~
+tests/sema/203_lifecycle_err_src.r2:41:4: WARNING: unused function 'take'
+     41 | fn take(p : ptr C) {
+        |    ^~~~
+tests/sema/203_lifecycle_err_src.r2:46:4: WARNING: unused function 'byval'
+     46 | fn byval(c : C) {
+        |    ^~~~~
+tests/sema/203_lifecycle_err_src.r2:50:4: WARNING: unused function 'byref'
+     50 | fn byref(c : &C) {
+        |    ^~~~~
+tests/sema/203_lifecycle_err_src.r2:54:4: WARNING: unused function 'byref_ptr'
+     54 | fn byref_ptr(p : &ptr C) {
+        |    ^~~~~~~~~
+21 errors, 9 warnings

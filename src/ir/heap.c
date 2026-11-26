@@ -101,6 +101,13 @@ uint32_t gen_new_ctor (IR *ir, ASTNode *n)
 	return gen_ctor_call(ir, n, ptr);
 }
 
+static void gen_destroy_call (IR *ir, uint32_t sym, uint32_t ptr)
+{
+	if (sym == NO_SYMBOL) return;
+	make_arg(ir, ptr, 0);
+	make_call(ir, ir->symtab->symbols[sym].ir_id, 1, TYPE_VOID);
+}
+
 void gen_delete (IR *ir, ASTNode *n)
 {
 	uint32_t child = n->child;
@@ -110,10 +117,16 @@ void gen_delete (IR *ir, ASTNode *n)
 		uint32_t callee = gen_expr(ir, ir->ast->nodes + child);
 
 		child = ir->ast->nodes[child].next_bro;
-		make_arg(ir, gen_expr(ir, ir->ast->nodes + child), 0);
+		uint32_t ptr = gen_expr(ir, ir->ast->nodes + child);
+
+		gen_destroy_call(ir, n->sym, ptr);
+		make_arg(ir, ptr, 0);
 		make_call_ind(ir, callee, sig, 1, TYPE_VOID);
 		return;
 	}
-	make_arg(ir, gen_expr(ir, ir->ast->nodes + child), 0);
+	uint32_t ptr = gen_expr(ir, ir->ast->nodes + child);
+
+	gen_destroy_call(ir, n->sym, ptr);
+	make_arg(ir, ptr, 0);
 	make_call(ir, libc_fn(ir, 1), 1, TYPE_VOID);
 }

@@ -13,6 +13,9 @@ tests/sema/199_class_err_src.r2:5:16: ERROR: 'self' must be the first parameter 
 tests/sema/199_class_err_src.r2:5:16: ERROR: 'self' already declared in this scope
       5 |         fn malo(self, self) : i64 { return 1; }
         |                       ^~~~
+tests/sema/199_class_err_src.r2:17:17: ERROR: class 'Caja' cannot be initialized with '{...}'; use 'Caja(...)'
+     17 |         var c : Caja = {.valor = 1};
+        |                        ^
 tests/sema/199_class_err_src.r2:18:35: ERROR: method 'Caja::oculto' is private
      18 |         var f : ptr fn(ptr Caja) : i64 = Caja::oculto;
         |                                          ^~~~~~~~~~~~
@@ -28,4 +31,4 @@ tests/sema/199_class_err_src.r2:18:6: WARNING: unused variable 'f'
 tests/sema/199_class_err_src.r2:8:7: WARNING: unused class 'Vacia'
       8 | class Vacia {
         |       ^~~~~
-8 errors, 2 warnings
+9 errors, 2 warnings

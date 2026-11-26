@@ -1,0 +1,56 @@
+class A [3:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class B [4:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class C [5:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class D [6:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class E [7:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class F [8:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class G [9:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class H [10:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class I [11:7] depth=0 size=0 align=1
+class J [12:7] depth=0 size=0 align=1
+class K [13:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+newtype N [14:9] depth=0 type=error
+fn A::init [3:20] depth=0 type=void
+fn B::init [4:20] depth=0 type=void
+fn C::init [5:20] depth=0 type=void
+fn F::init [8:20] depth=0 type=void
+fn G::init [9:20] depth=0 type=void
+fn K::init [13:20] depth=0 type=void
+fn main [16:8] depth=0 type=i64
+fn malloc [1:1] depth=0 type=ptr void
+fn calloc [1:1] depth=0 type=ptr void
+fn realloc [1:1] depth=0 type=ptr void
+fn free [1:1] depth=0 type=void
+fn atoi [1:1] depth=0 type=i32
+fn atol [1:1] depth=0 type=i64
+fn getenv [1:1] depth=0 type=ptr i8
+fn strtol [1:1] depth=0 type=i64
+fn strtoul [1:1] depth=0 type=u64
+fn strtoll [1:1] depth=0 type=i64
+fn strtoull [1:1] depth=0 type=u64
+fn qsort [1:1] depth=0 type=void
+fn bsearch [1:1] depth=0 type=ptr void
+fn system [1:1] depth=0 type=i32
+fn exit [1:1] depth=0 type=void
+fn abort [1:1] depth=0 type=void
+param x [3:26] depth=1 type=i64
+param self [4:26] depth=1 type=ptr B
+param self [4:32] depth=1 type=void
+param self [5:26] depth=1 type=ptr C
+param self [8:26] depth=1 type=ptr F
+param self [9:26] depth=1 type=ptr G
+param self [13:26] depth=1 type=ptr K
+var g [17:6] depth=1 type=G
+var h [18:6] depth=1 type=H
+var k [19:6] depth=1 type=K
+var q [20:6] depth=1 type=ptr K
+var z [21:6] depth=1 type=K

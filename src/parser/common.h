@@ -22,6 +22,7 @@ TypeId parse_new_type (Parser *p, uint32_t owner, uint16_t *type_node);
 uint32_t parse_sizeof (Parser *p);
 uint32_t parse_alignof (Parser *p);
 uint32_t parse_offsetof (Parser *p);
+uint32_t parse_reset (Parser *p);
 
 uint32_t parse_statement_inner (Parser *p, int root);
 uint32_t parse_import (Parser *p, int root);

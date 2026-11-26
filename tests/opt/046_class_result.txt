@@ -1,6 +1,12 @@
 fn __r2_init(0 params, 0 regs) : void
     ret
 
+fn Caja::init(2 params, 4 regs) : void
+    r0 = param.ptr Caja #0
+    r1 = param.i64 #1
+    str_ptr.i64 r0, r1
+    ret
+
 fn Caja::valida(1 params, 3 regs) : i64
     r0 = param.ptr Caja #0
     r2 = ld_ptr.i64 r0
@@ -29,9 +35,9 @@ fn Caja::doble(1 params, 4 regs) : i64
     ret.i64 r3
     ret
 
-fn main(0 params, 14 regs) : i64
-    r2 = const.u64 1
-    str_local.u64 r0, r2
+fn main(0 params, 18 regs) : i64
+    r2 = const.i64 1
+    str_local.i64 r0, r2
     r3 = addr_local.Caja r0
     r4 = const.i64 4
     arg r3 #0

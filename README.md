@@ -13,14 +13,17 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 R2-Piler is a work in progress, but the implemented subset is usable and well
 tested:
 
-- **606 fixtures** pass (`make test`): 58 lexer, 104 parser, 200 sema, 75 IR,
-  47 optimizer, 48 mangling/visibility/export, 14 `.r2i`, 16 C/C++ header and
+- **612 fixtures** pass (`make test`): 58 lexer, 105 parser, 202 sema, 76 IR,
+  48 optimizer, 49 mangling/visibility/export, 14 `.r2i`, 16 C/C++ header and
   44 import cases.
-- **182 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
+
+- **185 executable assembly fixtures** pass (`make bench`) at `-O0`, `-O1`,
   `-O2` and `-O3`, including register-allocation and ABI stress tests.
+
 - The only working backend is **x86-64** (System V AMD64 ABI). ARM, RISC-V and
   the interpreter are recognized on the command line but rejected as
   “backend is not implemented”.
+
 - The language currently has integers, `enum`/`type`/`newtype` declarations,
   functions, locals, globals, blocks, `if`/`elif`/`else`, `while`, `for`,
   `switch`, `return`, casts, the ternary `?:`, short-circuit logic,
@@ -28,58 +31,32 @@ tested:
   and postfix statement-only `++`/`--` (also in the `for` update), plus
   `static var`/`static arr` locals with static storage duration and
   constant initializers.
+
 - **Pointer** support is complete end to end: `ptr T` types, `@` deref and
   `$` address-of, `NULL`, `sizeof`, C-like pointer arithmetic and comparison,
   explicit pointer casts and string literals (`TYPE_STR`, adopting `ptr i8`).
   Pointer arithmetic is lowered with C semantics: `p + n` scales by
-  `sizeof(T)` and `p - q` yields the distance in **elements**. The backend
-  lowers address-of, dereference, loads/stores and a deduplicated `.rodata`
-  string pool; address-taken locals get a stack slot. Global pointer
-  initializers must be link-time constants — `NULL`, a string literal, the
-  address of a global (`$g`) or a function name for a `ptr fn` — and at
-  `-O2`/`-O3` they are bound statically into `.data` (`.quad .LC0`,
-  `.quad __r2_g`, `.quad <fn>`) instead of running in `__r2_init`.
+  `sizeof(T)` and `p - q` yields the distance in elements.
+
 - **Function pointers** are supported end to end: `ptr fn(a : i32) : i32`
   (`fn(...)` is an alias), signatures with pointers, arrays, slices, structs,
   `&T` parameters, multi-return (`(i32, u32)`) and C variadics (`...`),
-  checked structurally on init/assignment/argument/return. Any fixed-signature
-  `fn`/`extern fn`/`export fn` is a value (a bare name is already the pointer);
-  functions with defaults or R2 typed variadics are not. They live in locals,
-  parameters, returns, globals, `static` and struct fields, and are called with
-  the ordinary postfix syntax (`cb(4, 5)`, `s.cb()`, `table[i](x)`,
-  `(c ? f : g)(x)`) with positional, fixed-arity arguments. `==`/`!=` and
-  `NULL` are allowed; arithmetic, ordering, `@` and `[]` have dedicated
-  diagnostics; `ptr fn` converts implicitly to/from `ptr void`. The backend
-  emits `leaq` (or `sym@GOTPCREL` for an `extern`), copies the callee to a
-  scratch register and calls through it with `%al` zeroed; indirect calls are
-  never tail calls.
+  checked structurally on init/assignment/argument/return.
+
 - **`const`** is a type qualifier (`var x : const i64`, `ptr const T`,
   `const ptr T`, `const T[N]` for const elements). A const object needs an
   initializer and its lvalue is read-only, including members of a `const`
-  struct and elements of a const array; reads drop only the outer qualifier
-  (C lvalue-to-rvalue), implicit conversions may add const but never drop it
-  (an explicit `as` is required), function signatures ignore the outer const
-  of parameters/returns, and the `.r2i`/C header carry the qualifier.
+  struct and elements of a const array.
+
 - **C interop** through `extern fn` / `extern var` declarations: they have no
   body or initializer, calls are type-checked like normal functions, and the
-  emitted symbol keeps its plain C name (`call puts`, `optind(%rip)`) with
-  `gcc` resolving it at link time. `%al` is zeroed before every extern call
-  (SysV variadic ABI). The reverse direction is `export fn` / `export var` /
-  `export arr`: a plain `.globl` C symbol for R2 definitions (no mangling),
-  restricted to C-representable signatures (no structs by value, slices,
-  arrays/slices in returns or multi-return). A C host calls `__r2_init_<mod>`
-  once per module that has runtime global initializers, but the symbol only
-  exists when that function is non-empty (a module whose globals are all
-  constant, the usual `-O2` case, emits none).
+  emitted symbol keeps its plain C name.
+
 - Top-level symbols are file-private by default and mangled
   (`_r2_f_<mod>_<len><name>`, `.local` in assembly); `pub` makes them public
   (`_r2_pf_...` / `_r2_pv_...`, `.globl`) and `fn main` must be
-  `pub fn main() : i64`. The module name is derived from the canonical source
-  directory plus the file name as written (so a file symlink keeps its own
-  name), relative to the deepest common ancestor of the current directory and
-  the file (basename if only `/` is shared): `src/math.r2` → `3src4math`,
-  with unsafe path bytes escaped as `$xx`. The generated-symbol prefixes
-  `__r2_` and `_r2_` are reserved for top-level names.
+  `pub fn main() : i64`.
+
 - **Classes**: `class C { x : i64; init (self, ...) ...; fn m(self, ...) ...;
   priv fn p(self) ...; fn assoc(...) ... }`. Methods are ordinary functions
   whose first parameter is an implicit `self : ptr C`; `p.m(args)` inserts the
@@ -94,9 +71,18 @@ tested:
   `C(...)`, `new C(...)` or placement `new(slot) C(...)`. Construction is
   direct when the destination is fresh (locals, globals, `static`, returns,
   array elements and struct fields) and goes through a temporary elsewhere;
-  `new C` without parentheses allocates without calling `init`. Class literals
-  `{...}` are rejected. Classes still cannot be `pub`/`export`, and `op` and
-  `destroy` are not implemented.
+  `new C` without parentheses allocates without calling `init`. A class may
+  declare one optional destructor as `destroy (self) { ... }`; it cannot be
+  called directly. `drop x;` calls `destroy` without freeing (a class lvalue or
+  any `ptr C`, including a leaked pointer from `new`), `reset x(args);` requires
+  both `destroy` and `init`, runs `destroy` and then `init` on the same lvalue,
+  and `delete p;` calls `destroy` before `free`/the deallocator when the pointer
+  type is a class with a destructor. `drop`/`delete` on parameters (including
+  `self`) are rejected as borrowed; `reset` on parameters/`self` is allowed.
+  `drop`/`reset` do not check `NULL`, and a class slice passed to `delete` frees
+  its memory without destroying elements. Class literals `{...}` are rejected.
+  Classes still cannot be `pub`/`export`, and `op`, automatic destruction at
+  scope exit and `defer` are not implemented.
 - Multidimensional arrays and slices of any rank are supported
   (`arr m : i32[R][C]`, `i32[][]` slice parameters), and structs/unions
   with C-like layout, designated `{.field = ...}` exhaustive initializers,
@@ -114,9 +100,10 @@ tested:
   calls `init`, while `new(slot) C(args)` initializes memory supplied by the
   caller (the slot must be `ptr C` or `ptr void`); bindings created with a
   custom allocator require `delete(deallocator) p;` rather than a plain
-  `delete p;`.
-- Not implemented yet: floating point, `defer`, class `op`/`destroy` and
-  exported classes.
+  `delete p;`. When the pointee is a class with a destructor, both delete
+  forms call `destroy` before freeing.
+- Not implemented yet: floating point, `defer`, class `op`, automatic
+  destruction at scope exit and exported classes.
 
 ---
 

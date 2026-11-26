@@ -1,0 +1,87 @@
+global g : C
+
+fn __r2_init(0 params, 6 regs) : void
+    r0 = addr_global.C @g
+    r1 = const.i64 1
+    str_ptr.i64 r0, r1
+    ret
+
+fn C::init(2 params, 4 regs) : void
+    r0 = param.ptr C #0
+    r1 = param.i64 #1
+    str_ptr.i64 r0, r1
+    ret
+
+fn C::get(1 params, 3 regs) : i64
+    r0 = param.ptr C #0
+    r2 = ld_ptr.i64 r0
+    ret.i64 r2
+    ret
+
+fn make(1 params, 10 regs) : u64
+    r0 = param.i64 #0
+    ret.u64 r0
+    ret
+
+fn main(0 params, 80 regs) : i64
+    r3 = const.i64 8
+    arg r3 #0
+    r4 = call.ptr void malloc
+    r5 = const.i64 3
+    str_ptr.i64 r4, r5
+    r6 = const.u64 8
+    arg r6 #0
+    r7 = call.ptr void malloc
+    r8 = const.i64 4
+    str_ptr.i64 r7, r8
+    r78 = const.i64 5
+    r20 = const.i64 7
+    arg r20 #0
+    r79 = call.u64 make
+    r25 = const.i64 2
+    r26 = add.i64 r79, r25
+    r28 = ld_ptr.i64 r4
+    r29 = add.i64 r26, r28
+    r31 = ld_ptr.i64 r7
+    r32 = add.i64 r29, r31
+    r35 = add.i64 r32, r78
+    r36 = addr_global.C @g
+    r37 = ld_ptr.i64 r36
+    r38 = add.i64 r35, r37
+    ret.i64 r38
+    ret
+
+extern fn malloc(1 params, 0 regs) : ptr void
+
+extern fn calloc(2 params, 0 regs) : ptr void
+
+extern fn realloc(2 params, 0 regs) : ptr void
+
+extern fn free(1 params, 0 regs) : void
+
+extern fn atoi(1 params, 0 regs) : i32
+
+extern fn atol(1 params, 0 regs) : i64
+
+extern fn getenv(1 params, 0 regs) : ptr i8
+
+extern fn strtol(3 params, 0 regs) : i64
+
+extern fn strtoul(3 params, 0 regs) : u64
+
+extern fn strtoll(3 params, 0 regs) : i64
+
+extern fn strtoull(3 params, 0 regs) : u64
+
+extern fn qsort(4 params, 0 regs) : void
+
+extern fn bsearch(5 params, 0 regs) : ptr void
+
+extern fn system(1 params, 0 regs) : i32
+
+extern fn exit(1 params, 0 regs) : void
+
+extern fn abort(0 params, 0 regs) : void
+
+extern fn malloc(1 params, 0 regs) : ptr void
+

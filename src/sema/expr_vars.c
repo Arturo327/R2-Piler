@@ -44,6 +44,19 @@ static TypeId check_init_ref (Sema *s, uint32_t idx, uint32_t sym_idx)
 	return TYPE_ERROR;
 }
 
+static int reject_special_value (Sema *s, uint32_t idx, Symbol *fn)
+{
+	uint16_t flags = fn->decl == NO_NODE ? 0 : s->ast->nodes[fn->decl].flags;
+
+	if (!(flags & (NODE_FLAG_INIT | NODE_FLAG_DESTROY))) return 0;
+	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+			"the %s of class '%s' cannot be used as a value",
+			flags & NODE_FLAG_INIT ? "initializer" : "destructor",
+			types[fn->owner].name);
+	s->ast->nodes[idx].data_type = TYPE_ERROR;
+	return 1;
+}
+
 TypeId check_var_ref (Sema *s, uint32_t idx, int init_refs)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -60,6 +73,7 @@ TypeId check_var_ref (Sema *s, uint32_t idx, int init_refs)
 		Symbol *fn = s->table.symbols + sym_idx;
 
 		check_method_visibility(s, sym_idx, idx);
+		if (reject_special_value(s, idx, fn)) return TYPE_ERROR;
 		if (fn->fn_type == TYPE_ERROR) {
 			error_report(s->err, ERR_ERROR, node_loc(n),
 					"'%.*s' cannot be used as a value; it has optional or variadic parameters",

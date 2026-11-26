@@ -1,0 +1,18 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn C::init(2 params, 4 regs) : void
+    r0 = param.ptr C #0
+    r1 = param.i64 #1
+    str_ptr.i64 r0, r1
+    ret
+
+fn C::destroy(1 params, 1 regs) : void
+    r0 = param.ptr C #0
+    ret
+
+fn main(0 params, 21 regs) : i64
+    r20 = const.i64 2
+    ret.i64 r20
+    ret
+

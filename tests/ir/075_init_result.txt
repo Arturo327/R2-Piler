@@ -1,0 +1,140 @@
+global g : C
+
+fn __r2_init(0 params, 2 regs) : void
+    r0 = addr_global.C @g
+    r1 = const.i64 1
+    arg r0 #0
+    arg r1 #1
+    call C::init
+    ret
+
+fn C::init(2 params, 4 regs) : void
+    r0 = param.ptr C #0
+    r1 = param.i64 #1
+    r2 = move.ptr C r0
+    r3 = move.i64 r1
+    str_ptr.i64 r2, r3
+    ret
+
+fn C::get(1 params, 3 regs) : i64
+    r0 = param.ptr C #0
+    r1 = move.ptr C r0
+    r2 = ld_ptr.i64 r1
+    ret.i64 r2
+    ret
+
+fn make(1 params, 5 regs) : u64
+    r0 = param.i64 #0
+    r2 = addr_local.C r1
+    r3 = move.i64 r0
+    arg r2 #0
+    arg r3 #1
+    call C::init
+    r4 = ld_ptr.i64 r2
+    ret.u64 r4
+    ret
+
+fn main(0 params, 39 regs) : i64
+    r1 = addr_local.C r0
+    r2 = const.i64 2
+    arg r1 #0
+    arg r2 #1
+    call C::init
+    r3 = const.i64 8
+    arg r3 #0
+    r4 = call.ptr void malloc
+    r5 = const.i64 3
+    arg r4 #0
+    arg r5 #1
+    call C::init
+    r6 = const.u64 8
+    arg r6 #0
+    r7 = call.ptr void malloc
+    r8 = const.i64 4
+    arg r7 #0
+    arg r8 #1
+    call C::init
+    r10 = addr_local.C r9
+    r12 = addr_local.C r11
+    r13 = addr_local.C r0
+    r14 = ld_ptr.i64 r13
+    r15 = const.i64 0
+    r16 = ne.i64 r14, r15
+    jz r16 -> L0
+    r17 = const.i64 5
+    arg r12 #0
+    arg r17 #1
+    call C::init
+    jmp -> L1
+  L0:
+    r18 = const.i64 6
+    arg r12 #0
+    arg r18 #1
+    call C::init
+  L1:
+    r19 = ld_ptr.i64 r12
+    str_ptr.i64 r10, r19
+    r20 = const.i64 7
+    arg r20 #0
+    r21 = call.u64 make
+    r22 = addr_local.C r11
+    str_ptr.i64 r22, r21
+    arg r22 #0
+    r23 = call.i64 C::get
+    r24 = addr_local.C r0
+    arg r24 #0
+    r25 = call.i64 C::get
+    r26 = add.i64 r23, r25
+    r27 = move.ptr C r4
+    arg r27 #0
+    r28 = call.i64 C::get
+    r29 = add.i64 r26, r28
+    r30 = move.ptr C r7
+    arg r30 #0
+    r31 = call.i64 C::get
+    r32 = add.i64 r29, r31
+    r33 = addr_local.C r9
+    arg r33 #0
+    r34 = call.i64 C::get
+    r35 = add.i64 r32, r34
+    r36 = addr_global.C @g
+    arg r36 #0
+    r37 = call.i64 C::get
+    r38 = add.i64 r35, r37
+    ret.i64 r38
+    ret
+
+extern fn malloc(1 params, 0 regs) : ptr void
+
+extern fn calloc(2 params, 0 regs) : ptr void
+
+extern fn realloc(2 params, 0 regs) : ptr void
+
+extern fn free(1 params, 0 regs) : void
+
+extern fn atoi(1 params, 0 regs) : i32
+
+extern fn atol(1 params, 0 regs) : i64
+
+extern fn getenv(1 params, 0 regs) : ptr i8
+
+extern fn strtol(3 params, 0 regs) : i64
+
+extern fn strtoul(3 params, 0 regs) : u64
+
+extern fn strtoll(3 params, 0 regs) : i64
+
+extern fn strtoull(3 params, 0 regs) : u64
+
+extern fn qsort(4 params, 0 regs) : void
+
+extern fn bsearch(5 params, 0 regs) : ptr void
+
+extern fn system(1 params, 0 regs) : i32
+
+extern fn exit(1 params, 0 regs) : void
+
+extern fn abort(0 params, 0 regs) : void
+
+extern fn malloc(1 params, 0 regs) : ptr void
+

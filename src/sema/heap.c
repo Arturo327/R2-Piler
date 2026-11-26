@@ -274,6 +274,19 @@ static int placement_target (Sema *s, uint32_t target)
 			&& s->table.symbols[n->sym].placement;
 }
 
+static uint32_t delete_destroy_sym (Sema *s, TypeId type)
+{
+	TypeId ptr = type_ptr_repr(type);
+
+	if (ptr == TYPE_ERROR) return NO_SYMBOL;
+	TypeId cls = type_canon(type_unconst_of(types[ptr].base));
+
+	if (type_kind(cls) != TK_CLASS) return NO_SYMBOL;
+	uint32_t destroy = class_destroy_node(s, cls);
+
+	return destroy == NO_NODE ? NO_SYMBOL : s->ast->nodes[destroy].sym;
+}
+
 void check_delete (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -300,5 +313,11 @@ void check_delete (Sema *s, uint32_t idx)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + target),
 				"memory from a custom allocator must be freed with"
 				" 'delete(deallocator) pointer'");
+	if (type != TYPE_ERROR && type != TYPE_NULL
+			&& sema_borrowed_target(s, target, "delete")) {
+		n->data_type = TYPE_ERROR;
+		return;
+	}
+	n->sym = type == TYPE_ERROR ? NO_SYMBOL : delete_destroy_sym(s, type);
 	n->data_type = TYPE_VOID;
 }

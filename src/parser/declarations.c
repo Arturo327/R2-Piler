@@ -450,7 +450,8 @@ uint32_t parse_class (Parser *p)
 				&& (member_named(p->curr, "init", 4)
 					|| member_named(p->curr, "destroy", 7))) {
 			Token name = p->curr;
-			uint16_t flags = member_named(name, "init", 4) ? NODE_FLAG_INIT : 0;
+			uint16_t flags = member_named(name, "init", 4)
+					? NODE_FLAG_INIT : NODE_FLAG_DESTROY;
 
 			advance(p);
 			if (p->curr.type == TOK_LPAREN)

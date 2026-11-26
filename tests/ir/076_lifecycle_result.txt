@@ -1,0 +1,87 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn C::init(2 params, 4 regs) : void
+    r0 = param.ptr C #0
+    r1 = param.i64 #1
+    r2 = move.ptr C r0
+    r3 = move.i64 r1
+    str_ptr.i64 r2, r3
+    ret
+
+fn C::destroy(1 params, 1 regs) : void
+    r0 = param.ptr C #0
+    ret
+
+fn main(0 params, 13 regs) : i64
+    r1 = addr_local.C r0
+    r2 = const.i64 1
+    arg r1 #0
+    arg r2 #1
+    call C::init
+    r3 = addr_local.C r0
+    arg r3 #0
+    call C::destroy
+    r4 = addr_local.C r0
+    arg r4 #0
+    call C::destroy
+    r5 = const.i64 2
+    arg r4 #0
+    arg r5 #1
+    call C::init
+    r6 = const.i64 8
+    arg r6 #0
+    r7 = call.ptr void malloc
+    r8 = const.i64 3
+    arg r7 #0
+    arg r8 #1
+    call C::init
+    r9 = move.ptr C r7
+    arg r9 #0
+    call C::destroy
+    r10 = move.ptr C r7
+    arg r10 #0
+    call C::destroy
+    arg r10 #0
+    call free
+    r11 = addr_local.C r0
+    r12 = ld_ptr.i64 r11
+    ret.i64 r12
+    ret
+
+extern fn malloc(1 params, 0 regs) : ptr void
+
+extern fn calloc(2 params, 0 regs) : ptr void
+
+extern fn realloc(2 params, 0 regs) : ptr void
+
+extern fn free(1 params, 0 regs) : void
+
+extern fn atoi(1 params, 0 regs) : i32
+
+extern fn atol(1 params, 0 regs) : i64
+
+extern fn getenv(1 params, 0 regs) : ptr i8
+
+extern fn strtol(3 params, 0 regs) : i64
+
+extern fn strtoul(3 params, 0 regs) : u64
+
+extern fn strtoll(3 params, 0 regs) : i64
+
+extern fn strtoull(3 params, 0 regs) : u64
+
+extern fn qsort(4 params, 0 regs) : void
+
+extern fn bsearch(5 params, 0 regs) : ptr void
+
+extern fn system(1 params, 0 regs) : i32
+
+extern fn exit(1 params, 0 regs) : void
+
+extern fn abort(0 params, 0 regs) : void
+
+extern fn malloc(1 params, 0 regs) : ptr void
+
+extern fn free(1 params, 0 regs) : void
+

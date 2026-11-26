@@ -1,0 +1,94 @@
+tests/sema/201_init_err_src.r2:14:9: ERROR: newtype underlying type must be an integer, enum or pointer type
+     14 | newtype N = K;
+        |         ^
+tests/sema/201_init_err_src.r2:11:11: ERROR: a class field cannot be named 'init'
+     11 | class I { init : i64; }
+        |           ^~~~
+tests/sema/201_init_err_src.r2:12:11: ERROR: a class field cannot be named 'destroy'
+     12 | class J { destroy : i64; }
+        |           ^~~~~~~
+tests/sema/201_init_err_src.r2:3:20: ERROR: an initializer must take 'self' as its first parameter
+      3 | class A { x : i64; init (x : i64) { } }
+        |                    ^~~~
+tests/sema/201_init_err_src.r2:4:32: ERROR: 'self' must be the first parameter of a method
+      4 | class B { x : i64; init (self, self) { } }
+        |                                ^~~~
+tests/sema/201_init_err_src.r2:5:36: ERROR: class 'C' already has an initializer
+      5 | class C { x : i64; init (self) { } init (self) { } }
+        |                                    ^~~~
+tests/sema/201_init_err_src.r2:6:23: ERROR: the initializer of class 'D' must be declared as 'init (self, ...)' without 'fn'
+      6 | class D { x : i64; fn init (self) { } }
+        |                       ^~~~
+tests/sema/201_init_err_src.r2:7:28: ERROR: an initializer cannot be private
+      7 | class E { x : i64; priv fn init (self) { } }
+        |                            ^~~~
+tests/sema/201_init_err_src.r2:8:39: ERROR: a method cannot have the same name as its class
+      8 | class F { x : i64; init (self) { } fn F (self) { } }
+        |                                       ^
+tests/sema/201_init_err_src.r2:3:26: WARNING: unused parameter 'x'
+      3 | class A { x : i64; init (x : i64) { } }
+        |                          ^
+tests/sema/201_init_err_src.r2:4:32: ERROR: 'self' already declared in this scope
+      4 | class B { x : i64; init (self, self) { } }
+        |                                ^~~~
+tests/sema/201_init_err_src.r2:17:14: ERROR: class 'G' cannot be initialized with '{...}'; use 'G(...)'
+     17 |         var g : G = { .x = 1 };
+        |                     ^
+tests/sema/201_init_err_src.r2:18:14: ERROR: class 'H' has no initializer; 'H(...)' cannot take arguments
+     18 |         var h : H = H(1);
+        |                     ^
+tests/sema/201_init_err_src.r2:21:14: ERROR: the initializer of class 'K' cannot be called directly; use 'K(...)'
+     21 |         var z : K = K::init($k);
+        |                     ^~~~~~~
+tests/sema/201_init_err_src.r2:23:9: ERROR: memory from a custom allocator must be freed with 'delete(deallocator) pointer'
+     23 |         delete q;
+        |                ^
+tests/sema/201_init_err_src.r2:24:3: ERROR: the initializer of class 'K' cannot be called directly; use 'K(...)'
+     24 |         k.init();
+        |          ^~~~
+tests/sema/201_init_err_src.r2:17:6: WARNING: unused variable 'g'
+     17 |         var g : G = { .x = 1 };
+        |             ^
+tests/sema/201_init_err_src.r2:18:6: WARNING: unused variable 'h'
+     18 |         var h : H = H(1);
+        |             ^
+tests/sema/201_init_err_src.r2:21:6: WARNING: unused variable 'z'
+     21 |         var z : K = K::init($k);
+        |             ^
+tests/sema/201_init_err_src.r2:3:7: WARNING: unused class 'A'
+      3 | class A { x : i64; init (x : i64) { } }
+        |       ^
+tests/sema/201_init_err_src.r2:4:7: WARNING: unused class 'B'
+      4 | class B { x : i64; init (self, self) { } }
+        |       ^
+tests/sema/201_init_err_src.r2:5:7: WARNING: unused class 'C'
+      5 | class C { x : i64; init (self) { } init (self) { } }
+        |       ^
+tests/sema/201_init_err_src.r2:6:7: WARNING: unused class 'D'
+      6 | class D { x : i64; fn init (self) { } }
+        |       ^
+tests/sema/201_init_err_src.r2:7:7: WARNING: unused class 'E'
+      7 | class E { x : i64; priv fn init (self) { } }
+        |       ^
+tests/sema/201_init_err_src.r2:8:7: WARNING: unused class 'F'
+      8 | class F { x : i64; init (self) { } fn F (self) { } }
+        |       ^
+tests/sema/201_init_err_src.r2:9:11: WARNING: unused field 'x' of class 'G'
+      9 | class G { x : i64; init (self) { } }
+        |           ^
+tests/sema/201_init_err_src.r2:10:11: WARNING: unused field 'x' of class 'H'
+     10 | class H { x : i64; }
+        |           ^
+tests/sema/201_init_err_src.r2:11:7: WARNING: unused class 'I'
+     11 | class I { init : i64; }
+        |       ^
+tests/sema/201_init_err_src.r2:12:7: WARNING: unused class 'J'
+     12 | class J { destroy : i64; }
+        |       ^
+tests/sema/201_init_err_src.r2:13:11: WARNING: unused field 'x' of class 'K'
+     13 | class K { x : i64; init (self) { } }
+        |           ^
+tests/sema/201_init_err_src.r2:14:9: WARNING: unused newtype 'N'
+     14 | newtype N = K;
+        |         ^
+15 errors, 16 warnings

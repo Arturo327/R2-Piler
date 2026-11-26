@@ -345,6 +345,8 @@ static char *method_symbol (IR *ir, ASTNode *n, Symbol *sym)
 
 	if (n->flags & NODE_FLAG_INIT)
 		return mangle_class_special(ir->arena, ir->mod, cls->name, cls->len, "init");
+	if (n->flags & NODE_FLAG_DESTROY)
+		return mangle_class_special(ir->arena, ir->mod, cls->name, cls->len, "destroy");
 
 	MangleName m = {
 		.kind = "m", .mod = ir->mod,

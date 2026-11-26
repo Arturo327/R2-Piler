@@ -786,6 +786,8 @@ static void check_statement (Sema *s, uint32_t idx)
 	case NODE_SWITCH: check_switch(s, idx); return;
 	case NODE_INC: case NODE_DEC: check_inc_dec(s, idx); return;
 	case NODE_DELETE: check_delete(s, idx); return;
+	case NODE_DROP: check_drop(s, idx); return;
+	case NODE_RESET: check_reset(s, idx); return;
 	case NODE_EMPTY: n->data_type = TYPE_VOID; return;
 	case NODE_FN_DEC:
 		if (n->flags & NODE_FLAG_EXPORT)

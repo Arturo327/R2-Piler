@@ -439,6 +439,20 @@ static uint32_t error_const_prefix (Parser *p)
 	return new_node(p, NODE_ERROR, kw.line, kw.col);
 }
 
+static uint32_t parse_drop (Parser *p)
+{
+	Token kw = p->curr;
+	uint32_t node = new_node(p, NODE_DROP, kw.line, kw.col);
+
+	p->ast.nodes[node].len = kw.len;
+	advance(p);
+	uint32_t target = parse_expr(p, 0);
+
+	p->ast.nodes[node].child = target;
+	consume(p, TOK_SEMCOL, "expected ';' after 'drop'");
+	return node;
+}
+
 static uint32_t parse_delete (Parser *p)
 {
 	Token kw = p->curr;
@@ -507,6 +521,8 @@ uint32_t parse_statement_inner (Parser *p, int root)
 	case TOK_FOR: return parse_for(p);
 	case TOK_SWITCH: return parse_switch(p);
 	case TOK_DELETE: return parse_delete(p);
+	case TOK_DROP: return parse_drop(p);
+	case TOK_RESET: return parse_reset(p);
 	case TOK_INC: case TOK_DEC: return error_prefix_inc(p);
 	default: {
 		uint32_t node = parse_expr(p, 0);

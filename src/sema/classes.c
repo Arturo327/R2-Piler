@@ -52,6 +52,21 @@ uint32_t class_init_node (Sema *s, TypeId cls)
 	return NO_NODE;
 }
 
+uint32_t class_destroy_node (Sema *s, TypeId cls)
+{
+	uint32_t decl = class_decl_node(s, cls);
+
+	if (decl == NO_NODE) return NO_NODE;
+	for (uint32_t m = s->ast->nodes[decl].child; m != NO_NODE; m = s->ast->nodes[m].next_bro) {
+		ASTNode *fn = s->ast->nodes + m;
+
+		if (fn->type == NODE_FN_DEC && (fn->flags & NODE_FLAG_DESTROY)
+				&& fn->sym != NO_SYMBOL)
+			return m;
+	}
+	return NO_NODE;
+}
+
 int reject_special_call (Sema *s, uint32_t use, uint32_t sym)
 {
 	if (sym == NO_SYMBOL) return 0;
@@ -59,10 +74,17 @@ int reject_special_call (Sema *s, uint32_t use, uint32_t sym)
 	Symbol *fn = s->table.symbols + sym;
 
 	if (fn->kind != SYMBOL_FN || fn->decl == NO_NODE) return 0;
-	if (!(s->ast->nodes[fn->decl].flags & NODE_FLAG_INIT)) return 0;
-	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + use),
-			"the initializer of class '%s' cannot be called directly;"
-			" use '%s(...)'", types[fn->owner].name, types[fn->owner].name);
+	uint16_t flags = s->ast->nodes[fn->decl].flags;
+
+	if (flags & NODE_FLAG_INIT) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + use),
+				"the initializer of class '%s' cannot be called directly;"
+				" use '%s(...)'", types[fn->owner].name, types[fn->owner].name);
+	} else if (flags & NODE_FLAG_DESTROY) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + use),
+				"the destructor of class '%s' cannot be called directly;"
+				" use 'drop', 'delete' or 'reset'", types[fn->owner].name);
+	} else return 0;
 	s->ast->nodes[use].data_type = TYPE_ERROR;
 	return 1;
 }
@@ -128,9 +150,14 @@ static int reject_normal_special (Sema *s, uint32_t fn_idx, TypeId owner)
 		else error_report(s->err, ERR_ERROR, node_loc(fn),
 					"the initializer of class '%s' must be declared as"
 					" 'init (self, ...)' without 'fn'", ct->name);
-	} else if (fn_named(fn, "destroy", 7))
-		error_report(s->err, ERR_ERROR, node_loc(fn),
-				"destructors are not implemented yet");
+	} else if (fn_named(fn, "destroy", 7)) {
+		if (fn->flags & NODE_FLAG_PRIV)
+			error_report(s->err, ERR_ERROR, node_loc(fn),
+					"a destructor cannot be private");
+		else error_report(s->err, ERR_ERROR, node_loc(fn),
+					"the destructor of class '%s' must be declared as"
+					" 'destroy (self) { ... }' without 'fn'", ct->name);
+	}
 	else if (fn->len == ct->len && memcmp(fn->str, ct->name, ct->len) == 0)
 		error_report(s->err, ERR_ERROR, node_loc(fn),
 				"a method cannot have the same name as its class");
@@ -149,6 +176,43 @@ static int class_has_init_before (Sema *s, TypeId owner, uint32_t fn_idx)
 		if (fn->type == NODE_FN_DEC && (fn->flags & NODE_FLAG_INIT)) return 1;
 	}
 	return 0;
+}
+
+static int class_has_destroy_before (Sema *s, TypeId owner, uint32_t fn_idx)
+{
+	uint32_t decl = class_decl_node(s, owner);
+
+	for (uint32_t m = s->ast->nodes[decl].child; m != NO_NODE && m != fn_idx;
+			m = s->ast->nodes[m].next_bro) {
+		ASTNode *fn = s->ast->nodes + m;
+
+		if (fn->type == NODE_FN_DEC && (fn->flags & NODE_FLAG_DESTROY)) return 1;
+	}
+	return 0;
+}
+
+static int destroy_params_ok (Sema *s, uint32_t fn_idx)
+{
+	ASTNode *fn = s->ast->nodes + fn_idx;
+	uint32_t args = fn->child;
+	uint32_t first = s->ast->nodes[args].child;
+
+	if (first == NO_NODE || !(s->ast->nodes[first].flags & NODE_FLAG_SELF)) {
+		error_report(s->err, ERR_ERROR, node_loc(fn),
+				"a destructor must take 'self' as its first parameter");
+		return 0;
+	}
+	if (s->ast->nodes[first].next_bro != NO_NODE) {
+		error_report(s->err, ERR_ERROR, node_loc(fn),
+				"a destructor cannot take parameters other than 'self'");
+		return 0;
+	}
+	if (s->ast->nodes[args].flags & (NODE_FLAG_VARARG | NODE_FLAG_VARARG_TYPED)) {
+		error_report(s->err, ERR_ERROR, node_loc(fn),
+				"a destructor cannot be variadic");
+		return 0;
+	}
+	return 1;
 }
 
 static void register_class_method (Sema *s, uint32_t fn_idx, TypeId owner)
@@ -181,14 +245,21 @@ static void declare_class_method (Sema *s, uint32_t fn_idx, TypeId owner)
 {
 	ASTNode *fn = s->ast->nodes + fn_idx;
 	int is_init = (fn->flags & NODE_FLAG_INIT) != 0;
+	int is_destroy = (fn->flags & NODE_FLAG_DESTROY) != 0;
 
-	if (!is_init && reject_normal_special(s, fn_idx, owner)) return;
-	if (is_init && (fn->flags & NODE_FLAG_PRIV))
+	if (!is_init && !is_destroy && reject_normal_special(s, fn_idx, owner)) return;
+	if ((is_init || is_destroy) && (fn->flags & NODE_FLAG_PRIV))
 		error_report(s->err, ERR_ERROR, node_loc(fn),
-				"an initializer cannot be private");
+				is_init ? "an initializer cannot be private"
+				: "a destructor cannot be private");
 	if (is_init && class_has_init_before(s, owner, fn_idx)) {
 		error_report(s->err, ERR_ERROR, node_loc(fn),
 				"class '%s' already has an initializer", types[owner].name);
+		return;
+	}
+	if (is_destroy && class_has_destroy_before(s, owner, fn_idx)) {
+		error_report(s->err, ERR_ERROR, node_loc(fn),
+				"class '%s' already has a destructor", types[owner].name);
 		return;
 	}
 
@@ -196,6 +267,7 @@ static void declare_class_method (Sema *s, uint32_t fn_idx, TypeId owner)
 	if (is_init && !class_fn_has_self(s, fn_idx))
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + fn_idx),
 				"an initializer must take 'self' as its first parameter");
+	if (is_destroy && !destroy_params_ok(s, fn_idx)) return;
 	resolve_fn_types(s, fn_idx);
 	register_class_method(s, fn_idx, owner);
 }
