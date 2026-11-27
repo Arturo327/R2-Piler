@@ -249,6 +249,7 @@ static void register_class_method (Sema *s, uint32_t fn_idx, TypeId owner)
 	Symbol *method = s->table.symbols + sym;
 
 	method->owner = owner;
+	method->link = sema_import_link(s, fn_idx);
 	method->fn_type = build_fn_value(s, fn_idx);
 	if (find_field(owner, fn->str, fn->len))
 		error_report(s->err, ERR_ERROR, node_loc(fn),
@@ -393,6 +394,7 @@ static void register_op_method (Sema *s, uint32_t fn_idx, TypeId owner)
 	Symbol *method = s->table.symbols + sym;
 
 	method->owner = owner;
+	method->link = sema_import_link(s, fn_idx);
 	method->fn_type = build_fn_value(s, fn_idx);
 }
 

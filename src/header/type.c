@@ -2,6 +2,9 @@
 
 #include <string.h>
 
+#include "mangle/mangle.h"
+#include "parser/operators.h"
+
 static void h_collect_type (CHeader *h, TypeId type);
 static void h_collect_fn (CHeader *h, TypeId type);
 static void h_print_at (CHeader *h, TypeId type, int pointee);
@@ -215,6 +218,17 @@ static void h_collect_decl (CHeader *h, ASTNode *n, uint32_t idx)
 		h_collect_fields(h, n->child);
 		h_collect_type(h, n->data_type);
 		return;
+	case NODE_CLASS_DEC: {
+		AST *ast = h->ir->ast;
+
+		h_collect_fields(h, n->child);
+		h_collect_type(h, n->data_type);
+		for (uint32_t m = n->child; m != NO_NODE; m = ast->nodes[m].next_bro)
+			if (ast->nodes[m].type == NODE_FN_DEC
+					&& !(ast->nodes[m].flags & NODE_FLAG_PRIV))
+				h_collect_sig(h, ast->nodes + m);
+		return;
+	}
 	case NODE_ENUM_DEC: case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 		h_collect_type(h, n->data_type);
 		return;
@@ -257,6 +271,7 @@ static void h_register_imported (CHeader *h)
 		h->type_names[id] = types[id].name;
 		h->decl_nodes[id] = (uint16_t)idx;
 		h_collect_type(h, id);
+		if (n->type == NODE_CLASS_DEC) h_collect_decl(h, n, idx);
 	}
 }
 
@@ -274,6 +289,10 @@ void h_collect_all (CHeader *h)
 		case NODE_STRUCT_DEC: case NODE_ENUM_DEC:
 		case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 			h_register_type(h, n, idx);
+			break;
+		case NODE_CLASS_DEC:
+			h_register_type(h, n, idx);
+			h_collect_decl(h, n, idx);
 			break;
 		default:
 			h_collect_decl(h, n, idx);
@@ -375,6 +394,7 @@ static void h_make_members (CHeader *h, uint32_t first, int depth, HFieldState *
 			h_make_field(h, n, s, depth);
 			continue;
 		}
+		if (n->type != NODE_STRUCT_DEC) continue;
 		h_indent(h, depth);
 		h_printf(h, "%s {\n", (n->flags & NODE_FLAG_UNION) ? "union" : "struct");
 		h_make_members(h, n->child, depth + 1, s);
@@ -412,6 +432,235 @@ static void h_make_asserts (CHeader *h, TypeId id)
 			name, (int)f->len, f->name, f->offset);
 	}
 	h_printf(h, "#endif\n");
+}
+
+static const char *h_method_link (CHeader *h, ASTNode *fn, TypeId id)
+{
+	Symbol *sym = h->ir->symtab->symbols + fn->sym;
+	Type *cls = types + id;
+
+	if (sym->link) return sym->link;
+	if (fn->op != OP_NONE)
+		return mangle_class_special(h->ir->arena, h->ir->mod, cls->name,
+				cls->len, op_canon(fn->op));
+	if (fn->flags & NODE_FLAG_INIT)
+		return mangle_class_special(h->ir->arena, h->ir->mod, cls->name,
+				cls->len, "init");
+	if (fn->flags & NODE_FLAG_DESTROY)
+		return mangle_class_special(h->ir->arena, h->ir->mod, cls->name,
+				cls->len, "destroy");
+
+	MangleName name = {
+		.kind = "m", .mod = h->ir->mod, .a = cls->name, .alen = cls->len,
+		.b = fn->str, .blen = fn->len
+	};
+
+	return mangle_symbol(h->ir->arena, &name);
+}
+
+static uint32_t h_self_param (CHeader *h, ASTNode *fn)
+{
+	uint32_t p = h->ir->ast->nodes[fn->child].child;
+
+	if (p != NO_NODE && (h->ir->ast->nodes[p].flags & NODE_FLAG_SELF))
+		return p;
+	return NO_NODE;
+}
+
+static int h_cpp_bool_ret (ASTNode *fn)
+{
+	return fn->op == OP_EQ || fn->op == OP_NE || fn->op == OP_LT
+			|| fn->op == OP_LE || fn->op == OP_GT || fn->op == OP_GE
+			|| fn->op == OP_NOT;
+}
+
+static const char *h_cpp_operator (uint8_t op)
+{
+	switch (op)
+	{
+	case OP_EQ: return "==";
+	case OP_NE: return "!=";
+	case OP_LT: return "<";
+	case OP_LE: return "<=";
+	case OP_GT: return ">";
+	case OP_GE: return ">=";
+	case OP_ADD: return "+";
+	case OP_SUB: return "-";
+	case OP_MUL: return "*";
+	case OP_DIV: return "/";
+	case OP_MOD: return "%";
+	case OP_AND: return "&";
+	case OP_OR: return "|";
+	case OP_XOR: return "^";
+	case OP_SHL: return "<<";
+	case OP_SHR: return ">>";
+	case OP_NEG: return "-";
+	case OP_NOT: return "!";
+	case OP_BNOT: return "~";
+	default: return "";
+	}
+}
+
+static uint32_t h_index_count (CHeader *h, ASTNode *fn)
+{
+	AST *ast = h->ir->ast;
+	uint32_t count = 0;
+
+	for (uint32_t p = ast->nodes[fn->child].child; p != NO_NODE;
+			p = ast->nodes[p].next_bro)
+		if (!(ast->nodes[p].flags & NODE_FLAG_SELF)) count++;
+	return count;
+}
+
+static void h_cpp_name (CHeader *h, ASTNode *fn, TypeId id)
+{
+	const char *name = h->type_names[id];
+
+	if (fn->op == OP_INDEX && h_index_count(h, fn) == 1) h_printf(h, "operator[]");
+	else if (fn->op == OP_INDEX) h_printf(h, "index");
+	else if (fn->op != OP_NONE)
+		h_printf(h, "operator%s", h_cpp_operator(fn->op));
+	else if (fn->flags & NODE_FLAG_INIT) h_printf(h, "%s", name);
+	else h_printf(h, "%.*s", (int)fn->len, fn->str);
+}
+
+static void h_cpp_args (CHeader *h, uint32_t args)
+{
+	AST *ast = h->ir->ast;
+	int first = 1;
+
+	for (uint32_t p = ast->nodes[args].child; p != NO_NODE;
+			p = ast->nodes[p].next_bro) {
+		if (ast->nodes[p].flags & NODE_FLAG_SELF) continue;
+		if (!first) h_printf(h, ", ");
+		first = 0;
+		h_make_param(h, ast->nodes + p, 1);
+	}
+	if (first) h_printf(h, "void");
+}
+
+static void h_cpp_call_args (CHeader *h, ASTNode *fn, TypeId id)
+{
+	AST *ast = h->ir->ast;
+	uint32_t args = fn->child;
+	int first = 1;
+
+	if (h_self_param(h, fn) != NO_NODE) {
+		h_printf(h, "const_cast<%s *>(this)", h->type_names[id]);
+		first = 0;
+	}
+	for (uint32_t p = ast->nodes[args].child; p != NO_NODE;
+			p = ast->nodes[p].next_bro) {
+		ASTNode *n = ast->nodes + p;
+
+		if (n->flags & NODE_FLAG_SELF) continue;
+		if (!first) h_printf(h, ", ");
+		first = 0;
+		h_printf(h, "%.*s", (int)n->len, n->str);
+	}
+}
+
+static void h_cpp_member (CHeader *h, ASTNode *fn, TypeId id)
+{
+	AST *ast = h->ir->ast;
+	uint32_t args = fn->child;
+	uint32_t ret = ast->nodes[args].next_bro;
+	uint32_t self = h_self_param(h, fn);
+	int special = (fn->flags & NODE_FLAG_INIT) != 0;
+
+	h_printf(h, "\t");
+	if (!special) {
+		if (self == NO_NODE) h_printf(h, "static ");
+		if (h_cpp_bool_ret(fn)) h_printf(h, "bool ");
+		else {
+			h_print_type(h, ast->nodes[ret].data_type);
+			h_printf(h, " ");
+		}
+	}
+	h_cpp_name(h, fn, id);
+	h_printf(h, " (");
+	h_cpp_args(h, args);
+	h_printf(h, ")");
+	if (!special && self != NO_NODE) h_printf(h, " const");
+	h_printf(h, ";\n");
+}
+
+static void h_cpp_inline (CHeader *h, ASTNode *fn, TypeId id)
+{
+	AST *ast = h->ir->ast;
+	uint32_t args = fn->child;
+	uint32_t ret = ast->nodes[args].next_bro;
+	uint32_t self = h_self_param(h, fn);
+	int special = (fn->flags & NODE_FLAG_INIT) != 0;
+	int void_ret = !special && type_unconst_of(ast->nodes[ret].data_type) == TYPE_VOID;
+
+	h_printf(h, "inline ");
+	if (!special) {
+		if (h_cpp_bool_ret(fn)) h_printf(h, "bool ");
+		else if (void_ret) h_printf(h, "void ");
+		else {
+			h_print_type(h, ast->nodes[ret].data_type);
+			h_printf(h, " ");
+		}
+	}
+	h_printf(h, "%s::", h->type_names[id]);
+	h_cpp_name(h, fn, id);
+	h_printf(h, " (");
+	h_cpp_args(h, args);
+	h_printf(h, ")");
+	if (!special && self != NO_NODE) h_printf(h, " const");
+	h_printf(h, " { %s%s (",
+			(void_ret || special) ? "" : "return ", h_method_link(h, fn, id));
+	h_cpp_call_args(h, fn, id);
+	h_printf(h, "); }\n");
+}
+
+static void h_c_proto (CHeader *h, ASTNode *fn, TypeId id)
+{
+	AST *ast = h->ir->ast;
+	uint32_t args = fn->child;
+	uint32_t ret = ast->nodes[args].next_bro;
+
+	h_printf(h, "R2_API ");
+	if (fn->flags & (NODE_FLAG_INIT | NODE_FLAG_DESTROY)) h_printf(h, "void");
+	else h_print_type(h, ast->nodes[ret].data_type);
+	h_printf(h, " %s (", h_method_link(h, fn, id));
+	h_make_params(h, args);
+	h_printf(h, ");\n");
+}
+
+static void h_make_class (CHeader *h, TypeId id)
+{
+	AST *ast = h->ir->ast;
+	ASTNode *n = ast->nodes + h->decl_nodes[id];
+	const char *name = h->type_names[id];
+	HFieldState cpp = { .st = id, .index = 0, .last_off = 0, .bit_pos = 0, .packed = 0 };
+	HFieldState c = cpp;
+
+	h_printf(h, "#ifdef __cplusplus\nclass %s {\npublic:\n", name);
+	h_make_members(h, n->child, 1, &cpp);
+	for (uint32_t m = n->child; m != NO_NODE; m = ast->nodes[m].next_bro) {
+		ASTNode *fn = ast->nodes + m;
+
+		if (fn->type == NODE_FN_DEC && !(fn->flags & NODE_FLAG_PRIV))
+			h_cpp_member(h, fn, id);
+	}
+	h_printf(h, "};\n#else\nstruct %s {\n", name);
+	h_make_members(h, n->child, 1, &c);
+	h_printf(h, "};\n#endif\n\n");
+
+	for (uint32_t m = n->child; m != NO_NODE; m = ast->nodes[m].next_bro)
+		if (ast->nodes[m].type == NODE_FN_DEC
+				&& !(ast->nodes[m].flags & NODE_FLAG_PRIV))
+			h_c_proto(h, ast->nodes + m, id);
+	h_printf(h, "#ifdef __cplusplus\n");
+	for (uint32_t m = n->child; m != NO_NODE; m = ast->nodes[m].next_bro)
+		if (ast->nodes[m].type == NODE_FN_DEC
+				&& !(ast->nodes[m].flags & NODE_FLAG_PRIV))
+			h_cpp_inline(h, ast->nodes + m, id);
+	h_printf(h, "#endif\n");
+	h_make_asserts(h, id);
+	h_printf(h, "\n");
 }
 
 static void h_make_struct (CHeader *h, TypeId id)
@@ -513,6 +762,12 @@ static void h_make_nominal (CHeader *h, TypeId id)
 		h_make_struct(h, id);
 		return;
 	}
+	case NODE_CLASS_DEC: {
+		for (uint16_t i = 0; i < types[id].field_count; i++)
+			h_make_deps(h, types[id].fields[i].type);
+		h_make_class(h, id);
+		return;
+	}
 	case NODE_ENUM_DEC:
 		h_make_enum(h, id);
 		return;
@@ -535,7 +790,7 @@ void h_make_types (CHeader *h)
 		uint16_t node = h->decl_nodes[id];
 		if (!h->type_used[id] || node == 0xFFFF) continue;
 		ASTNode *n = h->ir->ast->nodes + node;
-		if (n->type != NODE_STRUCT_DEC) continue;
+		if (n->type != NODE_STRUCT_DEC && n->type != NODE_CLASS_DEC) continue;
 		h_printf(h, "typedef %s %s %s;\n",
 				(n->flags & NODE_FLAG_UNION) ? "union" : "struct",
 				h->type_names[id], h->type_names[id]);

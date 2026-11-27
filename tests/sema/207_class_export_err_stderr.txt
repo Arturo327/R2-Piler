@@ -1,0 +1,37 @@
+tests/sema/207_class_export_err_src.r2:18:16: WARNING: unused parameter 'x'
+     18 |         fn malo(self, x : Interno) : i64 { return 0; }
+        |                       ^
+tests/sema/207_class_export_err_src.r2:22:21: WARNING: unused parameter 'xs'
+     22 |         fn variadico(self, xs : ...i64) : i64 { return 0; }
+        |                            ^~
+tests/sema/207_class_export_err_src.r2:28:18: WARNING: unused parameter 'm'
+     28 |         fn matriz(self, m : i64[][]) : i64 { return 0; }
+        |                         ^
+tests/sema/207_class_export_err_src.r2:18:16: ERROR: export declaration exposes non-export type 'Interno'
+     18 |         fn malo(self, x : Interno) : i64 { return 0; }
+        |                       ^
+tests/sema/207_class_export_err_src.r2:20:5: ERROR: exported name 'template' is a C/C++ keyword; rename it
+     20 |         fn template(self) : i64 { return 1; }
+        |            ^~~~~~~~
+tests/sema/207_class_export_err_src.r2:22:5: ERROR: exported class methods cannot be variadic
+     22 |         fn variadico(self, xs : ...i64) : i64 { return 0; }
+        |            ^~~~~~~~~
+tests/sema/207_class_export_err_src.r2:24:5: ERROR: exported class methods cannot return multiple values
+     24 |         fn multi(self) : i64, i32 { return 1, 2; }
+        |            ^~~~~
+tests/sema/207_class_export_err_src.r2:26:18: ERROR: an exported class method cannot take a struct larger than 16 bytes by value
+     26 |         fn grande(self, g : Grande) : i64 { return g.a; }
+        |                         ^
+tests/sema/207_class_export_err_src.r2:28:18: ERROR: an exported class method cannot take a slice of rank greater than 1
+     28 |         fn matriz(self, m : i64[][]) : i64 { return 0; }
+        |                         ^
+tests/sema/207_class_export_err_src.r2:30:18: ERROR: an exported class method cannot return arrays or slices
+     30 |         fn vector(self) : i64[2] { return datos; }
+        |                         ^
+tests/sema/207_class_export_err_src.r2:32:17: ERROR: an exported class method cannot return arrays or slices
+     32 |         fn vista(self) : i64[] { return datos; }
+        |                        ^
+tests/sema/207_class_export_err_src.r2:2:2: WARNING: unused field 'v' of struct 'Interno'
+      2 |         v : i64;
+        |         ^
+8 errors, 4 warnings

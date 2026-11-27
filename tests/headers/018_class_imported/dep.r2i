@@ -1,0 +1,16 @@
+// r2i v1
+// source: dep.r2
+// target: x86-64-sysv
+// module: 3dep
+// has_dynamic_init: 0
+// imports:
+// depends:
+// total_imports:
+
+pub class _r2_s_3dep_1D {
+	v : i64;
+	init (self, v : i64);
+	fn get (self) : i64;
+	destroy (self);
+};
+

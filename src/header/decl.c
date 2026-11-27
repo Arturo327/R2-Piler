@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-static void h_make_param (CHeader *h, ASTNode *n, int names)
+void h_make_param (CHeader *h, ASTNode *n, int names)
 {
 	TypeId type = n->data_type;
 
@@ -17,7 +17,7 @@ static void h_make_param (CHeader *h, ASTNode *n, int names)
 		h_printf(h, " %.*s", (int)n->len, n->str);
 }
 
-static void h_make_params (CHeader *h, uint32_t args)
+void h_make_params (CHeader *h, uint32_t args)
 {
 	AST *ast = h->ir->ast;
 	int first = 1;

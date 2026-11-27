@@ -1,0 +1,27 @@
+// r2i v1
+// source: $ROOT/a.r2
+// target: x86-64-sysv
+// module: 4caja
+// has_dynamic_init: 0
+// imports:
+// depends:
+// total_imports:
+
+pub class _r2_s_4caja_4Caja {
+	x : i64;
+	y : i64;
+	init (self, x : i64, y : i64 = 0);
+	fn get (self) : i64;
+	fn origen () : _r2_s_4caja_4Caja;
+	op + (self, o : _r2_s_4caja_4Caja) : _r2_s_4caja_4Caja;
+	op - (self) : _r2_s_4caja_4Caja;
+	op [] (self, i : i64) : ptr i64;
+	destroy (self);
+};
+
+export class Punto {
+	x : i64;
+	init (self, x : i64);
+	fn cero () : Punto;
+};
+

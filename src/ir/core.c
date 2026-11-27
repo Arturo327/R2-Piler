@@ -355,6 +355,7 @@ static char *method_symbol (IR *ir, ASTNode *n, Symbol *sym)
 {
 	Type *cls = types + sym->owner;
 
+	if (sym->link) return (char *)sym->link;
 	if (n->op != OP_NONE)
 		return mangle_class_special(ir->arena, ir->mod, cls->name, cls->len,
 				op_canon(n->op));
@@ -370,6 +371,15 @@ static char *method_symbol (IR *ir, ASTNode *n, Symbol *sym)
 	};
 
 	return mangle_symbol(ir->arena, &m);
+}
+
+static int method_public (IR *ir, ASTNode *n, Symbol *sym)
+{
+	uint32_t decl = types[sym->owner].decl;
+	if (n->flags & NODE_FLAG_PRIV) return 0;
+	if (decl >= ir->ast->count) return 0;
+	uint16_t flags = ir->ast->nodes[decl].flags;
+	return (flags & (NODE_FLAG_PUB | NODE_FLAG_EXPORT)) != 0;
 }
 
 static uint32_t declare_fn (IR *ir, ASTNode *n, Symbol *sym)
@@ -388,9 +398,10 @@ static uint32_t declare_fn (IR *ir, ASTNode *n, Symbol *sym)
 	else fn.ret_type = sym->type;
 
 	fn.param_count = param_slots(ir, n);
-	fn.is_extern = !method && (n->type == NODE_EXTERN_FN_DEC
-			|| (n->flags & NODE_FLAG_IMPORTED));
-	fn.is_pub = !method && (n->flags & NODE_FLAG_PUB) != 0;
+	fn.is_extern = (n->flags & NODE_FLAG_IMPORTED)
+			|| (!method && n->type == NODE_EXTERN_FN_DEC);
+	fn.is_pub = method ? method_public(ir, n, sym)
+			: (n->flags & NODE_FLAG_PUB) != 0;
 	fn.sym = method ? method_symbol(ir, n, sym)
 			: decl_symbol(ir, n, fn.is_extern, "pf", "f");
 	return push_fn(ir, fn);

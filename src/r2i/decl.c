@@ -1,8 +1,12 @@
 #include "r2i/internal.h"
 
+#include "parser/operators.h"
+
 static void r2i_make_param (R2i *r, ASTNode *n, int variadic)
 {
-	if (n->str) r2i_printf(r, "%.*s : ", (int)n->len, n->str);
+	if (n->str) r2i_printf(r, "%.*s", (int)n->len, n->str);
+	if (n->flags & NODE_FLAG_SELF) return;
+	if (n->str) r2i_printf(r, " : ");
 	if (n->flags & NODE_FLAG_REF_LOWERED) {
 		r2i_printf(r, "&");
 		r2i_print_type(r, types[n->data_type].base);
@@ -83,11 +87,29 @@ void r2i_make_global (R2i *r, ASTNode *n, int is_extern)
 	r2i_printf(r, ";\n\n");
 }
 
+void r2i_make_method (R2i *r, ASTNode *n)
+{
+	ASTNode *args = r->ir->ast->nodes + n->child;
+	ASTNode *ret = r->ir->ast->nodes + args->next_bro;
+
+	if (n->op != OP_NONE) r2i_printf(r, "op %s (", op_spelling(n->op));
+	else if (n->flags & NODE_FLAG_INIT) r2i_printf(r, "init (");
+	else if (n->flags & NODE_FLAG_DESTROY) r2i_printf(r, "destroy (");
+	else r2i_printf(r, "fn %.*s (", (int)n->len, n->str);
+
+	r2i_make_params(r, args);
+	r2i_printf(r, ")");
+	if (!(n->flags & (NODE_FLAG_INIT | NODE_FLAG_DESTROY)))
+		r2i_make_ret(r, ret);
+	r2i_printf(r, ";\n");
+}
+
 static void r2i_make_decl (R2i *r, ASTNode *n)
 {
 	switch (n->type)
 	{
 	case NODE_FN_DEC: r2i_make_fn(r, n, 0); return;
+	case NODE_CLASS_DEC: r2i_make_class(r, n); return;
 	case NODE_EXTERN_FN_DEC: r2i_make_fn(r, n, 1); return;
 	case NODE_VAR_DEC: case NODE_ARR_DEC: r2i_make_global(r, n, 0); return;
 	case NODE_EXTERN_VAR_DEC: r2i_make_global(r, n, 1); return;

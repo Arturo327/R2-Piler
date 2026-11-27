@@ -22,8 +22,9 @@ static void build_mod_maps (R2i *r)
 			uint8_t kind = n->type;
 
 			if (node < nodes) r->node_mod[node] = (int32_t)m;
-			if (kind != NODE_STRUCT_DEC && kind != NODE_ENUM_DEC
-					&& kind != NODE_TYPE_DEC && kind != NODE_NEWTYPE_DEC)
+			if (kind != NODE_STRUCT_DEC && kind != NODE_CLASS_DEC
+					&& kind != NODE_ENUM_DEC && kind != NODE_TYPE_DEC
+					&& kind != NODE_NEWTYPE_DEC)
 				continue;
 			uint32_t sym = n->sym;
 
@@ -139,6 +140,16 @@ static void collect_decl (R2i *r, ASTNode *n, uint8_t *seen)
 	case NODE_STRUCT_DEC:
 		collect_fields(r, n, seen);
 		return;
+	case NODE_CLASS_DEC: {
+		AST *ast = r->ir->ast;
+
+		collect_fields(r, n, seen);
+		for (uint32_t c = n->child; c != NO_NODE; c = ast->nodes[c].next_bro)
+			if (ast->nodes[c].type == NODE_FN_DEC
+					&& !(ast->nodes[c].flags & NODE_FLAG_PRIV))
+				collect_sig(r, ast->nodes + c, seen);
+		return;
+	}
 	case NODE_ENUM_DEC: case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 		mark_type(r, n->data_type, seen);
 		return;

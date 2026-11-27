@@ -447,6 +447,17 @@ static ASTNode *named_type_decl (Sema *s, TypeId id)
 }
 
 static void require_public_type (Sema *s, TypeId type, uint32_t use);
+static void require_public_sig (Sema *s, uint32_t idx);
+
+static void require_public_methods (Sema *s, uint32_t first)
+{
+	for (uint32_t m = first; m != NO_NODE; m = s->ast->nodes[m].next_bro) {
+		ASTNode *n = s->ast->nodes + m;
+
+		if (n->type == NODE_FN_DEC && !(n->flags & NODE_FLAG_PRIV))
+			require_public_sig(s, m);
+	}
+}
 
 static void require_public_fields (Sema *s, uint32_t first)
 {
@@ -518,8 +529,12 @@ static void require_public_decl (Sema *s, uint32_t idx)
 	case NODE_VAR_DEC: case NODE_ARR_DEC: case NODE_EXTERN_VAR_DEC:
 		require_public_type(s, n->data_type, idx);
 		return;
-	case NODE_STRUCT_DEC: case NODE_CLASS_DEC:
+	case NODE_STRUCT_DEC:
 		require_public_fields(s, n->child);
+		return;
+	case NODE_CLASS_DEC:
+		require_public_fields(s, n->child);
+		require_public_methods(s, n->child);
 		return;
 	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 		require_public_type(s, n->data_type, idx);
@@ -622,28 +637,79 @@ static void check_export_fields (Sema *s, uint32_t first)
 	}
 }
 
+static void check_export_sig (Sema *s, ASTNode *n)
+{
+	uint32_t args = n->child;
+	uint32_t ret = s->ast->nodes[args].next_bro;
+	for (uint32_t item = s->ast->nodes[args].child; item != NO_NODE;
+			item = s->ast->nodes[item].next_bro)
+		check_export_type(s, s->ast->nodes[item].data_type, item);
+	check_export_type(s, s->ast->nodes[ret].data_type, ret);
+	for (uint32_t item = s->ast->nodes[ret].child; item != NO_NODE;
+			item = s->ast->nodes[item].next_bro)
+		check_export_type(s, s->ast->nodes[item].data_type, item);
+}
+
+static void check_export_method (Sema *s, ASTNode *n)
+{
+	uint32_t args = n->child;
+	uint32_t ret = s->ast->nodes[args].next_bro;
+
+	check_export_name(s, n);
+	check_export_sig(s, n);
+	if (s->ast->nodes[args].flags & NODE_FLAG_VARARG_TYPED)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"exported class methods cannot be variadic");
+	if (s->ast->nodes[ret].child != NO_NODE)
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"exported class methods cannot return multiple values");
+	else {
+		TypeId ret_type = type_unconst_of(s->ast->nodes[ret].data_type);
+
+		if (type_kind(ret_type) == TK_ARRAY || type_dyn_rank(ret_type) > 0)
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + ret),
+					"an exported class method cannot return arrays or slices");
+	}
+	for (uint32_t p = s->ast->nodes[args].child; p != NO_NODE;
+			p = s->ast->nodes[p].next_bro) {
+		TypeId type = type_unconst_of(s->ast->nodes[p].data_type);
+
+		if (type_is_struct_like(type) && types[type].size > 16)
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
+					"an exported class method cannot take a struct larger"
+					" than 16 bytes by value");
+		else if (type_kind(type) == TK_SLICE && type_dyn_rank(type) > 1)
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
+					"an exported class method cannot take a slice of rank"
+					" greater than 1");
+	}
+}
+
+static void check_export_methods (Sema *s, uint32_t first)
+{
+	for (uint32_t m = first; m != NO_NODE; m = s->ast->nodes[m].next_bro) {
+		ASTNode *n = s->ast->nodes + m;
+
+		if (n->type != NODE_FN_DEC || (n->flags & NODE_FLAG_PRIV)) continue;
+		check_export_method(s, n);
+	}
+}
+
 static void check_export_decl (Sema *s, ASTNode *n, uint32_t idx)
 {
 	switch (n->type)
 	{
-	case NODE_FN_DEC: case NODE_EXTERN_FN_DEC: {
-		uint32_t args = n->child;
-		uint32_t ret = s->ast->nodes[args].next_bro;
-		uint32_t item;
-
-		for (item = s->ast->nodes[args].child; item != NO_NODE;
-				item = s->ast->nodes[item].next_bro)
-			check_export_type(s, s->ast->nodes[item].data_type, item);
-		check_export_type(s, s->ast->nodes[ret].data_type, ret);
-		for (item = s->ast->nodes[ret].child; item != NO_NODE;
-				item = s->ast->nodes[item].next_bro)
-			check_export_type(s, s->ast->nodes[item].data_type, item);
+	case NODE_FN_DEC: case NODE_EXTERN_FN_DEC:
+		check_export_sig(s, n);
 		return;
-	}
 	case NODE_VAR_DEC: case NODE_ARR_DEC: case NODE_EXTERN_VAR_DEC:
 		check_export_type(s, n->data_type, idx);
 		return;
-	case NODE_STRUCT_DEC: case NODE_CLASS_DEC: check_export_fields(s, n->child); return;
+	case NODE_STRUCT_DEC: check_export_fields(s, n->child); return;
+	case NODE_CLASS_DEC:
+		check_export_fields(s, n->child);
+		check_export_methods(s, n->child);
+		return;
 	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
 		check_export_type(s, n->data_type, idx);
 		return;

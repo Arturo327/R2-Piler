@@ -1,0 +1,32 @@
+struct Interno [1:8] depth=0 size=8 align=8
+  field v type=i64 offset=0
+struct Grande [5:15] depth=0 size=24 align=8
+  field a type=i64 offset=0
+  field b type=i64 offset=8
+  field c type=i64 offset=16
+class Exp [13:14] depth=0 size=8 align=8
+  field campo type=i64 offset=0
+var datos [11:5] depth=0 type=i64[2]
+fn Exp::init [16:2] depth=0 type=void
+fn Exp::malo [18:5] depth=0 type=i64
+fn Exp::template [20:5] depth=0 type=i64
+fn Exp::variadico [22:5] depth=0 type=i64
+fn Exp::multi [24:5] depth=0 type=i64, i32
+fn Exp::grande [26:5] depth=0 type=i64
+fn Exp::matriz [28:5] depth=0 type=i64
+fn Exp::vector [30:5] depth=0 type=i64[2]
+fn Exp::vista [32:5] depth=0 type=i64[]
+fn main [35:8] depth=0 type=i64
+param self [16:8] depth=1 type=ptr Exp
+param self [18:10] depth=1 type=ptr Exp
+param x [18:16] depth=1 type=Interno
+param self [20:14] depth=1 type=ptr Exp
+param self [22:15] depth=1 type=ptr Exp
+param xs [22:21] depth=1 type=i64[]
+param self [24:11] depth=1 type=ptr Exp
+param self [26:12] depth=1 type=ptr Exp
+param g [26:18] depth=1 type=Grande
+param self [28:12] depth=1 type=ptr Exp
+param m [28:18] depth=1 type=i64[][]
+param self [30:12] depth=1 type=ptr Exp
+param self [32:11] depth=1 type=ptr Exp

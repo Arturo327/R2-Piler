@@ -796,7 +796,7 @@ static void gen_class_fns (IR *ir, ASTNode *cls)
 	for (uint32_t m = cls->child; m != NO_NODE; m = ir->ast->nodes[m].next_bro) {
 		ASTNode *fn = ir->ast->nodes + m;
 
-		if (fn->type == NODE_FN_DEC)
+		if (fn->type == NODE_FN_DEC && !(fn->flags & NODE_FLAG_IMPORTED))
 			gen_fn(ir, fn, ir->symtab->symbols[fn->sym].ir_id);
 	}
 }

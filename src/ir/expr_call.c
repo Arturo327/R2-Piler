@@ -28,8 +28,11 @@ static int can_alias_arg (IR *ir, ASTNode *call, uint32_t arg, uint32_t param)
 	uint32_t sym = agg_root_sym(ir->ast, arg);
 
 	if (sym == NO_SYMBOL || param == NO_NODE) return 0;
+	uint32_t psym = ir->ast->nodes[param].sym;
+
+	if (psym == NO_SYMBOL) return 0;
 	Symbol *s = ir->symtab->symbols + sym;
-	Symbol *ps = ir->symtab->symbols + ir->ast->nodes[param].sym;
+	Symbol *ps = ir->symtab->symbols + psym;
 
 	if (s->kind != SYMBOL_VAR || !s->depth || s->is_static || s->escaped) return 0;
 	if (ps->written || ps->escaped) return 0;

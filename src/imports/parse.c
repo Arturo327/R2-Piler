@@ -3,6 +3,10 @@
 
 #include "imports/internal.h"
 
+#include "mangle/mangle.h"
+#include "parser/operators.h"
+#include "sema/common.h"
+
 static uint32_t root_last_child (AST *ast)
 {
 	uint32_t last = ast->nodes[0].child;
@@ -90,6 +94,7 @@ static int decl_source_name (ImportLoader *l, ImportModule *m, ASTNode *n,
 	case NODE_FN_DEC: kind = "pf"; break;
 	case NODE_VAR_DEC: case NODE_ARR_DEC: kind = "pv"; break;
 	case NODE_STRUCT_DEC: kind = (n->flags & NODE_FLAG_UNION) ? "u" : "s"; break;
+	case NODE_CLASS_DEC: kind = "s"; break;
 	case NODE_ENUM_DEC: kind = "e"; break;
 	case NODE_TYPE_DEC: kind = "a"; break;
 	case NODE_NEWTYPE_DEC: kind = "n"; break;
@@ -99,6 +104,50 @@ static int decl_source_name (ImportLoader *l, ImportModule *m, ASTNode *n,
 	fprintf(stderr, "Error: invalid .r2i symbol '%.*s'\n", (int)n->len, n->str);
 	l->failed = 1;
 	return 0;
+}
+
+static const char *method_link (Arena *a, const char *mod,
+		const char *cls, uint16_t clen, ASTNode *fn)
+{
+	if (fn->op != OP_NONE)
+		return mangle_class_special(a, mod, cls, clen, op_canon(fn->op));
+	if (fn->flags & NODE_FLAG_INIT)
+		return mangle_class_special(a, mod, cls, clen, "init");
+	if (fn->flags & NODE_FLAG_DESTROY)
+		return mangle_class_special(a, mod, cls, clen, "destroy");
+
+	MangleName name = {
+		.kind = "m", .mod = mod, .a = cls, .alen = clen,
+		.b = fn->str, .blen = fn->len
+	};
+
+	return mangle_symbol(a, &name);
+}
+
+static const char *module_text (Arena *a, ImportModule *m)
+{
+	char *mod = arena_alloc(a, (size_t)m->mod_len + 1);
+
+	memcpy(mod, m->mod, m->mod_len);
+	mod[m->mod_len] = '\0';
+	return mod;
+}
+
+static void record_class_links (ImportLoader *l, ImportModule *m,
+		uint32_t node, const char *name, uint16_t len)
+{
+	AST *ast = &l->c->parser.ast;
+	ASTNode *cls = &ast->nodes[node];
+	const char *mod = module_text(&l->c->arena, m);
+
+	for (uint32_t c = cls->child; c != NO_NODE; c = ast->nodes[c].next_bro) {
+		ASTNode *fn = &ast->nodes[c];
+
+		if (fn->type != NODE_FN_DEC) continue;
+		ast->nodes[c].flags |= NODE_FLAG_IMPORTED;
+		sema_add_import_link(&l->c->sema, c,
+				method_link(&l->c->arena, mod, name, len, fn));
+	}
 }
 
 static void add_item (ImportLoader *l, ImportModule *m, ImportedDecl item)
@@ -134,6 +183,7 @@ static void add_decl (ImportLoader *l, ImportModule *m, uint32_t node)
 	ImportedDecl item = { name, len, node };
 
 	add_item(l, m, item);
+	if (n->type == NODE_CLASS_DEC) record_class_links(l, m, node, name, len);
 }
 
 static int collect_body_decls (ImportLoader *l, uint32_t module_idx,

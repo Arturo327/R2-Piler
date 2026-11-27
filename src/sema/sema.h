@@ -21,6 +21,11 @@ typedef struct AggPlace {
 	uint32_t slot;
 } AggPlace;
 
+typedef struct ImportLink {
+	uint32_t node;
+	const char *sym;
+} ImportLink;
+
 typedef struct Sema {
 	SymbolTable table;
 
@@ -82,12 +87,18 @@ typedef struct Sema {
 	uint32_t binding_count;
 	uint32_t binding_cap;
 
+	ImportLink *links;
+	uint32_t link_count;
+	uint32_t link_cap;
+
 	uint8_t *flag_stack;
 	uint32_t flag_cap;
 	uint32_t flag_top;
 } Sema;
 
 void sema_init (Sema *sema, Arena *arena, AST *ast, ErrorReporter *err);
+void sema_add_import_link (Sema *s, uint32_t node, const char *sym);
+const char *sema_import_link (Sema *s, uint32_t node);
 void sema_run (Sema *sema);
 void dump_symbols (Sema *s);
 

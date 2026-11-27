@@ -9,6 +9,7 @@ static const char *type_kind_sym (ASTNode *n)
 	switch (n->type)
 	{
 	case NODE_STRUCT_DEC: return (n->flags & NODE_FLAG_UNION) ? "u" : "s";
+	case NODE_CLASS_DEC: return "s";
 	case NODE_ENUM_DEC: return "e";
 	case NODE_TYPE_DEC: return "a";
 	case NODE_NEWTYPE_DEC: return "n";
@@ -195,6 +196,27 @@ void r2i_make_struct (R2i *r, ASTNode *n)
 
 		if (member->type == NODE_FIELD_DEC) r2i_make_field(r, member, 1);
 		else if (member->type == NODE_STRUCT_DEC) r2i_make_nested(r, member, 1);
+	}
+	r2i_printf(r, "};\n\n");
+}
+
+void r2i_make_class (R2i *r, ASTNode *n)
+{
+	Symbol *sym = r->ir->symtab->symbols + n->sym;
+	const char *name = r->type_syms[sym->type];
+
+	r2i_printf(r, "%s class %s {\n",
+			(n->flags & NODE_FLAG_EXPORT) ? "export" : "pub", name);
+	for (uint32_t m = n->child; m != NO_NODE; m = r->ir->ast->nodes[m].next_bro) {
+		ASTNode *member = r->ir->ast->nodes + m;
+
+		if (member->type == NODE_FIELD_DEC) r2i_make_field(r, member, 1);
+		else if (member->type == NODE_STRUCT_DEC) r2i_make_nested(r, member, 1);
+		else if (member->type == NODE_FN_DEC
+				&& !(member->flags & NODE_FLAG_PRIV)) {
+			r2i_indent(r, 1);
+			r2i_make_method(r, member);
+		}
 	}
 	r2i_printf(r, "};\n\n");
 }

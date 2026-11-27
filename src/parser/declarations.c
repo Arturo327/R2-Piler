@@ -400,7 +400,12 @@ static uint32_t parse_special_method (Parser *p, Token name, uint16_t flags)
 		parse_type(p, 0, ret, &type_node);
 	}
 
-	uint32_t body = parse_block(p);
+	uint32_t body = NO_NODE;
+
+	if (p->r2i_mode)
+		consume(p, TOK_SEMCOL, "expected ';' after the imported class member declaration");
+	else body = parse_block(p);
+
 	uint32_t last = NO_NODE;
 
 	append_child(p, node, &last, args);
@@ -499,7 +504,12 @@ static uint32_t parse_operator (Parser *p)
 		error_report(p->err, ERR_ERROR, token_loc(p->curr),
 				"an operator must declare a return type");
 	uint32_t ret = parse_ret_dec(p);
-	uint32_t body = parse_block(p);
+	uint32_t body = NO_NODE;
+
+	if (p->r2i_mode)
+		consume(p, TOK_SEMCOL, "expected ';' after the imported operator declaration");
+	else body = parse_block(p);
+
 	uint8_t canon = operator_canon(p, op.type, index_op, args);
 
 	p->ast.nodes[node].str = (char *)op_spelling(canon);
@@ -507,7 +517,7 @@ static uint32_t parse_operator (Parser *p)
 	p->ast.nodes[node].op = canon;
 	append_child(p, node, &last, args);
 	append_child(p, node, &last, ret);
-	append_child(p, node, &last, body);
+	if (body != NO_NODE) append_child(p, node, &last, body);
 	return node;
 }
 

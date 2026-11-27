@@ -624,7 +624,7 @@ static uint32_t class_qualified_sym (Sema *s, ASTNode *n)
 	uint16_t sep = 0;
 
 	for (uint16_t i = 0; i + 1 < n->len; i++)
-		if (n->str[i] == ':' && n->str[i + 1] == ':') { sep = i; break; }
+		if (n->str[i] == ':' && n->str[i + 1] == ':') sep = i;
 	if (!sep) return NO_SYMBOL;
 
 	TypeId cls = type_canon(sema_lookup_type(s, n->str, sep, 0));

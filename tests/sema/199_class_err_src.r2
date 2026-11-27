@@ -9,10 +9,6 @@ class Vacia {
 	fn solo(x : i64) : i64 { return x; }
 }
 
-pub class Publica {
-	valor : i64;
-}
-
 pub fn main() : i64 {
 	var c : Caja = {.valor = 1};
 	var f : ptr fn(ptr Caja) : i64 = Caja::oculto;

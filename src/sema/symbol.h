@@ -23,6 +23,7 @@ typedef enum {
 
 typedef struct Symbol {
 	char *name;
+	const char *link;
 	
 	uint32_t depth;
 	uint32_t decl;

@@ -119,10 +119,6 @@ void sema_decl_struct (Sema *s, uint32_t idx)
 		error_report(s->err, ERR_ERROR, node_loc(n), "'main' must be a function");
 		return;
 	}
-	if (is_class && (n->flags & (NODE_FLAG_PUB | NODE_FLAG_EXPORT))) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"classes cannot be 'pub' or 'export' yet");
-	}
 	if (symtab_find(&s->table, n->str, n->len) != NO_SYMBOL) {
 		sema_declare(s, n->str, n->len, SYMBOL_TYPE, TYPE_ERROR, idx);
 		return;

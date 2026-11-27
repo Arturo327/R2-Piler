@@ -1,6 +1,3 @@
-tests/sema/199_class_err_src.r2:12:11: ERROR: classes cannot be 'pub' or 'export' yet
-     12 | pub class Publica {
-        |           ^~~~~~~
 tests/sema/199_class_err_src.r2:8:7: ERROR: class 'Vacia' must have at least one field
       8 | class Vacia {
         |       ^~~~~
@@ -13,22 +10,22 @@ tests/sema/199_class_err_src.r2:5:16: ERROR: 'self' must be the first parameter 
 tests/sema/199_class_err_src.r2:5:16: ERROR: 'self' already declared in this scope
       5 |         fn malo(self, self) : i64 { return 1; }
         |                       ^~~~
-tests/sema/199_class_err_src.r2:17:17: ERROR: class 'Caja' cannot be initialized with '{...}'; use 'Caja(...)'
-     17 |         var c : Caja = {.valor = 1};
+tests/sema/199_class_err_src.r2:13:17: ERROR: class 'Caja' cannot be initialized with '{...}'; use 'Caja(...)'
+     13 |         var c : Caja = {.valor = 1};
         |                        ^
-tests/sema/199_class_err_src.r2:18:35: ERROR: method 'Caja::oculto' is private
-     18 |         var f : ptr fn(ptr Caja) : i64 = Caja::oculto;
+tests/sema/199_class_err_src.r2:14:35: ERROR: method 'Caja::oculto' is private
+     14 |         var f : ptr fn(ptr Caja) : i64 = Caja::oculto;
         |                                          ^~~~~~~~~~~~
-tests/sema/199_class_err_src.r2:19:10: ERROR: method 'Caja::oculto' is private
-     19 |         return c.oculto() + c.no_existe();
+tests/sema/199_class_err_src.r2:15:10: ERROR: method 'Caja::oculto' is private
+     15 |         return c.oculto() + c.no_existe();
         |                 ^~~~~~
-tests/sema/199_class_err_src.r2:19:23: ERROR: class 'Caja' has no method 'no_existe'
-     19 |         return c.oculto() + c.no_existe();
+tests/sema/199_class_err_src.r2:15:23: ERROR: class 'Caja' has no method 'no_existe'
+     15 |         return c.oculto() + c.no_existe();
         |                              ^~~~~~~~~
-tests/sema/199_class_err_src.r2:18:6: WARNING: unused variable 'f'
-     18 |         var f : ptr fn(ptr Caja) : i64 = Caja::oculto;
+tests/sema/199_class_err_src.r2:14:6: WARNING: unused variable 'f'
+     14 |         var f : ptr fn(ptr Caja) : i64 = Caja::oculto;
         |             ^
 tests/sema/199_class_err_src.r2:8:7: WARNING: unused class 'Vacia'
       8 | class Vacia {
         |       ^~~~~
-9 errors, 2 warnings
+8 errors, 2 warnings

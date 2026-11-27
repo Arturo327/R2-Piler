@@ -67,11 +67,35 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->bindings = NULL;
 	s->binding_count = 0;
 	s->binding_cap = 0;
+	s->links = NULL;
+	s->link_count = 0;
+	s->link_cap = 0;
 	s->flag_stack = NULL;
 	s->flag_cap = 0;
 	s->flag_top = 0;
 
 	symtab_init(&s->table, arena);
+}
+
+void sema_add_import_link (Sema *s, uint32_t node, const char *sym)
+{
+	if (s->link_count == s->link_cap) {
+		uint32_t cap = s->link_cap ? s->link_cap * 2 : 16;
+
+		s->links = arena_realloc(s->arena, s->links,
+				sizeof(ImportLink) * s->link_cap, sizeof(ImportLink) * cap);
+		s->link_cap = cap;
+	}
+	s->links[s->link_count].node = node;
+	s->links[s->link_count].sym = sym;
+	s->link_count++;
+}
+
+const char *sema_import_link (Sema *s, uint32_t node)
+{
+	for (uint32_t i = 0; i < s->link_count; i++)
+		if (s->links[i].node == node) return s->links[i].sym;
+	return NULL;
 }
 
 static const char *reserved_prefix (char *name, uint16_t len)

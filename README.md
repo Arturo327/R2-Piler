@@ -20,8 +20,8 @@ the interpreter are not implemented.
 See **Features** below for a language overview, and [LANGUAGE.md](LANGUAGE.md)
 for the full specification.
 
-Not implemented yet: floating point, `defer`, automatic destruction at scope
-exit and exported classes.
+Not implemented yet: floating point, `defer` and automatic destruction at
+scope exit.
 
 ---
 
@@ -58,6 +58,10 @@ exit and exported classes.
   Operator overloads are declared with `op` (`op + (self, b : C) : C`,
   unary `op - (self)`, and `op [] (self, i : i64) : ptr T`); they apply to
   class values and a `ptr C` keeps native pointer arithmetic/comparison.
+  Classes may be `pub` (they go into the `.r2i` interface, so other R2
+  modules can construct, copy, call methods/operators and `drop` them) or
+  `export` (the C header gets the plain struct plus a C++ class whose inline
+  methods call the mangled `extern "C"` functions).
 - Heap allocation: `new T[N]` / `new T[D1][D2]...` (slices) and `new T`
   (a `ptr T`), with optional custom allocators `new(allocator_expr) T[N]`;
   `delete x;` and `delete(expr) x;` free them. The default forms use
