@@ -497,6 +497,19 @@ static const char *h_cpp_operator (uint8_t op)
 	case OP_NEG: return "-";
 	case OP_NOT: return "!";
 	case OP_BNOT: return "~";
+	case OP_ASSIGN: return "=";
+	case OP_ADD_ASSIGN: return "+=";
+	case OP_SUB_ASSIGN: return "-=";
+	case OP_MUL_ASSIGN: return "*=";
+	case OP_DIV_ASSIGN: return "/=";
+	case OP_MOD_ASSIGN: return "%=";
+	case OP_AND_ASSIGN: return "&=";
+	case OP_OR_ASSIGN: return "|=";
+	case OP_XOR_ASSIGN: return "^=";
+	case OP_SHL_ASSIGN: return "<<=";
+	case OP_SHR_ASSIGN: return ">>=";
+	case OP_INC: return "++";
+	case OP_DEC: return "--";
 	default: return "";
 	}
 }

@@ -208,6 +208,7 @@ int check_cond (Sema *s, uint32_t cond, int alw_err)
 {
 	TypeId type = check_expr(s, cond);
 
+	type = sema_truth_value(s, cond, type);
 	if (((type == TYPE_VOID && s->ast->nodes[cond].type != NODE_EMPTY) || type == TYPE_STR)
 			|| (type != TYPE_ERROR && type_is_aggregate(type)))
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + cond),

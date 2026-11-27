@@ -484,6 +484,7 @@ void check_global_var_init (Sema *s, uint32_t idx)
 					"global pointer initializers only support NULL, a string literal or the address of a global");
 
 		check_var_init_type(s, n, init_type);
+		maybe_copy_init(s, idx);
 	}
 	s->init_node = saved;
 	sym->state = INIT_DONE;

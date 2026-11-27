@@ -1,0 +1,20 @@
+// r2i v1
+// source: $ROOT/a.r2
+// target: x86-64-sysv
+// module: 3ops
+// has_dynamic_init: 0
+// imports:
+// depends:
+// total_imports:
+
+pub class _r2_s_3ops_3Acc {
+	x : i64;
+	init (self, x : i64);
+	op = (self, b : _r2_s_3ops_3Acc) : void;
+	op += (self, b : _r2_s_3ops_3Acc) : void;
+	op ++ (self) : void;
+	op + (self, k : i64) : _r2_s_3ops_3Acc;
+	op != (self, z : i64) : i64;
+	fn diff (self, b : _r2_s_3ops_3Acc) : _r2_s_3ops_3Acc;
+};
+

@@ -25,6 +25,19 @@ static const OpName op_names[OP_COUNT] = {
 	[OP_NEG] = { "neg", "-" },
 	[OP_NOT] = { "not", "!" },
 	[OP_BNOT] = { "bnot", "~" },
+	[OP_ASSIGN] = { "assign", "=" },
+	[OP_ADD_ASSIGN] = { "add_assign", "+=" },
+	[OP_SUB_ASSIGN] = { "sub_assign", "-=" },
+	[OP_MUL_ASSIGN] = { "mul_assign", "*=" },
+	[OP_DIV_ASSIGN] = { "div_assign", "/=" },
+	[OP_MOD_ASSIGN] = { "mod_assign", "%=" },
+	[OP_AND_ASSIGN] = { "and_assign", "&=" },
+	[OP_OR_ASSIGN] = { "or_assign", "|=" },
+	[OP_XOR_ASSIGN] = { "xor_assign", "^=" },
+	[OP_SHL_ASSIGN] = { "shl_assign", "<<=" },
+	[OP_SHR_ASSIGN] = { "shr_assign", ">>=" },
+	[OP_INC] = { "inc", "++" },
+	[OP_DEC] = { "dec", "--" },
 	[OP_INDEX] = { "index", "[]" }
 };
 

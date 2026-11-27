@@ -1,0 +1,37 @@
+class Bad [1:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class NoTruth [9:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class Cmp [15:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class Priv [24:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+fn Bad::init [4:2] depth=0 type=void
+fn NoTruth::init [12:2] depth=0 type=void
+fn Cmp::init [18:2] depth=0 type=void
+fn Cmp::op$ne [20:5] depth=0 type=i64
+fn Cmp::op$sub [21:5] depth=0 type=Cmp
+fn Priv::init [27:2] depth=0 type=void
+fn Priv::op$add [29:10] depth=0 type=Priv
+fn Priv::op$assign [30:10] depth=0 type=void
+fn main [33:8] depth=0 type=i64
+param self [4:8] depth=1 type=ptr Bad
+param self [12:8] depth=1 type=ptr NoTruth
+param self [18:8] depth=1 type=ptr Cmp
+param self [20:9] depth=1 type=ptr Cmp
+param b [20:15] depth=1 type=Cmp
+param self [21:8] depth=1 type=ptr Cmp
+param b [21:14] depth=1 type=Cmp
+param self [27:8] depth=1 type=ptr Priv
+param self [29:13] depth=1 type=ptr Priv
+param b [29:19] depth=1 type=Priv
+param self [30:13] depth=1 type=ptr Priv
+param b [30:19] depth=1 type=Priv
+var n [35:6] depth=1 type=NoTruth
+var c [36:6] depth=1 type=Cmp
+var a [37:6] depth=1 type=i64
+var e [42:6] depth=1 type=i64
+var f [43:6] depth=1 type=i64
+var p [44:6] depth=1 type=Priv
+var q [45:6] depth=1 type=Priv
+var r [46:6] depth=1 type=Priv

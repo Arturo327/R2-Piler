@@ -1,0 +1,73 @@
+NODE_ROOT [0:0]
+  NODE_CLASS_DEC [1:7] name="C"
+    NODE_FIELD_DEC [2:2] name="x" type=i64
+    NODE_FN_DEC [3:2] name="init" init
+      NODE_ARGS_DEC [3:7]
+        NODE_VAR_DEC [3:8] name="self" self untyped
+      NODE_RET_DEC [3:2] type=void
+      NODE_BLOCK [3:14]
+        NODE_ASSIGN [3:23]
+          NODE_DOT [3:20] field="x"
+            NODE_ID [3:16] str="self"
+          NODE_LIT_i64 [3:25] i64=0
+    NODE_FN_DEC [4:5] name="=" op=assign
+      NODE_ARGS_DEC [4:7]
+        NODE_VAR_DEC [4:8] name="self" self untyped
+        NODE_VAR_DEC [4:14] name="b" type=C
+      NODE_RET_DEC [4:21] type=void
+      NODE_BLOCK [4:28]
+        NODE_ASSIGN [4:37]
+          NODE_DOT [4:34] field="x"
+            NODE_ID [4:30] str="self"
+          NODE_DOT [4:40] field="x"
+            NODE_ID [4:39] str="b"
+    NODE_FN_DEC [5:5] name="+=" op=add_assign
+      NODE_ARGS_DEC [5:8]
+        NODE_VAR_DEC [5:9] name="self" self untyped
+        NODE_VAR_DEC [5:15] name="b" type=C
+      NODE_RET_DEC [5:22] type=void
+      NODE_BLOCK [5:29]
+        NODE_ADD_ASSIGN [5:38]
+          NODE_DOT [5:35] field="x"
+            NODE_ID [5:31] str="self"
+          NODE_DOT [5:42] field="x"
+            NODE_ID [5:41] str="b"
+    NODE_FN_DEC [6:5] name=">>=" op=shr_assign
+      NODE_ARGS_DEC [6:9]
+        NODE_VAR_DEC [6:10] name="self" self untyped
+        NODE_VAR_DEC [6:16] name="k" type=i64
+      NODE_RET_DEC [6:25] type=void
+      NODE_BLOCK [6:32]
+        NODE_RS_ASSIGN [6:41]
+          NODE_DOT [6:38] field="x"
+            NODE_ID [6:34] str="self"
+          NODE_ID [6:45] str="k"
+    NODE_FN_DEC [7:5] name="++" op=inc
+      NODE_ARGS_DEC [7:8]
+        NODE_VAR_DEC [7:9] name="self" self untyped
+      NODE_RET_DEC [7:15] type=void
+      NODE_BLOCK [7:22]
+        NODE_INC [7:30]
+          NODE_DOT [7:28] field="x"
+            NODE_ID [7:24] str="self"
+    NODE_FN_DEC [8:5] name="--" op=dec
+      NODE_ARGS_DEC [8:8]
+        NODE_VAR_DEC [8:9] name="self" self untyped
+      NODE_RET_DEC [8:15] type=void
+      NODE_BLOCK [8:22]
+        NODE_DEC [8:30]
+          NODE_DOT [8:28] field="x"
+            NODE_ID [8:24] str="self"
+    NODE_FN_DEC [9:10] name="-" op=neg priv
+      NODE_ARGS_DEC [9:12]
+        NODE_VAR_DEC [9:13] name="self" self untyped
+      NODE_RET_DEC [9:19] type=C
+      NODE_BLOCK [9:23]
+        NODE_RET [9:25]
+          NODE_ID [9:32] str="self"
+  NODE_FN_DEC [12:8] name="main" pub
+    NODE_ARGS_DEC [12:12]
+    NODE_RET_DEC [12:15] type=i64
+    NODE_BLOCK [12:21]
+      NODE_RET [13:2]
+        NODE_LIT_i64 [13:9] i64=0

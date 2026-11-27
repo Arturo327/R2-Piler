@@ -434,6 +434,17 @@ static uint8_t binary_operator (TokenType type)
 	case TOK_XOR: return OP_XOR;
 	case TOK_LS: return OP_SHL;
 	case TOK_RS: return OP_SHR;
+	case TOK_ASSIGN: return OP_ASSIGN;
+	case TOK_ADD_ASSIGN: return OP_ADD_ASSIGN;
+	case TOK_SUB_ASSIGN: return OP_SUB_ASSIGN;
+	case TOK_STAR_ASSIGN: return OP_MUL_ASSIGN;
+	case TOK_SLASH_ASSIGN: return OP_DIV_ASSIGN;
+	case TOK_PERCENT_ASSIGN: return OP_MOD_ASSIGN;
+	case TOK_AND_A_ASSIGN: return OP_AND_ASSIGN;
+	case TOK_OR_A_ASSIGN: return OP_OR_ASSIGN;
+	case TOK_XOR_ASSIGN: return OP_XOR_ASSIGN;
+	case TOK_LS_ASSIGN: return OP_SHL_ASSIGN;
+	case TOK_RS_ASSIGN: return OP_SHR_ASSIGN;
 	default: return OP_NONE;
 	}
 }
@@ -445,19 +456,9 @@ static uint8_t unary_operator (TokenType type)
 	case TOK_SUB: return OP_NEG;
 	case TOK_NOT_L: return OP_NOT;
 	case TOK_NOT_A: return OP_BNOT;
+	case TOK_INC: return OP_INC;
+	case TOK_DEC: return OP_DEC;
 	default: return OP_NONE;
-	}
-}
-
-static int compound_assign_token (TokenType type)
-{
-	switch (type)
-	{
-	case TOK_ADD_ASSIGN: case TOK_SUB_ASSIGN: case TOK_STAR_ASSIGN:
-	case TOK_SLASH_ASSIGN: case TOK_PERCENT_ASSIGN: case TOK_AND_A_ASSIGN:
-	case TOK_OR_A_ASSIGN: case TOK_XOR_ASSIGN: case TOK_LS_ASSIGN:
-	case TOK_RS_ASSIGN: return 1;
-	default: return 0;
 	}
 }
 
@@ -521,16 +522,16 @@ static uint32_t parse_operator (Parser *p)
 	return node;
 }
 
-static uint32_t parse_unsupported_op (Parser *p, Token at)
+static uint32_t parse_op_member (Parser *p)
 {
-	error_report(p->err, ERR_ERROR, token_loc(at),
-			"overloaded assignment is not supported;"
-			" class values are copied field by field");
+	Token name = p->curr;
+
 	advance(p);
-	parse_args_dec(p);
-	if (p->curr.type == TOK_COL) parse_ret_dec(p);
-	parse_block(p);
-	return new_node(p, NODE_ERROR, at.line, at.col);
+	if (binary_operator(p->curr.type) != OP_NONE
+			|| unary_operator(p->curr.type) != OP_NONE
+			|| p->curr.type == TOK_LBRACE)
+		return parse_operator(p);
+	return parse_field_named(p, name);
 }
 
 uint32_t parse_priv_method (Parser *p)
@@ -538,9 +539,22 @@ uint32_t parse_priv_method (Parser *p)
 	Token kw = p->curr;
 
 	advance(p);
+	if (p->curr.type == TOK_ID && member_named(p->curr, "op", 2)) {
+		uint32_t member = parse_op_member(p);
+		uint8_t type = p->ast.nodes[member].type;
+		uint8_t op = p->ast.nodes[member].op;
+
+		if (type != NODE_FN_DEC || op == OP_NONE) {
+			error_report(p->err, ERR_ERROR, token_loc(kw),
+					"expected 'fn' or an operator after 'priv'");
+			return new_node(p, NODE_ERROR, kw.line, kw.col);
+		}
+		p->ast.nodes[member].flags |= NODE_FLAG_PRIV;
+		return member;
+	}
 	if (p->curr.type != TOK_FN) {
 		error_report(p->err, ERR_ERROR, token_loc(kw),
-				"expected 'fn' after 'priv'");
+				"expected 'fn' or 'op' after 'priv'");
 		p->panic_mode = 1;
 		return new_node(p, NODE_ERROR, kw.line, kw.col);
 	}
@@ -583,17 +597,8 @@ uint32_t parse_class (Parser *p)
 				member = parse_special_method(p, name, flags);
 			else member = parse_field_named(p, name);
 		}
-		else if (p->curr.type == TOK_ID && member_named(p->curr, "op", 2)) {
-			Token name = p->curr;
-
-			advance(p);
-			if (p->curr.type == TOK_ASSIGN || compound_assign_token(p->curr.type))
-				member = parse_unsupported_op(p, p->curr);
-			else if (binary_operator(p->curr.type) != OP_NONE
-					|| unary_operator(p->curr.type) != OP_NONE || p->curr.type == TOK_LBRACE)
-				member = parse_operator(p);
-			else member = parse_field_named(p, name);
-		}
+		else if (p->curr.type == TOK_ID && member_named(p->curr, "op", 2))
+			member = parse_op_member(p);
 		else if (p->curr.type == TOK_STRUCT || p->curr.type == TOK_UNION)
 			member = parse_struct(p, 0);
 		else if (p->curr.type == TOK_PACKED) {

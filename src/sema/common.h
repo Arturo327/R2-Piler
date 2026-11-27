@@ -86,6 +86,10 @@ uint32_t class_method_node (Sema *s, TypeId cls, const char *name, uint16_t len)
 uint32_t class_op_node (Sema *s, TypeId cls, uint8_t op);
 TypeId sema_op_call (Sema *s, uint32_t idx, uint32_t receiver, TypeId cls, uint32_t args, uint32_t method);
 TypeId sema_class_operator (Sema *s, uint32_t idx, uint32_t receiver, TypeId type, uint32_t args, uint8_t op, int *handled);
+TypeId sema_class_reverse (Sema *s, uint32_t idx, uint32_t receiver, TypeId receiver_type, uint32_t arg, TypeId arg_type, uint8_t op, int *handled);
+TypeId sema_truth_value (Sema *s, uint32_t idx, TypeId type);
+void check_op_visibility (Sema *s, uint32_t method, uint32_t use);
+void maybe_copy_init (Sema *s, uint32_t idx);
 uint32_t class_init_node (Sema *s, TypeId cls);
 uint32_t class_destroy_node (Sema *s, TypeId cls);
 int sema_borrowed_target (Sema *s, uint32_t target, const char *verb);

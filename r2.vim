@@ -5,9 +5,9 @@ if exists("b:current_syntax")
   finish
 endif
 
-syntax keyword r2Statement fn return if elif else while for switch case default break continue
-syntax keyword r2Storage   var arr extern pub export type newtype struct union class static enum packed
-syntax keyword r2Flow      defer new delete reset module
+syntax keyword r2Statement fn return if elif else while for switch case default break continue self init destroy
+syntax keyword r2Storage   var arr extern pub export type newtype struct union class static enum packed op priv
+syntax keyword r2Flow      defer new delete reset module drop
 syntax keyword r2Keyword   as sizeof offsetof alignof import from module
 syntax keyword r2Type      i8 u8 i16 u16 i32 u32 i64 u64 char void ptr any
 syntax keyword r2Special   NULL

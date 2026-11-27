@@ -258,6 +258,7 @@ void check_var_dec (Sema *s, uint32_t idx)
 				" (use 'arr' for a stack array)", (int)n->len, n->str);
 
 	if (has_init && !untyped) check_decl_init(s, idx, is_view);
+	if (has_init) maybe_copy_init(s, idx);
 
 	n = s->ast->nodes + idx;
 	if (n->flags & NODE_FLAG_STATIC) {

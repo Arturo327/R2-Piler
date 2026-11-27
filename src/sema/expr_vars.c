@@ -416,6 +416,24 @@ static int assign_agg_bad (Sema *s, uint32_t idx, int view, int slice_field, Typ
 	return 1;
 }
 
+static int assign_copy_op (Sema *s, uint32_t idx, uint32_t left,
+		uint32_t right, TypeId l, uint8_t left_kind)
+{
+	if (l == TYPE_ERROR || type_kind(type_canon(type_unconst_of(l))) != TK_CLASS)
+		return 0;
+	TypeId cls = type_canon(type_unconst_of(l));
+	uint32_t method = class_op_node(s, cls, OP_ASSIGN);
+
+	if (method == NO_NODE) return 0;
+	check_op_visibility(s, method, idx);
+	mark_assigned(s, left);
+	set_null_state(s, left, left_kind, 0);
+	if (left_kind == NODE_ID) sym_write(s, s->ast->nodes[left].sym, idx);
+	agg_store(s, left, idx);
+	sema_op_call(s, idx, left, cls, right, method);
+	return 1;
+}
+
 TypeId check_assign (Sema *s, uint32_t idx)
 {
 	uint32_t left = s->ast->nodes[idx].child;
@@ -432,6 +450,7 @@ TypeId check_assign (Sema *s, uint32_t idx)
 
 	if (left_kind == NODE_DOT && s->ast->nodes[left].type != NODE_DOT)
 		return reject_place(s, idx, right, "left side of '='");
+	if (assign_copy_op(s, idx, left, right, l, left_kind)) return s->ast->nodes[idx].data_type;
 	TypeId r = check_expr(s, right);
 
 	warn_self_assign(s, left, right);
@@ -505,11 +524,6 @@ static TypeId adapt_compound_rhs (Sema *s, uint32_t idx, uint32_t left, uint32_t
 	return l;
 }
 
-typedef struct {
-	TypeId l;
-	TypeId r;
-} CompoundLhsResult;
-
 static int reject_compound_dot_array_slice (Sema *s, uint32_t idx, uint32_t left,
 		uint32_t right)
 {
@@ -540,38 +554,19 @@ static int validate_compound_left (Sema *s, uint32_t idx, uint32_t left,
 	return 1;
 }
 
-static CompoundLhsResult check_compound_lhs (Sema *s, uint32_t idx, uint32_t left,
-		uint8_t left_kind, uint32_t right)
+static void mark_compound_target (Sema *s, uint32_t idx, uint32_t left, uint8_t left_kind, TypeId l)
 {
-	CompoundLhsResult res;
-
-	res.l = check_lvalue(s, left);
-	check_const_write(s, left, res.l);
-
-	if (left_kind == NODE_DOT && s->ast->nodes[left].type != NODE_DOT) {
-		res.l = reject_place(s, idx, right, "left side of compound assignment");
-		res.r = TYPE_ERROR;
-		return res;
-	}
-	warn_unassigned(s, left, res.l);
+	warn_unassigned(s, left, l);
 	mark_read(s, left);
-	res.r = check_expr(s, right);
 	mark_assigned(s, left);
 	set_null_state(s, left, left_kind, 0);
 	if (left_kind == NODE_ID) sym_write(s, s->ast->nodes[left].sym, idx);
 	agg_store(s, left, idx);
-	return res;
 }
 
 static int check_compound_type_valid (Sema *s, uint32_t idx, TypeId l, TypeId r)
 {
 	if (l == TYPE_ERROR || r == TYPE_ERROR) return 0;
-	if (type_kind(type_canon(type_unconst_of(l))) == TK_CLASS) {
-		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
-				"compound assignment is not supported for class values;"
-				" write 'a = a op b'");
-		return 0;
-	}
 	if (type_is_aggregate(l)) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"operator cannot be applied to a value of type %s",
@@ -622,6 +617,114 @@ static TypeId check_compound_regular (Sema *s, uint32_t idx, uint32_t left,
 	return r == TYPE_ERROR ? TYPE_ERROR : l;
 }
 
+static uint8_t compound_op (uint8_t node_type, uint8_t *assign)
+{
+	switch (node_type)
+	{
+	case NODE_ADD_ASSIGN: *assign = OP_ADD_ASSIGN; return OP_ADD;
+	case NODE_SUB_ASSIGN: *assign = OP_SUB_ASSIGN; return OP_SUB;
+	case NODE_MUL_ASSIGN: *assign = OP_MUL_ASSIGN; return OP_MUL;
+	case NODE_DIV_ASSIGN: *assign = OP_DIV_ASSIGN; return OP_DIV;
+	case NODE_MOD_ASSIGN: *assign = OP_MOD_ASSIGN; return OP_MOD;
+	case NODE_AND_A_ASSIGN: *assign = OP_AND_ASSIGN; return OP_AND;
+	case NODE_OR_A_ASSIGN: *assign = OP_OR_ASSIGN; return OP_OR;
+	case NODE_XOR_ASSIGN: *assign = OP_XOR_ASSIGN; return OP_XOR;
+	case NODE_LS_ASSIGN: *assign = OP_SHL_ASSIGN; return OP_SHL;
+	case NODE_RS_ASSIGN: *assign = OP_SHR_ASSIGN; return OP_SHR;
+	default: *assign = OP_NONE; return OP_NONE;
+	}
+}
+
+static uint32_t clone_subtree (Sema *s, uint32_t idx);
+
+static uint32_t clone_siblings (Sema *s, uint32_t first)
+{
+	uint32_t head = NO_NODE;
+	uint32_t tail = NO_NODE;
+
+	while (first != NO_NODE) {
+		uint32_t next = s->ast->nodes[first].next_bro;
+		uint32_t copy = clone_subtree(s, first);
+
+		if (head == NO_NODE) head = copy;
+		else s->ast->nodes[tail].next_bro = copy;
+		tail = copy;
+		first = next;
+	}
+	return head;
+}
+
+static uint32_t clone_subtree (Sema *s, uint32_t idx)
+{
+	ASTNode raw = s->ast->nodes[idx];
+	uint32_t child = s->ast->nodes[idx].child;
+	uint32_t copy = sema_new_node(s, raw);
+
+	s->ast->nodes[copy].next_bro = NO_NODE;
+	s->ast->nodes[copy].child = clone_siblings(s, child);
+	return copy;
+}
+
+static TypeId desugar_class_compound (Sema *s, uint32_t idx, uint32_t left, uint32_t right)
+{
+	uint8_t base_node = compound_base[s->ast->nodes[idx].type];
+	uint16_t line = s->ast->nodes[idx].line;
+	uint16_t col = s->ast->nodes[idx].col;
+	uint32_t target = clone_subtree(s, left);
+	uint32_t read = clone_subtree(s, left);
+	ASTNode raw = {0};
+
+	raw.type = base_node;
+	raw.child = read;
+	raw.next_bro = NO_NODE;
+	raw.line = line;
+	raw.col = col;
+	uint32_t binop = sema_new_node(s, raw);
+
+	s->ast->nodes[read].next_bro = right;
+	ASTNode *n = s->ast->nodes + idx;
+
+	n->type = NODE_ASSIGN;
+	n->flags = 0;
+	n->op = 0;
+	n->sym = NO_SYMBOL;
+	n->u64 = 0;
+	n->data_type = 0;
+	n->child = target;
+	s->ast->nodes[target].next_bro = binop;
+	return check_assign(s, idx);
+}
+
+static int class_compound_assign (Sema *s, uint32_t idx, uint32_t left,
+		uint32_t right, TypeId l, uint8_t left_kind)
+{
+	if (l == TYPE_ERROR || type_kind(type_canon(type_unconst_of(l))) != TK_CLASS)
+		return 0;
+	TypeId cls = type_canon(type_unconst_of(l));
+	uint8_t assign;
+	uint8_t base = compound_op(s->ast->nodes[idx].type, &assign);
+	uint32_t method = class_op_node(s, cls, assign);
+
+	if (method != NO_NODE) {
+		check_op_visibility(s, method, idx);
+		mark_compound_target(s, idx, left, left_kind, l);
+		sema_op_call(s, idx, left, cls, right, method);
+		return 1;
+	}
+	method = class_op_node(s, cls, base);
+	if (method == NO_NODE) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"class '%s' has no operator '%s' or '%s'", types[cls].name,
+				op_spelling(assign), op_spelling(base));
+		check_expr(s, right);
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return 1;
+	}
+	check_op_visibility(s, method, idx);
+	desugar_class_compound(s, idx, left, right);
+	return 1;
+}
+
 TypeId check_compound_assign (Sema *s, uint32_t idx)
 {
 	uint32_t left = s->ast->nodes[idx].child;
@@ -634,20 +737,31 @@ TypeId check_compound_assign (Sema *s, uint32_t idx)
 		return TYPE_ERROR;
 	}
 
-	CompoundLhsResult lr = check_compound_lhs(s, idx, left, left_kind, right);
+	uint32_t saved_root = s->write_root;
 
-	if (!check_compound_type_valid(s, idx, lr.l, lr.r)) {
+	s->write_root = lvalue_root(s, left);
+	TypeId l = check_lvalue(s, left);
+	s->write_root = saved_root;
+	check_const_write(s, left, l);
+	if (left_kind == NODE_DOT && s->ast->nodes[left].type != NODE_DOT)
+		return reject_place(s, idx, right, "left side of compound assignment");
+	if (class_compound_assign(s, idx, left, right, l, left_kind))
+		return s->ast->nodes[idx].data_type;
+	mark_compound_target(s, idx, left, left_kind, l);
+	TypeId r = check_expr(s, right);
+
+	if (!check_compound_type_valid(s, idx, l, r)) {
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
 
-	if (type_ptr_repr(lr.l) != TYPE_ERROR) {
-		TypeId result = check_compound_ptr(s, idx, op, lr.l, lr.r, right);
+	if (type_ptr_repr(l) != TYPE_ERROR) {
+		TypeId result = check_compound_ptr(s, idx, op, l, r, right);
 		s->ast->nodes[idx].data_type = result;
 		return result;
 	}
 
-	TypeId result = check_compound_regular(s, idx, left, lr.l, lr.r, right);
+	TypeId result = check_compound_regular(s, idx, left, l, r, right);
 	s->ast->nodes[idx].data_type = result;
 	return result;
 }
@@ -907,6 +1021,22 @@ void check_inc_dec (Sema *s, uint32_t idx)
 	if (target_kind == NODE_ID) sym_write(s, s->ast->nodes[target].sym, idx);
 	agg_store(s, target, idx);
 
+	if (type != TYPE_ERROR && type_kind(type_canon(type_unconst_of(type))) == TK_CLASS) {
+		TypeId cls = type_canon(type_unconst_of(type));
+		uint8_t op = s->ast->nodes[idx].type == NODE_INC ? OP_INC : OP_DEC;
+		uint32_t method = class_op_node(s, cls, op);
+
+		if (method == NO_NODE) {
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+					"class '%s' has no operator '%s'", types[cls].name,
+					op_spelling(op));
+			s->ast->nodes[idx].data_type = TYPE_ERROR;
+			return;
+		}
+		check_op_visibility(s, method, idx);
+		s->ast->nodes[idx].data_type = sema_op_call(s, idx, target, cls, NO_NODE, method);
+		return;
+	}
 	if (type != TYPE_ERROR && type_is_aggregate(type)) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"operator cannot be applied to a value of type %s",

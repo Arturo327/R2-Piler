@@ -31,14 +31,14 @@ tests/sema/205_operators_err_src.r2:47:17: ERROR: class 'A' has no operator '+'
 tests/sema/205_operators_err_src.r2:48:15: ERROR: class 'B' has no unary operator '-'
      48 |         var _u : B = -b;
         |                      ^
-tests/sema/205_operators_err_src.r2:49:17: ERROR: class 'B' has no unary operator '!'
+tests/sema/205_operators_err_src.r2:49:18: ERROR: class 'B' cannot be used as a truth value; define an operator '!=', '==' or '!'
      49 |         var _n : i64 = !b;
-        |                        ^
+        |                         ^
 tests/sema/205_operators_err_src.r2:50:18: ERROR: class 'B' has no operator '[]'
      50 |         var _i : i64 = b[0];
         |                         ^
 tests/sema/205_operators_err_src.r2:51:19: ERROR: operator cannot be applied to a value of type B
-     51 |         var _r : i64 = 5 + b;
+     51 |         var _r : i64 = 5 - b;
         |                          ^
 tests/sema/205_operators_err_src.r2:52:19: ERROR: class 'B' has no operator '=='
      52 |         var _q : i64 = b == b;
@@ -46,10 +46,10 @@ tests/sema/205_operators_err_src.r2:52:19: ERROR: class 'B' has no operator '=='
 tests/sema/205_operators_err_src.r2:53:3: ERROR: class 'B' has no method 'add'
      53 |         b.add(b);
         |          ^~~
-tests/sema/205_operators_err_src.r2:54:4: ERROR: compound assignment is not supported for class values; write 'a = a op b'
-     54 |         b += b;
+tests/sema/205_operators_err_src.r2:54:4: ERROR: class 'A' has no operator '+=' or '+'
+     54 |         a += b;
         |           ^~
-tests/sema/205_operators_err_src.r2:55:3: ERROR: operator cannot be applied to a value of type B
+tests/sema/205_operators_err_src.r2:55:3: ERROR: class 'B' has no operator '++'
      55 |         b++;
         |          ^~
 tests/sema/205_operators_err_src.r2:56:18: ERROR: class 'D' has no operator '[]'

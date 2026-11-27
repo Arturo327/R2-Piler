@@ -61,6 +61,15 @@ TypeId check_unary (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+	if (op == NODE_NOT_L && type_kind(type_canon(type_unconst_of(operand_type))) == TK_CLASS
+			&& class_op_node(s, type_canon(type_unconst_of(operand_type)), OP_NOT) == NO_NODE) {
+		operand_type = sema_truth_value(s, n->child, operand_type);
+		n = &s->ast->nodes[idx];
+		if (operand_type == TYPE_ERROR) {
+			n->data_type = TYPE_ERROR;
+			return TYPE_ERROR;
+		}
+	}
 	int handled = 0;
 	TypeId op_result = sema_class_operator(s, idx, n->child, operand_type,
 			NO_NODE, unary_op_id(op), &handled);
@@ -536,6 +545,18 @@ TypeId check_binary (Sema *s, uint32_t idx)
 	if (r == TYPE_ERROR) {
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
+	}
+	TypeId reversed = sema_class_reverse(s, idx, right, r, left, l,
+			binary_op_id(op_type), &handled);
+
+	if (handled) return reversed;
+	if (op_type == NODE_AND_L || op_type == NODE_OR_L) {
+		l = sema_truth_value(s, left, l);
+		r = sema_truth_value(s, right, r);
+		if (l == TYPE_ERROR || r == TYPE_ERROR) {
+			s->ast->nodes[idx].data_type = TYPE_ERROR;
+			return TYPE_ERROR;
+		}
 	}
 	warn_self_compare(s, idx, left, right);
 	if (op_type == NODE_ADD || op_type == NODE_SUB) {

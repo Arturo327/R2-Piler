@@ -48,10 +48,10 @@ pub fn main() : i64 {
 	var _u : B = -b;
 	var _n : i64 = !b;
 	var _i : i64 = b[0];
-	var _r : i64 = 5 + b;
+	var _r : i64 = 5 - b;
 	var _q : i64 = b == b;
 	b.add(b);
-	b += b;
+	a += b;
 	b++;
 	var _j : i64 = d[0];
 	var _k : i64 = m[0];
