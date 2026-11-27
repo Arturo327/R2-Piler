@@ -2,6 +2,41 @@
 #include "sema/expr_internal.h"
 #include <string.h>
 
+static uint8_t binary_op_id (uint8_t node_type)
+{
+	switch (node_type)
+	{
+	case NODE_EQ: return OP_EQ;
+	case NODE_NE: return OP_NE;
+	case NODE_LT: return OP_LT;
+	case NODE_LE: return OP_LE;
+	case NODE_GT: return OP_GT;
+	case NODE_GE: return OP_GE;
+	case NODE_ADD: return OP_ADD;
+	case NODE_SUB: return OP_SUB;
+	case NODE_MUL: return OP_MUL;
+	case NODE_DIV: return OP_DIV;
+	case NODE_MOD: return OP_MOD;
+	case NODE_AND_A: return OP_AND;
+	case NODE_OR_A: return OP_OR;
+	case NODE_XOR: return OP_XOR;
+	case NODE_LS: return OP_SHL;
+	case NODE_RS: return OP_SHR;
+	default: return OP_NONE;
+	}
+}
+
+static uint8_t unary_op_id (uint8_t node_type)
+{
+	switch (node_type)
+	{
+	case NODE_NEG: return OP_NEG;
+	case NODE_NOT_L: return OP_NOT;
+	case NODE_NOT_A: return OP_BNOT;
+	default: return OP_NONE;
+	}
+}
+
 static int const_operand (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
@@ -26,6 +61,11 @@ TypeId check_unary (Sema *s, uint32_t idx)
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+	int handled = 0;
+	TypeId op_result = sema_class_operator(s, idx, n->child, operand_type,
+			NO_NODE, unary_op_id(op), &handled);
+
+	if (handled) return op_result;
 	if (type_is_aggregate(operand_type)) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"operator cannot be applied to a value of type %s",
@@ -481,9 +521,19 @@ TypeId check_binary (Sema *s, uint32_t idx)
 	uint32_t left = s->ast->nodes[idx].child;
 	uint32_t right = s->ast->nodes[left].next_bro;
 	TypeId l = check_expr(s, left);
+	int handled = 0;
+	TypeId op_result = sema_class_operator(s, idx, left, l, right,
+			binary_op_id(op_type), &handled);
+
+	if (handled) return op_result;
+	if (l == TYPE_ERROR) {
+		check_rhs(s, op_type, right);
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
 	TypeId r = check_rhs(s, op_type, right);
 
-	if (l == TYPE_ERROR || r == TYPE_ERROR) {
+	if (r == TYPE_ERROR) {
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}

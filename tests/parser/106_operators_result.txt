@@ -1,0 +1,58 @@
+NODE_ROOT [0:0]
+  NODE_CLASS_DEC [1:7] name="V"
+    NODE_FIELD_DEC [2:2] name="op" type=i64
+    NODE_FIELD_DEC [3:2] name="x" type=i64
+    NODE_FN_DEC [4:5] name="op"
+      NODE_ARGS_DEC [4:7]
+        NODE_VAR_DEC [4:8] name="self" self untyped
+      NODE_RET_DEC [4:14] type=void
+      NODE_BLOCK [4:14]
+    NODE_FN_DEC [5:2] name="init" init
+      NODE_ARGS_DEC [5:7]
+        NODE_VAR_DEC [5:8] name="self" self untyped
+      NODE_RET_DEC [5:2] type=void
+      NODE_BLOCK [5:14]
+    NODE_FN_DEC [6:5] name="+" op=add
+      NODE_ARGS_DEC [6:7]
+        NODE_VAR_DEC [6:8] name="self" self untyped
+        NODE_VAR_DEC [6:14] name="b" type=V
+      NODE_RET_DEC [6:21] type=V
+      NODE_BLOCK [6:25]
+        NODE_RET [6:27]
+          NODE_ID [6:34] str="b"
+    NODE_FN_DEC [7:5] name="-" op=neg
+      NODE_ARGS_DEC [7:7]
+        NODE_VAR_DEC [7:8] name="self" self untyped
+      NODE_RET_DEC [7:14] type=V
+      NODE_BLOCK [7:18]
+        NODE_RET [7:20]
+          NODE_DEREF [7:27]
+            NODE_ID [7:28] str="self"
+    NODE_FN_DEC [8:5] name="[]" op=index
+      NODE_ARGS_DEC [8:8]
+        NODE_VAR_DEC [8:9] name="self" self untyped
+        NODE_VAR_DEC [8:15] name="i" type=i64
+        NODE_VAR_DEC [8:24] name="j" type=i64
+      NODE_RET_DEC [8:33] type=ptr i64
+      NODE_BLOCK [8:43]
+        NODE_RET [8:45]
+          NODE_ADDR [8:52]
+            NODE_DOT [8:57] field="x"
+              NODE_ID [8:53] str="self"
+  NODE_FN_DEC [11:8] name="main" pub
+    NODE_ARGS_DEC [11:12]
+    NODE_RET_DEC [11:15] type=i64
+    NODE_BLOCK [11:21]
+      NODE_VAR_DEC [12:6] name="v" type=V
+        NODE_FN_CALL [12:14] name="V"
+      NODE_VAR_DEC [13:6] name="w" type=V
+        NODE_ADD [13:16]
+          NODE_ID [13:14] str="v"
+          NODE_ID [13:18] str="v"
+      NODE_VAR_DEC [14:6] name="x" type=i64
+        NODE_INDEX [14:17]
+          NODE_ID [14:16] str="w"
+          NODE_LIT_i64 [14:18] i64=1
+          NODE_LIT_i64 [14:21] i64=2
+      NODE_RET [15:2]
+        NODE_LIT_i64 [15:9] i64=0

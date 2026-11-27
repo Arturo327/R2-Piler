@@ -1,0 +1,121 @@
+fn __r2_init(0 params, 0 regs) : void
+    ret
+
+fn V::init(3 params, 9 regs) : void
+    r0 = param.ptr V #0
+    r1 = param.i64 #1
+    r2 = param.i64 #2
+    str_ptr.i64 r0, r1
+    str_ptr.i64 r0, r2 +8
+    ret
+
+fn V::op$add(3 params, 40 regs) : u64
+    r0 = param.ptr V #0
+    r1 = param.u64 #1
+    r2 = param.u64 #2
+    r10 = ld_ptr.i64 r0
+    r13 = add.i64 r10, r1
+    r17 = ld_ptr.i64 r0 +8
+    r22 = add.i64 r17, r2
+    ret.u64 r13, r22
+    ret
+
+fn V::op$neg(1 params, 26 regs) : u64
+    r0 = param.ptr V #0
+    r4 = ld_ptr.i64 r0
+    r5 = neg.i64 r4
+    r9 = ld_ptr.i64 r0 +8
+    r10 = neg.i64 r9
+    ret.u64 r5, r10
+    ret
+
+fn V::op$eq(3 params, 24 regs) : i64
+    r0 = param.ptr V #0
+    r1 = param.u64 #1
+    r2 = param.u64 #2
+    r23 = move.i64 r2
+    r9 = ld_ptr.i64 r0
+    r12 = eq.i64 r9, r1
+    jz r12 -> L0
+    r16 = ld_ptr.i64 r0 +8
+    r21 = eq.i64 r16, r23
+    jz r21 -> L0
+    r7 = const.i64 1
+    jmp -> L1
+  L0:
+    r7 = const.i64 0
+  L1:
+    ret.i64 r7
+    ret
+
+fn V::op$index(2 params, 7 regs) : ptr i64
+    r0 = param.ptr V #0
+    r1 = param.i64 #1
+    r4 = const.i64 3
+    r5 = lshift.i64 r1, r4
+    r6 = add.ptr i64 r0, r5
+    ret.ptr i64 r6
+    ret
+
+fn F::init(2 params, 4 regs) : void
+    r0 = param.ptr F #0
+    r1 = param.ptr fn(i64) : i64 #1
+    str_ptr.ptr fn(i64) : i64 r0, r1
+    ret
+
+fn F::op$index(2 params, 4 regs) : ptr fn(i64) : i64
+    r0 = param.ptr F #0
+    r1 = param.i64 #1
+    r3 = ld_ptr.ptr fn(i64) : i64 r0
+    ret.ptr fn(i64) : i64 r3
+    ret
+
+fn inc(1 params, 4 regs) : i64
+    r0 = param.i64 #0
+    r2 = const.i64 1
+    r3 = add.i64 r0, r2
+    ret.i64 r3
+    ret
+
+fn main(0 params, 116 regs) : i64
+    r2 = const.i64 1
+    r3 = const.i64 2
+    str_local.i64 r0, r2
+    str_local.i64 r0, r3 +8
+    r113 = const.i64 3
+    r114 = const.i64 4
+    r10 = addr_local.V r0
+    arg r10 #0
+    arg r113 #1
+    arg r114 #2
+    r16 = call.u64 V::op$add
+    r17 = rethi.u64
+    str_local.i64 r8, r16
+    str_local.i64 r8, r17 +8
+    r22 = addr_local.V r0
+    arg r22 #0
+    r23 = call.u64 V::op$neg
+    r24 = rethi.u64
+    r97 = const.i64 4
+    r83 = ld_local.i64 r0
+    r86 = eq.i64 r83, r113
+    jz r86 -> L6
+    r90 = ld_local.i64 r0 +8
+    r95 = eq.i64 r90, r97
+    jz r95 -> L6
+    r81 = const.i64 1
+    jmp -> L7
+  L6:
+    r81 = const.i64 0
+  L7:
+    r37 = ld_local.i64 r8
+    r40 = fn_addr.ptr fn(i64) : i64 inc
+    r41 = const.i64 5
+    arg r41 #0
+    r45 = call_ind.i64 r40 fn(i64) : i64
+    r48 = add.i64 r37, r45
+    r51 = add.i64 r48, r23
+    r53 = add.i64 r51, r81
+    ret.i64 r53
+    ret
+

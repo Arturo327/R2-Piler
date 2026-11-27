@@ -1,6 +1,7 @@
 #include "ir/ir.h"
 #include "ir/internal.h"
 #include "mangle/mangle.h"
+#include "parser/operators.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -330,11 +331,22 @@ static char *decl_symbol (IR *ir, ASTNode *n, int is_extern,
 static char *method_name (IR *ir, ASTNode *n, Symbol *sym, uint16_t *len)
 {
 	Type *cls = types + sym->owner;
-	size_t cap = (size_t)cls->len + (size_t)n->len + 3;
-	char *name = arena_alloc(ir->arena, cap);
-	int at = snprintf(name, cap, "%.*s::%.*s", (int)cls->len, cls->name,
-			(int)n->len, n->str);
+	size_t cap;
+	char *name;
+	int at;
 
+	if (n->op != OP_NONE) {
+		const char *canon = op_canon(n->op);
+
+		cap = (size_t)cls->len + strlen(canon) + 8;
+		name = arena_alloc(ir->arena, cap);
+		at = snprintf(name, cap, "%.*s::op$%s", (int)cls->len, cls->name, canon);
+	} else {
+		cap = (size_t)cls->len + (size_t)n->len + 3;
+		name = arena_alloc(ir->arena, cap);
+		at = snprintf(name, cap, "%.*s::%.*s", (int)cls->len, cls->name,
+				(int)n->len, n->str);
+	}
 	*len = (uint16_t)at;
 	return name;
 }
@@ -343,6 +355,9 @@ static char *method_symbol (IR *ir, ASTNode *n, Symbol *sym)
 {
 	Type *cls = types + sym->owner;
 
+	if (n->op != OP_NONE)
+		return mangle_class_special(ir->arena, ir->mod, cls->name, cls->len,
+				op_canon(n->op));
 	if (n->flags & NODE_FLAG_INIT)
 		return mangle_class_special(ir->arena, ir->mod, cls->name, cls->len, "init");
 	if (n->flags & NODE_FLAG_DESTROY)

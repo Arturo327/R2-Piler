@@ -1,0 +1,76 @@
+tests/sema/205_operators_err_src.r2:10:5: ERROR: class 'B' already has operator '+'
+     10 |         op + (self, b : B) : B { return b; }
+        |            ^
+tests/sema/205_operators_err_src.r2:11:5: ERROR: unary operator '!' takes only 'self'
+     11 |         op ! (self, b : B) : i64 { return 0; }
+        |            ^
+tests/sema/205_operators_err_src.r2:12:5: ERROR: operator '[]' needs at least one index parameter
+     12 |         op [] (self) : ptr i64 { return $self.x; }
+        |            ^~
+tests/sema/205_operators_err_src.r2:13:5: ERROR: operator '==' must return i64
+     13 |         op == (self, b : B) : i8 { return 0; }
+        |            ^~
+tests/sema/205_operators_err_src.r2:15:14: ERROR: operator parameters cannot have default values
+     15 |         op * (self, k : i64 = 1) : B { return self; }
+        |                     ^
+tests/sema/205_operators_err_src.r2:16:5: ERROR: an operator cannot be variadic
+     16 |         op / (self, rest : ...B) : B { return B(); }
+        |            ^
+tests/sema/205_operators_err_src.r2:17:5: ERROR: an operator must take 'self' as its first parameter
+     17 |         op % (a : B, b : B) : B { return b; }
+        |            ^
+tests/sema/205_operators_err_src.r2:18:5: ERROR: an operator cannot return several values
+     18 |         op << (self, k : i64) : i64, i64 { return k, k; }
+        |            ^~
+tests/sema/205_operators_err_src.r2:24:15: ERROR: index parameter 'p' of operator '[]' must be an integer type
+     24 |         op [] (self, p : ptr i8) : ptr i64 { return $self.x; }
+        |                      ^
+tests/sema/205_operators_err_src.r2:47:17: ERROR: class 'A' has no operator '+'
+     47 |         var _c : B = a + b;
+        |                        ^
+tests/sema/205_operators_err_src.r2:48:15: ERROR: class 'B' has no unary operator '-'
+     48 |         var _u : B = -b;
+        |                      ^
+tests/sema/205_operators_err_src.r2:49:17: ERROR: class 'B' has no unary operator '!'
+     49 |         var _n : i64 = !b;
+        |                        ^
+tests/sema/205_operators_err_src.r2:50:18: ERROR: class 'B' has no operator '[]'
+     50 |         var _i : i64 = b[0];
+        |                         ^
+tests/sema/205_operators_err_src.r2:51:19: ERROR: operator cannot be applied to a value of type B
+     51 |         var _r : i64 = 5 + b;
+        |                          ^
+tests/sema/205_operators_err_src.r2:52:19: ERROR: class 'B' has no operator '=='
+     52 |         var _q : i64 = b == b;
+        |                          ^~
+tests/sema/205_operators_err_src.r2:53:3: ERROR: class 'B' has no method 'add'
+     53 |         b.add(b);
+        |          ^~~
+tests/sema/205_operators_err_src.r2:54:4: ERROR: compound assignment is not supported for class values; write 'a = a op b'
+     54 |         b += b;
+        |           ^~
+tests/sema/205_operators_err_src.r2:55:3: ERROR: operator cannot be applied to a value of type B
+     55 |         b++;
+        |          ^~
+tests/sema/205_operators_err_src.r2:56:18: ERROR: class 'D' has no operator '[]'
+     56 |         var _j : i64 = d[0];
+        |                         ^
+tests/sema/205_operators_err_src.r2:57:18: ERROR: operator '[]' of class 'M' expects 2 indexes, got 1
+     57 |         var _k : i64 = m[0];
+        |                         ^
+tests/sema/205_operators_err_src.r2:58:18: ERROR: operator '[]' of class 'M' expects 2 indexes, got 3
+     58 |         var _l : i64 = m[0, 0, 0];
+        |                         ^
+tests/sema/205_operators_err_src.r2:59:3: ERROR: cannot modify a value returned by operator '[]' when it returns a pointer
+     59 |         f[0] = f[0];
+        |          ^~
+tests/sema/205_operators_err_src.r2:60:2: ERROR: cannot take the address of a value returned by operator '[]'
+     60 |         $f[0];
+        |         ^
+tests/sema/205_operators_err_src.r2:62:21: ERROR: native indexing takes a single index; use 'a[i][j]'
+     62 |         var _z : i64 = vals[0, 1];
+        |                            ^
+tests/sema/205_operators_err_src.r2:55:3: WARNING: value assigned to 'b' is not used
+     55 |         b++;
+        |          ^~
+24 errors, 1 warning

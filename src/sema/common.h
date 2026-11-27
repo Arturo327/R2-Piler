@@ -2,6 +2,7 @@
 #define COMMON_H
 
 #include "sema/sema.h"
+#include "parser/operators.h"
 
 ErrorLoc node_loc (ASTNode *n);
 uint32_t sema_lookup (Sema *s, const char *name, uint16_t len);
@@ -82,6 +83,9 @@ void check_export_decls (Sema *s);
 void decl_class_methods (Sema *s, uint32_t idx);
 void check_class_methods (Sema *s, uint32_t idx);
 uint32_t class_method_node (Sema *s, TypeId cls, const char *name, uint16_t len);
+uint32_t class_op_node (Sema *s, TypeId cls, uint8_t op);
+TypeId sema_op_call (Sema *s, uint32_t idx, uint32_t receiver, TypeId cls, uint32_t args, uint32_t method);
+TypeId sema_class_operator (Sema *s, uint32_t idx, uint32_t receiver, TypeId type, uint32_t args, uint8_t op, int *handled);
 uint32_t class_init_node (Sema *s, TypeId cls);
 uint32_t class_destroy_node (Sema *s, TypeId cls);
 int sema_borrowed_target (Sema *s, uint32_t target, const char *verb);

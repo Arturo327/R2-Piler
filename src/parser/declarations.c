@@ -1,4 +1,5 @@
 #include "parser/common.h"
+#include "parser/operators.h"
 
 #include <string.h>
 
@@ -408,6 +409,120 @@ static uint32_t parse_special_method (Parser *p, Token name, uint16_t flags)
 	return node;
 }
 
+static uint8_t binary_operator (TokenType type)
+{
+	switch (type)
+	{
+	case TOK_ADD: return OP_ADD;
+	case TOK_SUB: return OP_SUB;
+	case TOK_STAR: return OP_MUL;
+	case TOK_SLASH: return OP_DIV;
+	case TOK_PERCENT: return OP_MOD;
+	case TOK_EQ: return OP_EQ;
+	case TOK_NE: return OP_NE;
+	case TOK_LT: return OP_LT;
+	case TOK_LE: return OP_LE;
+	case TOK_GT: return OP_GT;
+	case TOK_GE: return OP_GE;
+	case TOK_AND_A: return OP_AND;
+	case TOK_OR_A: return OP_OR;
+	case TOK_XOR: return OP_XOR;
+	case TOK_LS: return OP_SHL;
+	case TOK_RS: return OP_SHR;
+	default: return OP_NONE;
+	}
+}
+
+static uint8_t unary_operator (TokenType type)
+{
+	switch (type)
+	{
+	case TOK_SUB: return OP_NEG;
+	case TOK_NOT_L: return OP_NOT;
+	case TOK_NOT_A: return OP_BNOT;
+	default: return OP_NONE;
+	}
+}
+
+static int compound_assign_token (TokenType type)
+{
+	switch (type)
+	{
+	case TOK_ADD_ASSIGN: case TOK_SUB_ASSIGN: case TOK_STAR_ASSIGN:
+	case TOK_SLASH_ASSIGN: case TOK_PERCENT_ASSIGN: case TOK_AND_A_ASSIGN:
+	case TOK_OR_A_ASSIGN: case TOK_XOR_ASSIGN: case TOK_LS_ASSIGN:
+	case TOK_RS_ASSIGN: return 1;
+	default: return 0;
+	}
+}
+
+static uint32_t count_member_params (Parser *p, uint32_t args)
+{
+	uint32_t count = 0;
+
+	for (uint32_t a = p->ast.nodes[args].child; a != NO_NODE;
+			a = p->ast.nodes[a].next_bro)
+		count++;
+	return count;
+}
+
+static uint8_t operator_canon (Parser *p, TokenType type, int index_op, uint32_t args)
+{
+	uint32_t count = count_member_params(p, args);
+	uint8_t canon;
+
+	if (index_op) return OP_INDEX;
+	if (count == 1 && unary_operator(type) != OP_NONE)
+		return unary_operator(type);
+	if (count == 2 && binary_operator(type) != OP_NONE)
+		return binary_operator(type);
+	canon = binary_operator(type);
+	if (canon == OP_NONE) canon = unary_operator(type);
+	return canon;
+}
+
+static uint32_t parse_operator (Parser *p)
+{
+	Token op = p->curr;
+	int index_op = op.type == TOK_LBRACE;
+	uint32_t node = new_node(p, NODE_FN_DEC, op.line, op.col);
+	uint32_t last = NO_NODE;
+
+	if (index_op) {
+		advance(p);
+		consume(p, TOK_RBRACE, "expected ']' after '[' in the operator name");
+	} else advance(p);
+
+	uint32_t args = parse_args_dec(p);
+
+	if (p->curr.type != TOK_COL)
+		error_report(p->err, ERR_ERROR, token_loc(p->curr),
+				"an operator must declare a return type");
+	uint32_t ret = parse_ret_dec(p);
+	uint32_t body = parse_block(p);
+	uint8_t canon = operator_canon(p, op.type, index_op, args);
+
+	p->ast.nodes[node].str = (char *)op_spelling(canon);
+	p->ast.nodes[node].len = (uint16_t)strlen(p->ast.nodes[node].str);
+	p->ast.nodes[node].op = canon;
+	append_child(p, node, &last, args);
+	append_child(p, node, &last, ret);
+	append_child(p, node, &last, body);
+	return node;
+}
+
+static uint32_t parse_unsupported_op (Parser *p, Token at)
+{
+	error_report(p->err, ERR_ERROR, token_loc(at),
+			"overloaded assignment is not supported;"
+			" class values are copied field by field");
+	advance(p);
+	parse_args_dec(p);
+	if (p->curr.type == TOK_COL) parse_ret_dec(p);
+	parse_block(p);
+	return new_node(p, NODE_ERROR, at.line, at.col);
+}
+
 uint32_t parse_priv_method (Parser *p)
 {
 	Token kw = p->curr;
@@ -456,6 +571,17 @@ uint32_t parse_class (Parser *p)
 			advance(p);
 			if (p->curr.type == TOK_LPAREN)
 				member = parse_special_method(p, name, flags);
+			else member = parse_field_named(p, name);
+		}
+		else if (p->curr.type == TOK_ID && member_named(p->curr, "op", 2)) {
+			Token name = p->curr;
+
+			advance(p);
+			if (p->curr.type == TOK_ASSIGN || compound_assign_token(p->curr.type))
+				member = parse_unsupported_op(p, p->curr);
+			else if (binary_operator(p->curr.type) != OP_NONE
+					|| unary_operator(p->curr.type) != OP_NONE || p->curr.type == TOK_LBRACE)
+				member = parse_operator(p);
 			else member = parse_field_named(p, name);
 		}
 		else if (p->curr.type == TOK_STRUCT || p->curr.type == TOK_UNION)

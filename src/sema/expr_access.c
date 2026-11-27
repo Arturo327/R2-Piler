@@ -137,8 +137,22 @@ static TypeId check_addr_child (Sema *s, uint32_t idx, uint32_t saved_addr, int 
 		return check_addr_id(s, idx, saved_addr, finalized);
 	if (child->type == NODE_DEREF)
 		return check_deref(s, n->child);
-	if (child->type == NODE_INDEX)
-		return check_index(s, n->child);
+	if (child->type == NODE_INDEX) {
+		uint32_t ci = n->child;
+		TypeId type = check_index(s, ci);
+		ASTNode *now = s->ast->nodes + ci;
+
+		if (now->type == NODE_FN_CALL && now->op == OP_INDEX) {
+			n = s->ast->nodes + idx;
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"cannot take the address of a value returned by"
+					" operator '[]'");
+			n->data_type = TYPE_ERROR;
+			*finalized = 1;
+			return TYPE_ERROR;
+		}
+		return type;
+	}
 	if (child->type == NODE_DOT)
 		return check_addr_dot(s, idx);
 
@@ -405,15 +419,117 @@ TypeId check_dot (Sema *s, uint32_t idx)
 	return TYPE_ERROR;
 }
 
-TypeId check_index (Sema *s, uint32_t idx)
+static uint32_t index_arg_count (Sema *s, uint32_t first)
 {
-	ASTNode *n = s->ast->nodes + idx;
-	uint32_t base = n->child;
-	uint32_t index = s->ast->nodes[base].next_bro;
-	TypeId ptr = check_member_base(s, base);
-	TypeId off = check_expr(s, index);
+	uint32_t count = 0;
 
-	n = s->ast->nodes + idx;
+	for (uint32_t i = first; i != NO_NODE; i = s->ast->nodes[i].next_bro)
+		count++;
+	return count;
+}
+
+static void check_index_args (Sema *s, uint32_t first)
+{
+	for (uint32_t i = first; i != NO_NODE; i = s->ast->nodes[i].next_bro)
+		check_expr(s, i);
+}
+
+static uint32_t index_op_params (Sema *s, uint32_t method)
+{
+	uint32_t args = s->ast->nodes[method].child;
+	uint32_t count = 0;
+
+	for (uint32_t p = s->ast->nodes[args].child; p != NO_NODE;
+			p = s->ast->nodes[p].next_bro)
+		count++;
+	return count - 1;
+}
+
+static TypeId check_index_value (Sema *s, uint32_t idx, uint32_t base,
+		TypeId cls, uint32_t first, uint32_t method)
+{
+	TypeId result = sema_op_call(s, idx, base, cls, first, method);
+
+	if (result != TYPE_ERROR) s->ast->nodes[idx].op = OP_INDEX;
+	return result;
+}
+
+static TypeId check_index_lvalue (Sema *s, uint32_t idx, uint32_t base,
+		TypeId cls, uint32_t first, uint32_t method, TypeId elem)
+{
+	ASTNode call = {0};
+	call.type = NODE_FN_CALL;
+	call.line = s->ast->nodes[idx].line;
+	call.col = s->ast->nodes[idx].col;
+	call.child = NO_NODE;
+	call.next_bro = NO_NODE;
+	call.sym = NO_SYMBOL;
+	call.type_node = NO_TYPE_NODE;
+	uint32_t call_idx = sema_new_node(s, call);
+	TypeId result = sema_op_call(s, call_idx, base, cls, first, method);
+
+	if (result == TYPE_ERROR) {
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	uint32_t next = s->ast->nodes[idx].next_bro;
+	ASTNode *n = s->ast->nodes + idx;
+
+	n->type = NODE_DEREF;
+	n->op = 0;
+	n->flags = 0;
+	n->type_node = NO_TYPE_NODE;
+	n->sym = NO_SYMBOL;
+	n->child = call_idx;
+	n->next_bro = next;
+	n->data_type = elem;
+	return elem;
+}
+
+static TypeId check_index_op (Sema *s, uint32_t idx, uint32_t base,
+		TypeId cls, uint32_t first)
+{
+	uint32_t method = class_op_node(s, cls, OP_INDEX);
+	uint32_t got = index_arg_count(s, first);
+	ASTNode *n = s->ast->nodes + idx;
+
+	if (method == NO_NODE) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"class '%s' has no operator '[]'", types[cls].name);
+		check_index_args(s, first);
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	uint32_t want = index_op_params(s, method);
+	if (got != want) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"operator '[]' of class '%s' expects %u index%s, got %u",
+				types[cls].name, want, want == 1 ? "" : "es", got);
+		check_index_args(s, first);
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	TypeId ret = s->table.symbols[s->ast->nodes[method].sym].type;
+	TypeId repr = type_ptr_repr(ret);
+	if (repr == TYPE_ERROR) {
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"operator '[]' must return a pointer type");
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	TypeId elem = types[repr].base;
+	TypeId elem_u = type_canon(type_unconst_of(elem));
+	if (elem_u == TYPE_VOID || type_kind(elem_u) == TK_FN)
+		return check_index_value(s, idx, base, cls, first, method);
+	return check_index_lvalue(s, idx, base, cls, first, method, elem);
+}
+
+static TypeId check_native_index (Sema *s, uint32_t idx, uint32_t base,
+		uint32_t index, TypeId ptr)
+{
+	TypeId off = check_expr(s, index);
+	ASTNode *n = s->ast->nodes + idx;
+
 	if (ptr == TYPE_ERROR || off == TYPE_ERROR) {
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
@@ -437,6 +553,14 @@ TypeId check_index (Sema *s, uint32_t idx)
 	if (kind == TK_PTR && type_kind(types[target].base) == TK_FN) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot index a function pointer; call it directly");
+		n->data_type = TYPE_ERROR;
+		return TYPE_ERROR;
+	}
+	if (s->ast->nodes[index].next_bro != NO_NODE) {
+		check_index_args(s, s->ast->nodes[index].next_bro);
+		n = s->ast->nodes + idx;
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"native indexing takes a single index; use 'a[i][j]'");
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
@@ -470,4 +594,17 @@ TypeId check_index (Sema *s, uint32_t idx)
 	if (kind == TK_PTR) warn_null_deref(s, idx, base);
 	agg_member_read(s, idx);
 	return n->data_type;
+}
+
+TypeId check_index (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
+	uint32_t base = n->child;
+	uint32_t index = s->ast->nodes[base].next_bro;
+	TypeId ptr = check_member_base(s, base);
+	TypeId value = type_canon(type_unconst_of(ptr));
+
+	if (type_kind(value) == TK_CLASS)
+		return check_index_op(s, idx, base, value, index);
+	return check_native_index(s, idx, base, index, ptr);
 }

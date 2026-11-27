@@ -249,7 +249,19 @@ static TypeId check_lvalue (Sema *s, uint32_t idx)
 		return type;
 	}
 	case NODE_DEREF: return check_deref(s, idx);
-	case NODE_INDEX: return check_index(s, idx);
+	case NODE_INDEX: {
+		TypeId type = check_index(s, idx);
+		ASTNode *n = s->ast->nodes + idx;
+
+		if (n->type == NODE_FN_CALL && n->op == OP_INDEX) {
+			error_report(s->err, ERR_ERROR, node_loc(n),
+					"cannot modify a value returned by operator '[]'"
+					" when it returns a pointer");
+			n->data_type = TYPE_ERROR;
+			return TYPE_ERROR;
+		}
+		return type;
+	}
 	case NODE_DOT: return check_dot(s, idx);
 	default: return TYPE_ERROR;
 	}
@@ -554,6 +566,12 @@ static CompoundLhsResult check_compound_lhs (Sema *s, uint32_t idx, uint32_t lef
 static int check_compound_type_valid (Sema *s, uint32_t idx, TypeId l, TypeId r)
 {
 	if (l == TYPE_ERROR || r == TYPE_ERROR) return 0;
+	if (type_kind(type_canon(type_unconst_of(l))) == TK_CLASS) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"compound assignment is not supported for class values;"
+				" write 'a = a op b'");
+		return 0;
+	}
 	if (type_is_aggregate(l)) {
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"operator cannot be applied to a value of type %s",

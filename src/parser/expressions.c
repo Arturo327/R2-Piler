@@ -348,9 +348,17 @@ static uint32_t parse_index (Parser *p, uint32_t left)
 
 	uint32_t node = new_node(p, NODE_INDEX, open.line, open.col);
 	uint32_t index = parse_expr(p, 0);
+	uint32_t last = index;
 
 	p->ast.nodes[node].child = left;
 	p->ast.nodes[left].next_bro = index;
+	while (p->curr.type == TOK_COMMA && !p->panic_mode) {
+		advance(p);
+		uint32_t next = parse_expr(p, 0);
+
+		p->ast.nodes[last].next_bro = next;
+		last = next;
+	}
 	consume(p, TOK_RBRACE, "expected ']' after index");
 	return node;
 }

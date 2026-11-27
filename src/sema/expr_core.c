@@ -101,9 +101,14 @@ int expr_has_effect (Sema *s, uint32_t idx)
 		return expr_has_effect(s, child);
 	case NODE_ALIGNOF: case NODE_OFFSETOF:
 		return 0;
-	case NODE_INDEX:
-		return expr_has_effect(s, child)
-				|| expr_has_effect(s, s->ast->nodes[child].next_bro);
+	case NODE_INDEX: {
+		uint32_t index = s->ast->nodes[child].next_bro;
+
+		if (expr_has_effect(s, child)) return 1;
+		for (; index != NO_NODE; index = s->ast->nodes[index].next_bro)
+			if (expr_has_effect(s, index)) return 1;
+		return 0;
+	}
 	case NODE_ARRAY_INIT: case NODE_STRUCT_INIT:
 		for (uint32_t k = child; k != NO_NODE; k = s->ast->nodes[k].next_bro) {
 			if (expr_has_effect(s, k)) return 1;

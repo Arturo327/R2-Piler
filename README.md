@@ -11,7 +11,7 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 ## Status
 
 R2-Piler is a work in progress, but the implemented subset is usable and well
-tested: `make test` passes 612 fixtures and `make bench` passes 185 executable
+tested: `make test` passes 619 fixtures and `make bench` passes 189 executable
 assembly fixtures at `-O0` through `-O3`.
 
 The only working backend is **x86-64** (System V AMD64 ABI); ARM, RISC-V and
@@ -20,8 +20,8 @@ the interpreter are not implemented.
 See **Features** below for a language overview, and [LANGUAGE.md](LANGUAGE.md)
 for the full specification.
 
-Not implemented yet: floating point, `defer`, class `op`, automatic destruction
-at scope exit and exported classes.
+Not implemented yet: floating point, `defer`, automatic destruction at scope
+exit and exported classes.
 
 ---
 
@@ -55,6 +55,9 @@ at scope exit and exported classes.
   class. A class may define an initializer, invoked with `C(...)` or
   `new C(...)`, and an optional destructor, invoked through `drop`, `reset`
   and `delete`. `new(slot) C(...)` constructs into caller-provided memory.
+  Operator overloads are declared with `op` (`op + (self, b : C) : C`,
+  unary `op - (self)`, and `op [] (self, i : i64) : ptr T`); they apply to
+  class values and a `ptr C` keeps native pointer arithmetic/comparison.
 - Heap allocation: `new T[N]` / `new T[D1][D2]...` (slices) and `new T`
   (a `ptr T`), with optional custom allocators `new(allocator_expr) T[N]`;
   `delete x;` and `delete(expr) x;` free them. The default forms use
@@ -159,7 +162,8 @@ src/
 │   ├── expressions.c # Precedence, primaries, calls, casts, unary, ++/--
 │   ├── types.c      # Type syntax: parse_type, sizeof, pointer types
 │   ├── statements.c # Blocks, if/elif/else, while, for, return, var decls
-│   ├── declarations.c # fn/extern decls, enums, type/newtype declarations
+│   ├── declarations.c # fn/extern/class decls, enums, type/newtype declarations
+│   ├── operators.c/h # Class operator canons and source spellings
 │   └── dump.c       # AST dump for --dump-ast
 ├── sema/
 │   ├── sema.c/h     # Semantic driver: declarations, global inits, symbol dump

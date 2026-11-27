@@ -1,4 +1,5 @@
 #include "parser/common.h"
+#include "parser/operators.h"
 
 #include <stdio.h>
 
@@ -147,6 +148,7 @@ static void dump_node_value (ASTNode *n)
 	case NODE_IMPORT_DEC: case NODE_FROM_DEC:
 		if (n->str && !(n->flags & NODE_FLAG_INDIRECT))
 			printf(" name=\"%.*s\"", (int)n->len, n->str);
+		if (n->op != OP_NONE) printf(" op=%s", op_canon(n->op));
 		if (n->flags & NODE_FLAG_STATIC) printf(" static");
 		if (n->flags & NODE_FLAG_PUB) {
 			if (n->flags & NODE_FLAG_EXPORT) printf(" export");

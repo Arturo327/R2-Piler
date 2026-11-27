@@ -1,0 +1,82 @@
+class V [1:7] depth=0 size=16 align=8
+  field x type=i64 offset=0
+  field y type=i64 offset=8
+class M [17:7] depth=0 size=8 align=8
+  field n type=i64 offset=0
+class F [25:7] depth=0 size=8 align=8
+  field f type=ptr fn(i64) : i64 offset=0
+class R [31:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+type W [37:6] depth=0 type=W base=V
+fn V::init [4:2] depth=0 type=void
+fn V::add [5:5] depth=0 type=i64
+fn V::op$add [6:5] depth=0 type=V
+fn V::op$neg [7:5] depth=0 type=V
+fn V::op$mul [8:5] depth=0 type=V
+fn V::op$eq [9:5] depth=0 type=i64
+fn V::op$not [10:5] depth=0 type=i64
+fn V::op$and [11:5] depth=0 type=V
+fn V::op$shl [12:5] depth=0 type=V
+fn V::op$bnot [13:5] depth=0 type=V
+fn V::op$index [14:5] depth=0 type=ptr i64
+fn M::init [19:2] depth=0 type=void
+fn M::op$index [20:5] depth=0 type=ptr i64
+fn F::init [27:2] depth=0 type=void
+fn F::op$index [28:5] depth=0 type=ptr fn(i64) : i64
+fn R::init [33:2] depth=0 type=void
+fn R::op$index [34:5] depth=0 type=ptr void
+fn inc [39:4] depth=0 type=i64
+fn main [41:8] depth=0 type=i64
+param self [4:8] depth=1 type=ptr V
+param x [4:14] depth=1 type=i64
+param y [4:23] depth=1 type=i64
+param self [5:9] depth=1 type=ptr V
+param b [5:15] depth=1 type=V
+param self [6:8] depth=1 type=ptr V
+param b [6:14] depth=1 type=V
+param self [7:8] depth=1 type=ptr V
+param self [8:8] depth=1 type=ptr V
+param k [8:14] depth=1 type=i64
+param self [9:9] depth=1 type=ptr V
+param b [9:15] depth=1 type=V
+param self [10:8] depth=1 type=ptr V
+param self [11:8] depth=1 type=ptr V
+param b [11:14] depth=1 type=V
+param self [12:9] depth=1 type=ptr V
+param k [12:15] depth=1 type=i64
+param self [13:8] depth=1 type=ptr V
+param self [14:9] depth=1 type=ptr V
+param i [14:15] depth=1 type=i64
+param self [19:8] depth=1 type=ptr M
+param n [19:14] depth=1 type=i64
+param self [20:9] depth=1 type=ptr M
+param i [20:15] depth=1 type=i64
+param j [20:24] depth=1 type=i64
+param self [27:8] depth=1 type=ptr F
+param f [27:14] depth=1 type=ptr fn(i64) : i64
+param self [28:9] depth=1 type=ptr F
+param _i [28:15] depth=1 type=i64
+param self [33:8] depth=1 type=ptr R
+param x [33:14] depth=1 type=i64
+param self [34:9] depth=1 type=ptr R
+param i [34:15] depth=1 type=i64
+param x [39:9] depth=1 type=i64
+var a [42:6] depth=1 type=V
+var b [43:6] depth=1 type=V
+var c [44:6] depth=1 type=V
+var d [45:6] depth=1 type=V
+var e [46:6] depth=1 type=V
+var q [47:6] depth=1 type=i64
+var n [48:6] depth=1 type=i64
+var m [49:6] depth=1 type=V
+var s [50:6] depth=1 type=V
+var t [51:6] depth=1 type=V
+var i [52:6] depth=1 type=i64
+var j [53:6] depth=1 type=i64
+var ff [54:6] depth=1 type=F
+var k [55:6] depth=1 type=i64
+var r [56:6] depth=1 type=R
+var p [57:6] depth=1 type=ptr i64
+var l [58:6] depth=1 type=i64
+var w [59:6] depth=1 type=V
+var z [60:6] depth=1 type=i64

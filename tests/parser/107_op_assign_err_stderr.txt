@@ -1,0 +1,7 @@
+tests/parser/107_op_assign_err_src.r2:4:5: ERROR: overloaded assignment is not supported; class values are copied field by field
+      4 |         op = (self) : C { return self; }
+        |            ^
+tests/parser/107_op_assign_err_src.r2:5:5: ERROR: overloaded assignment is not supported; class values are copied field by field
+      5 |         op += (self, b : C) : C { return b; }
+        |            ^~
+2 errors, 0 warnings
