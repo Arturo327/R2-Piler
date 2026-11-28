@@ -211,5 +211,6 @@ extern const uint8_t is_deletable[IR_COUNT];
 void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select, const char *mod);
 void ir_gen (IR *ir);
 void dump_ir (IR *ir);
+int64_t norm_val (uint64_t v, TypeId type);
 
 #endif

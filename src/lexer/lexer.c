@@ -215,18 +215,10 @@ static Token handle_num_literal (Lexer *l)
 	return token;
 }
 
-static int hex_digit (char c)
-{
-	if (c >= '0' && c <= '9') return c - '0';
-	if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-	if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-	return -1;
-}
-
 static int decode_hex_escape (Lexer *l, char *out, ErrorLoc loc)
 {
-	int hi = hex_digit(l->cursor[0]);
-	int lo = l->cursor[0] ? hex_digit(l->cursor[1]) : -1;
+	int hi = digit_value(l->cursor[0]);
+	int lo = l->cursor[0] ? digit_value(l->cursor[1]) : -1;
 
 	if (hi < 0 || lo < 0) {
 		error_report(l->err, ERR_ERROR, loc,

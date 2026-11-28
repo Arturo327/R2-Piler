@@ -6,7 +6,7 @@
 #include "codegen/x86-64/x86_64.h"
 #include "codegen/regalloc/regalloc.h"
 #include "codegen/parallel.h"
-#include "ir/opts/common.h"
+#include "ir/ir.h"
 
 #define RED_ZONE 128
 #define X86_REG_NUM 14
@@ -131,7 +131,6 @@ void x86_make_jump (X86Fn *f, IRInstr *i);
 void x86_make_jump_table (X86Fn *f, IRInstr *i);
 
 IRInstr *x86_tail_ret (IRInstr *call);
-int x86_tail_match (X86Fn *f, IRInstr *call);
 int x86_make_tail_call (X86Fn *f, IRInstr *i);
 int x86_make_arg (X86Fn *f, IRInstr *i);
 int x86_make_call (X86Fn *f, IRInstr *i);

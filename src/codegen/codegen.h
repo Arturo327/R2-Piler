@@ -8,6 +8,8 @@
 #include "ir/opt.h"
 #include "codegen/regalloc/regalloc.h"
 
+extern int cg_verify_regalloc;
+
 typedef enum {
 	ARCH_X86_64 = 0,
 	ARCH_ARM,

@@ -106,6 +106,18 @@ static void verify_save (Verify *v, IRInstr *in, uint32_t i)
 		verify_fail(v, "save[] set on a tail call");
 }
 
+static uint32_t verify_scratch (Verify *v, IRInstr *in, uint32_t blk)
+{
+	RegAlloc *ra = v->ra;
+	uint32_t reg[SC_COUNT] = { in->dst, in->src1, in->src2, NO_REG };
+	int8_t homes[SC_COUNT];
+
+	if (in->op == IR_SELECT) reg[SC_COND] = in->cond;
+	for (uint32_t k = 0; k < SC_COUNT; k++)
+		homes[k] = reg[k] == NO_REG ? VR_NO_HOME : ra->regs[reg[k]].home[blk];
+	return ra->ctx->arch->scratch_need(ra->ctx->user, in, homes);
+}
+
 static void verify_instrs (Verify *v)
 {
 	RegAlloc *ra = v->ra;
@@ -120,6 +132,9 @@ static void verify_instrs (Verify *v)
 			verify_fail(v, "ins_block out of range");
 		if (ra->ctx->free_regs[i] & bad)
 			verify_fail(v, "free_regs lists a callee-saved reg not in callee_used");
+		if (__builtin_popcountll(ra->ctx->free_regs[i] & ra->ctx->arch->caller_mask)
+				< verify_scratch(v, code + i, blk))
+			verify_fail(v, "not enough free registers for the instruction's scratch");
 		verify_instr_homes(v, code + i, blk);
 		verify_cstate(v, code + i);
 		verify_save(v, code + i, i);

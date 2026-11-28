@@ -148,14 +148,7 @@ int mangle_module_name (Arena *arena, const char *name, uint16_t len, const char
 {
 	if (!len) return 1;
 
-	size_t cap = (size_t)len * 4 + 32;
-	char *buf = arena_alloc(arena, cap);
-	int n = snprintf(buf, cap, "%zu", escaped_len(name, len));
-
-	if (n <= 0) return 1;
-	n += (int)escape_segment(buf + n, name, len);
-	buf[n] = '\0';
-	*out = buf;
+	*out = encode_module(arena, name, len);
 	return 0;
 }
 

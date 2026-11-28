@@ -49,17 +49,6 @@ static uint32_t make_binary_node (Parser *p, uint32_t left, uint32_t right, Toke
 	return node;
 }
 
-static uint32_t make_compound_assign (Parser *p, uint32_t left, uint32_t right, Token op)
-{
-	uint32_t node = new_node(p, (NodeType)binop_node[op.type], op.line, op.col);
-	uint32_t last = NO_NODE;
-
-	p->ast.nodes[node].len = op.len;
-	append_child(p, node, &last, left);
-	append_child(p, node, &last, right);
-	return node;
-}
-
 static uint32_t parse_inc_dec (Parser *p, uint32_t target)
 {
 	Token op = p->curr;
@@ -504,7 +493,7 @@ uint32_t parse_expr (Parser *p, int min_prec)
 		}
 
 		uint32_t right = parse_expr(p, next_min);
-		left = compound ? make_compound_assign(p, left, right, op)
+		left = compound ? make_binary_node(p, left, right, op)
 				: make_binary_node(p, left, right, op);
 		prec = binop_prec[p->curr.type];
 	}

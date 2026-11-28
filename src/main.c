@@ -19,6 +19,8 @@ static void print_help (const char *build)
 
 	printf("OPTIONS\n");
 	printf("    -v|--version            Shows running version.\n");
+	printf("    -V|--verify-regalloc    Check the register-allocation contract (off by default).\n");
+	printf("    -F|--werror             Treat warnings as errors.\n");
 	printf("    -h|--help               Shows this message.\n");
 	printf("    -o|--out FILE           Output assembly path (default: <source>.s). '-' for stdout\n");
 	printf("    -m|--modules-dir DIR    Directory for generated .r2i files (default: modules)\n");
@@ -54,6 +56,8 @@ static const struct option long_options[] = {
 	{"header", optional_argument, 0, 'H'},
 	{"help", no_argument, 0, 'h'},
 	{"version", no_argument, 0, 'v'},
+	{"verify-regalloc", no_argument, 0, 'V'},
+	{"werror", no_argument, 0, 'F'},
 	{"arch", required_argument, 0, 'a'},
 	{"execute", no_argument, 0, 'e'},
 	{"dump-tokens", no_argument, 0, 'T'},
@@ -154,7 +158,7 @@ static CompilerOpts parse_args (int argc, char *argv[])
 	int path_count = 0;
 
 	opterr = 0;
-	const char *short_opts = ":TIASDO::o:m:p:na:ehvH::";
+	const char *short_opts = ":TIASDO::o:m:p:na:ehvH::VF";
 	while ((opt = getopt_long(argc, argv, short_opts, long_options, NULL)) != -1) {
 		switch (opt)
 		{
@@ -191,6 +195,8 @@ static CompilerOpts parse_args (int argc, char *argv[])
 		case 'e': interp = 1; break;
 		case 'h': print_help(argv[0]); exit(0);
 		case 'v': printf("%s\n", VERSION); exit(0);
+		case 'V': cg_verify_regalloc = 1; break;
+		case 'F': args.werror = 1; break;
 		case 'T': args.dump_tokens = 1; break;
 		case 'A': args.dump_ast = 1; break;
 		case 'S': args.dump_symbols = 1; break;
@@ -209,6 +215,9 @@ static CompilerOpts parse_args (int argc, char *argv[])
 			exit(1);
 		}
 	}
+	if (args.dump_tokens + args.dump_ast + args.dump_symbols
+			+ args.dump_ir + args.dump_opt > 1)
+		fprintf(stderr, "Warning: multiple dump flags given; only the first stage will be printed\n");
 	resolve_paths(&args, argc, argv);
 	if (interp) args.arch = ARCH_INTERP;
 	if (args.dump_opt && !opt_spec) args.opt_level = OPT_FULL;

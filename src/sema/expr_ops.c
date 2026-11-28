@@ -53,8 +53,6 @@ TypeId check_unary (Sema *s, uint32_t idx)
 	ASTNode *n = &s->ast->nodes[idx];
 	uint8_t op = n->type;
 	TypeId operand_type = check_expr(s, n->child);
-	TypeId result_type;
-	int is_lit;
 
 	n = &s->ast->nodes[idx];
 	if (operand_type == TYPE_ERROR) {
@@ -93,8 +91,8 @@ TypeId check_unary (Sema *s, uint32_t idx)
 	}
 
 	n->data_type = (n->type == NODE_NOT_L) ? TYPE_UNTYPED_INT : type_unconst_of(operand_type);
-	is_lit = const_operand(s, n->child);
-	result_type = type_unconst_of(try_fold_unary(s, idx));
+	int is_lit = const_operand(s, n->child);
+	TypeId result_type = type_unconst_of(try_fold_unary(s, idx));
 
 	if (op == NODE_NEG && !types[result_type].sign && !is_lit)
 		error_report(s->err, ERR_WARNING, node_loc(n),

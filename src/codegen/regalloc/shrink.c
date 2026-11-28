@@ -28,6 +28,8 @@ typedef struct Shrink {
 	uint8_t *exit_ok;
 } Shrink;
 
+static uint32_t save_at (Shrink *s, uint32_t b);
+
 static void touch_live (Shrink *s, uint32_t b, uint32_t p, const uint64_t *live)
 {
 	for (uint32_t w = 0; w < s->ra->words; w++) {
@@ -207,16 +209,19 @@ static void mark_cyclic (Shrink *s)
 static void mark_exits_ok (Shrink *s)
 {
 	for (uint32_t b = 0; b < s->blocks; b++) {
+		uint32_t at = save_at(s, b);
 		int ok = 1;
 
-		if (!s->reach[b]) {
+		if (!s->reach[b] || at == UINT32_MAX) {
 			s->exit_ok[b] = 0;
 			continue;
 		}
 		for (uint32_t e = 0; e < s->blocks; e++) {
+			const CfgBlock *exit_blk = s->ra->cfg.blocks + e;
 			const uint64_t *row;
 
-			if (!s->is_exit[e] || !reaches(s, b, e)) continue;
+			if (!s->is_exit[e] || !s->reach[e]) continue;
+			if (exit_blk->start + exit_blk->count - 1 < at) continue;
 			row = s->dom + (size_t)e * s->words;
 			if (!(row[b >> 6] >> (b & 63) & 1)) {
 				ok = 0;

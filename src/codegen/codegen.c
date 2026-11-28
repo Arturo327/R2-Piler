@@ -7,6 +7,8 @@
 #include <errno.h>
 #include <stdarg.h>
 
+int cg_verify_regalloc;
+
 #define CG_LINE_MAX (2 * UINT16_MAX + 256)
 #define CG_BUF_INIT (2 * CG_LINE_MAX)
 

@@ -4,18 +4,9 @@
 #include "imports/internal.h"
 
 #include "mangle/mangle.h"
+#include "parser/common.h"
 #include "parser/operators.h"
 #include "sema/common.h"
-
-static uint32_t root_last_child (AST *ast)
-{
-	uint32_t last = ast->nodes[0].child;
-
-	if (last == NO_NODE) return NO_NODE;
-	while (ast->nodes[last].next_bro != NO_NODE)
-		last = ast->nodes[last].next_bro;
-	return last;
-}
 
 static void rewrite_positions (AST *ast, uint32_t start, uint32_t use)
 {

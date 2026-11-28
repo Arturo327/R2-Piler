@@ -116,8 +116,10 @@ static void alloc_homes (Arena *arena, IRFn *fn, Reg *regs, uint32_t block_count
 {
 	if (!fn->reg_count) return;
 	int8_t *homes = arena_alloc(arena, (size_t)fn->reg_count * block_count);
-	for (uint32_t r = 0; r < fn->reg_count; r++)
-		regs[r].home = homes + (size_t)r * block_count;
+	int8_t *row = homes;
+
+	for (uint32_t r = 0; r < fn->reg_count; r++, row += block_count)
+		regs[r].home = row;
 }
 
 static void set_home (Reg *reg, uint32_t block_count, int h)
@@ -738,5 +740,5 @@ void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, int spill
 		shrink_wrap(&ra);
 	}
 
-	verify_regalloc(&ra);
+	if (cg_verify_regalloc) verify_regalloc(&ra);
 }

@@ -75,28 +75,22 @@ void gen_array_init (IR *ir, uint32_t base, uint32_t init_idx, TypeId arr, int z
 		return;
 	}
 
-	uint32_t i = 0;
+	uint64_t off = 0;
 
 	while (item != NO_NODE) {
 		if (type_kind(elem) == TK_ARRAY) {
-			uint32_t at = add_offset(ir, base, (uint64_t)i * elem_size);
-
-			gen_array_init(ir, at, item, elem, zero);
+			gen_array_init(ir, add_offset(ir, base, off), item, elem, zero);
 		} else if (type_is_struct_like(elem)) {
-			uint32_t at = add_offset(ir, base, (uint64_t)i * elem_size);
-
-			gen_struct_into(ir, at, item, elem, 1);
+			gen_struct_into(ir, add_offset(ir, base, off), item, elem, 1);
 		} else if (type_kind(elem) == TK_SLICE) {
-			uint32_t at = add_offset(ir, base, (uint64_t)i * elem_size);
-
-			gen_slice_desc(ir, at, ir->ast->nodes + item, elem);
+			gen_slice_desc(ir, add_offset(ir, base, off), ir->ast->nodes + item, elem);
 		} else {
 			uint32_t val = gen_expr(ir, ir->ast->nodes + item);
 
-			make_str_ptr(ir, add_offset(ir, base, (uint64_t)i * elem_size), val, elem);
+			make_str_ptr(ir, add_offset(ir, base, off), val, elem);
 		}
 		item = ir->ast->nodes[item].next_bro;
-		i++;
+		off += elem_size;
 	}
 }
 

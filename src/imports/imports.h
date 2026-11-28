@@ -22,7 +22,6 @@ typedef struct ImportModule {
 	uint8_t has_init;
 	uint8_t direct;
 	uint8_t loading;
-	uint8_t loaded;
 } ImportModule;
 
 typedef struct ImportAlias {

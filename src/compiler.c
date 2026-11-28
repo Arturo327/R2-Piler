@@ -118,8 +118,14 @@ static void release_frontend (Compiler *c)
 	c->ir.static_count = 0;
 }
 
+static int werror_enabled;
+
 static inline void print_err_count (Compiler *c)
 {
+	if (werror_enabled && c->err.warn_count) {
+		c->err.err_count += c->err.warn_count;
+		c->err.warn_count = 0;
+	}
 	if (!c->err.err_count && !c->err.warn_count) return;
 	fprintf(stderr, "%d error%s, %d warning%s\n",
 			c->err.err_count, c->err.err_count == 1 ? "" : "s",
@@ -242,6 +248,7 @@ int compile (Compiler *c, CompilerOpts *opts)
 	int dumping = opts->dump_tokens || opts->dump_ast
 			|| opts->dump_symbols || opts->dump_ir || opts->dump_opt;
 
+	werror_enabled = opts->werror;
 	if (compile_setup(c, opts, dumping)) return 1;
 	if (opts->dump_tokens) return dump_tokens(&c->lexer) ? 1 : 0;
 
@@ -263,7 +270,10 @@ int compile (Compiler *c, CompilerOpts *opts)
 	if (stage != -1) return stage;
 
 	release_frontend(c);
-	return compile_backend(c, &r2i, &header);
+	int status = compile_backend(c, &r2i, &header);
+
+	if (werror_enabled && (c->err.err_count || c->err.warn_count)) return 1;
+	return status;
 }
 
 void compiler_destroy (Compiler *comp)

@@ -102,28 +102,28 @@ static void append_sig (Parser *p, TypeSpec ***arr, uint32_t *count, uint32_t *c
 	(*arr)[(*count)++] = item;
 }
 
-static TypeSpec *parse_type_spec (Parser *p, int allow_void, int bare_fn);
+static TypeSpec *parse_type_spec (Parser *p, int allow_void, int bare_fn, int no_suffix);
 
-static TypeSpec *parse_ref_type (Parser *p)
+static TypeSpec *parse_ref_type (Parser *p, int no_suffix)
 {
-	if (p->curr.type != TOK_AND_A) return parse_type_spec(p, 0, 0);
+	if (p->curr.type != TOK_AND_A) return parse_type_spec(p, 0, 0, no_suffix);
 
 	Token t = p->curr;
 	TypeSpec *ptr = new_spec(p, TS_PTR, t);
 
 	advance(p);
-	ptr->base = parse_type_spec(p, 0, 0);
+	ptr->base = parse_type_spec(p, 0, 0, no_suffix);
 	return ptr;
 }
 
 static TypeSpec *parse_fn_param (Parser *p)
 {
 	if (p->curr.type == TOK_ID) {
-		TypeSpec *spec = parse_type_spec(p, 0, 0);
+		TypeSpec *spec = parse_type_spec(p, 0, 0, 0);
 		if (p->curr.type != TOK_COL) return spec;
 		advance(p);
 	}
-	return parse_ref_type(p);
+	return parse_ref_type(p, 0);
 }
 
 static void parse_fn_ret (Parser *p, FnSig *sig)
@@ -132,7 +132,7 @@ static void parse_fn_ret (Parser *p, FnSig *sig)
 
 	advance(p);
 	if (p->curr.type != TOK_LPAREN) {
-		TypeSpec *ret = parse_type_spec(p, 1, 0);
+		TypeSpec *ret = parse_type_spec(p, 1, 0, 0);
 
 		if (ret && ret->kind == TS_BUILTIN && ret->builtin == TYPE_VOID) return;
 		append_sig(p, &sig->rets, &sig->ret_count, &sig->ret_cap, ret);
@@ -141,7 +141,7 @@ static void parse_fn_ret (Parser *p, FnSig *sig)
 
 	advance(p);
 	append_sig(p, &sig->rets, &sig->ret_count, &sig->ret_cap,
-			parse_type_spec(p, 0, 0));
+			parse_type_spec(p, 0, 0, 0));
 	if (p->curr.type != TOK_COMMA) {
 		consume(p, TOK_RPAREN, "expected ')' after the return type");
 		return;
@@ -149,7 +149,7 @@ static void parse_fn_ret (Parser *p, FnSig *sig)
 	while (p->curr.type == TOK_COMMA) {
 		advance(p);
 		append_sig(p, &sig->rets, &sig->ret_count, &sig->ret_cap,
-				parse_type_spec(p, 0, 0));
+				parse_type_spec(p, 0, 0, 0));
 	}
 	consume(p, TOK_RPAREN, "expected ')' after the return types");
 }
@@ -184,9 +184,9 @@ static FnSig *parse_fn_sig (Parser *p, Token fn)
 	return sig;
 }
 
-static TypeSpec *parse_type_atom (Parser *p, int allow_void, int bare_fn);
+static TypeSpec *parse_type_atom (Parser *p, int allow_void, int bare_fn, int no_suffix);
 
-static TypeSpec *parse_const_type (Parser *p, Token kw, int allow_void, int bare_fn)
+static TypeSpec *parse_const_type (Parser *p, Token kw, int allow_void, int bare_fn, int no_suffix)
 {
 	if (p->curr.type == TOK_VAR || p->curr.type == TOK_ARR) {
 		if (!p->panic_mode)
@@ -198,7 +198,7 @@ static TypeSpec *parse_const_type (Parser *p, Token kw, int allow_void, int bare
 	}
 	if (!enter_depth(p, "type")) return NULL;
 
-	TypeSpec *inner = parse_type_atom(p, allow_void, bare_fn);
+	TypeSpec *inner = parse_type_atom(p, allow_void, bare_fn, no_suffix);
 
 	p->depth--;
 	if (!inner) return NULL;
@@ -208,22 +208,22 @@ static TypeSpec *parse_const_type (Parser *p, Token kw, int allow_void, int bare
 	return ts;
 }
 
-static TypeSpec *parse_type_atom (Parser *p, int allow_void, int bare_fn)
+static TypeSpec *parse_type_atom (Parser *p, int allow_void, int bare_fn, int no_suffix)
 {
 	Token t = p->curr;
 	TypeSpec *ts;
 
 	if (t.type == TOK_LPAREN) {
 		advance(p);
-		ts = parse_type_spec(p, allow_void, bare_fn);
+		ts = parse_type_spec(p, allow_void, bare_fn, no_suffix);
 		consume(p, TOK_RPAREN, "expected ')' after type");
 	} else if (t.type == TOK_CONST) {
 		advance(p);
-		return parse_const_type(p, t, allow_void, bare_fn);
+		return parse_const_type(p, t, allow_void, bare_fn, no_suffix);
 	} else if (t.type == TOK_PTR) {
 		advance(p);
 		ts = new_spec(p, TS_PTR, t);
-		ts->base = parse_type_spec(p, 1, 1);
+		ts->base = parse_type_spec(p, 1, 1, no_suffix);
 	} else if (t.type == TOK_FN) {
 		advance(p);
 		ts = new_spec(p, TS_FN, t);
@@ -259,12 +259,12 @@ static TypeSpec *parse_type_atom (Parser *p, int allow_void, int bare_fn)
 	return ts;
 }
 
-static TypeSpec *parse_type_spec (Parser *p, int allow_void, int bare_fn)
+static TypeSpec *parse_type_spec (Parser *p, int allow_void, int bare_fn, int no_suffix)
 {
 	TypeSpec *ts;
 
 	if (!enter_depth(p, "type")) return NULL;
-	ts = parse_type_atom(p, allow_void, bare_fn);
+	ts = parse_type_atom(p, allow_void, bare_fn, no_suffix);
 	if (!ts) {
 		p->depth--;
 		return NULL;
@@ -274,7 +274,7 @@ static TypeSpec *parse_type_spec (Parser *p, int allow_void, int bare_fn)
 	TypeSpec *last = NULL;
 	uint32_t rank = 0;
 
-	while (p->curr.type == TOK_LBRACE) {
+	while (!no_suffix && p->curr.type == TOK_LBRACE) {
 		Token open = p->curr;
 		uint8_t kind;
 		uint32_t dim;
@@ -347,16 +347,12 @@ static TypeId make_fn_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t *t
 
 static TypeId make_type_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t *type_node)
 {
-	uint32_t node;
-	TypeId base;
-	uint16_t base_node;
-
 	if (ts->kind == TS_BUILTIN) {
 		*type_node = NO_TYPE_NODE;
 		return ts->builtin;
 	}
 	if (ts->kind == TS_REF) {
-		node = new_node(p, NODE_TYPE_REF, ts->line, ts->col);
+		uint32_t node = new_node(p, NODE_TYPE_REF, ts->line, ts->col);
 		p->ast.nodes[node].str = ts->str;
 		p->ast.nodes[node].len = ts->len;
 		*type_node = (uint16_t)(node - owner);
@@ -364,14 +360,18 @@ static TypeId make_type_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t 
 	}
 	if (ts->kind == TS_FN) return make_fn_spec(p, ts, owner, type_node);
 	if (ts->kind == TS_CONST) {
-		node = new_node(p, NODE_TYPE_CONST, ts->line, ts->col);
-		base = ts->base ? make_type_spec(p, ts->base, node, &base_node) : TYPE_ERROR;
+		uint32_t node = new_node(p, NODE_TYPE_CONST, ts->line, ts->col);
+		uint16_t base_node;
+		TypeId base = ts->base ? make_type_spec(p, ts->base, node, &base_node) : TYPE_ERROR;
+
 		if (!ts->base) base_node = NO_TYPE_NODE;
 		p->ast.nodes[node].data_type = base;
 		p->ast.nodes[node].type_node = base_node;
 		*type_node = (uint16_t)(node - owner);
 		return TYPE_ERROR;
 	}
+
+	uint32_t node;
 
 	switch (ts->kind)
 	{
@@ -387,7 +387,9 @@ static TypeId make_type_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t 
 		break;
 	}
 
-	base = ts->base ? make_type_spec(p, ts->base, node, &base_node) : TYPE_ERROR;
+	uint16_t base_node;
+	TypeId base = ts->base ? make_type_spec(p, ts->base, node, &base_node) : TYPE_ERROR;
+
 	if (!ts->base) base_node = NO_TYPE_NODE;
 	p->ast.nodes[node].data_type = base;
 	p->ast.nodes[node].type_node = base_node;
@@ -397,7 +399,7 @@ static TypeId make_type_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t 
 
 TypeId parse_type (Parser *p, int allow_void, uint32_t owner, uint16_t *type_node)
 {
-	TypeSpec *ts = parse_type_spec(p, allow_void, 0);
+	TypeSpec *ts = parse_type_spec(p, allow_void, 0, 0);
 
 	if (!ts) {
 		*type_node = NO_TYPE_NODE;
@@ -408,7 +410,7 @@ TypeId parse_type (Parser *p, int allow_void, uint32_t owner, uint16_t *type_nod
 
 TypeId parse_new_type (Parser *p, uint32_t owner, uint16_t *type_node)
 {
-	TypeSpec *ts = parse_type_atom(p, 0, 0);
+	TypeSpec *ts = parse_type_atom(p, 0, 0, 1);
 
 	if (!ts) {
 		*type_node = NO_TYPE_NODE;

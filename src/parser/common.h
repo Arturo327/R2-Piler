@@ -10,6 +10,7 @@ ErrorLoc token_loc (Token t);
 int consume (Parser *p, TokenType type, const char *msg);
 uint32_t new_node (Parser *p, NodeType type, uint16_t line, uint16_t col);
 void append_child (Parser *p, uint32_t parent, uint32_t *last, uint32_t child);
+uint32_t root_last_child (AST *ast);
 char *qualify_name (Parser *p, Token first, uint16_t *len, int *ok);
 
 uint32_t parse_expr (Parser *p, int min_prec);

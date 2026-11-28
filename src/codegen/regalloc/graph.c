@@ -422,8 +422,10 @@ static uint64_t scratch_regs (Graph *g, uint32_t n)
 	uint64_t m = 0;
 
 	for (uint32_t i = 0; i < n && cand; i++) {
-		m |= cand & (0 - cand);
-		cand &= cand - 1;
+		uint64_t top = 1ull << (63 - __builtin_clzll(cand));
+
+		m |= top;
+		cand &= ~top;
 	}
 	return m;
 }

@@ -234,7 +234,7 @@ char *qualify_name (Parser *p, Token first, uint16_t *len, int *ok)
 	return name;
 }
 
-static uint32_t root_last_child (AST *ast)
+uint32_t root_last_child (AST *ast)
 {
 	uint32_t last = ast->nodes[0].child;
 

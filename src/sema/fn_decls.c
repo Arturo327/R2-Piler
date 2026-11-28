@@ -5,7 +5,6 @@
 static int is_static_const (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
-	uint64_t bits;
 
 	switch (n->type)
 	{
@@ -32,8 +31,11 @@ static int is_static_const (Sema *s, uint32_t idx)
 		return c != NULL && c->type == NODE_ID && c->sym != NO_SYMBOL
 				&& s->table.symbols[c->sym].depth == 0;
 	}
-	default:
+	default: {
+		uint64_t bits;
+
 		return lit_node_bits(s, n, &bits);
+	}
 	}
 }
 

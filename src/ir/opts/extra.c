@@ -4,18 +4,16 @@
 
 static int strength_instr (Optimizer *opt, OptFn *f, IRInstr *in)
 {
-	IRInstr *k;
-	uint64_t v;
-
 	if (in->dst == NO_REG || in->src2 == NO_REG) return 0;
 	if (in->op != IR_MUL && in->op != IR_DIV && in->op != IR_MOD) return 0;
 	if (reg_addressed(f->fn, in->src2)) return 0;
 	if (f->defs[in->src2] != 1 || f->uses[in->src2] != 1) return 0;
 	if (f->def_at[in->src2] - f->fn->start >= f->entry_end) return 0;
 
-	k = opt->ir->instrs + f->def_at[in->src2];
+	IRInstr *k = opt->ir->instrs + f->def_at[in->src2];
+
 	if (k->op != IR_CONST) return 0;
-	v = (uint64_t)norm_val((uint64_t)k->imm64, f->fn->reg_types[in->src2]);
+	uint64_t v = (uint64_t)norm_val((uint64_t)k->imm64, f->fn->reg_types[in->src2]);
 	if (v < 2 || (v & (v - 1)) != 0) return 0;
 	if (in->op != IR_MUL && types[in->data_type].sign) return 0;
 

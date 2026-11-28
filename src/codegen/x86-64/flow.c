@@ -91,7 +91,7 @@ int x86_make_arg (X86Fn *f, IRInstr *i)
 	IRInstr *call = group_call(i, end);
 	uint32_t n = (uint32_t)(call - i);
 	uint32_t blk = f->blk;
-	int tail = x86_tail_match(f, call);
+	int tail = cg_is_tail_call(f->cg->ir, f->fn, f->regs, &f->ctx, call, f->ctx.arch->arg_reg_max);
 
 	if (i->target != 0) return 1;
 	x86_check_arg_group(f, i, end);
@@ -197,25 +197,26 @@ IRInstr *x86_tail_ret (IRInstr *call)
 	return n;
 }
 
-int x86_tail_match (X86Fn *f, IRInstr *call)
-{
-	return cg_is_tail_call(f->cg->ir, f->fn, f->regs, &f->ctx, call, f->ctx.arch->arg_reg_max);
-}
-
 int x86_make_tail_call (X86Fn *f, IRInstr *i)
 {
 	CodeGen *c = f->cg;
 	IRInstr *ret = x86_tail_ret(i);
-	if (!x86_tail_match(f, i)) return 0;
+	if (!cg_is_tail_call(f->cg->ir, f->fn, f->regs, &f->ctx, i, f->ctx.arch->arg_reg_max)) return 0;
 
 	f->clobbers |= x86_call_clobbers(f, i);
 	if (c->ir->fns + i->target == f->fn) {
 		cg_printf(c, "\tjmp .LS%u\n", i->target);
 	} else {
 		x86_move_saved(f, f->ctx.restore_at[f->at], 1);
-		if (f->frame)
+		if (f->frame) {
+			uint64_t restored = f->ctx.restore_at[f->at] & X86_CALLEE_MASK;
+
+			for (uint32_t k = 0; k < X86_REG_NUM; k++)
+				if (restored >> k & 1)
+					cg_printf(c, "\t.cfi_restore %s\n", reg_name((uint8_t)k, 8));
 			cg_printf(c, "\t.cfi_remember_state\n\taddq $%u, %%rsp\n\t.cfi_def_cfa_offset 8\n",
 					f->frame);
+		}
 		if (c->ir->fns[i->target].is_extern)
 			cg_printf(c, "\txorl %%eax, %%eax\n");
 		cg_printf(c, "\tjmp ");
@@ -229,9 +230,17 @@ int x86_make_tail_call (X86Fn *f, IRInstr *i)
 
 uint32_t x86_arg_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
 {
-	if (i->target < X86_ARG_REG_MAX) return 0;
+	uint32_t need = 0;
+
+	if (i->target == 0) {
+		IRInstr *end = f->cg->ir->instrs + f->fn->start + f->fn->count;
+
+		if (group_call(i, end)->op == IR_CALL_IND) need = 1;
+	}
+	if (i->target < X86_ARG_REG_MAX) return need;
 	if (f->regs[i->src1].cstate != VR_CONST)
-		return h[SC_SRC1] == VR_SPILL || f->regs[i->src1].cstate == VR_GLOBAL;
+		return need + (h[SC_SRC1] == VR_SPILL
+				|| f->regs[i->src1].cstate == VR_GLOBAL);
 	int64_t v = x86_const_ext(f, i->src1);
-	return v != (int32_t)v;
+	return need + (v != (int32_t)v);
 }

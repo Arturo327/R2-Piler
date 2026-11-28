@@ -20,7 +20,8 @@ static uint32_t scan_outg (X86Fn *f)
 		IRInstr *instr = ir->instrs + fn->start + i;
 
 		if (instr->op != IR_CALL && instr->op != IR_CALL_IND) continue;
-		if (x86_tail_match(f, instr)) continue;
+		if (cg_is_tail_call(f->cg->ir, f->fn, f->regs, &f->ctx, instr, f->ctx.arch->arg_reg_max))
+			continue;
 		f->leaf = 0;
 
 		if (instr->argc <= 6) continue;

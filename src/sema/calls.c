@@ -393,7 +393,6 @@ static int check_spread_arg (Sema *s, uint32_t arg, uint32_t next,
 {
 	ASTNode *n = s->ast->nodes + arg;
 	uint32_t child = n->child;
-	TypeId got;
 	int bad = 0;
 
 	if (child != NO_NODE && s->ast->nodes[child].type == NODE_NAMED_ARG) {
@@ -406,7 +405,8 @@ static int check_spread_arg (Sema *s, uint32_t arg, uint32_t next,
 		n->data_type = TYPE_ERROR;
 		return 1;
 	}
-	got = check_expr(s, child);
+	TypeId got = check_expr(s, child);
+
 	n->data_type = got == TYPE_ERROR ? TYPE_ERROR : slice;
 	if (pos < fixed) {
 		error_report(s->err, ERR_ERROR, node_loc(n),

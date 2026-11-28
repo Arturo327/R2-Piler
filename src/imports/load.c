@@ -764,7 +764,6 @@ static uint32_t load_module (ImportLoader *l, const ImportRequest *req)
 	}
 	load_deps(l, &h, req->use);
 	s->modules[idx].loading = 0;
-	s->modules[idx].loaded = 1;
 	return idx;
 }
 

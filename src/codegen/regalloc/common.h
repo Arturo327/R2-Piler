@@ -24,7 +24,6 @@ typedef struct ColorRegs {
 	RegCtx *ctx;
 	Cfg *cfg;
 	int16_t *w;
-	uint32_t num_regs;
 } ColorRegs;
 
 typedef struct CRNode {

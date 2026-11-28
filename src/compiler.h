@@ -25,6 +25,7 @@ typedef struct CompilerOpts {
 
 	int r2i;
 	int header;
+	int werror;
 	int dump_tokens;
 	int dump_ast;
 	int dump_symbols;
