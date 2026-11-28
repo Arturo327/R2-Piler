@@ -192,14 +192,24 @@ static int remat_spilled (RegAlloc *ra)
 static void color_all (RegAlloc *ra)
 {
 	IRFn *fn = ra->fn;
-	color_regs(ra->arena, ra->ir, fn, ra->regs, ra->ctx, &ra->cfg);
+	ColorRegs cr = {.arena=ra->arena, .ir=ra->ir, .fn=fn,
+			.regs=ra->regs, .ctx=ra->ctx, .cfg=&ra->cfg};
+	color_regs(&cr);
 	if (!remat_spilled(ra)) return;
 
 	default_homes(fn, ra->regs, ra->ctx->block_count);
-	color_regs(ra->arena, ra->ir, fn, ra->regs, ra->ctx, &ra->cfg);
+	cr.arena = ra->arena;
+	cr.ir = ra->ir;
+	cr.fn = fn;
+	cr.regs = ra->regs;
+	cr.ctx = ra->ctx;
+	cr.cfg = &ra->cfg;
+	color_regs(&cr);
 }
 
-static uint32_t lay_size (IRFn *fn, Reg *regs, uint32_t c, uint8_t s, uint32_t block_count, int only_addr)
+
+
+static uint32_t lay_size(IRFn *fn, Reg *regs, uint32_t c, uint8_t s, uint32_t block_count, int only_addr)
 {
 	for (uint32_t r = 0; r < fn->reg_count; r++) {
 		if (type_is_aggregate(fn->reg_types[r])) continue;
@@ -620,7 +630,7 @@ static void sweep_block (RegAlloc *ra, uint32_t b)
 		ra->ctx->free_regs[at] = ra->all & ~hm & allowed;
 
 		if ((in->op == IR_CALL || in->op == IR_CALL_IND) &&
-				!cg_is_tail_call(ra->ir, ra->fn, ra->regs, ra->ctx, in, ra->ctx->arch->arg_reg_max)) {
+				!cg_is_tail_call(ra->ir, ra->fn, ra->regs, ra->ctx, in)) {
 			uint64_t clob = ra->ctx->arch->call_clobbers
 					? ra->ctx->arch->call_clobbers(ra->ctx->user, in) : caller;
 
@@ -679,29 +689,23 @@ static void make_ctx (IRFn *fn, RegCtx *ctx)
 	ctx->move_count = 0;
 }
 
-static void init_state (RegAlloc *ra, Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx)
+static void init_state (RegAlloc *ra)
 {
-	reset_regs(fn, regs);
-	make_ctx(fn, ctx);
-
-	ra->arena = arena;
-	ra->ir = ir;
-	ra->fn = fn;
-	ra->regs = regs;
-	ra->ctx = ctx;
+	reset_regs(ra->fn, ra->regs);
+	make_ctx(ra->fn, ra->ctx);
 	ra->moves = NULL;
 	ra->move_cap = 0;
 	ra->move_count = 0;
-	ra->all = ~0ull >> (64 - ctx->arch->reg_num);
-	ra->words = (fn->reg_count + 63) >> 6;
+	ra->all = ~0ull >> (64 - ra->ctx->arch->reg_num);
+	ra->words = (ra->fn->reg_count + 63) >> 6;
 
-	uint32_t count = fn->count ? fn->count : 1;
-	ctx->save_in = arena_alloc(arena, (size_t)count * sizeof(uint64_t));
-	ctx->restore_at = arena_alloc(arena, (size_t)count * sizeof(uint64_t));
-	ctx->dead = arena_alloc(arena, count);
-	memset(ctx->save_in, 0, (size_t)count * sizeof(uint64_t));
-	memset(ctx->restore_at, 0, (size_t)count * sizeof(uint64_t));
-	memset(ctx->dead, 0, count);
+	uint32_t count = ra->fn->count ? ra->fn->count : 1;
+	ra->ctx->save_in = arena_alloc(ra->arena, (size_t)count * sizeof(uint64_t));
+	ra->ctx->restore_at = arena_alloc(ra->arena, (size_t)count * sizeof(uint64_t));
+	ra->ctx->dead = arena_alloc(ra->arena, count);
+	memset(ra->ctx->save_in, 0, (size_t)count * sizeof(uint64_t));
+	memset(ra->ctx->restore_at, 0, (size_t)count * sizeof(uint64_t));
+	memset(ra->ctx->dead, 0, count);
 
 	if (!ra->words || ra->spill_all) return;
 	alloc_regalloc(ra);
@@ -718,27 +722,25 @@ static void fill_ctx (RegAlloc *ra)
 		sweep_block(ra, b);
 }
 
-void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, int spill_all)
+void regalloc (RegAlloc *ra)
 {
-	RegAlloc ra = { .spill_all = spill_all };
-	init_state(&ra, arena, ir, fn, regs, ctx);
+	init_state(ra);
+	alloc_homes(ra->arena, ra->fn, ra->regs, ra->ctx->block_count);
+	count_defs(ra->ir, ra->fn, ra->regs);
+	clasf_regs(ra, ra->spill_all, cfg_entry_len(ra->ir, ra->fn));
 
-	alloc_homes(arena, fn, regs, ctx->block_count);
-	count_defs(ir, fn, regs);
-	clasf_regs(&ra, spill_all, cfg_entry_len(ir, fn));
+	if (!ra->spill_all) mark_remat(ra);
+	default_homes(ra->fn, ra->regs, ra->ctx->block_count);
+	if (!ra->spill_all) color_all(ra);
+	if (!ra->spill_all && ra->words) pin_jt_homes(ra);
+	lay_sizes(ra, !ra->spill_all && ra->words);
 
-	if (!spill_all) mark_remat(&ra);
-	default_homes(fn, regs, ctx->block_count);
-	if (!spill_all) color_all(&ra);
-	if (!spill_all && ra.words) pin_jt_homes(&ra);
-	lay_sizes(&ra, !spill_all && ra.words);
-
-	resolve(fn, regs, ctx->block_count);
-	if (!spill_all) {
-		build_edges(&ra);
-		fill_ctx(&ra);
-		shrink_wrap(&ra);
+	resolve(ra->fn, ra->regs, ra->ctx->block_count);
+	if (!ra->spill_all) {
+		build_edges(ra);
+		fill_ctx(ra);
+		shrink_wrap(ra);
 	}
 
-	if (cg_verify_regalloc) verify_regalloc(&ra);
+	if (cg_verify_regalloc) verify_regalloc(ra);
 }

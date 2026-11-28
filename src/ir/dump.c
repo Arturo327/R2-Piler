@@ -21,6 +21,16 @@ static const char *const op_names[IR_COUNT] = {
 	[IR_RET] = "ret", [IR_RETHI] = "rethi"
 };
 
+static void dump_jump_table (IR *ir, IRInstr *i)
+{
+	IRJumpTable *jt = ir->jtables + i->target;
+
+	printf(" #%u [", i->target);
+	for (uint32_t k = 0; k < jt->count; k++)
+		printf("%sL%u", k ? ", " : "", jt->labels[k]);
+	printf("]");
+}
+
 static void dump_extra (IR *ir, IRInstr *i)
 {
 	switch (i->op)
@@ -32,15 +42,9 @@ static void dump_extra (IR *ir, IRInstr *i)
 	case IR_JMP: case IR_JZ: case IR_JNZ:
 		printf(" -> L%u", i->target);
 		break;
-	case IR_JMP_TBL: {
-		IRJumpTable *jt = ir->jtables + i->target;
-
-		printf(" #%u [", i->target);
-		for (uint32_t k = 0; k < jt->count; k++)
-			printf("%sL%u", k ? ", " : "", jt->labels[k]);
-		printf("]");
+	case IR_JMP_TBL:
+		dump_jump_table(ir, i);
 		break;
-	}
 	case IR_PARAM: case IR_ARG:
 		printf(" #%u", i->target);
 		break;

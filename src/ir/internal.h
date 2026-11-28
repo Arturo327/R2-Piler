@@ -5,7 +5,7 @@
 
 #define SROA_MAX_LEAVES 8
 
-uint32_t push_fn (IR *ir, IRFn fn);
+uint32_t push_fn (IR *ir, const IRFn *fn);
 uint32_t new_reg (IR *ir, TypeId type);
 
 uint32_t agg_root_sym (AST *ast, uint32_t idx);
@@ -62,7 +62,7 @@ void make_jump (IR *ir, uint8_t op, uint32_t cond, uint32_t label);
 void make_jump_table (IR *ir, uint32_t idx, const uint32_t *labels, uint32_t count);
 void make_label (IR *ir, uint32_t label);
 void make_ret (IR *ir, uint32_t val, TypeId type);
-void make_select (IR *ir, uint32_t dst, uint32_t a, uint32_t b, uint32_t c, TypeId type);
+void make_select (IR *ir, IRInstr *instr);
 
 uint32_t gen_expr (IR *ir, ASTNode *n);
 void gen_var_dec (IR *ir, ASTNode *n);

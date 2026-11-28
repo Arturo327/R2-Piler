@@ -208,68 +208,79 @@ static TypeSpec *parse_const_type (Parser *p, Token kw, int allow_void, int bare
 	return ts;
 }
 
+static TypeSpec *parse_type_error (Parser *p, Token t)
+{
+	if (!p->panic_mode) {
+		if (t.type == TOK_AND_A)
+			error_report(p->err, ERR_ERROR, token_loc(t), "references are only allowed as function parameter types");
+		else error_report(p->err, ERR_ERROR, token_loc(t), "expected type");
+	}
+	p->panic_mode = 1;
+	return NULL;
+}
+
+static TypeSpec *parse_type_ref (Parser *p, Token t)
+{
+	advance(p);
+	TypeSpec *ts = new_spec(p, TS_REF, t);
+	int ok;
+	uint16_t name_len;
+
+	ts->str = qualify_name(p, t, &name_len, &ok);
+	(void)ok;
+	ts->len = name_len;
+	return ts;
+}
+
+static TypeSpec *parse_fn_type (Parser *p, Token t, int bare_fn)
+{
+	advance(p);
+	TypeSpec *ts = new_spec(p, TS_FN, t);
+
+	ts->sig = parse_fn_sig(p, t);
+	if (!bare_fn) {
+		TypeSpec *ptr = new_spec(p, TS_PTR, t);
+
+		ptr->base = ts;
+		ts = ptr;
+	}
+	return ts;
+}
+
+static TypeSpec *parse_paren_type (Parser *p, int allow_void, int bare_fn, int no_suffix)
+{
+	advance(p);
+	TypeSpec *ts = parse_type_spec(p, allow_void, bare_fn, no_suffix);
+
+	consume(p, TOK_RPAREN, "expected ')' after type");
+	return ts;
+}
+
 static TypeSpec *parse_type_atom (Parser *p, int allow_void, int bare_fn, int no_suffix)
 {
 	Token t = p->curr;
 	TypeSpec *ts;
-
-	if (t.type == TOK_LPAREN) {
-		advance(p);
-		ts = parse_type_spec(p, allow_void, bare_fn, no_suffix);
-		consume(p, TOK_RPAREN, "expected ')' after type");
-	} else if (t.type == TOK_CONST) {
+	if (t.type == TOK_LPAREN) ts = parse_paren_type(p, allow_void, bare_fn, no_suffix);
+	else if (t.type == TOK_CONST) {
 		advance(p);
 		return parse_const_type(p, t, allow_void, bare_fn, no_suffix);
 	} else if (t.type == TOK_PTR) {
 		advance(p);
 		ts = new_spec(p, TS_PTR, t);
 		ts->base = parse_type_spec(p, 1, 1, no_suffix);
-	} else if (t.type == TOK_FN) {
-		advance(p);
-		ts = new_spec(p, TS_FN, t);
-		ts->sig = parse_fn_sig(p, t);
-		if (!bare_fn) {
-			TypeSpec *ptr = new_spec(p, TS_PTR, t);
-			ptr->base = ts;
-			ts = ptr;
-		}
-	} else if (is_type_token(t.type)
+	} else if (t.type == TOK_FN) ts = parse_fn_type(p, t, bare_fn);
+	else if (is_type_token(t.type)
 			&& (allow_void || t.type != TOK_VOID)) {
 		advance(p);
 		ts = new_spec(p, TS_BUILTIN, t);
 		ts->builtin = tok_to_datatype(t.type);
-	} else if (t.type == TOK_ID) {
-		advance(p);
-		ts = new_spec(p, TS_REF, t);
-		int ok;
-		uint16_t name_len;
-		ts->str = qualify_name(p, t, &name_len, &ok);
-		(void)ok;
-		ts->len = name_len;
-	} else {
-		if (!p->panic_mode) {
-			if (t.type == TOK_AND_A)
-				error_report(p->err, ERR_ERROR, token_loc(t),
-						"references are only allowed as function parameter types");
-			else error_report(p->err, ERR_ERROR, token_loc(t), "expected type");
-		}
-		p->panic_mode = 1;
-		return NULL;
-	}
+	} else if (t.type == TOK_ID) ts = parse_type_ref(p, t);
+	else return parse_type_error(p, t);
 	return ts;
 }
 
-static TypeSpec *parse_type_spec (Parser *p, int allow_void, int bare_fn, int no_suffix)
+static TypeSpec *parse_type_suffixes (Parser *p, TypeSpec *ts, int no_suffix)
 {
-	TypeSpec *ts;
-
-	if (!enter_depth(p, "type")) return NULL;
-	ts = parse_type_atom(p, allow_void, bare_fn, no_suffix);
-	if (!ts) {
-		p->depth--;
-		return NULL;
-	}
-
 	TypeSpec *first = NULL;
 	TypeSpec *last = NULL;
 	uint32_t rank = 0;
@@ -292,8 +303,7 @@ static TypeSpec *parse_type_spec (Parser *p, int allow_void, int bare_fn, int no
 
 		if (rank >= MAX_TYPE_RANK) {
 			if (!p->panic_mode)
-				error_report(p->err, ERR_ERROR, token_loc(open),
-						"type has too many dimensions (max %d)", MAX_TYPE_RANK);
+				error_report(p->err, ERR_ERROR, token_loc(open), "type has too many dimensions (max %d)", MAX_TYPE_RANK);
 			p->panic_mode = 1;
 			continue;
 		}
@@ -309,7 +319,19 @@ static TypeSpec *parse_type_spec (Parser *p, int allow_void, int bare_fn, int no
 		last->base = ts;
 		ts = first;
 	}
+	return ts;
+}
 
+static TypeSpec *parse_type_spec (Parser *p, int allow_void, int bare_fn, int no_suffix)
+{
+	TypeSpec *ts;
+	if (!enter_depth(p, "type")) return NULL;
+	ts = parse_type_atom(p, allow_void, bare_fn, no_suffix);
+	if (!ts) {
+		p->depth--;
+		return NULL;
+	}
+	ts = parse_type_suffixes(p, ts, no_suffix);
 	p->depth--;
 	return ts;
 }
@@ -345,32 +367,38 @@ static TypeId make_fn_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t *t
 	return TYPE_ERROR;
 }
 
+static TypeId make_ref_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t *type_node)
+{
+	uint32_t node = new_node(p, NODE_TYPE_REF, ts->line, ts->col);
+
+	p->ast.nodes[node].str = ts->str;
+	p->ast.nodes[node].len = ts->len;
+	*type_node = (uint16_t)(node - owner);
+	return TYPE_ERROR;
+}
+
+static TypeId make_const_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t *type_node)
+{
+	uint32_t node = new_node(p, NODE_TYPE_CONST, ts->line, ts->col);
+	uint16_t base_node;
+	TypeId base = ts->base ? make_type_spec(p, ts->base, node, &base_node) : TYPE_ERROR;
+
+	if (!ts->base) base_node = NO_TYPE_NODE;
+	p->ast.nodes[node].data_type = base;
+	p->ast.nodes[node].type_node = base_node;
+	*type_node = (uint16_t)(node - owner);
+	return TYPE_ERROR;
+}
+
 static TypeId make_type_spec (Parser *p, TypeSpec *ts, uint32_t owner, uint16_t *type_node)
 {
 	if (ts->kind == TS_BUILTIN) {
 		*type_node = NO_TYPE_NODE;
 		return ts->builtin;
 	}
-	if (ts->kind == TS_REF) {
-		uint32_t node = new_node(p, NODE_TYPE_REF, ts->line, ts->col);
-		p->ast.nodes[node].str = ts->str;
-		p->ast.nodes[node].len = ts->len;
-		*type_node = (uint16_t)(node - owner);
-		return TYPE_ERROR;
-	}
+	if (ts->kind == TS_REF) return make_ref_spec(p, ts, owner, type_node);
 	if (ts->kind == TS_FN) return make_fn_spec(p, ts, owner, type_node);
-	if (ts->kind == TS_CONST) {
-		uint32_t node = new_node(p, NODE_TYPE_CONST, ts->line, ts->col);
-		uint16_t base_node;
-		TypeId base = ts->base ? make_type_spec(p, ts->base, node, &base_node) : TYPE_ERROR;
-
-		if (!ts->base) base_node = NO_TYPE_NODE;
-		p->ast.nodes[node].data_type = base;
-		p->ast.nodes[node].type_node = base_node;
-		*type_node = (uint16_t)(node - owner);
-		return TYPE_ERROR;
-	}
-
+	if (ts->kind == TS_CONST) return make_const_spec(p, ts, owner, type_node);
 	uint32_t node;
 
 	switch (ts->kind)

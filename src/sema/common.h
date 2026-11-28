@@ -18,9 +18,10 @@ uint32_t sema_wrap_addr (Sema *s, uint32_t child);
 uint32_t sema_ref_value (Sema *s, uint32_t idx);
 uint32_t sema_make_id (Sema *s, ASTNode *src);
 
-uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind, TypeId data_type, uint32_t decl_node);
+uint32_t sema_declare (Sema *s, uint32_t decl_node, SymKind kind, TypeId type);
+uint32_t sema_rename_symbol (Sema *s, uint32_t sym, const char *name, uint16_t len);
 TypeId build_fn_value (Sema *s, uint32_t idx);
-uint32_t sema_new_node (Sema *s, ASTNode node);
+uint32_t sema_new_node (Sema *s, const ASTNode *node);
 void reserve_cast_nodes (Sema *s);
 void sema_decl_type (Sema *s, uint32_t idx);
 void sema_resolve_types (Sema *s);
@@ -50,7 +51,17 @@ TypeId try_fold_unary (Sema *s, uint32_t idx);
 void try_fold_binary (Sema *s, uint32_t idx);
 int is_literal_node (Sema *s, uint32_t idx);
 int lit_node_bits (Sema *s, ASTNode *n, uint64_t *out);
-int unify_operands (Sema *s, ASTNode *n, uint32_t *left, uint32_t *right, TypeId *l, TypeId *r);
+
+typedef struct UnifyCtx {
+	Sema *s;
+	ASTNode *n;
+	uint32_t *left;
+	uint32_t *right;
+	TypeId *l;
+	TypeId *r;
+} UnifyCtx;
+
+int unify_operands (UnifyCtx *ctx);
 
 TypeId check_expr (Sema *s, uint32_t idx);
 int check_cond (Sema *s, uint32_t cond, int alw_err);
@@ -84,9 +95,10 @@ void decl_class_methods (Sema *s, uint32_t idx);
 void check_class_methods (Sema *s, uint32_t idx);
 uint32_t class_method_node (Sema *s, TypeId cls, const char *name, uint16_t len);
 uint32_t class_op_node (Sema *s, TypeId cls, uint8_t op);
-TypeId sema_op_call (Sema *s, uint32_t idx, uint32_t receiver, TypeId cls, uint32_t args, uint32_t method);
-TypeId sema_class_operator (Sema *s, uint32_t idx, uint32_t receiver, TypeId type, uint32_t args, uint8_t op, int *handled);
-TypeId sema_class_reverse (Sema *s, uint32_t idx, uint32_t receiver, TypeId receiver_type, uint32_t arg, TypeId arg_type, uint8_t op, int *handled);
+
+TypeId sema_op_call (Sema *s, uint32_t idx, uint32_t receiver, uint32_t args, uint32_t method);
+TypeId sema_class_operator (Sema *s, uint32_t idx, uint32_t args, uint8_t op, int *handled);
+TypeId sema_class_reverse (Sema *s, uint32_t idx, uint8_t op, int *handled);
 TypeId sema_truth_value (Sema *s, uint32_t idx, TypeId type);
 void check_op_visibility (Sema *s, uint32_t method, uint32_t use);
 void maybe_copy_init (Sema *s, uint32_t idx);

@@ -20,8 +20,7 @@ static void rewrite_positions (AST *ast, uint32_t start, uint32_t use)
 	}
 }
 
-static int decode_symbol (ImportLoader *l, ImportModule *m, const char *sym,
-		uint16_t len, const char *kind, const char **name, uint16_t *name_len)
+static int decode_symbol(ImportLoader *l, ImportModule *m, const char *sym, uint16_t len, const char *kind, const char **name, uint16_t *name_len)
 {
 	size_t klen = strlen(kind);
 	size_t plen = 6u + klen + m->mod_len;

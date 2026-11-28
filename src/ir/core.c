@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static uint32_t push_instr (IR *ir, IRInstr instr)
+static uint32_t push_instr (IR *ir, const IRInstr *instr)
 {
 	if (ir->instr_count >= ir->instr_cap) {
 		uint32_t old_cap = ir->instr_cap;
@@ -16,11 +16,11 @@ static uint32_t push_instr (IR *ir, IRInstr instr)
 	}
 
 	uint32_t idx = ir->instr_count++;
-	ir->instrs[idx] = instr;
+	ir->instrs[idx] = *instr;
 	return idx;
 }
 
-uint32_t push_fn (IR *ir, IRFn fn)
+uint32_t push_fn (IR *ir, const IRFn *fn)
 {
 	if (ir->fn_count >= ir->fn_cap) {
 		uint32_t old_cap = ir->fn_cap;
@@ -30,11 +30,11 @@ uint32_t push_fn (IR *ir, IRFn fn)
 	}
 
 	uint32_t idx = ir->fn_count++;
-	ir->fns[idx] = fn;
+	ir->fns[idx] = *fn;
 	return idx;
 }
 
-static uint32_t push_global (IR *ir, IRGlobal global)
+static uint32_t push_global (IR *ir, const IRGlobal *global)
 {
 	if (ir->global_count >= ir->global_cap) {
 		uint32_t old_cap = ir->global_cap;
@@ -44,7 +44,7 @@ static uint32_t push_global (IR *ir, IRGlobal global)
 	}
 
 	uint32_t idx = ir->global_count++;
-	ir->globals[idx] = global;
+	ir->globals[idx] = *global;
 	return idx;
 }
 
@@ -109,21 +109,8 @@ static TypeId result_type (uint8_t op, TypeId type)
 	return type;
 }
 
-void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select, const char *mod)
+static void init_dep_list (IR *ir, Sema *sema, Arena *arena)
 {
-	ir->arena = arena;
-	ir->mod = mod ? mod : "";
-	ir->target = "";
-	ir->ast = sema->ast;
-	ir->symtab = &sema->table;
-	ir->init_order = sema->init_order;
-	ir->init_order_count = sema->init_order_count;
-	ir->statics = sema->statics;
-	ir->static_count = sema->static_count;
-
-	ir->init_fn = 0;
-	ir->fn_malloc = 0;
-	ir->fn_free = 0;
 	ir->init_dep_count = 0;
 	ir->init_deps = arena_alloc(arena, sizeof(uint32_t) * ((size_t)sema->module_count + 1u));
 	for (uint32_t i = 0; i < sema->module_count; i++) {
@@ -134,28 +121,16 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select, const char *mod)
 
 		if (sym != NO_SYMBOL) ir->init_deps[ir->init_dep_count++] = sym;
 	}
-	ir->reg_count = 0;
-	ir->label_count = 0;
-	ir->loops = NULL;
-	ir->loop_count = 0;
-	ir->loop_cap = 0;
-	ir->use_select = use_select;
-	ir->no_tail = 0;
-	ir->scalarize = 0;
-	ir->init_dirty = 0;
-	ir->sret = NO_REG;
-	ir->nrvo = NO_SYMBOL;
-	ir->ret_node = NO_NODE;
-	ir->temps = NULL;
-	ir->temp_count = 0;
-	ir->temp_cap = 0;
-	uint32_t nodes = sema->ast->count ? sema->ast->count : 1;
+}
+
+static void init_buffers (IR *ir, Arena *arena)
+{
+	uint32_t nodes = ir->ast->count ? ir->ast->count : 1;
 
 	ir->desc = arena_alloc(arena, sizeof(uint32_t) * nodes);
 	ir->desc_gen = arena_alloc(arena, sizeof(uint32_t) * nodes);
 	memset(ir->desc_gen, 0, sizeof(uint32_t) * nodes);
 	ir->desc_epoch = 0;
-
 	ir->reg_types = NULL;
 	ir->reg_type_cap = 0;
 	ir->addressed = NULL;
@@ -176,13 +151,50 @@ void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select, const char *mod)
 	ir->string_count = 0;
 	ir->string_cap = 0;
 	ir->strings = NULL;
-
 	ir->jtable_count = 0;
 	ir->jtable_cap = 8;
 	ir->jtables = arena_alloc(arena, sizeof(IRJumpTable) * ir->jtable_cap);
-
 	ir->string_tab = NULL;
 	ir->string_tab_cap = 0;
+}
+
+void ir_init (IR *ir, Arena *arena, Sema *sema, int use_select, const char *mod)
+{
+	ir->arena = arena;
+	ir->mod = mod ? mod : "";
+	ir->target = "";
+	ir->ast = sema->ast;
+	ir->symtab = &sema->table;
+	ir->init_order = sema->init_order;
+	ir->init_order_count = sema->init_order_count;
+	ir->statics = sema->statics;
+	ir->static_count = sema->static_count;
+
+	ir->init_fn = 0;
+	ir->fn_malloc = 0;
+	ir->fn_free = 0;
+	init_dep_list(ir, sema, arena);
+	ir->reg_count = 0;
+	ir->label_count = 0;
+	ir->loops = NULL;
+	ir->loop_count = 0;
+	ir->loop_cap = 0;
+	ir->use_select = use_select;
+	ir->no_tail = 0;
+	ir->scalarize = 0;
+	ir->init_dirty = 0;
+	ir->sret = NO_REG;
+	ir->nrvo = NO_SYMBOL;
+	ir->ret_node = NO_NODE;
+	ir->temps = NULL;
+	ir->temp_count = 0;
+	ir->temp_cap = 0;
+	init_buffers(ir, arena);
+
+	ir->reg_types = NULL;
+	ir->reg_type_cap = 0;
+	ir->addressed = NULL;
+	ir->addressed_cap = 0;
 }
 
 int fn_uses_sret (IR *ir, uint32_t ret)
@@ -404,7 +416,7 @@ static uint32_t declare_fn (IR *ir, ASTNode *n, Symbol *sym)
 			: (n->flags & NODE_FLAG_PUB) != 0;
 	fn.sym = method ? method_symbol(ir, n, sym)
 			: decl_symbol(ir, n, fn.is_extern, "pf", "f");
-	return push_fn(ir, fn);
+	return push_fn(ir, &fn);
 }
 
 static uint32_t declare_global (IR *ir, ASTNode *n, Symbol *sym)
@@ -417,7 +429,7 @@ static uint32_t declare_global (IR *ir, ASTNode *n, Symbol *sym)
 			|| (n->flags & NODE_FLAG_IMPORTED);
 	global.is_pub = (n->flags & NODE_FLAG_PUB) != 0;
 	global.sym = decl_symbol(ir, n, global.is_extern, "pv", "v");
-	return push_global(ir, global);
+	return push_global(ir, &global);
 }
 
 static uint32_t static_dups (IR *ir, uint32_t k)
@@ -454,7 +466,7 @@ static uint32_t declare_static (IR *ir, uint32_t node_idx, uint32_t k)
 	global.len = (uint16_t)len;
 	global.type = sym->type;
 	global.sym = mangle_symbol(ir->arena, &m);
-	return push_global(ir, global);
+	return push_global(ir, &global);
 }
 
 static void declare_class_fns (IR *ir, ASTNode *cls)
@@ -509,7 +521,7 @@ void make_arg_dec (IR *ir, uint32_t dst, uint32_t idx, TypeId type)
 	i.dst = dst;
 	i.target = idx;
 	i.data_type = type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 }
 
 void make_arg (IR *ir, uint32_t val, uint32_t idx)
@@ -518,7 +530,7 @@ void make_arg (IR *ir, uint32_t val, uint32_t idx)
 	i.op = IR_ARG;
 	i.src1 = val;
 	i.target = idx;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 }
 
 void make_const_into (IR *ir, uint32_t dst, int64_t val, TypeId type)
@@ -528,7 +540,7 @@ void make_const_into (IR *ir, uint32_t dst, int64_t val, TypeId type)
 	i.dst = dst;
 	i.imm64 = val;
 	i.data_type = type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 }
 
 uint32_t make_const (IR *ir, int64_t val, TypeId type)
@@ -545,7 +557,7 @@ uint32_t make_ld_global (IR *ir, uint32_t idx, TypeId type)
 	i.dst = new_reg(ir, type);
 	i.target = idx;
 	i.data_type = type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 	return i.dst;
 }
 
@@ -556,7 +568,7 @@ void make_str_global (IR *ir, uint32_t idx, uint32_t val, TypeId type)
 	i.src1 = val;
 	i.target = idx;
 	i.data_type = type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 }
 
 void make_addr_local (IR *ir, uint32_t dst, uint32_t var, TypeId type)
@@ -566,7 +578,7 @@ void make_addr_local (IR *ir, uint32_t dst, uint32_t var, TypeId type)
 	i.dst = dst;
 	i.src1 = var;
 	i.data_type = type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 }
 
 void make_addr_global (IR *ir, uint32_t dst, uint32_t global, TypeId type)
@@ -576,7 +588,7 @@ void make_addr_global (IR *ir, uint32_t dst, uint32_t global, TypeId type)
 	i.dst = dst;
 	i.target = global;
 	i.data_type = type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 }
 
 uint32_t make_ld_ptr (IR *ir, uint32_t ptr, TypeId type)
@@ -586,7 +598,7 @@ uint32_t make_ld_ptr (IR *ir, uint32_t ptr, TypeId type)
 	i.dst = new_reg(ir, type);
 	i.src1 = ptr;
 	i.data_type = type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 	return i.dst;
 }
 
@@ -597,7 +609,7 @@ void make_str_ptr (IR *ir, uint32_t ptr, uint32_t val, TypeId type)
 	i.src1 = ptr;
 	i.src2 = val;
 	i.data_type = type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 }
 
 static uint32_t fnv_string (const char *data, uint32_t len)
@@ -668,7 +680,7 @@ uint32_t make_str_bytes (IR *ir, const char *data, uint32_t len, TypeId type)
 	i.dst = new_reg(ir, type);
 	i.target = intern_bytes(ir, data, len);
 	i.data_type = type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 	return i.dst;
 }
 
@@ -679,7 +691,7 @@ uint32_t make_str_lit (IR *ir, ASTNode *n)
 	i.dst = new_reg(ir, n->data_type);
 	i.target = intern_bytes(ir, n->str, n->len);
 	i.data_type = n->data_type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 	return i.dst;
 }
 
@@ -697,7 +709,7 @@ uint32_t make_blob (IR *ir, const uint8_t *data, uint32_t len)
 	i.dst = new_reg(ir, type_ptr_to(TYPE_u8));
 	i.target = push_string(ir, string);
 	i.data_type = ir->reg_types[i.dst];
-	push_instr(ir, i);
+	push_instr(ir, &i);
 	return i.dst;
 }
 
@@ -709,7 +721,7 @@ uint32_t make_call (IR *ir, uint32_t idx, uint16_t argc, TypeId ret_type)
 	i.target = idx;
 	i.argc = argc;
 	i.data_type = ret_type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 	return i.dst;
 }
 
@@ -722,7 +734,7 @@ uint32_t make_call_ind (IR *ir, uint32_t callee, TypeId sig, uint16_t argc, Type
 	i.target = sig;
 	i.argc = argc;
 	i.data_type = ret_type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 	return i.dst;
 }
 
@@ -733,7 +745,7 @@ uint32_t make_fn_addr (IR *ir, uint32_t fn_idx, TypeId type)
 	i.dst = new_reg(ir, type);
 	i.target = fn_idx;
 	i.data_type = type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 	return i.dst;
 }
 
@@ -744,7 +756,7 @@ void make_move (IR *ir, uint32_t dst, uint32_t src, TypeId type)
 	i.dst = dst;
 	i.src1 = src;
 	i.data_type = type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 }
 
 uint32_t make_op (IR *ir, uint8_t op, uint32_t a, uint32_t b, TypeId type)
@@ -755,7 +767,7 @@ uint32_t make_op (IR *ir, uint8_t op, uint32_t a, uint32_t b, TypeId type)
 	i.src1 = a;
 	i.src2 = b;
 	i.data_type = type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 	return i.dst;
 }
 
@@ -765,7 +777,7 @@ void make_jump (IR *ir, uint8_t op, uint32_t cond, uint32_t label)
 	i.op = op;
 	i.src1 = cond;
 	i.target = label;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 }
 
 void make_jump_table (IR *ir, uint32_t idx, const uint32_t *labels, uint32_t count)
@@ -786,7 +798,7 @@ void make_jump_table (IR *ir, uint32_t idx, const uint32_t *labels, uint32_t cou
 	i.op = IR_JMP_TBL;
 	i.src1 = idx;
 	i.target = id;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 }
 
 void make_label (IR *ir, uint32_t label)
@@ -794,7 +806,7 @@ void make_label (IR *ir, uint32_t label)
 	IRInstr i = blank_instr;
 	i.op = IR_LABEL;
 	i.target = label;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 }
 
 void make_ret (IR *ir, uint32_t val, TypeId type)
@@ -803,7 +815,7 @@ void make_ret (IR *ir, uint32_t val, TypeId type)
 	i.op = IR_RET;
 	i.src1 = val;
 	i.data_type = type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 }
 
 void make_ret2 (IR *ir, uint32_t lo, uint32_t hi, TypeId type)
@@ -814,7 +826,7 @@ void make_ret2 (IR *ir, uint32_t lo, uint32_t hi, TypeId type)
 	i.src1 = lo;
 	i.src2 = hi;
 	i.data_type = type;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 }
 
 uint32_t make_rethi (IR *ir)
@@ -824,19 +836,12 @@ uint32_t make_rethi (IR *ir)
 	i.op = IR_RETHI;
 	i.dst = new_reg(ir, TYPE_u64);
 	i.data_type = TYPE_u64;
-	push_instr(ir, i);
+	push_instr(ir, &i);
 	return i.dst;
 }
 
-void make_select (IR *ir, uint32_t dst, uint32_t a, uint32_t b, uint32_t c, TypeId type)
+void make_select (IR *ir, IRInstr *instr)
 {
-	IRInstr i = blank_instr;
-
-	i.op = IR_SELECT;
-	i.dst = dst;
-	i.src1 = a;
-	i.src2 = b;
-	i.cond = c;
-	i.data_type = type;
-	push_instr(ir, i);
+	instr->op = IR_SELECT;
+	push_instr(ir, instr);
 }

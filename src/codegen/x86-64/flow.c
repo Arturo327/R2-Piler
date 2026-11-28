@@ -91,7 +91,7 @@ int x86_make_arg (X86Fn *f, IRInstr *i)
 	IRInstr *call = group_call(i, end);
 	uint32_t n = (uint32_t)(call - i);
 	uint32_t blk = f->blk;
-	int tail = cg_is_tail_call(f->cg->ir, f->fn, f->regs, &f->ctx, call, f->ctx.arch->arg_reg_max);
+	int tail = cg_is_tail_call(f->cg->ir, f->fn, f->regs, &f->ctx, call);
 
 	if (i->target != 0) return 1;
 	x86_check_arg_group(f, i, end);
@@ -201,7 +201,7 @@ int x86_make_tail_call (X86Fn *f, IRInstr *i)
 {
 	CodeGen *c = f->cg;
 	IRInstr *ret = x86_tail_ret(i);
-	if (!cg_is_tail_call(f->cg->ir, f->fn, f->regs, &f->ctx, i, f->ctx.arch->arg_reg_max)) return 0;
+	if (!cg_is_tail_call(f->cg->ir, f->fn, f->regs, &f->ctx, i)) return 0;
 
 	f->clobbers |= x86_call_clobbers(f, i);
 	if (c->ir->fns + i->target == f->fn) {

@@ -87,6 +87,34 @@ static void check_block (Sema *s, uint32_t idx)
 	pop_scope(s, mark);
 }
 
+static void check_self_params (Sema *s, uint32_t idx)
+{
+	if (s->ast->nodes[idx].flags & NODE_FLAG_METHOD) return;
+	uint32_t p = s->ast->nodes[s->ast->nodes[idx].child].child;
+	while (p != NO_NODE) {
+		if (s->ast->nodes[p].flags & NODE_FLAG_SELF)
+			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p), "'self' is only valid as the first parameter of a method");
+		p = s->ast->nodes[p].next_bro;
+	}
+}
+
+static uint32_t declare_params (Sema *s, uint32_t args)
+{
+	uint32_t param = s->ast->nodes[args].child;
+	uint32_t count = 0;
+	while (param != NO_NODE) {
+		ASTNode *p = s->ast->nodes + param;
+		int by_ref = (p->flags & NODE_FLAG_REF_LOWERED) != 0;
+		uint32_t next = p->next_bro;
+		uint32_t sym = sema_declare(s, param, SYMBOL_PARAM, p->data_type);
+
+		s->table.symbols[sym].by_ref = by_ref;
+		count++;
+		param = next;
+	}
+	return count;
+}
+
 void check_fn_dec (Sema *s, uint32_t idx)
 {
 	resolve_fn_types(s, idx);
@@ -97,17 +125,9 @@ void check_fn_dec (Sema *s, uint32_t idx)
 	}
 	check_signature_types(s, idx, 0);
 	check_export_fn(s, idx);
-	if (!(s->ast->nodes[idx].flags & NODE_FLAG_METHOD)) {
-		uint32_t p = s->ast->nodes[s->ast->nodes[idx].child].child;
-
-		while (p != NO_NODE) {
-			if (s->ast->nodes[p].flags & NODE_FLAG_SELF)
-				error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + p),
-						"'self' is only valid as the first parameter of a method");
-			p = s->ast->nodes[p].next_bro;
-		}
+	check_self_params(s, idx);
+	if (!(s->ast->nodes[idx].flags & NODE_FLAG_METHOD))
 		check_main_signature(s, idx);
-	}
 	uint32_t args = s->ast->nodes[idx].child;
 	uint32_t ret = s->ast->nodes[args].next_bro;
 	uint32_t body = s->ast->nodes[ret].next_bro;
@@ -119,30 +139,15 @@ void check_fn_dec (Sema *s, uint32_t idx)
 	uint32_t saved_fn = s->curr_fn;
 
 	s->curr_fn = s->ast->nodes[idx].sym;
-	uint32_t param = s->ast->nodes[args].child;
-	uint32_t count = 0;
-	while (param != NO_NODE) {
-		ASTNode *p = s->ast->nodes + param;
-		int by_ref = (p->flags & NODE_FLAG_REF_LOWERED) != 0;
-		uint32_t next = p->next_bro;
-		uint32_t psym = sema_declare(s, p->str, p->len, SYMBOL_PARAM, p->data_type, param);
-
-		s->table.symbols[psym].by_ref = by_ref;
-		count++;
-		param = next;
-	}
+	uint32_t count = declare_params(s, args);
 	if (count > MAX_PARAMS)
-		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
-				"too many parameters (max %d)", MAX_PARAMS);
-
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx), "too many parameters (max %d)", MAX_PARAMS);
 	check_block_body(s, body);
 	s->curr_fn = saved_fn;
 
 	if (s->curr_ret != TYPE_VOID && s->curr_ret != TYPE_ERROR
 			&& !stmt_returns(s, body))
-		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
-				"function may reach the end without returning");
-
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx), "function may reach the end without returning");
 	s->depth--;
 	pop_scope(s, mark);
 }
@@ -763,6 +768,36 @@ static void warn_no_effect (Sema *s, uint32_t idx, TypeId type)
 			"expression has no effect; its result is discarded");
 }
 
+static int reject_nested_decl (Sema *s, ASTNode *n)
+{
+	const char *what = NULL;
+
+	switch (n->type)
+	{
+	case NODE_VAR_DEC: case NODE_ARR_DEC: case NODE_FN_DEC:
+		if (n->flags & NODE_FLAG_EXPORT)
+			what = "'export' is only valid on top-level declarations";
+		else if (n->flags & NODE_FLAG_PUB)
+			what = "'pub' is only valid on top-level declarations";
+		else if (n->type == NODE_FN_DEC)
+			what = "functions can only be declared at the top level";
+		break;
+	case NODE_ENUM_DEC: what = "enums can only be declared at the top level"; break;
+	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
+		what = "types can only be declared at the top level"; break;
+	case NODE_STRUCT_DEC: what = "structs can only be declared at the top level"; break;
+	case NODE_CLASS_DEC: what = "classes can only be declared at the top level"; break;
+	case NODE_MODULE_DEC: what = "'module' can only be declared at the top level"; break;
+	case NODE_DEPENDS_DEC: what = "'depends' can only be declared at the top level"; break;
+	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
+		what = "extern declarations can only appear at the top level"; break;
+	default: return 0;
+	}
+	if (!what) return 0;
+	error_report(s->err, ERR_ERROR, node_loc(n), "%s", what);
+	return 1;
+}
+
 static void check_statement (Sema *s, uint32_t idx)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -770,13 +805,9 @@ static void check_statement (Sema *s, uint32_t idx)
 	switch (n->type)
 	{
 	case NODE_VAR_DEC: case NODE_ARR_DEC:
-		if (n->flags & NODE_FLAG_EXPORT)
-			error_report(s->err, ERR_ERROR, node_loc(n),
-					"'export' is only valid on top-level declarations");
-		else if (n->flags & NODE_FLAG_PUB)
-			error_report(s->err, ERR_ERROR, node_loc(n),
-					"'pub' is only valid on top-level declarations");
-		check_var_dec(s, idx); return;
+		reject_nested_decl(s, n);
+		check_var_dec(s, idx);
+		return;
 	case NODE_BLOCK: check_block(s, idx); return;
 	case NODE_RET: check_return(s, idx); return;
 	case NODE_BREAK: case NODE_CONTINUE: check_loop_jump(s, idx); return;
@@ -790,43 +821,12 @@ static void check_statement (Sema *s, uint32_t idx)
 	case NODE_DROP: check_drop(s, idx); return;
 	case NODE_RESET: check_reset(s, idx); return;
 	case NODE_EMPTY: n->data_type = TYPE_VOID; return;
-	case NODE_FN_DEC:
-		if (n->flags & NODE_FLAG_EXPORT)
-			error_report(s->err, ERR_ERROR, node_loc(n),
-					"'export' is only valid on top-level declarations");
-		else if (n->flags & NODE_FLAG_PUB)
-			error_report(s->err, ERR_ERROR, node_loc(n),
-					"'pub' is only valid on top-level declarations");
-		else error_report(s->err, ERR_ERROR, node_loc(n),
-				"functions can only be declared at the top level");
-		return;
-	case NODE_ENUM_DEC:
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"enums can only be declared at the top level");
-		return;
+	case NODE_FN_DEC: case NODE_ENUM_DEC:
 	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"types can only be declared at the top level");
-		return;
-	case NODE_STRUCT_DEC:
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"structs can only be declared at the top level");
-		return;
-	case NODE_CLASS_DEC:
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"classes can only be declared at the top level");
-		return;
-	case NODE_MODULE_DEC:
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"'module' can only be declared at the top level");
-		return;
-	case NODE_DEPENDS_DEC:
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"'depends' can only be declared at the top level");
-		return;
+	case NODE_STRUCT_DEC: case NODE_CLASS_DEC:
+	case NODE_MODULE_DEC: case NODE_DEPENDS_DEC:
 	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"extern declarations can only appear at the top level");
+		reject_nested_decl(s, n);
 		return;
 	default: {
 		TypeId type = check_expr(s, idx);

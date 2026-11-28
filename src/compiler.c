@@ -75,7 +75,7 @@ static int check_source_limits (const char *file, const char *src)
 
 	error_source_stats(src, &lines, &longest);
 	if (lines > UINT16_MAX) {
-		fprintf(stderr, "Error: %s has more than %u lines\nPlease, for your own good and your co-workers, I strongly recomend you to divide this enormous file\n",
+		fprintf(stderr, "Error: %s has more than %u lines. Please, for your own good and your co-workers, I strongly recomend you to divide this enormous file\n",
 				file, (unsigned)UINT16_MAX);
 		return 1;
 	}
@@ -136,9 +136,11 @@ static int compile_setup (Compiler *c, CompilerOpts *opts, int dumping)
 {
 	if (compiler_load_file(c, opts->path)) return 1;
 	if (!dumping && mangle_module(&c->arena, opts->path, &c->mod)) return 1;
-	if (!dumping && init_codegen(&c->codegen, opts->arch, &c->gen_arena,
-			&c->ir, opts->out, opts->opt_level))
-		return 1;
+	if (!dumping) {
+		c->codegen.arena = &c->gen_arena;
+		if (init_codegen(&c->codegen, opts->arch, &c->ir, opts->out, opts->opt_level))
+			return 1;
+	}
 	return 0;
 }
 

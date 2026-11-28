@@ -18,16 +18,8 @@ ErrorLoc node_loc (ASTNode *n)
 	return loc;
 }
 
-void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
+static void init_growables (Sema *s, Arena *arena)
 {
-	s->ast = ast;
-	s->err = err;
-	s->arena = arena;
-	s->depth = 0;
-	s->loop_depth = 0;
-	s->init_node = NO_NODE;
-	s->curr_ret = TYPE_VOID;
-	s->curr_ret_list = NO_NODE;
 	s->init_order_count = 0;
 	s->init_order_cap = 16;
 	s->init_order = arena_alloc(arena, sizeof(uint32_t) * s->init_order_cap);
@@ -43,14 +35,10 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->dead_place_count = 0;
 	s->dead_place_cap = 16;
 	s->dead_places = arena_alloc(arena, sizeof(AggPlace) * s->dead_place_cap);
-	s->write_root = NO_NODE;
-	s->addr_operand = 0;
-	s->curr_fn = NO_SYMBOL;
-	s->curr_class = TYPE_ERROR;
-	s->expr_depth = 0;
-	s->too_deep = 0;
-	s->ref_arg = 0;
-	s->in_imported = 0;
+}
+
+static void init_import_state (Sema *s)
+{
 	s->mod_name = NULL;
 	s->mod_len = 0;
 	s->mod_seen = 0;
@@ -73,7 +61,28 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->flag_stack = NULL;
 	s->flag_cap = 0;
 	s->flag_top = 0;
+}
 
+void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
+{
+	s->ast = ast;
+	s->err = err;
+	s->arena = arena;
+	s->depth = 0;
+	s->loop_depth = 0;
+	s->init_node = NO_NODE;
+	s->curr_ret = TYPE_VOID;
+	s->curr_ret_list = NO_NODE;
+	init_growables(s, arena);
+	s->write_root = NO_NODE;
+	s->addr_operand = 0;
+	s->curr_fn = NO_SYMBOL;
+	s->curr_class = TYPE_ERROR;
+	s->expr_depth = 0;
+	s->too_deep = 0;
+	s->ref_arg = 0;
+	s->in_imported = 0;
+	init_import_state(s);
 	symtab_init(&s->table, arena);
 }
 
@@ -118,30 +127,30 @@ static void check_reserved_name (Sema *s, char *name, uint16_t len, uint32_t dec
 			"identifiers starting with '%s' are reserved", prefix);
 }
 
-uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
-		TypeId data_type, uint32_t decl_node)
+uint32_t sema_declare (Sema *s, uint32_t decl_node, SymKind kind, TypeId type)
 {
-	check_reserved_name(s, name, len, decl_node);
-	uint32_t prev = symtab_find(&s->table, name, len);
-
-	if (prev != NO_SYMBOL && s->table.symbols[prev].depth == s->depth) {
-		ASTNode *n = &s->ast->nodes[decl_node];
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"'%.*s' already declared in this scope", (int)len, name);
-	}
-
 	ASTNode *decl = s->ast->nodes + decl_node;
+	const char *name = decl->str;
+	uint16_t len = decl->len;
+
+	check_reserved_name(s, (char *)name, len, decl_node);
+	uint32_t prev = symtab_find(&s->table, (char *)name, len);
+
+	if (prev != NO_SYMBOL && s->table.symbols[prev].depth == s->depth)
+		error_report(s->err, ERR_ERROR, node_loc(decl),
+				"'%.*s' already declared in this scope", (int)len, name);
+
 	Symbol sym = {
-		.name = name,
+		.name = (char *)name,
 		.len = len,
-		.line = s->ast->nodes[decl_node].line,
-		.col = s->ast->nodes[decl_node].col,
+		.line = decl->line,
+		.col = decl->col,
 		.decl = decl_node,
 		.depth = s->depth,
 		.kind = (uint8_t)kind,
-		.type = data_type,
+		.type = type,
 		.view = kind == SYMBOL_VAR && decl->type == NODE_VAR_DEC
-				&& type_kind(data_type) == TK_ARRAY
+				&& type_kind(type) == TK_ARRAY
 	};
 
 	int aggregate = decl->data_type != TYPE_ERROR
@@ -152,13 +161,19 @@ uint32_t sema_declare (Sema *s, char *name, uint16_t len, SymKind kind,
 			|| (decl->flags & NODE_FLAG_IMPORTED))))
 		sym.assigned = 1;
 
-	uint32_t sym_idx = symtab_declare(&s->table, s->arena, sym);
+	uint32_t sym_idx = symtab_declare(&s->table, s->arena, &sym);
 	s->ast->nodes[decl_node].sym = sym_idx;
 	agg_declare(s, sym_idx, decl_node);
 	return sym_idx;
 }
 
-uint32_t sema_new_node (Sema *s, ASTNode node)
+uint32_t sema_rename_symbol (Sema *s, uint32_t sym, const char *name, uint16_t len)
+{
+	symtab_rename(&s->table, sym, (char *)name, len);
+	return sym;
+}
+
+uint32_t sema_new_node (Sema *s, const ASTNode *node)
 {
 	uint32_t idx = s->ast->count++;
 
@@ -168,7 +183,7 @@ uint32_t sema_new_node (Sema *s, ASTNode node)
 				(size_t)s->ast->cap * sizeof(ASTNode), (size_t)new_cap * sizeof(ASTNode));
 		s->ast->cap = new_cap;
 	}
-	s->ast->nodes[idx] = node;
+	s->ast->nodes[idx] = *node;
 	return idx;
 }
 
@@ -188,7 +203,7 @@ uint32_t sema_wrap_cast (Sema *s, uint32_t child, TypeId to_type)
 	cast.type_node = NO_TYPE_NODE;
 
 	c->next_bro = NO_NODE;
-	return sema_new_node(s, cast);
+	return sema_new_node(s, &cast);
 }
 
 uint32_t sema_make_id (Sema *s, ASTNode *src)
@@ -202,7 +217,7 @@ uint32_t sema_make_id (Sema *s, ASTNode *src)
 	raw.col = src->col;
 	raw.sym = NO_SYMBOL;
 	raw.type_node = NO_TYPE_NODE;
-	return sema_new_node(s, raw);
+	return sema_new_node(s, &raw);
 }
 
 uint32_t sema_ref_value (Sema *s, uint32_t idx)
@@ -220,7 +235,7 @@ uint32_t sema_ref_value (Sema *s, uint32_t idx)
 	raw.child = NO_NODE;
 	raw.next_bro = NO_NODE;
 
-	uint32_t raw_idx = sema_new_node(s, raw);
+	uint32_t raw_idx = sema_new_node(s, &raw);
 	n = s->ast->nodes + idx;
 	TypeId ptr = n->data_type;
 
@@ -248,7 +263,7 @@ uint32_t sema_wrap_deref (Sema *s, uint32_t child, TypeId to_type)
 	deref.type_node = NO_TYPE_NODE;
 
 	c->next_bro = NO_NODE;
-	return sema_new_node(s, deref);
+	return sema_new_node(s, &deref);
 }
 
 uint32_t sema_wrap_addr (Sema *s, uint32_t child)
@@ -266,7 +281,7 @@ uint32_t sema_wrap_addr (Sema *s, uint32_t child)
 	addr.type_node = NO_TYPE_NODE;
 
 	c->next_bro = NO_NODE;
-	return sema_new_node(s, addr);
+	return sema_new_node(s, &addr);
 }
 
 void reserve_cast_nodes (Sema *s)

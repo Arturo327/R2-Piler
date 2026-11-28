@@ -20,7 +20,7 @@ static uint32_t scan_outg (X86Fn *f)
 		IRInstr *instr = ir->instrs + fn->start + i;
 
 		if (instr->op != IR_CALL && instr->op != IR_CALL_IND) continue;
-		if (cg_is_tail_call(f->cg->ir, f->fn, f->regs, &f->ctx, instr, f->ctx.arch->arg_reg_max))
+		if (cg_is_tail_call(f->cg->ir, f->fn, f->regs, &f->ctx, instr))
 			continue;
 		f->leaf = 0;
 
@@ -132,7 +132,10 @@ static void fill_regalloc (X86Fn *f)
 	f->ctx.free_regs = f->frees;
 	f->ctx.edges = f->edges;
 
-	regalloc(f->cg->arena, f->cg->ir, f->fn, f->regs, &f->ctx, spill_all);
+	RegAlloc ra = { .arena = f->cg->arena, .ir = f->cg->ir, .fn = f->fn,
+		.regs = f->regs, .ctx = &f->ctx, .spill_all = (uint8_t)spill_all };
+
+	regalloc(&ra);
 }
 
 static uint32_t max_slot (X86Fn *f)

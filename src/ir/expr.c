@@ -201,7 +201,14 @@ int gen_select (IR *ir, ASTNode *n)
 	uint32_t vb = b ? gen_expr(ir, nodes + nodes[b->child].next_bro) : s->ir_id;
 	if (late) vc = gen_expr(ir, nodes + n->child);
 
-	make_select(ir, s->ir_id, va, vb, vc, s->type);
+	IRInstr sel = {0};
+
+	sel.dst = s->ir_id;
+	sel.src1 = va;
+	sel.src2 = vb;
+	sel.cond = vc;
+	sel.data_type = s->type;
+	make_select(ir, &sel);
 	return 1;
 }
 
@@ -223,6 +230,31 @@ static uint32_t gen_ternary_agg (IR *ir, ASTNode *n)
 	return dst;
 }
 
+static uint32_t gen_ternary_select (IR *ir, ASTNode *n, uint32_t then_idx, uint32_t else_idx)
+{
+	ASTNode *nodes = ir->ast->nodes;
+	if (!ir->use_select) return NO_REG;
+	int cbudget = LOGIC_BUDGET;
+	int abudget = LOGIC_BUDGET;
+	int bbudget = LOGIC_BUDGET;
+	if (!is_pure(ir, n->child, &cbudget) || !is_pure(ir, then_idx, &abudget)
+			|| !is_pure(ir, else_idx, &bbudget)) return NO_REG;
+
+	uint32_t va = gen_expr(ir, nodes + then_idx);
+	uint32_t vb = gen_expr(ir, nodes + else_idx);
+	uint32_t vc = gen_expr(ir, nodes + n->child);
+	uint32_t res = new_reg(ir, n->data_type);
+	IRInstr sel = {0};
+
+	sel.dst = res;
+	sel.src1 = va;
+	sel.src2 = vb;
+	sel.cond = vc;
+	sel.data_type = n->data_type;
+	make_select(ir, &sel);
+	return res;
+}
+
 static uint32_t gen_ternary (IR *ir, ASTNode *n)
 {
 	ASTNode *nodes = ir->ast->nodes;
@@ -231,22 +263,9 @@ static uint32_t gen_ternary (IR *ir, ASTNode *n)
 
 	if (type_kind(n->data_type) == TK_CLASS) return gen_ternary_agg(ir, n);
 
-	if (ir->use_select) {
-		int cbudget = LOGIC_BUDGET;
-		int abudget = LOGIC_BUDGET;
-		int bbudget = LOGIC_BUDGET;
+	uint32_t selected = gen_ternary_select(ir, n, then_idx, else_idx);
 
-		if (is_pure(ir, n->child, &cbudget) && is_pure(ir, then_idx, &abudget)
-				&& is_pure(ir, else_idx, &bbudget)) {
-			uint32_t va = gen_expr(ir, nodes + then_idx);
-			uint32_t vb = gen_expr(ir, nodes + else_idx);
-			uint32_t vc = gen_expr(ir, nodes + n->child);
-
-			uint32_t res = new_reg(ir, n->data_type);
-			make_select(ir, res, va, vb, vc, n->data_type);
-			return res;
-		}
-	}
+	if (selected != NO_REG) return selected;
 
 	uint32_t l_else = ir->label_count++;
 	uint32_t l_end = ir->label_count++;
@@ -449,6 +468,15 @@ void store_var (IR *ir, Symbol *s, uint32_t val)
 	else make_move(ir, s->ir_id, val, s->type);
 }
 
+static uint32_t gen_temp_init (IR *ir, ASTNode *n, int ctor)
+{
+	uint32_t tmp = new_struct_temp(ir, n->data_type);
+
+	if (ctor) gen_ctor_call(ir, n, tmp);
+	else gen_struct_init(ir, tmp, n, n->data_type);
+	return tmp;
+}
+
 uint32_t gen_expr (IR *ir, ASTNode *n)
 {
 	switch (n->type)
@@ -456,7 +484,6 @@ uint32_t gen_expr (IR *ir, ASTNode *n)
 	case NODE_LIT_i64: return make_const(ir, n->i64, n->data_type);
 	case NODE_LIT_u64: return make_const(ir, (int64_t)n->u64, n->data_type);
 	case NODE_LIT_CHAR: return make_const(ir, (int8_t)n->chr, n->data_type);
-
 	case NODE_ID: return gen_id(ir, n);
 	case NODE_DOT: return gen_dot(ir, n);
 	case NODE_DEREF: return gen_deref(ir, n);
@@ -469,29 +496,18 @@ uint32_t gen_expr (IR *ir, ASTNode *n)
 	case NODE_LIT_STR: return make_str_lit(ir, n);
 	case NODE_NEW: return gen_new(ir, n);
 	case NODE_NEW_CTOR: return gen_new_ctor(ir, n);
-	case NODE_CTOR_CALL: {
-		uint32_t tmp = new_struct_temp(ir, n->data_type);
-
-		gen_ctor_call(ir, n, tmp);
-		return tmp;
-	}
+	case NODE_CTOR_CALL: return gen_temp_init(ir, n, 1);
 	case NODE_FN_CALL: return gen_call_value(ir, n);
 	case NODE_ASSIGN: return gen_assign(ir, n);
 	case NODE_ADD_ASSIGN: case NODE_SUB_ASSIGN: case NODE_MUL_ASSIGN:
 	case NODE_DIV_ASSIGN: case NODE_MOD_ASSIGN: case NODE_AND_A_ASSIGN:
 	case NODE_OR_A_ASSIGN: case NODE_XOR_ASSIGN: case NODE_LS_ASSIGN:
 	case NODE_RS_ASSIGN: return gen_compound_assign(ir, n);
-
 	case NODE_NEG: case NODE_NOT_A: case NODE_NOT_L: return gen_unary(ir, n);
 	case NODE_AND_L: case NODE_OR_L: return gen_logic(ir, n);
 	case NODE_CAST: return gen_cast(ir, n);
 	case NODE_TERNARY: return gen_ternary(ir, n);
-	case NODE_STRUCT_INIT: {
-		uint32_t tmp = new_struct_temp(ir, n->data_type);
-		gen_struct_init(ir, tmp, n, n->data_type);
-		return tmp;
-	}
-
+	case NODE_STRUCT_INIT: return gen_temp_init(ir, n, 0);
 	default:
 		assert(node_to_ir[n->type] != IR_NOP);
 		return gen_binary(ir, n);

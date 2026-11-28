@@ -8,68 +8,63 @@
 static void gen_stmt (IR *ir, ASTNode *n);
 static void gen_block (IR *ir, ASTNode *parent);
 
+static void gen_desc_dec (IR *ir, ASTNode *n, Symbol *s)
+{
+	uint32_t reg = new_reg(ir, s->view ? type_array_of(TYPE_u64,
+			(uint32_t)type_dyn_rank(s->type) + 1u) : s->type);
+
+	s->ir_id = reg;
+	ir->addressed[reg] = 1;
+	ir->no_tail = 1;
+	if (n->child != NO_NODE)
+		gen_slice_desc(ir, local_storage_addr(ir, s, s->type),
+				ir->ast->nodes + n->child, s->type);
+}
+
+static void gen_struct_dec (IR *ir, ASTNode *n, Symbol *s)
+{
+	if (n->sym == ir->nrvo) {
+		s->ir_id = ir->sret;
+		if (n->child != NO_NODE)
+			gen_struct_into(ir, ir->sret, n->child, s->type, 1);
+		return;
+	}
+	uint32_t reg = new_reg(ir, s->type);
+
+	s->ir_id = reg;
+	ir->addressed[reg] = 1;
+	ir->no_tail = 1;
+	if (n->child != NO_NODE) {
+		ir->scalarize = !s->escaped;
+		gen_struct_into(ir, local_storage_addr(ir, s, s->type), n->child, s->type, 1);
+		ir->scalarize = 0;
+	}
+}
+
+static void gen_array_dec (IR *ir, ASTNode *n, Symbol *s)
+{
+	uint32_t reg = new_reg(ir, s->type);
+
+	s->ir_id = reg;
+	ir->addressed[reg] = 1;
+	if (n->child != NO_NODE)
+		gen_array_init(ir, local_storage_addr(ir, s, s->type), n->child, s->type, 1);
+}
+
 void gen_var_dec (IR *ir, ASTNode *n)
 {
 	if (n->flags & NODE_FLAG_STATIC) return;
-
 	Symbol *s = ir->symtab->symbols + n->sym;
-	uint32_t reg;
-
-	if (s->view) {
-		uint32_t dyn = (uint32_t)type_dyn_rank(s->type);
-
-		reg = new_reg(ir, type_array_of(TYPE_u64, 1 + dyn));
+	if (s->view || type_dyn_rank(s->type) > 0 || type_kind(s->type) == TK_SLICE)
+		gen_desc_dec(ir, n, s);
+	else if (type_is_struct_like(s->type)) gen_struct_dec(ir, n, s);
+	else if (type_kind(s->type) == TK_ARRAY) gen_array_dec(ir, n, s);
+	else {
+		uint32_t reg = n->child == NO_NODE ? new_reg(ir, s->type)
+			: gen_expr(ir, ir->ast->nodes + n->child);
 		s->ir_id = reg;
-		ir->addressed[reg] = 1;
-		ir->no_tail = 1;
-		if (n->child != NO_NODE)
-			gen_slice_desc(ir, local_storage_addr(ir, s, s->type),
-					ir->ast->nodes + n->child, s->type);
-		return;
+		if (s->addressed) ir->addressed[reg] = 1;
 	}
-	if (type_dyn_rank(s->type) > 0 || type_kind(s->type) == TK_SLICE) {
-		reg = new_reg(ir, s->type);
-		s->ir_id = reg;
-		ir->addressed[reg] = 1;
-		ir->no_tail = 1;
-		if (n->child != NO_NODE)
-			gen_slice_desc(ir, local_storage_addr(ir, s, s->type),
-					ir->ast->nodes + n->child, s->type);
-		return;
-	}
-	if (type_is_struct_like(s->type)) {
-		if (n->sym == ir->nrvo) {
-			s->ir_id = ir->sret;
-			if (n->child != NO_NODE)
-				gen_struct_into(ir, ir->sret, n->child, s->type, 1);
-			return;
-		}
-		reg = new_reg(ir, s->type);
-		s->ir_id = reg;
-		ir->addressed[reg] = 1;
-		ir->no_tail = 1;
-		if (n->child != NO_NODE) {
-			ir->scalarize = !s->escaped;
-			gen_struct_into(ir, local_storage_addr(ir, s, s->type), n->child, s->type, 1);
-			ir->scalarize = 0;
-		}
-		return;
-	}
-	if (type_kind(s->type) == TK_ARRAY) {
-		reg = new_reg(ir, s->type);
-		s->ir_id = reg;
-		ir->addressed[reg] = 1;
-		if (n->child != NO_NODE)
-			gen_array_init(ir, local_storage_addr(ir, s, s->type),
-					n->child, s->type, 1);
-		return;
-	}
-
-	if (n->child == NO_NODE) reg = new_reg(ir, s->type);
-	else reg = gen_expr(ir, ir->ast->nodes + n->child);
-
-	s->ir_id = reg;
-	if (s->addressed) ir->addressed[reg] = 1;
 }
 
 static void gen_ret_slot (IR *ir, uint32_t dst, uint32_t val_idx, TypeId type)
@@ -279,8 +274,7 @@ static uint32_t ir_case_body (IR *ir, uint32_t clause)
 	return v;
 }
 
-static void gen_switch_tests (IR *ir, uint32_t cond, uint32_t scrut,
-		TypeId type, uint32_t *labels, uint32_t dflt)
+static void gen_switch_tests(IR *ir, uint32_t cond, uint32_t scrut, TypeId type, uint32_t *labels, uint32_t dflt)
 {
 	ASTNode *nodes = ir->ast->nodes;
 	uint32_t clause = nodes[cond].next_bro;
@@ -289,7 +283,7 @@ static void gen_switch_tests (IR *ir, uint32_t cond, uint32_t scrut,
 	while (clause != NO_NODE) {
 		ASTNode *c = nodes + clause;
 
-		if (c->type != NODE_DEFAULT) {
+		if (type != NODE_DEFAULT) {
 			uint32_t v = c->child;
 
 			while (v != NO_NODE && nodes[v].type != NODE_BLOCK) {
@@ -357,8 +351,7 @@ static int switch_range (SwitchCase *cases, uint32_t n,
 	return span < SWITCH_TBL_MAX && span + 1 <= (uint64_t)n * SWITCH_TBL_SPAN;
 }
 
-static void gen_switch_table (IR *ir, uint32_t scrut, TypeId type,
-		SwitchCase *cases, uint32_t n, uint64_t lo, uint64_t hi, uint32_t dflt)
+static void gen_switch_table(IR *ir, uint32_t scrut, TypeId type, SwitchCase *cases, uint32_t n, uint64_t lo, uint64_t hi, uint32_t dflt)
 {
 	uint32_t span = (uint32_t)(hi - lo + 1);
 	uint32_t *table = arena_alloc(ir->arena, sizeof(uint32_t) * span);
@@ -420,8 +413,7 @@ static void gen_switch_tree (SwitchTree *t, int lo, int hi)
 	gen_switch_tree(t, mid + 1, hi);
 }
 
-static void gen_switch_sparse (IR *ir, uint32_t scrut, TypeId type,
-		SwitchCase *cases, uint32_t n, uint32_t dflt)
+static void gen_switch_sparse(IR *ir, uint32_t scrut, TypeId type, SwitchCase *cases, uint32_t n, uint32_t dflt)
 {
 	SwitchTree t = { .ir = ir, .cases = cases, .dflt = dflt };
 	uint32_t wide = scrut;
@@ -824,7 +816,7 @@ void ir_gen (IR *ir)
 		.is_pub = 1
 	};
 
-	ir->init_fn = push_fn(ir, init_fn);
+	ir->init_fn = push_fn(ir, &init_fn);
 	ir_scan_structs(ir);
 	declare_globals(ir);
 	gen_init_fn(ir);

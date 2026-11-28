@@ -16,6 +16,7 @@
 typedef struct CompilerOpts {
 	char *path;
 	char *out;
+	int out_owned;
 	const char *r2i_dir;
 	const char *header_dir;
 	const char **import_paths;

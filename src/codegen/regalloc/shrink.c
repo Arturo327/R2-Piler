@@ -14,6 +14,8 @@ typedef struct Shrink {
 
 	uint64_t *dom;
 	uint64_t *ndom;
+	uint64_t **dom_row;
+	uint64_t **ndom_row;
 	uint64_t *touch;
 	uint64_t *saved;
 
@@ -129,8 +131,7 @@ static void mark_exits (Shrink *s)
 		if (!s->reach[b]) continue;
 		for (uint32_t i = 0; i < blk->count; i++) {
 			IRInstr *in = ra->ir->instrs + blk->start + i;
-			int tail = in->op == IR_CALL && cg_is_tail_call(ra->ir, ra->fn,
-					ra->regs, ra->ctx, in, ra->ctx->arch->arg_reg_max);
+			int tail = in->op == IR_CALL && cg_is_tail_call(ra->ir, ra->fn, ra->regs, ra->ctx, in);
 
 			if (in->op == IR_RET || tail) {
 				s->is_exit[b] = 1;
@@ -181,7 +182,7 @@ static void mark_reach (Shrink *s)
 
 static uint32_t block_depth (Shrink *s, uint32_t b)
 {
-	const uint64_t *row = s->dom + (size_t)b * s->words;
+	const uint64_t *row = s->dom_row[b];
 	uint32_t depth = 0;
 
 	for (uint32_t w = 0; w < s->words; w++)
@@ -222,7 +223,7 @@ static void mark_exits_ok (Shrink *s)
 
 			if (!s->is_exit[e] || !s->reach[e]) continue;
 			if (exit_blk->start + exit_blk->count - 1 < at) continue;
-			row = s->dom + (size_t)e * s->words;
+			row = s->dom_row[e];
 			if (!(row[b >> 6] >> (b & 63) & 1)) {
 				ok = 0;
 				break;
@@ -245,7 +246,7 @@ static void set_full (const Shrink *s, uint64_t *row)
 static void dom_init (Shrink *s)
 {
 	for (uint32_t b = 0; b < s->blocks; b++) {
-		uint64_t *row = s->dom + (size_t)b * s->words;
+		uint64_t *row = s->dom_row[b];
 
 		if (s->reach[b]) set_full(s, row);
 		else memset(row, 0, s->words * sizeof(uint64_t));
@@ -258,42 +259,40 @@ static void dom_init (Shrink *s)
 static int dom_step (Shrink *s)
 {
 	int changed = 0;
-
 	for (uint32_t b = 0; b < s->blocks; b++) {
-		uint64_t *row = s->ndom + (size_t)b * s->words;
-
+		uint64_t *row = s->ndom_row[b];
 		if (s->reach[b]) set_full(s, row);
 		else memset(row, 0, s->words * sizeof(uint64_t));
 	}
 	for (uint32_t p = 0; p < s->blocks; p++) {
 		const uint64_t *src;
-
 		if (!s->reach[p]) continue;
-		src = s->dom + (size_t)p * s->words;
+		src = s->dom_row[p];
 		for (uint32_t e = s->first[p]; e < s->first[p + 1]; e++) {
-			uint64_t *dst = s->ndom + (size_t)s->adj[e] * s->words;
-
+			uint64_t *dst = s->ndom_row[s->adj[e]];
 			for (uint32_t w = 0; w < s->words; w++)
 				dst[w] &= src[w];
 		}
 	}
 	for (uint32_t b = 0; b < s->blocks; b++) {
 		if (!s->reach[b]) continue;
-		s->ndom[(size_t)b * s->words + (b >> 6)] |= 1ull << (b & 63);
+		s->ndom_row[b][b >> 6] |= 1ull << (b & 63);
 	}
 	for (uint32_t w = 0; w < s->words; w++)
 		s->ndom[w] = 0;
 	s->ndom[0] = 1;
 	for (uint32_t b = 0; b < s->blocks; b++) {
-		const uint64_t *a = s->dom + (size_t)b * s->words;
-		const uint64_t *c = s->ndom + (size_t)b * s->words;
-
+		const uint64_t *a = s->dom_row[b];
+		const uint64_t *c = s->ndom_row[b];
 		for (uint32_t w = 0; w < s->words; w++)
 			if (a[w] != c[w]) changed = 1;
 	}
-	uint64_t *t = s->dom;
+	uint64_t *old_dom = s->dom;
+	uint64_t **old_rows = s->dom_row;
 	s->dom = s->ndom;
-	s->ndom = t;
+	s->dom_row = s->ndom_row;
+	s->ndom = old_dom;
+	s->ndom_row = old_rows;
 	return changed;
 }
 
@@ -390,8 +389,7 @@ static void mark_restore (Shrink *s)
 		if (!s->reach[b] || !s->saved[b]) continue;
 		for (uint32_t i = 0; i < blk->count; i++) {
 			IRInstr *in = ra->ir->instrs + blk->start + i;
-			int tail = in->op == IR_CALL && cg_is_tail_call(ra->ir, ra->fn,
-					ra->regs, ra->ctx, in, ra->ctx->arch->arg_reg_max);
+			int tail = in->op == IR_CALL && cg_is_tail_call(ra->ir, ra->fn, ra->regs, ra->ctx, in);
 
 			if (in->op == IR_RET || tail)
 				ra->ctx->restore_at[blk->start + i - fn->start] |= s->saved[b];
@@ -407,8 +405,7 @@ static int has_self_tail (RegAlloc *ra)
 		IRInstr *in = ra->ir->instrs + ra->fn->start + i;
 
 		if (in->op == IR_CALL && in->target == self &&
-				cg_is_tail_call(ra->ir, ra->fn, ra->regs, ra->ctx, in,
-						ra->ctx->arch->arg_reg_max))
+				cg_is_tail_call(ra->ir, ra->fn, ra->regs, ra->ctx, in))
 			return 1;
 	}
 	return 0;
@@ -421,12 +418,38 @@ static void save_all (RegAlloc *ra)
 	ra->ctx->save_in[0] = mask;
 	for (uint32_t i = 0; i < ra->fn->count; i++) {
 		IRInstr *in = ra->ir->instrs + ra->fn->start + i;
-		int tail = in->op == IR_CALL && cg_is_tail_call(ra->ir, ra->fn,
-				ra->regs, ra->ctx, in, ra->ctx->arch->arg_reg_max);
+		int tail = in->op == IR_CALL && cg_is_tail_call(ra->ir, ra->fn, ra->regs, ra->ctx, in);
 
 		if (in->op == IR_RET || tail)
 			ra->ctx->restore_at[i] = mask;
 	}
+}
+
+static void shrink_alloc (Shrink *s)
+{
+	s->words = (s->blocks + 63) >> 6;
+	s->dom = arena_alloc(s->arena, (size_t)s->blocks * s->words * sizeof(uint64_t));
+	s->ndom = arena_alloc(s->arena, (size_t)s->blocks * s->words * sizeof(uint64_t));
+	s->dom_row = arena_alloc(s->arena, (size_t)s->blocks * sizeof(uint64_t *));
+	s->ndom_row = arena_alloc(s->arena, (size_t)s->blocks * sizeof(uint64_t *));
+	for (uint32_t b = 0; b < s->blocks; b++) {
+		s->dom_row[b] = s->dom + (size_t)b * s->words;
+		s->ndom_row[b] = s->ndom + (size_t)b * s->words;
+	}
+	s->touch = arena_alloc(s->arena, (size_t)s->blocks * sizeof(uint64_t));
+	s->saved = arena_alloc(s->arena, (size_t)s->blocks * sizeof(uint64_t));
+	s->stack = arena_alloc(s->arena, (size_t)s->blocks * sizeof(uint32_t));
+	s->stamp = arena_alloc(s->arena, (size_t)s->blocks * sizeof(uint32_t));
+	s->reach = arena_alloc(s->arena, s->blocks);
+	s->is_exit = arena_alloc(s->arena, s->blocks);
+	s->cyclic = arena_alloc(s->arena, s->blocks);
+	s->exit_ok = arena_alloc(s->arena, s->blocks);
+	memset(s->touch, 0, (size_t)s->blocks * sizeof(uint64_t));
+	memset(s->saved, 0, (size_t)s->blocks * sizeof(uint64_t));
+	memset(s->stamp, 0, (size_t)s->blocks * sizeof(uint32_t));
+	memset(s->is_exit, 0, s->blocks);
+	memset(s->cyclic, 0, s->blocks);
+	memset(s->exit_ok, 0, s->blocks);
 }
 
 void shrink_wrap (RegAlloc *ra)
@@ -438,24 +461,7 @@ void shrink_wrap (RegAlloc *ra)
 		save_all(ra);
 		return;
 	}
-	s.words = (s.blocks + 63) >> 6;
-	s.dom = arena_alloc(s.arena, (size_t)s.blocks * s.words * sizeof(uint64_t));
-	s.ndom = arena_alloc(s.arena, (size_t)s.blocks * s.words * sizeof(uint64_t));
-	s.touch = arena_alloc(s.arena, (size_t)s.blocks * sizeof(uint64_t));
-	s.saved = arena_alloc(s.arena, (size_t)s.blocks * sizeof(uint64_t));
-	s.stack = arena_alloc(s.arena, (size_t)s.blocks * sizeof(uint32_t));
-	s.stamp = arena_alloc(s.arena, (size_t)s.blocks * sizeof(uint32_t));
-	s.reach = arena_alloc(s.arena, s.blocks);
-	s.is_exit = arena_alloc(s.arena, s.blocks);
-	s.cyclic = arena_alloc(s.arena, s.blocks);
-	s.exit_ok = arena_alloc(s.arena, s.blocks);
-	memset(s.touch, 0, (size_t)s.blocks * sizeof(uint64_t));
-	memset(s.saved, 0, (size_t)s.blocks * sizeof(uint64_t));
-	memset(s.stamp, 0, (size_t)s.blocks * sizeof(uint32_t));
-	memset(s.is_exit, 0, s.blocks);
-	memset(s.cyclic, 0, s.blocks);
-	memset(s.exit_ok, 0, s.blocks);
-
+	shrink_alloc(&s);
 	build_adj(&s);
 	mark_reach(&s);
 	mark_exits(&s);

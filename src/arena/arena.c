@@ -133,9 +133,9 @@ ArenaMark arena_mark (Arena *a)
 	return m;
 }
 
-void arena_release (Arena *a, ArenaMark m)
+void arena_release (Arena *a, const ArenaMark *m)
 {
-	ArenaBlock *block = m.tail->next;
+	ArenaBlock *block = m->tail->next;
 
 	while (block) {
 		ArenaBlock *next = block->next;
@@ -143,10 +143,10 @@ void arena_release (Arena *a, ArenaMark m)
 		free(block);
 		block = next;
 	}
-	m.tail->next = NULL;
-	m.tail->used = m.used;
-	a->tail = m.tail;
-	a->cap = m.cap;
+	m->tail->next = NULL;
+	m->tail->used = m->used;
+	a->tail = m->tail;
+	a->cap = m->cap;
 	a->last_ptr = NULL;
 	a->last_size = 0;
 }

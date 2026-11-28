@@ -140,9 +140,85 @@ static void resolve_paths (CompilerOpts *args, int argc, char *argv[])
 	if (optind + 1 < argc)
 		fprintf(stderr, "Warning: only '%s' will be compiled\n", args->path);
 
-	if (args->out == NULL) args->out = default_out(args->path);
+	if (args->out == NULL) {
+		args->out = default_out(args->path);
+		args->out_owned = 1;
+	}
 	if (!dumping && same_file(args->out, args->path)) {
 		fprintf(stderr, "Error: output file would overwrite the source file\n");
+		exit(1);
+	}
+}
+
+typedef struct OptCtx {
+	CompilerOpts *args;
+	const char ***paths;
+	int *path_count;
+	int *interp;
+	int *opt_spec;
+} OptCtx;
+
+static void handle_value_opt (OptCtx *c, int opt, char *arg)
+{
+	switch (opt)
+	{
+	case 'o': c->args->out = arg; break;
+	case 'm':
+		if (!arg[0]) {
+			fprintf(stderr, "Error: --modules-dir cannot be empty\n");
+			exit(1);
+		}
+		c->args->r2i_dir = arg;
+		break;
+	case 'p': {
+		if (!arg[0]) {
+			fprintf(stderr, "Error: --path cannot be empty\n");
+			exit(1);
+		}
+		const char **grown = realloc(*c->paths, sizeof(char *) * (size_t)(*c->path_count + 1));
+
+		if (!grown) {
+			fprintf(stderr, "Not enough memory\n");
+			exit(1);
+		}
+		grown[(*c->path_count)++] = arg;
+		*c->paths = grown;
+		break;
+	}
+	case 'H':
+		c->args->header = 1;
+		if (arg && arg[0] == '=') arg++;
+		if (arg && arg[0]) c->args->header_dir = arg;
+		break;
+	case 'a': c->args->arch = get_arch(arg); break;
+	default:
+		c->args->opt_level = arg ? get_opt_level(arg) : OPT_BASIC;
+		*c->opt_spec = 1;
+		break;
+	}
+}
+
+static void handle_flag_opt (OptCtx *c, int opt, const char *prog, char *arg)
+{
+	switch (opt)
+	{
+	case 'n': c->args->r2i = 0; break;
+	case 'e': *c->interp = 1; break;
+	case 'h': print_help(prog); exit(0);
+	case 'v': printf("%s\n", VERSION); exit(0);
+	case 'V': cg_verify_regalloc = 1; break;
+	case 'F': c->args->werror = 1; break;
+	case 'T': c->args->dump_tokens = 1; break;
+	case 'A': c->args->dump_ast = 1; break;
+	case 'S': c->args->dump_symbols = 1; break;
+	case 'I': c->args->dump_ir = 1; break;
+	case 'D': c->args->dump_opt = 1; break;
+	case ':':
+		fprintf(stderr, "Option '-%c' requires an argument.\n", optopt);
+		exit(1);
+	default:
+		fprintf(stderr, "Unknown option '%s'. Execute '%s --help' for more info.\n",
+				arg, prog);
 		exit(1);
 	}
 }
@@ -156,64 +232,15 @@ static CompilerOpts parse_args (int argc, char *argv[])
 	int opt_spec = 0;
 	const char **paths = NULL;
 	int path_count = 0;
+	OptCtx ctx = { &args, &paths, &path_count, &interp, &opt_spec };
 
 	opterr = 0;
 	const char *short_opts = ":TIASDO::o:m:p:na:ehvH::VF";
 	while ((opt = getopt_long(argc, argv, short_opts, long_options, NULL)) != -1) {
-		switch (opt)
-		{
-		case 'o': args.out = optarg; break;
-		case 'm':
-			if (!optarg[0]) {
-				fprintf(stderr, "Error: --modules-dir cannot be empty\n");
-				exit(1);
-			}
-			args.r2i_dir = optarg;
-			break;
-		case 'p': {
-			if (!optarg[0]) {
-				fprintf(stderr, "Error: --path cannot be empty\n");
-				exit(1);
-			}
-			const char **grown = realloc(paths, sizeof(char *) * (size_t)(path_count + 1));
-
-			if (!grown) {
-				fprintf(stderr, "Not enough memory\n");
-				exit(1);
-			}
-			grown[path_count++] = optarg;
-			paths = grown;
-			break;
-		}
-		case 'n': args.r2i = 0; break;
-		case 'H':
-			args.header = 1;
-			if (optarg && optarg[0] == '=') optarg++;
-			if (optarg && optarg[0]) args.header_dir = optarg;
-			break;
-		case 'a': args.arch = get_arch(optarg); break;
-		case 'e': interp = 1; break;
-		case 'h': print_help(argv[0]); exit(0);
-		case 'v': printf("%s\n", VERSION); exit(0);
-		case 'V': cg_verify_regalloc = 1; break;
-		case 'F': args.werror = 1; break;
-		case 'T': args.dump_tokens = 1; break;
-		case 'A': args.dump_ast = 1; break;
-		case 'S': args.dump_symbols = 1; break;
-		case 'I': args.dump_ir = 1; break;
-		case 'D': args.dump_opt = 1; break;
-		case 'O':
-			args.opt_level = optarg ? get_opt_level(optarg) : OPT_BASIC;
-			opt_spec = 1;
-			break;
-		case ':':
-			fprintf(stderr, "Option '-%c' requires an argument.\n", optopt);
-			exit(1);
-		default:
-			fprintf(stderr, "Unknown option '%s'. Execute '%s --help' for more info.\n",
-					argv[optind - 1], argv[0]);
-			exit(1);
-		}
+		if (opt == 'o' || opt == 'm' || opt == 'p' || opt == 'H'
+				|| opt == 'a' || opt == 'O')
+			handle_value_opt(&ctx, opt, optarg);
+		else handle_flag_opt(&ctx, opt, argv[0], argv[optind - 1]);
 	}
 	if (args.dump_tokens + args.dump_ast + args.dump_symbols
 			+ args.dump_ir + args.dump_opt > 1)
@@ -235,5 +262,7 @@ int main (int argc, char *argv[])
 
 	int status = compile(&comp, &opts);
 	compiler_destroy(&comp);
+	if (opts.out_owned) free(opts.out);
+	free((void *)opts.import_paths);
 	return status;
 }

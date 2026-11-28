@@ -37,8 +37,8 @@ int r2i_generate (R2i *r, IR *ir, Sema *sema, const char *source, const char *di
 int r2i_write (R2i *r);
 void r2i_free (R2i *r);
 
-int r2i_build_path (Sema *sema, const char *source, const char *dir,
-		const char *ext, char **canon, char **path);
+int r2i_canon_path (Sema *sema, const char *source, char **canon);
+int r2i_output_path (Sema *sema, const char *source, const char *dir, const char *ext, char **path);
 int r2i_make_dirs (const char *dir);
 int r2i_make_parent (const char *path);
 int r2i_check_owner (const char *path, const char *canon);

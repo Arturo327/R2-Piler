@@ -115,16 +115,37 @@ static inline void indent (int depth)
 	while (depth-- > 0) printf("  ");
 }
 
-static void dump_node_value (ASTNode *n)
+static void dump_decl_flags (ASTNode *n)
+{
+	if (n->str && !(n->flags & NODE_FLAG_INDIRECT))
+		printf(" name=\"%.*s\"", (int)n->len, n->str);
+	if (n->op != OP_NONE) printf(" op=%s", op_canon(n->op));
+	if (n->flags & NODE_FLAG_STATIC) printf(" static");
+	if (n->flags & NODE_FLAG_PUB) {
+		if (n->flags & NODE_FLAG_EXPORT) printf(" export");
+		else printf(" pub");
+	}
+	if (!(n->flags & NODE_FLAG_PUB) && (n->flags & NODE_FLAG_REF))
+		printf(" ref");
+	if (n->flags & NODE_FLAG_UNION) printf(" union");
+	if (n->flags & NODE_FLAG_PACKED) printf(" packed");
+	if (n->flags & NODE_FLAG_PRIV) printf(" priv");
+	if (n->flags & NODE_FLAG_SELF) printf(" self");
+	if (n->flags & NODE_FLAG_METHOD) printf(" method");
+	if (n->flags & NODE_FLAG_INIT) printf(" init");
+	if (n->flags & NODE_FLAG_DESTROY) printf(" destroy");
+	if (n->flags & NODE_FLAG_BITFIELD) {
+		printf(" bitfield=%u", n->sym);
+		if (n->flags & NODE_FLAG_BITFIELD_TYPED) printf(" typed");
+	}
+}
+
+static void dump_literal_value (ASTNode *n)
 {
 	switch (n->type)
 	{
-	case NODE_LIT_i64:
-		printf(" i64=%llu", (unsigned long long)n->u64);
-		break;
-	case NODE_LIT_u64:
-		printf(" u64=%llu", (unsigned long long)n->u64);
-		break;
+	case NODE_LIT_i64: printf(" i64=%llu", (unsigned long long)n->u64); break;
+	case NODE_LIT_u64: printf(" u64=%llu", (unsigned long long)n->u64); break;
 	case NODE_LIT_CHAR:
 		printf(" char='");
 		print_escaped(&n->chr, 1, '\'');
@@ -138,42 +159,18 @@ static void dump_node_value (ASTNode *n)
 	case NODE_BREAK: case NODE_CONTINUE:
 		printf(" level=%llu", (unsigned long long)n->u64);
 		break;
-	case NODE_VAR_DEC: case NODE_ARR_DEC: case NODE_FN_DEC: case NODE_FN_CALL:
-	case NODE_ENUM_DEC: case NODE_ENUM_VAL:
-	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
-	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
-	case NODE_STRUCT_DEC: case NODE_CLASS_DEC: case NODE_FIELD_DEC:
-	case NODE_MODULE_DEC:
-	case NODE_DEPENDS_DEC: case NODE_RET_DEC: case NODE_RET_ITEM:
-	case NODE_IMPORT_DEC: case NODE_FROM_DEC:
-		if (n->str && !(n->flags & NODE_FLAG_INDIRECT))
-			printf(" name=\"%.*s\"", (int)n->len, n->str);
-		if (n->op != OP_NONE) printf(" op=%s", op_canon(n->op));
-		if (n->flags & NODE_FLAG_STATIC) printf(" static");
-		if (n->flags & NODE_FLAG_PUB) {
-			if (n->flags & NODE_FLAG_EXPORT) printf(" export");
-			else printf(" pub");
-		}
-		if (!(n->flags & NODE_FLAG_PUB) && (n->flags & NODE_FLAG_REF))
-			printf(" ref");
-		if (n->flags & NODE_FLAG_UNION) printf(" union");
-		if (n->flags & NODE_FLAG_PACKED) printf(" packed");
-		if (n->flags & NODE_FLAG_PRIV) printf(" priv");
-		if (n->flags & NODE_FLAG_SELF) printf(" self");
-		if (n->flags & NODE_FLAG_METHOD) printf(" method");
-		if (n->flags & NODE_FLAG_INIT) printf(" init");
-		if (n->flags & NODE_FLAG_DESTROY) printf(" destroy");
-		if (n->flags & NODE_FLAG_BITFIELD) {
-			printf(" bitfield=%u", n->sym);
-			if (n->flags & NODE_FLAG_BITFIELD_TYPED) printf(" typed");
-		}
-		break;
+	default: break;
+	}
+}
+
+static void dump_misc_value (ASTNode *n)
+{
+	switch (n->type)
+	{
 	case NODE_DOT: case NODE_FIELD_INIT: case NODE_NAMED_ARG:
 		printf(" field=\"%.*s\"", (int)n->len, n->str);
 		break;
-	case NODE_INDEX_INIT:
-		printf(" indices=%u", n->sym);
-		break;
+	case NODE_INDEX_INIT: printf(" indices=%u", n->sym); break;
 	case NODE_ARGS_DEC:
 		if (n->flags & NODE_FLAG_VARARG_TYPED) printf(" typed variadic");
 		else if (n->flags & NODE_FLAG_VARARG) printf(" variadic");
@@ -190,6 +187,33 @@ static void dump_node_value (ASTNode *n)
 		break;
 	case NODE_DELETE:
 		if (n->flags & NODE_FLAG_CUSTOM_ALLOC) printf(" custom-free");
+		break;
+	default: break;
+	}
+}
+
+static void dump_node_value (ASTNode *n)
+{
+	switch (n->type)
+	{
+	case NODE_LIT_i64: case NODE_LIT_u64: case NODE_LIT_CHAR:
+	case NODE_LIT_STR: case NODE_ID: case NODE_BREAK: case NODE_CONTINUE:
+		dump_literal_value(n);
+		break;
+	case NODE_DOT: case NODE_FIELD_INIT: case NODE_NAMED_ARG:
+	case NODE_INDEX_INIT: case NODE_ARGS_DEC: case NODE_CAST:
+	case NODE_NEW: case NODE_NEW_CTOR: case NODE_DELETE:
+		dump_misc_value(n);
+		break;
+	case NODE_VAR_DEC: case NODE_ARR_DEC: case NODE_FN_DEC: case NODE_FN_CALL:
+	case NODE_ENUM_DEC: case NODE_ENUM_VAL:
+	case NODE_TYPE_DEC: case NODE_NEWTYPE_DEC:
+	case NODE_EXTERN_FN_DEC: case NODE_EXTERN_VAR_DEC:
+	case NODE_STRUCT_DEC: case NODE_CLASS_DEC: case NODE_FIELD_DEC:
+	case NODE_MODULE_DEC:
+	case NODE_DEPENDS_DEC: case NODE_RET_DEC: case NODE_RET_ITEM:
+	case NODE_IMPORT_DEC: case NODE_FROM_DEC:
+		dump_decl_flags(n);
 		break;
 	default:
 		break;

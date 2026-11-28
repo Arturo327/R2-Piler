@@ -69,7 +69,7 @@ static void symtab_rehash (SymbolTable *t, Arena *a)
 	t->bucket_count = count;
 }
 
-uint32_t symtab_declare (SymbolTable *t, Arena *a, Symbol sym)
+uint32_t symtab_declare (SymbolTable *t, Arena *a, const Symbol *sym)
 {
 	if (t->act_count >= t->bucket_count * 2)
 		symtab_rehash(t, a);
@@ -80,14 +80,31 @@ uint32_t symtab_declare (SymbolTable *t, Arena *a, Symbol sym)
 		symtab_grow_active(t, a);
 
 	uint32_t idx = t->count++;
-	uint32_t bucket = hash_name(sym.name, sym.len) & (t->bucket_count - 1);
+	uint32_t bucket = hash_name(sym->name, sym->len) & (t->bucket_count - 1);
 
-	sym.next = t->buckets[bucket];
-	t->symbols[idx] = sym;
+	Symbol copy = *sym;
+
+	copy.next = t->buckets[bucket];
+	t->symbols[idx] = copy;
 	t->buckets[bucket] = idx;
 
 	t->active[t->act_count++] = idx;
 	return idx;
+}
+
+void symtab_rename (SymbolTable *t, uint32_t sym, char *name, uint16_t len)
+{
+	Symbol *old = t->symbols + sym;
+	uint32_t bucket = hash_name(old->name, old->len) & (t->bucket_count - 1);
+	uint32_t *link = t->buckets + bucket;
+
+	while (*link != NO_SYMBOL && *link != sym) link = &t->symbols[*link].next;
+	if (*link == sym) *link = old->next;
+	old->name = name;
+	old->len = len;
+	bucket = hash_name(name, len) & (t->bucket_count - 1);
+	old->next = t->buckets[bucket];
+	t->buckets[bucket] = sym;
 }
 
 uint32_t symtab_find (SymbolTable *t, char *name, uint16_t len)

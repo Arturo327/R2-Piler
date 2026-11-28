@@ -480,6 +480,27 @@ static uint32_t parse_delete (Parser *p)
 	return node;
 }
 
+static uint32_t parse_packed (Parser *p)
+{
+	advance(p);
+	if (p->curr.type != TOK_STRUCT && p->curr.type != TOK_UNION) {
+		error_report(p->err, ERR_ERROR, token_loc(p->curr), "expected 'struct' or 'union' after 'packed'");
+		p->panic_mode = 1;
+		return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
+	}
+	return parse_struct(p, 1);
+}
+
+static uint32_t parse_expr_statement (Parser *p)
+{
+	uint32_t node = parse_expr(p, 0);
+	if (p->curr.type == TOK_COMMA && !p->panic_mode)
+		return parse_multi_assign(p, node);
+	node = maybe_inc_dec(p, node);
+	consume(p, TOK_SEMCOL, "expected ';' at end of expression");
+	return node;
+}
+
 uint32_t parse_statement_inner (Parser *p, int root)
 {
 	switch (p->curr.type)
@@ -503,16 +524,7 @@ uint32_t parse_statement_inner (Parser *p, int root)
 	case TOK_STRUCT: case TOK_UNION: return parse_struct(p, 0);
 	case TOK_CLASS: return parse_class(p);
 	case TOK_PRIV: return parse_priv_method(p);
-	case TOK_PACKED: {
-		advance(p);
-		if (p->curr.type != TOK_STRUCT && p->curr.type != TOK_UNION) {
-			error_report(p->err, ERR_ERROR, token_loc(p->curr),
-					"expected 'struct' or 'union' after 'packed'");
-			p->panic_mode = 1;
-			return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
-		}
-		return parse_struct(p, 1);
-	}
+	case TOK_PACKED: return parse_packed(p);
 	case TOK_RET: return parse_return(p);
 	case TOK_BREAK: return parse_loop_jump(p, NODE_BREAK, "expected ';' after 'break'");
 	case TOK_CONTINUE: return parse_loop_jump(p, NODE_CONTINUE, "expected ';' after 'continue'");
@@ -524,14 +536,7 @@ uint32_t parse_statement_inner (Parser *p, int root)
 	case TOK_DROP: return parse_drop(p);
 	case TOK_RESET: return parse_reset(p);
 	case TOK_INC: case TOK_DEC: return error_prefix_inc(p);
-	default: {
-		uint32_t node = parse_expr(p, 0);
-		if (p->curr.type == TOK_COMMA && !p->panic_mode)
-			return parse_multi_assign(p, node);
-		node = maybe_inc_dec(p, node);
-		consume(p, TOK_SEMCOL, "expected ';' at end of expression");
-		return node;
-	}
+	default: return parse_expr_statement(p);
 	}
 }
 

@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "ir/ir.h"
+#include "ir/cfg.h"
 #include "arena/arena.h"
 
 #define VR_NO_HOME -1
@@ -108,6 +109,31 @@ typedef struct RegCtx {
 	uint64_t callee_used;
 } RegCtx;
 
-void regalloc (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, int spill_all);
+typedef struct RegAlloc {
+	Arena *arena;
+	IR *ir;
+	IRFn *fn;
+	Reg *regs;
+	RegCtx *ctx;
+
+	CfgBlock *blocks;
+	uint32_t *lmap;
+	uint32_t *lrefs;
+	uint64_t *live;
+	uint64_t *tmp;
+
+	EdgeMove *moves;
+	uint32_t move_cap;
+	uint32_t move_count;
+
+	Cfg cfg;
+	uint64_t all;
+	uint32_t words;
+	uint32_t entry;
+
+	uint8_t spill_all;
+} RegAlloc;
+
+void regalloc (RegAlloc *ra);
 
 #endif

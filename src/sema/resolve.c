@@ -139,8 +139,7 @@ static TypeId resolve_array_spec (Sema *s, ASTNode *ref, uint8_t *done, int *def
 	return id;
 }
 
-static TypeId resolve_fn_item (Sema *s, uint32_t *item, TypeId *out,
-		uint8_t *done, int *deferred, const char *what)
+static TypeId resolve_fn_item(Sema *s, uint32_t *item, TypeId *out, uint8_t *done, int *deferred, const char *what)
 {
 	if (*item == NO_NODE) return TYPE_ERROR;
 
@@ -223,7 +222,6 @@ static TypeId resolve_const_spec (Sema *s, ASTNode *ref, uint8_t *done, int *def
 static TypeId resolve_spec_at (Sema *s, ASTNode *owner, uint8_t *done, int *deferred, int flags)
 {
 	if (owner->type_node == NO_TYPE_NODE) return owner->data_type;
-
 	uint32_t ref_idx = (uint32_t)(owner - s->ast->nodes) + owner->type_node;
 	ASTNode *ref = s->ast->nodes + ref_idx;
 

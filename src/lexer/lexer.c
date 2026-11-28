@@ -391,15 +391,12 @@ static Token handle_char_literal (Lexer *l)
 		l->cursor++;
 		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
 	}
-
 	char chr;
 	if (!handle_char_literal_next_char(l, &chr)) {
 		char_literal_scan_extra(l);
-		if (*l->cursor == '\'')
-			l->cursor++;
+		if (*l->cursor == '\'') l->cursor++;
 		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
 	}
-
 	int multichr = char_literal_scan_extra(l);
 
 	if (*l->cursor != '\'') {
@@ -408,20 +405,15 @@ static Token handle_char_literal (Lexer *l)
 		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
 	}
 	l->cursor++;
-
 	if (multichr) {
 		error_report(l->err, ERR_ERROR, loc_at(start_line, start_col,
 				(int)(l->cursor - start)), "char literal must contain exactly one character");
 		return make_token(TOK_INVALID, NULL, 0, start_line, start_col);
 	}
 
-	Token token = {
-		.type = TOK_LIT_CHAR,
-		.line = start_line,
-		.chr = chr,
-		.col = start_col,
-		.len = (uint16_t)(l->cursor - start)
-	};
+	Token token = { .type = TOK_LIT_CHAR, .line = start_line, .chr = chr,
+		.col = start_col, .len = (uint16_t)(l->cursor - start) };
+
 	return token;
 }
 

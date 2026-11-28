@@ -8,44 +8,22 @@
 #include <sys/stat.h>
 
 #include "mangle/mangle.h"
+#include "util/strbuf.h"
 
 #define R2I_PATH_MAX 4096
 
 void r2i_printf (R2i *r, const char *fmt, ...)
 {
 	va_list ap;
-	va_list probe;
 
 	va_start(ap, fmt);
-	va_copy(probe, ap);
-	int need = vsnprintf(NULL, 0, fmt, probe);
-	va_end(probe);
-	if (need < 0) {
-		va_end(ap);
-		return;
-	}
-	if (r->len + (size_t)need + 1 > r->cap) {
-		size_t cap = r->cap;
-
-		while (r->len + (size_t)need + 1 > cap) cap <<= 1;
-		char *code = realloc(r->code, cap);
-
-		if (!code) {
-			fprintf(stderr, "Not enough memory\n");
-			exit(1);
-		}
-		r->code = code;
-		r->cap = cap;
-	}
-	vsnprintf(r->code + r->len, (size_t)need + 1, fmt, ap);
+	sb_vprintf(&r->code, &r->len, &r->cap, fmt, ap);
 	va_end(ap);
-	r->len += (size_t)need;
 }
 
 void r2i_indent (R2i *r, int depth)
 {
-	for (int i = 0; i < depth; i++)
-		r2i_printf(r, "\t");
+	sb_indent(&r->code, &r->len, &r->cap, depth);
 }
 
 int r2i_valid_name (const char *name, size_t len)
@@ -93,17 +71,11 @@ static int module_file_name (Sema *sema, const char *source, const char **name, 
 	return 0;
 }
 
-int r2i_build_path (Sema *sema, const char *source, const char *dir,
-		const char *ext, char **canon, char **path)
+int r2i_canon_path (Sema *sema, const char *source, char **canon)
 {
 	char resolved[R2I_PATH_MAX];
-	char rel[R2I_PATH_MAX];
-	size_t dir_len = strlen(dir);
 
-	const char *name;
-	size_t len;
-	if (module_file_name(sema, source, &name, &len)) return 1;
-
+	(void)sema;
 	if (!realpath(source, resolved)) {
 		fprintf(stderr, "Error: cannot resolve the path of '%s'\n", source);
 		return 1;
@@ -115,7 +87,17 @@ int r2i_build_path (Sema *sema, const char *source, const char *dir,
 		exit(1);
 	}
 	strcpy(*canon, resolved);
+	return 0;
+}
 
+int r2i_output_path (Sema *sema, const char *source, const char *dir,
+		const char *ext, char **path)
+{
+	char rel[R2I_PATH_MAX];
+	size_t dir_len = strlen(dir);
+	const char *name;
+	size_t len;
+	if (module_file_name(sema, source, &name, &len)) return 1;
 	const char *subdir = "";
 	size_t subdir_len = 0;
 	if (!sema->mod_seen) {
@@ -128,8 +110,7 @@ int r2i_build_path (Sema *sema, const char *source, const char *dir,
 		}
 	}
 	const char *slash = dir_len && dir[dir_len - 1] == '/' ? "" : "/";
-	size_t ext_len = strlen(ext);
-	size_t cap = dir_len + strlen(slash) + subdir_len + len + ext_len + 1;
+	size_t cap = dir_len + strlen(slash) + subdir_len + len + strlen(ext) + 1;
 
 	*path = malloc(cap);
 	if (!*path) {
@@ -304,26 +285,6 @@ int r2i_has_init (IR *ir)
 	return 0;
 }
 
-static void print_header_meta (R2i *r)
-{
-	Sema *s = r->sema;
-
-	r2i_printf(r, "// depends:");
-	for (uint16_t i = 0; i < s->dep_count; i++)
-		r2i_printf(r, "%s%.*s", i ? ", " : " ",
-				(int)s->dep_lens[i], s->deps[i]);
-	r2i_printf(r, "\n// total_imports:");
-	int first = 1;
-	for (uint32_t i = 0; i < s->module_count; i++) {
-		ImportModule *m = s->modules + i;
-
-		r2i_printf(r, "%s%.*s", first ? " " : ", ",
-				(int)m->name_len, m->name);
-		first = 0;
-	}
-	r2i_printf(r, "\n\n");
-}
-
 int r2i_generate (R2i *r, IR *ir, Sema *sema, const char *source, const char *dir)
 {
 	memset(r, 0, sizeof(*r));
@@ -332,7 +293,7 @@ int r2i_generate (R2i *r, IR *ir, Sema *sema, const char *source, const char *di
 	r->source = source;
 	r->dir = dir;
 
-	if (r2i_build_path(sema, source, dir, ".r2i", &r->canon, &r->path)) return 1;
+	if (r2i_canon_path(sema, source, &r->canon) || r2i_output_path(sema, source, dir, ".r2i", &r->path)) return 1;
 	r2i_build_types(r);
 	r2i_collect_imports(r);
 	r->cap = 1024;
@@ -353,7 +314,7 @@ int r2i_generate (R2i *r, IR *ir, Sema *sema, const char *source, const char *di
 		first = 0;
 	}
 	r2i_printf(r, "\n");
-	print_header_meta(r);
+	sb_print_meta(&r->code, &r->len, &r->cap, r->sema, 1);
 	r2i_make_decls(r);
 	r2i_make_init(r);
 	r->ready = 1;

@@ -116,7 +116,7 @@ static void check_static_decl (Sema *s, uint32_t idx)
 		}
 	}
 
-	uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_VAR, n->data_type, idx);
+	uint32_t sym = sema_declare(s, idx, SYMBOL_VAR, n->data_type);
 
 	if (has_init) mark_placement(s, sym, s->ast->nodes[idx].child);
 	s->table.symbols[sym].is_static = 1;
@@ -267,7 +267,7 @@ void check_var_dec (Sema *s, uint32_t idx)
 		check_static_decl(s, idx);
 		return;
 	}
-	uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_VAR, n->data_type, idx);
+	uint32_t sym = sema_declare(s, idx, SYMBOL_VAR, n->data_type);
 
 	if (is_null) s->table.symbols[sym].null_known = 1;
 	if (has_init) {

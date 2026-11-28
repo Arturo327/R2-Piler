@@ -5,6 +5,13 @@
 #define ALIGN(v, a) (((v) + (a) - 1) & ~((uint64_t)(a) - 1))
 
 typedef struct {
+	uint64_t off;
+	uint32_t size;
+	uint32_t used;
+	uint32_t packed;
+} BitUnit;
+
+typedef struct {
 	Sema *s;
 	StructField *out;
 	uint32_t count;
@@ -18,14 +25,14 @@ typedef struct {
 	uint32_t fa;
 	uint64_t size;
 	uint32_t align;
+	uint64_t *off;
+	uint32_t *al;
+	BitUnit *unit;
+	uint16_t *k;
+	uint32_t node;
+	int uni;
+	int packed;
 } StructLayout;
-
-typedef struct {
-	uint64_t off;
-	uint32_t size;
-	uint32_t used;
-	uint32_t packed;
-} BitUnit;
 
 static int layout_struct (Sema *s, TypeId id);
 static void place (StructLayout *l, uint32_t node);
@@ -120,7 +127,7 @@ void sema_decl_struct (Sema *s, uint32_t idx)
 		return;
 	}
 	if (symtab_find(&s->table, n->str, n->len) != NO_SYMBOL) {
-		sema_declare(s, n->str, n->len, SYMBOL_TYPE, TYPE_ERROR, idx);
+		sema_declare(s, idx, SYMBOL_TYPE, TYPE_ERROR);
 		return;
 	}
 
@@ -133,7 +140,7 @@ void sema_decl_struct (Sema *s, uint32_t idx)
 	types[id].decl = idx;
 	types[id].is_union = !is_class && (n->flags & NODE_FLAG_UNION) != 0;
 	types[id].is_packed = (n->flags & NODE_FLAG_PACKED) != 0;
-	sema_declare(s, n->str, n->len, SYMBOL_TYPE, id, idx);
+	sema_declare(s, idx, SYMBOL_TYPE, id);
 }
 
 static TypeId field_struct_dep (Sema *s, uint32_t idx)
@@ -228,7 +235,7 @@ static int measure_member (StructLayout *l, uint32_t c)
 	}
 	uint16_t grp = l->grp;
 	uint16_t alt = l->alt;
-	StructLayout sub = { s, out, 0, grp, alt, 0, 0, 0, 0, 0, 0, 0, 0 };
+	StructLayout sub = { .s = s, .out = out, .grp = grp, .alt = alt };
 	place(&sub, c);
 	l->ft = TYPE_ERROR;
 	l->fs = sub.size;
@@ -236,12 +243,47 @@ static int measure_member (StructLayout *l, uint32_t c)
 	return 1;
 }
 
+static void place_one (StructLayout *l, uint32_t c)
+{
+	Sema *s = l->s;
+	uint64_t at;
+	uint32_t bit_off = 0;
+
+	if (s->ast->nodes[c].type == NODE_FN_DEC) return;
+	if (l->record && l->uni) l->alt = ++*l->k;
+	if (!measure_member(l, c)) return;
+	TypeId ft = l->ft;
+	uint64_t fs = l->fs;
+	uint32_t fa = l->fa;
+	if (member_is_bitfield(s, c) && !l->uni)
+		at = bitfield_slot(l->unit, s->ast->nodes[c].sym, (uint32_t)fs,
+				*l->off, &bit_off);
+	else {
+		l->unit->size = 0;
+		at = l->uni ? 0 : (l->packed ? *l->off : ALIGN(*l->off, fa));
+	}
+	if (l->record && ft != TYPE_ERROR)
+		add_field(l, c, ft, l->base + at, bit_off);
+	else if (l->record) {
+		uint64_t saved_base = l->base;
+		int saved_record = l->record;
+
+		l->base += at;
+		l->record = 1;
+		place(l, c);
+		fs = l->size;
+		fa = l->align;
+		l->base = saved_base;
+		l->record = saved_record;
+	}
+	if (at + fs > *l->off) *l->off = at + fs;
+	if (fa > *l->al) *l->al = fa;
+}
+
 static void place (StructLayout *l, uint32_t node)
 {
 	Sema *s = l->s;
 	int record = l->record;
-	uint64_t base = l->base;
-
 	uint32_t c = s->ast->nodes[node].child;
 	int uni = (s->ast->nodes[node].flags & NODE_FLAG_UNION) != 0;
 	int packed = (s->ast->nodes[node].flags & NODE_FLAG_PACKED) != 0;
@@ -250,45 +292,32 @@ static void place (StructLayout *l, uint32_t node)
 	uint16_t k = 0;
 	uint64_t off = 0;
 	uint32_t al = 1;
-	BitUnit unit = { 0, 0, 0, packed };
+	BitUnit unit = { 0, 0, 0, (uint32_t)packed };
+	uint64_t *save_off = l->off;
+	uint32_t *save_al = l->al;
+	BitUnit *save_unit = l->unit;
+	uint16_t *save_k = l->k;
+	int save_uni = l->uni;
+	int save_packed = l->packed;
 
+	l->off = &off;
+	l->al = &al;
+	l->unit = &unit;
+	l->k = &k;
+	l->node = node;
+	l->uni = uni;
+	l->packed = packed;
 	if (uni && record) l->grp = ++l->groups;
-	for (; c != NO_NODE; c = s->ast->nodes[c].next_bro) {
-		TypeId ft = TYPE_ERROR;
-		uint64_t fs = 0;
-		uint32_t fa = 1;
-		uint32_t bit_off = 0;
-
-		if (s->ast->nodes[c].type == NODE_FN_DEC) continue;
-		if (uni && record) l->alt = ++k;
-		if (!measure_member(l, c)) continue;
-		ft = l->ft;
-		fs = l->fs;
-		fa = l->fa;
-
-		uint64_t at;
-		if (member_is_bitfield(s, c) && !uni)
-			at = bitfield_slot(&unit, s->ast->nodes[c].sym, (uint32_t)fs,
-					off, &bit_off);
-		else {
-			unit.size = 0;
-			at = uni ? 0 : (packed ? off : ALIGN(off, fa));
-		}
-		if (record && ft != TYPE_ERROR) add_field(l, c, ft, base + at, bit_off);
-		else if (record) {
-			uint64_t saved_base = l->base;
-			int saved_record = l->record;
-			l->base = base + at;
-			l->record = 1;
-			place(l, c);
-			fs = l->size;
-			fa = l->align;
-			l->base = saved_base;
-			l->record = saved_record;
-		}
-		if (at + fs > off) off = at + fs;
-		if (fa > al) al = fa;
+	while (c != NO_NODE) {
+		place_one(l, c);
+		c = s->ast->nodes[c].next_bro;
 	}
+	l->off = save_off;
+	l->al = save_al;
+	l->unit = save_unit;
+	l->k = save_k;
+	l->uni = save_uni;
+	l->packed = save_packed;
 	l->grp = my_grp;
 	l->alt = my_alt;
 	l->size = packed ? off : ALIGN(off, al);

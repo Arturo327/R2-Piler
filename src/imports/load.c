@@ -459,8 +459,7 @@ static int add_alias (ImportLoader *l, uint32_t module,
 	return 0;
 }
 
-static int add_binding (ImportLoader *l, uint32_t module, const char *name,
-		uint16_t len, ImportedDecl *item, uint32_t use)
+static int add_binding(ImportLoader *l, uint32_t module, const char *name, uint16_t len, ImportedDecl *item, uint32_t use)
 {
 	Sema *s = &l->c->sema;
 
@@ -610,55 +609,59 @@ static void load_folder (ImportLoader *l, const char *path, const FolderLoad *fl
 	}
 }
 
+static int load_from_sub (ImportLoader *l, uint32_t idx, uint32_t item)
+{
+	AST *ast = &l->c->parser.ast;
+	ASTNode *n = ast->nodes + idx;
+	ASTNode *it = ast->nodes + item;
+	uint32_t local = it->child != NO_NODE ? it->child : item;
+	ModName sub = {0};
+	ModName base = { n->str, n->len };
+
+	join_name(l, &base, it->str, it->len, &sub);
+	if (find_in_dirs(l, sub.str, sub.len, &FIND_FILE)
+			|| find_in_dirs(l, sub.str, sub.len, &FIND_DIR)) {
+		if (find_in_dirs(l, n->str, n->len, &FIND_FILE))
+			error_report(&l->c->err, ERR_WARNING, use_loc(l, item), "'%.*s' resolves to submodule '%.*s'; a symbol with that name"
+				" exported by module '%.*s' is ignored",
+				(int)it->len, it->str, (int)sub.len, sub.str,
+				(int)n->len, n->str);
+		ImportRequest req = { .name = sub.str, .len = sub.len,
+			.alias = ast->nodes[local].str, .alias_len = ast->nodes[local].len,
+			.use = item, .direct = 1 };
+		(void)load_path(l, &req);
+		return 1;
+	}
+	return 0;
+}
+
 static void load_from (ImportLoader *l, uint32_t idx)
 {
 	AST *ast = &l->c->parser.ast;
 	ASTNode *n = ast->nodes + idx;
 	uint32_t mod = NO_MODULE;
-
 	for (uint32_t item = n->child; item != NO_NODE; item = ast->nodes[item].next_bro) {
 		ASTNode *it = ast->nodes + item;
 		uint32_t local = it->child != NO_NODE ? it->child : item;
 		const char *lname = ast->nodes[local].str;
 		uint16_t llen = ast->nodes[local].len;
-		ModName sub = {0};
-		ModName base = { n->str, n->len };
-
-		join_name(l, &base, it->str, it->len, &sub);
-		if (find_in_dirs(l, sub.str, sub.len, &FIND_FILE)
-				|| find_in_dirs(l, sub.str, sub.len, &FIND_DIR)) {
-			if (find_in_dirs(l, n->str, n->len, &FIND_FILE))
-				error_report(&l->c->err, ERR_WARNING, use_loc(l, item),
-						"'%.*s' resolves to submodule '%.*s'; a symbol with that name"
-						" exported by module '%.*s' is ignored",
-						(int)it->len, it->str, (int)sub.len, sub.str,
-						(int)n->len, n->str);
-			ImportRequest req = { .name = sub.str, .len = sub.len, .alias = lname,
-					.alias_len = llen, .use = item, .direct = 1 };
-
-			(void)load_path(l, &req);
-			continue;
-		}
+		if (load_from_sub(l, idx, item)) continue;
 		if (mod == NO_MODULE
 				&& find_in_dirs(l, n->str, n->len, &FIND_FILE)) {
 			ImportRequest req = { .name = n->str, .len = n->len,
 					.use = idx, .direct = 1 };
-
 			mod = load_module(l, &req);
 			if (mod == NO_MODULE) continue;
 		}
 		if (mod == NO_MODULE) {
-			error_report(&l->c->err, ERR_ERROR, use_loc(l, item),
-					"module '%.*s' does not export '%.*s'",
+			error_report(&l->c->err, ERR_ERROR, use_loc(l, item), "module '%.*s' does not export '%.*s'",
 					(int)n->len, n->str, (int)it->len, it->str);
 			l->failed = 1;
 			continue;
 		}
 		ImportedDecl *decl = import_find_item(&l->c->sema.modules[mod], it->str, it->len);
-
 		if (!decl) {
-			error_report(&l->c->err, ERR_ERROR, use_loc(l, item),
-					"module '%.*s' does not export '%.*s'",
+			error_report(&l->c->err, ERR_ERROR, use_loc(l, item), "module '%.*s' does not export '%.*s'",
 					(int)n->len, n->str, (int)it->len, it->str);
 			l->failed = 1;
 			continue;

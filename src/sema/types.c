@@ -13,7 +13,7 @@ void sema_decl_type (Sema *s, uint32_t idx)
 		return;
 	}
 	if (symtab_find(&s->table, n->str, n->len) != NO_SYMBOL) {
-		sema_declare(s, n->str, n->len, SYMBOL_TYPE, TYPE_ERROR, idx);
+		sema_declare(s, idx, SYMBOL_TYPE, TYPE_ERROR);
 		return;
 	}
 
@@ -22,7 +22,7 @@ void sema_decl_type (Sema *s, uint32_t idx)
 		error_report(s->err, ERR_ERROR, node_loc(n), "too many types");
 		return;
 	}
-	sema_declare(s, n->str, n->len, SYMBOL_TYPE, id, idx);
+	sema_declare(s, idx, SYMBOL_TYPE, id);
 }
 
 static int type_decl_target (Sema *s, ASTNode *n, uint8_t *done, TypeId *out)

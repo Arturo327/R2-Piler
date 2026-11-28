@@ -11,10 +11,18 @@ const uint8_t compound_base[NODE_COUNT] = {
 	[NODE_LS_ASSIGN] = NODE_LS, [NODE_RS_ASSIGN] = NODE_RS
 };
 
-static TypeId check_expr_node (Sema *s, uint32_t idx)
+static TypeId expr_rejected (Sema *s, uint32_t idx, const char *msg)
 {
 	ASTNode *n = s->ast->nodes + idx;
 
+	error_report(s->err, ERR_ERROR, node_loc(n), "%s", msg);
+	n->data_type = TYPE_ERROR;
+	return TYPE_ERROR;
+}
+
+static TypeId check_expr_node (Sema *s, uint32_t idx)
+{
+	ASTNode *n = s->ast->nodes + idx;
 	switch (n->type)
 	{
 	case NODE_LIT_i64: case NODE_LIT_u64:
@@ -39,25 +47,16 @@ static TypeId check_expr_node (Sema *s, uint32_t idx)
 	case NODE_OR_A_ASSIGN: case NODE_XOR_ASSIGN: case NODE_LS_ASSIGN:
 	case NODE_RS_ASSIGN: return check_compound_assign(s, idx);
 	case NODE_INC: case NODE_DEC:
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"increment/decrement cannot be used as an expression");
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
+		return expr_rejected(s, idx, "increment/decrement cannot be used as an expression");
 	case NODE_NEG: case NODE_NOT_L: case NODE_NOT_A:
 		return check_unary(s, idx);
 	case NODE_CAST: return check_cast(s, idx);
 	case NODE_TERNARY: return check_ternary(s, idx);
 	case NODE_EMPTY: n->data_type = TYPE_VOID; return TYPE_VOID;
 	case NODE_ARRAY_INIT: case NODE_STRUCT_INIT:
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"a '{...}' literal needs an explicit type; write '{...} as T'");
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
+		return expr_rejected(s, idx, "a '{...}' literal needs an explicit type; write '{...} as T'");
 	case NODE_SPREAD:
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"spread arguments ('...') are only allowed in a typed variadic call");
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
+		return expr_rejected(s, idx, "spread arguments ('...') are only allowed in a typed variadic call");
 	case NODE_ERROR: n->data_type=TYPE_ERROR; return TYPE_ERROR;
 	default: return check_binary(s, idx);
 	}
@@ -93,11 +92,9 @@ int expr_has_effect (Sema *s, uint32_t idx)
 	case NODE_ASSIGN: case NODE_NEW: case NODE_NEW_CTOR:
 	case NODE_CTOR_CALL: return 1;
 	case NODE_LIT_i64: case NODE_LIT_u64: case NODE_LIT_CHAR:
-	case NODE_LIT_STR: case NODE_LIT_NULL: case NODE_EMPTY:
-		return 0;
-	case NODE_ID: case NODE_DEREF: case NODE_ADDR:
-	case NODE_NEG: case NODE_NOT_L: case NODE_NOT_A:
-	case NODE_SIZEOF: case NODE_CAST:
+	case NODE_LIT_STR: case NODE_LIT_NULL: case NODE_EMPTY: return 0;
+	case NODE_ID: case NODE_DEREF: case NODE_ADDR: case NODE_NEG:
+	case NODE_NOT_L: case NODE_NOT_A: case NODE_SIZEOF: case NODE_CAST:
 		return expr_has_effect(s, child);
 	case NODE_ALIGNOF: case NODE_OFFSETOF:
 		return 0;

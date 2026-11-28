@@ -121,8 +121,7 @@ static void print_expanded (const char *s, int len, int *vis)
 	}
 }
 
-static void print_snippet (const char *line, int line_len, int col, int span,
-		int line_no, const char *color)
+static void print_snippet(const char *line, int line_len, int col, int span, int line_no, const char *color)
 {
 	int vis = 0;
 

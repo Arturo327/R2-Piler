@@ -450,17 +450,15 @@ static uint32_t index_op_params (Sema *s, uint32_t method)
 	return count - 1;
 }
 
-static TypeId check_index_value (Sema *s, uint32_t idx, uint32_t base,
-		TypeId cls, uint32_t first, uint32_t method)
+static TypeId check_index_value(Sema *s, uint32_t idx, uint32_t base, uint32_t first, uint32_t method)
 {
-	TypeId result = sema_op_call(s, idx, base, cls, first, method);
+	TypeId result = sema_op_call(s, idx, base, first, method);
 
 	if (result != TYPE_ERROR) s->ast->nodes[idx].op = OP_INDEX;
 	return result;
 }
 
-static TypeId check_index_lvalue (Sema *s, uint32_t idx, uint32_t base,
-		TypeId cls, uint32_t first, uint32_t method, TypeId elem)
+static TypeId check_index_lvalue(Sema *s, uint32_t idx, uint32_t base, uint32_t first, uint32_t method, TypeId elem)
 {
 	ASTNode call = {0};
 	call.type = NODE_FN_CALL;
@@ -470,8 +468,8 @@ static TypeId check_index_lvalue (Sema *s, uint32_t idx, uint32_t base,
 	call.next_bro = NO_NODE;
 	call.sym = NO_SYMBOL;
 	call.type_node = NO_TYPE_NODE;
-	uint32_t call_idx = sema_new_node(s, call);
-	TypeId result = sema_op_call(s, call_idx, base, cls, first, method);
+	uint32_t call_idx = sema_new_node(s, &call);
+	TypeId result = sema_op_call(s, call_idx, base, first, method);
 
 	if (result == TYPE_ERROR) {
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
@@ -525,12 +523,59 @@ static TypeId check_index_op (Sema *s, uint32_t idx, uint32_t base,
 	TypeId elem = types[repr].base;
 	TypeId elem_u = type_canon(type_unconst_of(elem));
 	if (elem_u == TYPE_VOID || type_kind(elem_u) == TK_FN)
-		return check_index_value(s, idx, base, cls, first, method);
-	return check_index_lvalue(s, idx, base, cls, first, method, elem);
+		return check_index_value(s, idx, base, first, method);
+	return check_index_lvalue(s, idx, base, first, method, elem);
 }
 
-static TypeId check_native_index (Sema *s, uint32_t idx, uint32_t base,
-		uint32_t index, TypeId ptr)
+static int index_kind_ok (Sema *s, uint32_t idx, TypeKind kind, TypeId target)
+{
+	if (kind == TK_PTR && type_unconst_of(types[target].base) == TYPE_VOID) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"cannot index 'ptr void'; cast it to a typed pointer first");
+		return 0;
+	}
+	if (kind == TK_PTR && type_kind(types[target].base) == TK_FN) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"cannot index a function pointer; call it directly");
+		return 0;
+	}
+	return 1;
+}
+
+static int index_offset_ok (Sema *s, uint32_t idx, uint32_t index,
+		TypeId off, TypeKind kind)
+{
+	if (s->ast->nodes[index].next_bro != NO_NODE) {
+		check_index_args(s, s->ast->nodes[index].next_bro);
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"native indexing takes a single index; use 'a[i][j]'");
+		return 0;
+	}
+	if (!is_integer_operand(off)) {
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				kind == TK_PTR ? "pointer indexing requires an integer index"
+				: kind == TK_ARRAY ? "array indexing requires an integer index"
+				: "slice indexing requires an integer index");
+		return 0;
+	}
+	return 1;
+}
+
+static void check_index_bounds (Sema *s, uint32_t idx, uint32_t index,
+		TypeId index_type, TypeId target)
+{
+	uint64_t bits;
+	uint32_t count = types[target].count;
+
+	if (!lit_node_bits(s, s->ast->nodes + index, &bits)) return;
+	int neg = types[index_type].sign && (int64_t)bits < 0;
+	if (neg || bits >= count)
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+				"index %lld is out of bounds for an array of size %u",
+				(long long)(int64_t)bits, count);
+}
+
+static TypeId check_native_index (Sema *s, uint32_t idx, uint32_t base, uint32_t index, TypeId ptr)
 {
 	TypeId off = check_expr(s, index);
 	ASTNode *n = s->ast->nodes + idx;
@@ -549,52 +594,16 @@ static TypeId check_native_index (Sema *s, uint32_t idx, uint32_t base,
 		n->data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (kind == TK_PTR && type_unconst_of(types[target].base) == TYPE_VOID) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"cannot index 'ptr void'; cast it to a typed pointer first");
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
-	if (kind == TK_PTR && type_kind(types[target].base) == TK_FN) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"cannot index a function pointer; call it directly");
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
-	if (s->ast->nodes[index].next_bro != NO_NODE) {
-		check_index_args(s, s->ast->nodes[index].next_bro);
-		n = s->ast->nodes + idx;
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"native indexing takes a single index; use 'a[i][j]'");
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
-	if (!is_integer_operand(off)) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				kind == TK_PTR ? "pointer indexing requires an integer index"
-				: kind == TK_ARRAY ? "array indexing requires an integer index"
-				: "slice indexing requires an integer index");
-		n->data_type = TYPE_ERROR;
+	if (!index_kind_ok(s, idx, kind, target)
+			|| !index_offset_ok(s, idx, index, off, kind)) {
+		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
 
 	TypeId index_type = finalize_type(s, index, off);
 	n = s->ast->nodes + idx;
 
-	if (kind == TK_ARRAY) {
-		uint64_t bits;
-		uint32_t count = types[target].count;
-
-		if (lit_node_bits(s, s->ast->nodes + index, &bits)) {
-			int neg = types[index_type].sign && (int64_t)bits < 0;
-
-			if (neg || bits >= count)
-				error_report(s->err, ERR_ERROR, node_loc(n),
-						"index %lld is out of bounds for an array of size %u",
-						(long long)(int64_t)bits, count);
-		}
-	}
-
+	if (kind == TK_ARRAY) check_index_bounds(s, idx, index, index_type, target);
 	n->data_type = types[target].base;
 	if (kind == TK_PTR) warn_null_deref(s, idx, base);
 	agg_member_read(s, idx);

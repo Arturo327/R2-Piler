@@ -51,17 +51,13 @@ scope exit.
   globals and `static` structs, and `sizeof`.
 - Classes: `class C { x : i64; init(self, ...) {...} fn m(self, ...) {...} }`.
   Methods take an implicit `self : ptr C`; `p.m(...)` inserts the receiver and
-  `C::m(...)` calls directly. `priv` members are visible only inside the
-  class. A class may define an initializer, invoked with `C(...)` or
-  `new C(...)`, and an optional destructor, invoked through `drop`, `reset`
-  and `delete`. `new(slot) C(...)` constructs into caller-provided memory.
-  Operator overloads are declared with `op` (`op + (self, b : C) : C`,
-  unary `op - (self)`, and `op [] (self, i : i64) : ptr T`); they apply to
-  class values and a `ptr C` keeps native pointer arithmetic/comparison.
-  Classes may be `pub` (they go into the `.r2i` interface, so other R2
-  modules can construct, copy, call methods/operators and `drop` them) or
-  `export` (the C header gets the plain struct plus a C++ class whose inline
-  methods call the mangled `extern "C"` functions).
+  `C::m(...)` calls directly; `priv` hides members. An initializer (`init`) is
+  invoked by `C(...)`, `new C(...)` or `new(slot) C(...)` (caller-provided
+  memory), and an optional destructor by `drop`, `reset` and `delete`. Classes
+  can overload operators (`op +`, `op []`, `op =`, compound and `op ++`/`--`)
+  on class values, while `ptr C` keeps native pointer behaviour; class values
+  also work as conditions and with a non-class left operand. `pub class` is
+  visible to other R2 modules and `export class` is usable from C/C++.
 - Heap allocation: `new T[N]` / `new T[D1][D2]...` (slices) and `new T`
   (a `ptr T`), with optional custom allocators `new(allocator_expr) T[N]`;
   `delete x;` and `delete(expr) x;` free them. The default forms use
@@ -150,116 +146,21 @@ current limitations.
 
 ```
 src/
-├── main.c           # CLI entry point: argument parsing, orchestration
-├── compiler.c/h     # Compiler context, wires lexer + parser + sema + IR + codegen
-├── arena/
-│   └── arena.c/h    # Bump-allocator arena; owns all compiler memory
-├── error/
-│   └── error.c/h    # Diagnostics with file:line:column locations
-├── lexer/
-│   └── lexer.c/h    # Tokenizer: keywords, literals, operators, comments
-├── parser/
-│   ├── ast.h        # AST definition: nodes, types, source spans
-│   ├── parser.h     # Parser state and entry points
-│   ├── common.h     # Private cross-file declarations for parser/
-│   ├── parser.c     # Driver: token cursor, panic sync, node helpers, parse()
-│   ├── expressions.c # Precedence, primaries, calls, casts, unary, ++/--
-│   ├── types.c      # Type syntax: parse_type, sizeof, pointer types
-│   ├── statements.c # Blocks, if/elif/else, while, for, return, var decls
-│   ├── declarations.c # fn/extern/class decls, enums, type/newtype declarations
-│   ├── operators.c/h # Class operator canons and source spellings
-│   └── dump.c       # AST dump for --dump-ast
-├── sema/
-│   ├── sema.c/h     # Semantic driver: declarations, global inits, symbol dump
-│   ├── common.h     # Private cross-file declarations for sema/
-│   ├── expr_internal.h # Private expression/statement declarations for sema/
-│   ├── expr_core.c  # Expression checking core
-│   ├── expr_vars.c  # Variable/reference checking
-│   ├── expr_access.c # Field access, indexing, deref, address, sizeof
-│   ├── expr_ops.c   # Operator checking
-│   ├── literals.c   # Literal folding, flexible literals, casts, unification
-│   ├── statements.c # Blocks, if/elif/else, loops, return, main signature
-│   ├── types.c      # Enum/type/newtype declaration resolution
-│   ├── structs.c    # Struct/union declaration, layout, initializers
-│   ├── agg.c        # Aggregate helpers
-│   └── symbol.c/h   # Symbol and symbol-table definitions
-├── imports/
-│   ├── imports.h    # Module/item/binding records
-│   ├── internal.h   # Loader structs and cross-file helpers
-│   ├── load.c       # Module lookup, .r2i header, aliases/bindings
-│   ├── parse.c      # .r2i parser driver + symbol-name decoding
-│   └── lookup.c     # Qualified/from lookup used by sema
-├── r2i/
-│   ├── r2i.c/h      # Output buffer, header, write/ownership checks
-│   ├── decl.c/type.c/expr.c # Interface body
-│   └── imports.c    # `imports:` dependency collection
-├── header/
-│   ├── header.c/h   # C/C++ header output and ownership checks
-│   ├── decl.c/type.c # Exported declarations and types
-│   └── internal.h   # Private cross-file declarations for header/
-├── mangle/
-│   └── mangle.c/h   # Module path resolution and symbol mangling
-├── ir/
-│   ├── core.c/h     # IR definition, module/fn skeleton
-│   ├── internal.h   # Private cross-file declarations for ir/
-│   ├── stmt.c       # IR generation for statements/params
-│   ├── expr.c       # IR generation for expressions (incl. struct copies/sret)
-│   ├── expr_access.c # IR helpers for field/index/pointer access
-│   ├── expr_assign.c # IR generation for assignment/compound/multi
-│   ├── expr_call.c  # IR generation for calls
-│   ├── expr_agg.c   # IR generation for aggregates/struct init
-│   ├── abi.c        # ABI helpers
-│   ├── escape.c     # Escape analysis
-│   ├── fuse.c       # Fusion helpers
-│   ├── dump.c       # IR dump for --dump-ir/--dump-opt
-│   ├── cfg.c/h      # Shared CFG + liveness analysis (optimizer and regalloc)
-│   ├── opt.h        # Optimizer API: OptLevel, OptFn/Optimizer, CseEntry
-│   ├── opt.c        # Orchestrator: passes[], optimize_fn, compact_ir,
-│   │                # init_caches, init_opt, optimize_ir
-│   └── opts/        # One .c per pass group, sharing common.h
-│       ├── common.h # Private cross-file declarations for ir/opts
-│       ├── analyze.c # analyze_fn: blocks/CFG + reg def-use + label refs
-│       ├── utils.c  # kill_instr/next_real/same_rep/norm_val
-│       ├── propagate.c # Copy/constant propagation (BASIC)
-│       ├── fold.c   # Constant folding, jump folding, track_const (BASIC)
-│       ├── simplify.c # Algebraic simplification and operand swapping (BASIC)
-│       ├── cse_coalesce.c # CSE (FULL) + coalesce (BASIC)
-│       ├── dce_live.c # Local DCE (BASIC) + global live DCE (FULL)
-│       ├── cfg.c    # Unreachable blocks, jump threading/flip (BASIC)
-│       ├── extra.c  # Strength reduction, global forwarding, DSE (BASIC)
-│       ├── inline.c # Small leaf-function inlining (FULL, re-optimizes)
-│       ├── disp.c   # Displacement folding
-│       ├── fields.c # Field forwarding
-│       ├── sroa.c   # Small-struct SROA
-│       └── static.c # Static .data binding for constant global inits
-├── codegen/
-│   ├── codegen.c/h  # Backend table, output buffer, shared codegen helpers
-│   ├── parallel.c/h # Parallel-move planner used by PARAM/ARG and edge moves
-│   ├── regalloc/
-│   │   ├── regalloc.c/h # Regalloc driver, contract types, edge-move builder
-│   │   ├── common.h     # Graph/coloring structures shared by regalloc files
-│   │   ├── color.c      # Loop weights + per-partition coloring driver
-│   │   ├── graph.c      # Interference graph, block reservations, scratch search
-│   │   ├── paint.c      # Graph simplification/coloring and spill selection
-│   │   ├── shrink.c    # Shrink-wrapping of callee-saved registers
-│   │   └── verify.c    # Generic regalloc contract checks (filename as-is)
-│   └── x86-64/
-│       ├── common.h   # Shared X86Fn state, masks, cross-file declarations
-│       ├── x86_64.c/h # Backend entry point (gen_x86_64)
-│       ├── layout.c   # Frame layout + regalloc wiring + op needs table
-│       ├── edges.c    # Edge moves and .LE stubs
-│       ├── regs.c     # Register helpers + regalloc contract checks
-│       ├── mem.c      # Loads/stores, register names, scratch allocation
-│       ├── globals.c  # .data/.bss emission and global loads/stores
-│       ├── move.c     # PARAM/MOVE emission and parallel moves
-│       ├── arith.c    # Arithmetic, shifts, unary ops
-│       ├── divmod.c   # Constant div/mod lowering
-│       ├── cmp.c      # Comparisons, select, jumps
-│       ├── flow.c     # Calls, arguments, returns, tail calls
-│       ├── rmw.c      # Read-modify-write fusion
-│       ├── ptr.c      # Address-of/deref loads/stores + .rodata strings
-│       └── func.c     # Per-function instruction dispatch/body
-└── ...
+├── main.c, compiler.c   CLI and compilation driver
+├── type.c               dynamic type table
+├── arena/               bump allocator; owns all compiler memory
+├── error/               file:line:col diagnostics
+├── lexer/               tokens
+├── parser/              AST and syntax
+├── sema/                symbols, type checking, warnings
+├── imports/             .r2i reader and import lookup
+├── r2i/                 .r2i writer
+├── header/              C/C++ header writer
+├── mangle/              module names and symbol mangling
+├── ir/                  IR generation, CFG/liveness and optimizer (opts/)
+├── codegen/             backend framework, register allocation (regalloc/)
+│                        and the x86-64 emitter (x86-64/)
+└── util/                small shared helpers
 ```
 
 Source is auto-discovered (`find src -name '*.c'` in the Makefile); there is no
@@ -268,12 +169,12 @@ list of source files to maintain.
 ### Pipeline
 
 ```
-source -> lexer -> parser -> imports (.r2i) -> sema -> IR -> optimize_ir (-O2/-O3) -> x86-64 asm
+source -> lexer -> parser -> imports -> sema -> IR -> optimizer -> x86-64 asm
 ```
 
-An error in a stage stops compilation before the next one; warnings do not.
-The optimizer runs at `-O2`/`-O3`; `-O1` keeps the IR unoptimized but allocates
-registers, and `-O0` spills every value to the stack.
+An error in a stage stops compilation; warnings do not. The IR optimizer runs
+at `-O2`/`-O3`; `-O1` allocates registers without optimizing, and `-O0` spills
+every value to the stack.
 
 ---
 

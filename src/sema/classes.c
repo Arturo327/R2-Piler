@@ -245,8 +245,9 @@ static void register_class_method (Sema *s, uint32_t fn_idx, TypeId owner)
 		error_report(s->err, ERR_ERROR, node_loc(fn), "method name is too long");
 		return;
 	}
-	uint32_t sym = sema_declare(s, qname, (uint16_t)qlen, SYMBOL_FN,
-			s->ast->nodes[ret].data_type, fn_idx);
+	uint32_t sym = sema_declare(s, fn_idx, SYMBOL_FN, s->ast->nodes[ret].data_type);
+
+	sema_rename_symbol(s, sym, qname, (uint16_t)qlen);
 	Symbol *method = s->table.symbols + sym;
 
 	method->owner = owner;
@@ -411,8 +412,9 @@ static void register_op_method (Sema *s, uint32_t fn_idx, TypeId owner)
 		error_report(s->err, ERR_ERROR, node_loc(fn), "operator name is too long");
 		return;
 	}
-	uint32_t sym = sema_declare(s, qname, (uint16_t)qlen, SYMBOL_FN,
-			s->ast->nodes[ret].data_type, fn_idx);
+	uint32_t sym = sema_declare(s, fn_idx, SYMBOL_FN, s->ast->nodes[ret].data_type);
+
+	sema_rename_symbol(s, sym, qname, (uint16_t)qlen);
 	Symbol *method = s->table.symbols + sym;
 
 	method->owner = owner;
@@ -542,7 +544,7 @@ static uint32_t make_receiver (Sema *s, uint32_t child, TypeId ptr)
 	raw.next_bro = NO_NODE;
 	raw.sym = NO_SYMBOL;
 	raw.type_node = NO_TYPE_NODE;
-	return sema_new_node(s, raw);
+	return sema_new_node(s, &raw);
 }
 
 static TypeId finish_method_call (Sema *s, uint32_t idx, uint32_t sym, uint32_t receiver, uint32_t args)
@@ -561,10 +563,11 @@ static TypeId finish_method_call (Sema *s, uint32_t idx, uint32_t sym, uint32_t 
 	return s->ast->nodes[idx].data_type;
 }
 
-TypeId sema_op_call (Sema *s, uint32_t idx, uint32_t receiver, TypeId cls,
+TypeId sema_op_call (Sema *s, uint32_t idx, uint32_t receiver,
 		uint32_t args, uint32_t method)
 {
 	uint32_t sym = s->ast->nodes[method].sym;
+	TypeId cls = (TypeId)s->table.symbols[sym].owner;
 	TypeId ptr = type_ptr_to(cls);
 
 	if (ptr == TYPE_ERROR) {
@@ -642,10 +645,10 @@ static uint32_t adapt_checked_arg (Sema *s, uint32_t arg, TypeId arg_type, uint3
 	return cast;
 }
 
-static TypeId reverse_op_call (Sema *s, uint32_t idx, uint32_t receiver, TypeId cls,
-		uint32_t arg, TypeId arg_type, uint32_t method)
+static TypeId reverse_op_call (Sema *s, uint32_t idx, uint32_t method)
 {
 	uint32_t sym = s->ast->nodes[method].sym;
+	TypeId cls = (TypeId)s->table.symbols[sym].owner;
 	TypeId ptr = type_ptr_to(cls);
 	uint32_t operand = op_operand_param(s, method);
 
@@ -655,9 +658,13 @@ static TypeId reverse_op_call (Sema *s, uint32_t idx, uint32_t receiver, TypeId 
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
-	if (operand != NO_NODE) arg = adapt_checked_arg(s, arg, arg_type, operand);
+	uint32_t left = s->ast->nodes[idx].child;
+	uint32_t right = s->ast->nodes[left].next_bro;
+	uint32_t arg = left;
+	if (operand != NO_NODE)
+		arg = adapt_checked_arg(s, arg, s->ast->nodes[left].data_type, operand);
 	s->ast->nodes[arg].next_bro = NO_NODE;
-	uint32_t recv = make_receiver(s, receiver, ptr);
+	uint32_t recv = make_receiver(s, right, ptr);
 	const char *spelling = op_spelling(s->ast->nodes[method].op);
 	Symbol *fn = s->table.symbols + sym;
 
@@ -680,10 +687,11 @@ static inline int commutative_op (uint8_t op)
 			|| op == OP_XOR || op == OP_EQ || op == OP_NE;
 }
 
-TypeId sema_class_reverse (Sema *s, uint32_t idx, uint32_t receiver, TypeId receiver_type,
-		uint32_t arg, TypeId arg_type, uint8_t op, int *handled)
+TypeId sema_class_reverse (Sema *s, uint32_t idx, uint8_t op, int *handled)
 {
-	TypeId cls = class_of(receiver_type);
+	uint32_t left = s->ast->nodes[idx].child;
+	uint32_t right = s->ast->nodes[left].next_bro;
+	TypeId cls = class_of(s->ast->nodes[right].data_type);
 
 	*handled = 0;
 	if (cls == TYPE_ERROR || !commutative_op(op)) return TYPE_ERROR;
@@ -692,13 +700,14 @@ TypeId sema_class_reverse (Sema *s, uint32_t idx, uint32_t receiver, TypeId rece
 	if (method == NO_NODE) return TYPE_ERROR;
 	*handled = 1;
 	check_op_visibility(s, method, idx);
-	return reverse_op_call(s, idx, receiver, cls, arg, arg_type, method);
+	return reverse_op_call(s, idx, method);
 }
 
-TypeId sema_class_operator (Sema *s, uint32_t idx, uint32_t receiver, TypeId type,
-		uint32_t args, uint8_t op, int *handled)
+TypeId sema_class_operator (Sema *s, uint32_t idx, uint32_t args,
+		uint8_t op, int *handled)
 {
-	TypeId cls = class_of(type);
+	uint32_t receiver = s->ast->nodes[idx].child;
+	TypeId cls = class_of(s->ast->nodes[receiver].data_type);
 
 	*handled = 0;
 	if (op == OP_NONE || cls == TYPE_ERROR) return TYPE_ERROR;
@@ -716,7 +725,7 @@ TypeId sema_class_operator (Sema *s, uint32_t idx, uint32_t receiver, TypeId typ
 		return TYPE_ERROR;
 	}
 	check_op_visibility(s, method, idx);
-	return sema_op_call(s, idx, receiver, cls, args, method);
+	return sema_op_call(s, idx, receiver, args, method);
 }
 
 static uint32_t make_not_node (Sema *s, uint32_t child, uint16_t line, uint16_t col)
@@ -729,7 +738,7 @@ static uint32_t make_not_node (Sema *s, uint32_t child, uint16_t line, uint16_t 
 	raw.data_type = TYPE_i64;
 	raw.line = line;
 	raw.col = col;
-	return sema_new_node(s, raw);
+	return sema_new_node(s, &raw);
 }
 
 static uint32_t truth_zero_literal (Sema *s, uint16_t line, uint16_t col)
@@ -740,7 +749,7 @@ static uint32_t truth_zero_literal (Sema *s, uint16_t line, uint16_t col)
 	raw.next_bro = NO_NODE;
 	raw.line = line;
 	raw.col = col;
-	return sema_new_node(s, raw);
+	return sema_new_node(s, &raw);
 }
 
 static int op_takes_zero (Sema *s, uint32_t method)
@@ -759,8 +768,9 @@ static TypeId move_truth_into (Sema *s, uint32_t idx, uint32_t result, uint32_t 
 	return s->ast->nodes[idx].data_type;
 }
 
-static uint32_t truth_call (Sema *s, uint32_t value, TypeId cls, uint32_t zero,
-		uint32_t method, uint16_t line, uint16_t col)
+
+
+static uint32_t truth_call(Sema *s, uint32_t value, uint32_t zero, uint32_t method, uint16_t line, uint16_t col)
 {
 	ASTNode raw = {0};
 
@@ -768,9 +778,9 @@ static uint32_t truth_call (Sema *s, uint32_t value, TypeId cls, uint32_t zero,
 	raw.next_bro = NO_NODE;
 	raw.line = line;
 	raw.col = col;
-	uint32_t call = sema_new_node(s, raw);
+	uint32_t call = sema_new_node(s, &raw);
 
-	sema_op_call(s, call, value, cls, zero, method);
+	sema_op_call(s, call, value, zero, method);
 	return call;
 }
 
@@ -783,7 +793,6 @@ TypeId sema_truth_value (Sema *s, uint32_t idx, TypeId type)
 	if (cls == TYPE_ERROR) return type;
 	uint32_t ne = class_op_node(s, cls, OP_NE);
 	uint32_t eq = class_op_node(s, cls, OP_EQ);
-
 	int compares = 1;
 	uint32_t method;
 
@@ -803,19 +812,15 @@ TypeId sema_truth_value (Sema *s, uint32_t idx, TypeId type)
 			return TYPE_ERROR;
 		}
 	}
-
 	uint16_t line = s->ast->nodes[idx].line;
 	uint16_t col = s->ast->nodes[idx].col;
 	uint32_t next = s->ast->nodes[idx].next_bro;
 	ASTNode raw = s->ast->nodes[idx];
-
 	raw.next_bro = NO_NODE;
-	uint32_t value = sema_new_node(s, raw);
-
+	uint32_t value = sema_new_node(s, &raw);
 	if (compares) zero = truth_zero_literal(s, line, col);
 	check_op_visibility(s, method, idx);
-	uint32_t result = truth_call(s, value, cls, zero, method, line, col);
-
+	uint32_t result = truth_call(s, value, zero, method, line, col);
 	if (negate) result = make_not_node(s, result, line, col);
 	return move_truth_into(s, idx, result, next);
 }
@@ -844,7 +849,7 @@ void maybe_copy_init (Sema *s, uint32_t idx)
 	ctor.data_type = cls;
 	ctor.line = in->line;
 	ctor.col = in->col;
-	uint32_t call = sema_new_node(s, ctor);
+	uint32_t call = sema_new_node(s, &ctor);
 
 	s->ast->nodes[idx].child = call;
 }
@@ -927,7 +932,7 @@ static uint32_t ctor_args_node (Sema *s, uint32_t init)
 		rest = s->ast->nodes[first].next_bro;
 	ASTNode args = s->ast->nodes[params];
 	args.child = rest;
-	return sema_new_node(s, args);
+	return sema_new_node(s, &args);
 }
 
 static uint32_t ctor_fn_node (Sema *s, uint32_t init, uint32_t args_node)
@@ -935,7 +940,7 @@ static uint32_t ctor_fn_node (Sema *s, uint32_t init, uint32_t args_node)
 	ASTNode fn = s->ast->nodes[init];
 
 	fn.child = args_node;
-	return sema_new_node(s, fn);
+	return sema_new_node(s, &fn);
 }
 
 void check_ctor_args (Sema *s, uint32_t call, uint32_t init)

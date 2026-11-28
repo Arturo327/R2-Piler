@@ -247,12 +247,40 @@ static uint32_t parse_new (Parser *p)
 	return node;
 }
 
+static uint8_t literal_node (uint16_t tok)
+{
+	if (tok == TOK_LIT_i64) return NODE_LIT_i64;
+	if (tok == TOK_LIT_u64) return NODE_LIT_u64;
+	if (tok == TOK_LIT_CHAR) return NODE_LIT_CHAR;
+	if (tok == TOK_LIT_STR) return NODE_LIT_STR;
+	return NODE_LIT_NULL;
+}
+
+static uint32_t parse_paren (Parser *p)
+{
+	advance(p);
+	uint32_t node = parse_expr(p, 0);
+
+	consume(p, TOK_RPAREN, "expected ')'");
+	if (p->ast.nodes[node].type == NODE_ASSIGN)
+		p->ast.nodes[node].flags |= NODE_FLAG_PAREN;
+	return node;
+}
+
+static uint32_t parse_bad_expr (Parser *p, uint16_t line, uint16_t col)
+{
+	if (!p->panic_mode)
+		error_report(p->err, ERR_ERROR, token_loc(p->curr), "expected expression");
+	p->panic_mode = 1;
+	if (binop_prec[p->curr.type] > 0)
+		advance(p);
+	return new_node(p, NODE_ERROR, line, col);
+}
+
 static uint32_t parse_primary_inner (Parser *p)
 {
 	uint16_t line = p->curr.line;
 	uint16_t col = p->curr.col;
-	uint32_t node;
-
 	switch (p->curr.type)
 	{
 	case TOK_SUB: case TOK_NOT_L: case TOK_NOT_A:
@@ -268,51 +296,22 @@ static uint32_t parse_primary_inner (Parser *p)
 		return parse_offsetof(p);
 	case TOK_LKEY:
 		return parse_brace_init(p);
-	case TOK_LPAREN:
+	case TOK_LPAREN: return parse_paren(p);
+	case TOK_LIT_i64: case TOK_LIT_u64: case TOK_LIT_CHAR:
+	case TOK_LIT_STR: case TOK_NULL: {
+		uint16_t tok = p->curr.type;
+		uint32_t node = new_node(p, literal_node(tok), line, col);
+		p->ast.nodes[node].len = p->curr.len;
+		if (tok == TOK_LIT_STR) p->ast.nodes[node].str = p->curr.str;
+		else if (tok == TOK_LIT_CHAR) p->ast.nodes[node].chr = p->curr.chr;
+		else if (tok != TOK_NULL) p->ast.nodes[node].u64 = p->curr.u64;
 		advance(p);
-		node = parse_expr(p, 0);
-		consume(p, TOK_RPAREN, "expected ')'");
-		if (p->ast.nodes[node].type == NODE_ASSIGN)
-			p->ast.nodes[node].flags |= NODE_FLAG_PAREN;
 		return node;
-	case TOK_LIT_i64:
-		node = new_node(p, NODE_LIT_i64, line, col);
-		p->ast.nodes[node].len = p->curr.len;
-		p->ast.nodes[node].u64 = p->curr.u64;
-		break;
-	case TOK_LIT_u64:
-		node = new_node(p, NODE_LIT_u64, line, col);
-		p->ast.nodes[node].len = p->curr.len;
-		p->ast.nodes[node].u64 = p->curr.u64;
-		break;
-	case TOK_LIT_CHAR:
-		node = new_node(p, NODE_LIT_CHAR, line, col);
-		p->ast.nodes[node].len = p->curr.len;
-		p->ast.nodes[node].chr = p->curr.chr;
-		break;
-	case TOK_LIT_STR:
-		node = new_node(p, NODE_LIT_STR, line, col);
-		p->ast.nodes[node].str = p->curr.str;
-		p->ast.nodes[node].len = p->curr.len;
-		break;
-	case TOK_NULL:
-		node = new_node(p, NODE_LIT_NULL, line, col);
-		p->ast.nodes[node].len = p->curr.len;
-		break;
+	}
 	case TOK_ID:
 		return parse_id_or_call(p);
-
-	default:
-		if (!p->panic_mode)
-			error_report(p->err, ERR_ERROR, token_loc(p->curr), "expected expression");
-		p->panic_mode = 1;
-		if (binop_prec[p->curr.type] > 0)
-			advance(p);
-		return new_node(p, NODE_ERROR, line, col);
+	default: return parse_bad_expr(p, line, col);
 	}
-
-	advance(p);
-	return node;
 }
 
 static uint32_t parse_dot (Parser *p, uint32_t left)

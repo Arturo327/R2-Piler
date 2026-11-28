@@ -14,7 +14,7 @@ static uint32_t libc_fn (IR *ir, int is_free)
 	fn.ret_type = ret;
 	fn.param_count = 1;
 	fn.is_extern = 1;
-	*slot = push_fn(ir, fn);
+	*slot = push_fn(ir, &fn);
 	return *slot;
 }
 

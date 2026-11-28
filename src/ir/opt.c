@@ -46,7 +46,7 @@ void optimize_fn (Optimizer *opt, OptFn *f)
 		}
 		if (!changed) break;
 	}
-	arena_release(opt->arena, mark);
+	arena_release(opt->arena, &mark);
 	f->live = NULL;
 	f->live_cap = 0;
 }

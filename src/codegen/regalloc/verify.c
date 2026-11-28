@@ -101,8 +101,7 @@ static void verify_save (Verify *v, IRInstr *in, uint32_t i)
 	if (h >= 0 && ra->regs[in->dst].cstate != VR_CONST) dst_bit = 1ull << h;
 	if (s & dst_bit)
 		verify_fail(v, "save[] contains the home of the call's dst");
-	if (s && cg_is_tail_call(ra->ir, ra->fn, ra->regs, ra->ctx, in,
-			ra->ctx->arch->arg_reg_max))
+	if (s && cg_is_tail_call(ra->ir, ra->fn, ra->regs, ra->ctx, in))
 		verify_fail(v, "save[] set on a tail call");
 }
 
@@ -242,9 +241,9 @@ static void verify_block_live (Verify *v, uint32_t b)
 	verify_set(v, ra->tmp, NO_REG, ra->ctx->ins_block[base]);
 }
 
-static void verify_covered (Verify *v, uint32_t r, uint32_t from, uint32_t to, uint32_t first, uint32_t n)
+static void verify_covered(Verify *v, uint32_t r, uint32_t from, uint32_t to, uint32_t first, uint32_t n)
 {
-	RegAlloc *ra = v->ra;
+	RegAlloc *ra = ra;
 	Reg *reg = ra->regs + r;
 	int8_t a = reg->home[from];
 	int8_t b = reg->home[to];
@@ -277,8 +276,7 @@ static void verify_edge (Verify *v, uint32_t from, uint32_t t, uint32_t first, u
 		uint64_t bits = dst->live_in[w];
 
 		while (bits) {
-			verify_covered(v, (w << 6) + (uint32_t)__builtin_ctzll(bits),
-					from, to, first, n);
+			verify_covered(v, (w << 6) + (uint32_t)__builtin_ctzll(bits), from, to, first, n);
 			bits &= bits - 1;
 		}
 	}

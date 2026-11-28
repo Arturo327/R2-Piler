@@ -48,6 +48,19 @@ static int const_operand (Sema *s, uint32_t idx)
 	return 0;
 }
 
+static int unary_operand_ok (Sema *s, ASTNode *n, uint8_t op, TypeId type)
+{
+	if (type_is_aggregate(type) || type == TYPE_VOID || type == TYPE_STR
+			|| (op != NODE_NOT_L && (type_ptr_repr(type) != TYPE_ERROR
+				|| type == TYPE_NULL))) {
+		error_report(s->err, ERR_ERROR, node_loc(n), "operator cannot be applied to a value of type %s",
+				types[type].name);
+		n->data_type = TYPE_ERROR;
+		return 0;
+	}
+	return 1;
+}
+
 TypeId check_unary (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
@@ -69,35 +82,15 @@ TypeId check_unary (Sema *s, uint32_t idx)
 		}
 	}
 	int handled = 0;
-	TypeId op_result = sema_class_operator(s, idx, n->child, operand_type,
-			NO_NODE, unary_op_id(op), &handled);
-
+	TypeId op_result = sema_class_operator(s, idx, NO_NODE, unary_op_id(op), &handled);
 	if (handled) return op_result;
-	if (type_is_aggregate(operand_type)) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"operator cannot be applied to a value of type %s",
-				types[operand_type].name);
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
-
-	if (operand_type == TYPE_VOID || operand_type == TYPE_STR || (op != NODE_NOT_L
-				&& (type_ptr_repr(operand_type) != TYPE_ERROR || operand_type == TYPE_NULL))) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
-				"operator cannot be applied to a value of type %s",
-				types[operand_type].name);
-		n->data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
-
+	if (!unary_operand_ok(s, n, op, operand_type)) return TYPE_ERROR;
 	n->data_type = (n->type == NODE_NOT_L) ? TYPE_UNTYPED_INT : type_unconst_of(operand_type);
 	int is_lit = const_operand(s, n->child);
 	TypeId result_type = type_unconst_of(try_fold_unary(s, idx));
 
 	if (op == NODE_NEG && !types[result_type].sign && !is_lit)
-		error_report(s->err, ERR_WARNING, node_loc(n),
-				"negating an unsigned value; the result wraps");
-
+		error_report(s->err, ERR_WARNING, node_loc(n), "negating an unsigned value; the result wraps");
 	n->data_type = result_type;
 	return result_type;
 }
@@ -196,7 +189,7 @@ static int same_pointee (TypeId l, TypeId r)
 	return lb == rb || type_unconst_of(lb) == type_unconst_of(rb);
 }
 
-static TypeId pointer_compare (Sema *s, uint32_t idx, uint32_t *left, uint32_t *right, TypeId *l, TypeId *r)
+static TypeId pointer_compare(Sema *s, uint32_t idx, uint32_t *left, uint32_t *right, TypeId *l, TypeId *r)
 {
 	coerce_string(s, left, l);
 	coerce_string(s, right, r);
@@ -223,61 +216,51 @@ static TypeId pointer_compare (Sema *s, uint32_t idx, uint32_t *left, uint32_t *
 	return TYPE_ERROR;
 }
 
-static TypeId pointer_arith (Sema *s, uint32_t idx, uint8_t op, uint32_t *left, uint32_t *right, TypeId *l, TypeId *r)
+static int ptr_void_err (Sema *s, uint32_t idx, TypeId p)
+{
+	if (type_unconst_of(types[p].base) != TYPE_VOID) return 0;
+	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
+			"pointer arithmetic on 'ptr void' is not allowed");
+	return 1;
+}
+
+static TypeId pointer_arith(Sema *s, uint32_t idx, uint8_t op, uint32_t *left, uint32_t *right, TypeId *l, TypeId *r)
 {
 	int both_str = *l == TYPE_STR && *r == TYPE_STR;
-
 	coerce_string(s, left, l);
 	coerce_string(s, right, r);
 	TypeId lp = type_ptr_repr(*l);
 	TypeId rp = type_ptr_repr(*r);
 
 	if (lp != TYPE_ERROR && is_integer_operand(*r)) {
-		if (type_unconst_of(types[lp].base) == TYPE_VOID) {
-			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
-					"pointer arithmetic on 'ptr void' is not allowed");
-			return TYPE_ERROR;
-		}
+		if (ptr_void_err(s, idx, lp)) return TYPE_ERROR;
 		*r = finalize_type(s, *right, *r);
 		return *l;
 	}
 	if (op == NODE_ADD && is_integer_operand(*l)
 			&& rp != TYPE_ERROR) {
-		if (type_unconst_of(types[rp].base) == TYPE_VOID) {
-			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
-					"pointer arithmetic on 'ptr void' is not allowed");
-			return TYPE_ERROR;
-		}
+		if (ptr_void_err(s, idx, rp)) return TYPE_ERROR;
 		*l = finalize_type(s, *left, *l);
 		return *r;
 	}
 	if (op == NODE_SUB && lp != TYPE_ERROR
 			&& rp != TYPE_ERROR) {
 		if (!same_pointee(*l, *r)) return pointer_mismatch(s, idx, *l, *r);
-		if (type_unconst_of(types[lp].base) == TYPE_VOID) {
-			error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
-					"pointer arithmetic on 'ptr void' is not allowed");
-			return TYPE_ERROR;
-		}
+		if (ptr_void_err(s, idx, lp)) return TYPE_ERROR;
 		if (both_str)
-			error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + idx),
-					"subtracting two string literals is probably a mistake;"
+			error_report(s->err, ERR_WARNING, node_loc(s->ast->nodes + idx), "subtracting two string literals is probably a mistake;"
 					" the result is the byte distance between them");
 		return TYPE_UNTYPED_INT;
 	}
 	if (lp != TYPE_ERROR && rp != TYPE_ERROR) {
-		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
-				"cannot add two pointers");
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx), "cannot add two pointers");
 		return TYPE_ERROR;
 	}
 	if (*l == TYPE_NULL || *r == TYPE_NULL) {
-		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
-				"cannot use NULL in pointer arithmetic");
+		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx), "cannot use NULL in pointer arithmetic");
 		return TYPE_ERROR;
 	}
-
-	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
-			"pointer arithmetic requires an integer offset");
+	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx), "pointer arithmetic requires an integer offset");
 	return TYPE_ERROR;
 }
 
@@ -294,8 +277,9 @@ static int fn_ptr_operator (Sema *s, uint32_t idx, uint8_t op)
 	return 1;
 }
 
-static int check_pointer_binary (Sema *s, uint32_t idx, uint32_t *left,
-		uint32_t *right, TypeId *l, TypeId *r)
+
+
+static int check_pointer_binary(Sema *s, uint32_t idx, uint32_t *left, uint32_t *right, TypeId *l, TypeId *r)
 {
 	uint8_t op = s->ast->nodes[idx].type;
 	TypeId result;
@@ -340,7 +324,7 @@ static int check_pointer_binary (Sema *s, uint32_t idx, uint32_t *left,
 	return 1;
 }
 
-static int check_logic (Sema *s, uint32_t idx, uint32_t left, uint32_t right, TypeId *l, TypeId *r)
+static int check_logic(Sema *s, uint32_t idx, uint32_t left, uint32_t right, TypeId *l, TypeId *r)
 {
 	const char *op = s->ast->nodes[idx].type == NODE_AND_L ? "&&" : "||";
 	TypeId bad = *l == TYPE_STR ? *l : *r;
@@ -522,6 +506,61 @@ static int binary_operands_bad (Sema *s, uint32_t idx, TypeId l, TypeId r)
 	return 0;
 }
 
+static int binary_truth (Sema *s, uint32_t left, uint32_t right,
+		TypeId *l, TypeId *r)
+{
+	*l = sema_truth_value(s, left, *l);
+	*r = sema_truth_value(s, right, *r);
+	return *l != TYPE_ERROR && *r != TYPE_ERROR;
+}
+
+static void binary_shift (UnifyCtx *c)
+{
+	uint32_t idx = (uint32_t)(c->n - c->s->ast->nodes);
+
+	finalize_type(c->s, *c->right, *c->r);
+	if (!is_literal_node(c->s, *c->right))
+		*c->l = finalize_type(c->s, *c->left, *c->l);
+	warn_shift_count(c->s, idx, *c->l, *c->right);
+}
+
+static int binary_unify (UnifyCtx *c)
+{
+	uint32_t idx = (uint32_t)(c->n - c->s->ast->nodes);
+
+	if (*c->l == *c->r || !needs_common_type(c->n->type)) return 1;
+	if (unify_operands(c)) return 1;
+	c->s->ast->nodes[idx].data_type = TYPE_ERROR;
+	return 0;
+}
+
+static TypeId binary_finish (UnifyCtx *c)
+{
+	uint32_t idx = (uint32_t)(c->n - c->s->ast->nodes);
+	ASTNode *n = c->s->ast->nodes + idx;
+
+	n->child = *c->left;
+	c->s->ast->nodes[*c->left].next_bro = *c->right;
+	n->data_type = binop_result_type(c->n->type, *c->l);
+	try_fold_binary(c->s, idx);
+	return n->data_type;
+}
+
+static int binary_check_l (Sema *s, uint32_t idx, uint8_t op, TypeId l, uint32_t right)
+{
+	if (l != TYPE_ERROR) return 0;
+	check_rhs(s, op, right);
+	s->ast->nodes[idx].data_type = TYPE_ERROR;
+	return 1;
+}
+
+static int binary_check_r (Sema *s, uint32_t idx, TypeId r)
+{
+	if (r != TYPE_ERROR) return 0;
+	s->ast->nodes[idx].data_type = TYPE_ERROR;
+	return 1;
+}
+
 TypeId check_binary (Sema *s, uint32_t idx)
 {
 	uint8_t op_type = s->ast->nodes[idx].type;
@@ -529,29 +568,15 @@ TypeId check_binary (Sema *s, uint32_t idx)
 	uint32_t right = s->ast->nodes[left].next_bro;
 	TypeId l = check_expr(s, left);
 	int handled = 0;
-	TypeId op_result = sema_class_operator(s, idx, left, l, right,
-			binary_op_id(op_type), &handled);
-
+	TypeId op_result = sema_class_operator(s, idx, right, binary_op_id(op_type), &handled);
 	if (handled) return op_result;
-	if (l == TYPE_ERROR) {
-		check_rhs(s, op_type, right);
-		s->ast->nodes[idx].data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
+	if (binary_check_l(s, idx, op_type, l, right)) return TYPE_ERROR;
 	TypeId r = check_rhs(s, op_type, right);
-
-	if (r == TYPE_ERROR) {
-		s->ast->nodes[idx].data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
-	TypeId reversed = sema_class_reverse(s, idx, right, r, left, l,
-			binary_op_id(op_type), &handled);
-
+	if (binary_check_r(s, idx, r)) return TYPE_ERROR;
+	TypeId reversed = sema_class_reverse(s, idx, binary_op_id(op_type), &handled);
 	if (handled) return reversed;
 	if (op_type == NODE_AND_L || op_type == NODE_OR_L) {
-		l = sema_truth_value(s, left, l);
-		r = sema_truth_value(s, right, r);
-		if (l == TYPE_ERROR || r == TYPE_ERROR) {
+		if (!binary_truth(s, left, right, &l, &r)) {
 			s->ast->nodes[idx].data_type = TYPE_ERROR;
 			return TYPE_ERROR;
 		}
@@ -566,32 +591,18 @@ TypeId check_binary (Sema *s, uint32_t idx)
 	if (op_type != NODE_AND_L && op_type != NODE_OR_L
 			&& check_pointer_binary(s, idx, &left, &right, &l, &r))
 		return s->ast->nodes[idx].data_type;
+	UnifyCtx uc = { s, s->ast->nodes + idx, &left, &right, &l, &r };
 
 	if (op_type == NODE_AND_L || op_type == NODE_OR_L) {
 		if (!check_logic(s, idx, left, right, &l, &r)) return TYPE_ERROR;
-	} else if (op_type == NODE_LS || op_type == NODE_RS) {
-		finalize_type(s, right, r);
-		if (!is_literal_node(s, right))
-			l = finalize_type(s, left, l);
-		warn_shift_count(s, idx, l, right);
-	}
-
-	if (l != r && needs_common_type(op_type)
-			&& !unify_operands(s, s->ast->nodes + idx, &left, &right, &l, &r)) {
-		s->ast->nodes[idx].data_type = TYPE_ERROR;
-		return TYPE_ERROR;
-	}
+	} else if (op_type == NODE_LS || op_type == NODE_RS)
+		binary_shift(&uc);
+	if (!binary_unify(&uc)) return TYPE_ERROR;
 	if (l == r) warn_unsigned_zero(s, idx, left, right, l);
-
-	s->ast->nodes[idx].child = left;
-	s->ast->nodes[left].next_bro = right;
-	s->ast->nodes[idx].data_type = binop_result_type(op_type, l);
-	try_fold_binary(s, idx);
-	return s->ast->nodes[idx].data_type;
+	return binary_finish(&uc);
 }
 
-static TypeId ternary_unify (Sema *s, uint32_t idx, uint32_t *then_idx,
-		uint32_t *else_idx, TypeId a, TypeId b)
+static TypeId ternary_unify(Sema *s, uint32_t idx, uint32_t *then_idx, uint32_t *else_idx, TypeId a, TypeId b)
 {
 	if (a == TYPE_ERROR || b == TYPE_ERROR) return TYPE_ERROR;
 
@@ -625,8 +636,8 @@ static TypeId ternary_unify (Sema *s, uint32_t idx, uint32_t *then_idx,
 				type_display_name(a), type_display_name(b));
 		return TYPE_ERROR;
 	}
-	if (a != b && !unify_operands(s, s->ast->nodes + idx,
-			then_idx, else_idx, &a, &b))
+	UnifyCtx uc = { s, s->ast->nodes + idx, then_idx, else_idx, &a, &b };
+	if (a != b && !unify_operands(&uc))
 		return TYPE_ERROR;
 	return a;
 }

@@ -47,7 +47,7 @@ static void gen_fn (X86Fn *f, uint32_t i, uint8_t *state, int init_empty)
 	x86_make_fn(f);
 	f->fn_clobber[i] = f->clobbers & X86_CALLER_MASK;
 	state[i] = 2;
-	arena_release(f->cg->arena, mark);
+	arena_release(f->cg->arena, &mark);
 }
 
 static void init_x86_fn (X86Fn *f, IR *ir)

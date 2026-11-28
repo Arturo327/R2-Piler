@@ -1,28 +1,19 @@
 #include "codegen/x86-64/common.h"
 
-static int make_instr (X86Fn *f, IRInstr *i)
+static int make_data_instr (X86Fn *f, IRInstr *i, int *n)
 {
-	uint32_t at = (uint32_t)(i - (f->cg->ir->instrs + f->fn->start));
-
-	if (cg_is_silent(f->regs, f->ctx.dead + at, i)) return 1;
-	x86_begin_instr(f, i);
-	if (x86_try_rmw_inplace(f, i)) return 1;
-	int n;
-
 	switch (i->op)
 	{
 	case IR_CONST:
 		if (f->regs[i->dst].cstate != VR_CONST) x86_store_imm(f, i->dst, i->imm64);
 		return 1;
 	case IR_PARAM: return x86_make_param(f, i);
-
 	case IR_LD_GLOBAL:
-		n = x86_make_rmw(f, i);
-		if (n) return n;
+		*n = x86_make_rmw(f, i);
+		if (*n) return *n;
 		x86_make_ld_global(f, i);
 		return 1;
 	case IR_STR_GLOBAL: x86_make_str_global(f, i); return 1;
-
 	case IR_ADDR_LOCAL: x86_make_addr_local(f, i); return 1;
 	case IR_ADDR_GLOBAL: x86_make_addr_global(f, i); return 1;
 	case IR_LD_PTR: x86_make_ld_ptr(f, i); return 1;
@@ -31,45 +22,70 @@ static int make_instr (X86Fn *f, IRInstr *i)
 	case IR_STR_LOCAL: x86_make_str_local(f, i); return 1;
 	case IR_STR_LIT: x86_make_str_lit(f, i); return 1;
 	case IR_FN_ADDR: x86_make_fn_addr(f, i); return 1;
-
 	case IR_MOVE:
-		n = x86_make_rmw(f, i);
-		if (n) return n;
+		*n = x86_make_rmw(f, i);
+		if (*n) return *n;
 		x86_make_move(f, i);
 		return 1;
 	case IR_EXTEND: x86_make_move(f, i); return 1;
+	default: return 0;
+	}
+}
 
+static int make_alu_instr (X86Fn *f, IRInstr *i, int *n)
+{
+	switch (i->op)
+	{
 	case IR_ADD: case IR_SUB: case IR_AND_A: case IR_OR_A: case IR_MUL: case IR_XOR:
 		return x86_make_arith(f, i);
 	case IR_DIV: case IR_MOD: x86_make_divmod(f, i); return 1;
 	case IR_RS: x86_make_shift(f, i); return 1;
 	case IR_LS:
-		n = x86_try_mul_add(f, i);
-		if (n) return n;
+		*n = x86_try_mul_add(f, i);
+		if (*n) return *n;
 		x86_make_shift(f, i);
 		return 1;
-
 	case IR_NEG: x86_make_unary(f, i, "neg"); return 1;
 	case IR_NOT_A: x86_make_unary(f, i, "not"); return 1;
 	case IR_NOT_L: x86_make_not_l(f, i); return 1;
-
 	case IR_SELECT: x86_make_select(f, i); return 1;
 	case IR_EQ: case IR_NE: case IR_GT: case IR_GE: case IR_LT: case IR_LE:
 		return x86_make_cmp_instr(f, i);
+	default: return 0;
+	}
+}
 
+static int make_flow_instr (X86Fn *f, IRInstr *i, int *n)
+{
+	switch (i->op)
+	{
 	case IR_LABEL: case IR_JMP: case IR_JZ: case IR_JNZ: x86_make_jump(f, i); return 1;
 	case IR_JMP_TBL: x86_make_jump_table(f, i); return 1;
-
 	case IR_ARG: return x86_make_arg(f, i);
 	case IR_CALL:
-		n = x86_make_tail_call(f, i);
-		if (n) return n;
+		*n = x86_make_tail_call(f, i);
+		if (*n) return *n;
 		return x86_make_call(f, i);
 	case IR_CALL_IND: return x86_make_call(f, i);
 	case IR_RET: x86_make_ret(f, i); return 1;
-
 	default: return 1;
 	}
+}
+
+static int make_instr (X86Fn *f, IRInstr *i)
+{
+	uint32_t at = (uint32_t)(i - (f->cg->ir->instrs + f->fn->start));
+	int n = 0;
+
+	if (cg_is_silent(f->regs, f->ctx.dead + at, i)) return 1;
+	x86_begin_instr(f, i);
+	if (x86_try_rmw_inplace(f, i)) return 1;
+	int consumed = make_data_instr(f, i, &n);
+
+	if (consumed) return consumed;
+	consumed = make_alu_instr(f, i, &n);
+	if (consumed) return consumed;
+	return make_flow_instr(f, i, &n);
 }
 
 static int ends_with_ret (IR *ir, IRFn *fn, uint32_t i)

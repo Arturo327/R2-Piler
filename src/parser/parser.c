@@ -4,7 +4,7 @@
 
 #define MAX_PARSE_DEPTH 1000
 
-static uint32_t push_ast_node (Parser *p, ASTNode node)
+static uint32_t push_ast_node (Parser *p, const ASTNode *node)
 {
 	if (p->ast.count >= p->ast.cap) {
 		uint32_t old_cap = p->ast.cap;
@@ -14,7 +14,7 @@ static uint32_t push_ast_node (Parser *p, ASTNode node)
 	}
 
 	uint32_t idx = p->ast.count++;
-	p->ast.nodes[idx] = node;
+	p->ast.nodes[idx] = *node;
 	return idx;
 }
 
@@ -43,7 +43,7 @@ void init_parser (Parser *parser, Lexer *lexer, Arena *arena, ErrorReporter *err
 		.sym = NO_NODE,
 		.type_node = NO_TYPE_NODE
 	};
-	(void)push_ast_node(parser, root);
+	(void)push_ast_node(parser, &root);
 }
 
 void init_parser_shared (Parser *parser, Lexer *lexer, Arena *arena, ErrorReporter *err, AST *ast)
@@ -165,7 +165,7 @@ uint32_t new_node (Parser *p, NodeType type, uint16_t line, uint16_t col)
 	node.next_bro = NO_NODE;
 	node.sym = NO_NODE;
 	node.type_node = NO_TYPE_NODE;
-	return push_ast_node(p, node);
+	return push_ast_node(p, &node);
 }
 
 void append_child (Parser *p, uint32_t parent, uint32_t *last, uint32_t child)
@@ -184,6 +184,20 @@ typedef struct QualifySeg {
 	uint16_t len;
 } QualifySeg;
 
+static void join_segments (char *name, const QualifySeg *segs, uint32_t count)
+{
+	uint32_t at = 0;
+	for (uint32_t i = 0; i < count; i++) {
+		if (i) {
+			name[at++] = ':';
+			name[at++] = ':';
+		}
+		memcpy(name + at, segs[i].str, segs[i].len);
+		at += segs[i].len;
+	}
+	name[at] = '\0';
+}
+
 char *qualify_name (Parser *p, Token first, uint16_t *len, int *ok)
 {
 	QualifySeg segs[QUALIFY_MAX_SEGS];
@@ -200,8 +214,7 @@ char *qualify_name (Parser *p, Token first, uint16_t *len, int *ok)
 			break;
 		}
 		if (count == QUALIFY_MAX_SEGS) {
-			error_report(p->err, ERR_ERROR, token_loc(first),
-					"qualified name has too many segments");
+			error_report(p->err, ERR_ERROR, token_loc(first), "qualified name has too many segments");
 			*ok = 0;
 			break;
 		}
@@ -209,8 +222,7 @@ char *qualify_name (Parser *p, Token first, uint16_t *len, int *ok)
 
 		total += 2u + next.len;
 		if (total > UINT16_MAX) {
-			error_report(p->err, ERR_ERROR, token_loc(first),
-					"qualified name is too long");
+			error_report(p->err, ERR_ERROR, token_loc(first), "qualified name is too long");
 			*ok = 0;
 			break;
 		}
@@ -219,17 +231,8 @@ char *qualify_name (Parser *p, Token first, uint16_t *len, int *ok)
 		count++;
 	}
 	char *name = arena_alloc(p->arena, (size_t)total + 1);
-	uint32_t at = 0;
 
-	for (uint32_t i = 0; i < count; i++) {
-		if (i) {
-			name[at++] = ':';
-			name[at++] = ':';
-		}
-		memcpy(name + at, segs[i].str, segs[i].len);
-		at += segs[i].len;
-	}
-	name[at] = '\0';
+	join_segments(name, segs, count);
 	*len = (uint16_t)total;
 	return name;
 }

@@ -26,6 +26,17 @@ static int decay_to_ptr_ok (TypeId elem, TypeId to)
 	return sema_const_compat(elem, base);
 }
 
+static int ptr_cast_ok (TypeId from, TypeId to)
+{
+	TypeId fb = types[from].base;
+	TypeId tb = types[to].base;
+
+	if (fb == tb) return 1;
+	if (type_unconst_of(fb) == TYPE_VOID || type_unconst_of(tb) == TYPE_VOID)
+		return type_is_const(tb) || !type_is_const(fb);
+	return sema_const_compat(fb, tb);
+}
+
 int sema_implicit_cast_ok (TypeId from, TypeId to)
 {
 	if (from == to) return 1;
@@ -45,16 +56,12 @@ int sema_implicit_cast_ok (TypeId from, TypeId to)
 	if (from == TYPE_STR)
 		return (to_kind == TK_PTR && type_unconst_of(types[to].base) == TYPE_i8)
 				|| (to_kind == TK_SLICE && type_unconst_of(types[to].base) == TYPE_i8);
-
 	if (to == TYPE_STR) return 0;
-
 	if (from_kind == TK_ARRAY && type_dyn_rank(to) > 0)
 		return sema_const_compat(type_flat_element(from), type_flat_element(to))
 				&& sema_dims_match(from, to);
-
 	if (from_kind == TK_ARRAY || from_kind == TK_SLICE)
 		return to_kind == TK_PTR && decay_to_ptr_ok(type_flat_element(from), to);
-
 	if (type_dyn_rank(from) > 0 && type_dyn_rank(to) > 0)
 		return sema_const_compat(type_flat_element(from), type_flat_element(to))
 				&& sema_dims_match(from, to);
@@ -62,22 +69,13 @@ int sema_implicit_cast_ok (TypeId from, TypeId to)
 	if (to_kind == TK_SLICE) return 0;
 	if (from_kind == TK_STRUCT || from_kind == TK_CLASS
 			|| to_kind == TK_STRUCT || to_kind == TK_CLASS) return 0;
-	if (from_kind == TK_PTR && to_kind == TK_PTR) {
-		TypeId fb = types[from].base;
-		TypeId tb = types[to].base;
-
-		if (fb == tb) return 1;
-		if (type_unconst_of(fb) == TYPE_VOID || type_unconst_of(tb) == TYPE_VOID)
-			return type_is_const(tb) || !type_is_const(fb);
-		return sema_const_compat(fb, tb);
-	}
-
+	if (from_kind == TK_PTR && to_kind == TK_PTR)
+		return ptr_cast_ok(from, to);
 	if (from_kind == TK_PTR || to_kind == TK_PTR) return 0;
 	if (type_is_nominal(from) || type_is_nominal(to)) return 0;
 
-	const Type *f = &types[from];
-	const Type *t = &types[to];
-
+	const Type *f = types + from;
+	const Type *t = types + to;
 	if (f->sign && !t->sign) return 0;
 	return t->size > f->size;
 }
@@ -283,7 +281,6 @@ TypeId try_fold_unary (Sema *s, uint32_t idx)
 void try_fold_binary (Sema *s, uint32_t idx)
 {
 	ASTNode *n = &s->ast->nodes[idx];
-
 	if (n->child == NO_NODE) return;
 	ASTNode *l = &s->ast->nodes[n->child];
 	if (l->next_bro == NO_NODE) return;
@@ -302,15 +299,12 @@ void try_fold_binary (Sema *s, uint32_t idx)
 		return;
 	}
 	if (!l_lit) return;
-
 	if (n->type == NODE_AND_L || n->type == NODE_OR_L) {
 		uint64_t v = n->type == NODE_AND_L ? (a != 0 && b != 0) : (a != 0 || b != 0);
 		make_fold_lit(n, v, TYPE_UNTYPED_INT);
 		return;
 	}
-
 	TypeId t = l->data_type;
-
 	if ((n->type == NODE_DIV || n->type == NODE_MOD) && b == 0) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"division by zero in constant expression");
@@ -631,17 +625,17 @@ static void convert_operand (Sema *s, uint32_t *idx, TypeId *type, TypeId to)
 	*type = to;
 }
 
-int unify_operands (Sema *s, ASTNode *n, uint32_t *left, uint32_t *right, TypeId *l, TypeId *r)
+int unify_operands (UnifyCtx *c)
 {
-	TypeId to = common_type(*l, *r);
+	TypeId to = common_type(*c->l, *c->r);
 
 	if (to == TYPE_ERROR) {
-		error_report(s->err, ERR_ERROR, node_loc(n),
+		error_report(c->s->err, ERR_ERROR, node_loc(c->n),
 				"type mismatch: %s vs %s (use 'as' to convert explicitly)",
-				types[*l].name, types[*r].name);
+				types[*c->l].name, types[*c->r].name);
 		return 0;
 	}
-	if (*l != to) convert_operand(s, left, l, to);
-	if (*r != to) convert_operand(s, right, r, to);
+	if (*c->l != to) convert_operand(c->s, c->left, c->l, to);
+	if (*c->r != to) convert_operand(c->s, c->right, c->r, to);
 	return 1;
 }

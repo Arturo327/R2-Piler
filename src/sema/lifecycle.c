@@ -171,7 +171,7 @@ static uint32_t check_reset_args (Sema *s, uint32_t idx, TypeId cls,
 	call.line = s->ast->nodes[idx].line;
 	call.col = s->ast->nodes[idx].col;
 
-	uint32_t call_idx = sema_new_node(s, call);
+	uint32_t call_idx = sema_new_node(s, &call);
 
 	check_ctor_args(s, call_idx, init);
 	return s->ast->nodes[call_idx].child;

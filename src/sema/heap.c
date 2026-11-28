@@ -145,7 +145,7 @@ static void check_new_ctor_args (Sema *s, uint32_t idx, TypeId cls, uint32_t ini
 		call.type_node = NO_TYPE_NODE;
 		call.line = s->ast->nodes[idx].line;
 		call.col = s->ast->nodes[idx].col;
-		uint32_t call_idx = sema_new_node(s, call);
+		uint32_t call_idx = sema_new_node(s, &call);
 
 		check_ctor_args(s, call_idx, init);
 		s->ast->nodes[idx].child = s->ast->nodes[call_idx].child;

@@ -58,6 +58,30 @@ static void dump_ret_items (Sema *s, Symbol *sym)
 	}
 }
 
+static void dump_alias_symbol (Symbol *sym)
+{
+	TypeId id = sym->type;
+	const char *kind = type_kind(id) == TK_NEWTYPE ? "newtype" : "type";
+
+	if (id == TYPE_ERROR || types[id].base == TYPE_ERROR)
+		printf("%s %.*s [%u:%u] depth=%u type=error\n",
+				kind, (int)sym->len, sym->name, sym->line, sym->col, sym->depth);
+	else printf("%s %.*s [%u:%u] depth=%u type=%s base=%s\n",
+			kind, (int)sym->len, sym->name, sym->line, sym->col, sym->depth,
+			types[id].name, types[types[id].base].name);
+}
+
+static void dump_struct_symbol (Symbol *sym)
+{
+	printf("%s %.*s [%u:%u] depth=%u size=%u align=%u%s\n",
+			type_kind(sym->type) == TK_CLASS ? "class"
+			: types[sym->type].is_union ? "union" : "struct",
+			(int)sym->len, sym->name, sym->line, sym->col, sym->depth,
+			types[sym->type].size, types[sym->type].align,
+			types[sym->type].is_packed ? " packed" : "");
+	dump_fields(sym->type);
+}
+
 void dump_symbols (Sema *s)
 {
 	SymbolTable *t = &s->table;
@@ -75,28 +99,11 @@ void dump_symbols (Sema *s)
 			continue;
 		}
 		if (sym->kind == SYMBOL_TYPE && type_is_struct_like(sym->type)) {
-			printf("%s %.*s [%u:%u] depth=%u size=%u align=%u%s\n",
-					type_kind(sym->type) == TK_CLASS ? "class"
-					: types[sym->type].is_union ? "union" : "struct",
-					(int)sym->len, sym->name, sym->line, sym->col, sym->depth,
-					types[sym->type].size, types[sym->type].align,
-					types[sym->type].is_packed ? " packed" : "");
-			dump_fields(sym->type);
+			dump_struct_symbol(sym);
 			continue;
 		}
 		if (sym->kind == SYMBOL_TYPE) {
-			TypeId id = sym->type;
-			const char *kind = type_kind(id) == TK_NEWTYPE
-					? "newtype" : "type";
-
-			if (id == TYPE_ERROR || types[id].base == TYPE_ERROR)
-				printf("%s %.*s [%u:%u] depth=%u type=error\n",
-						kind, (int)sym->len, sym->name,
-						sym->line, sym->col, sym->depth);
-			else printf("%s %.*s [%u:%u] depth=%u type=%s base=%s\n",
-					kind, (int)sym->len, sym->name,
-					sym->line, sym->col, sym->depth,
-					types[id].name, types[types[id].base].name);
+			dump_alias_symbol(sym);
 			continue;
 		}
 		printf("%s%s %.*s [%u:%u] depth=%u type=%s",

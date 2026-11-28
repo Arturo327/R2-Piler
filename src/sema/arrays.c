@@ -73,7 +73,7 @@ static void patch_array_dim (Sema *s, uint32_t ref_idx, uint32_t count)
 	lit.type_node = NO_TYPE_NODE;
 	lit.data_type = TYPE_UNTYPED_INT;
 
-	uint32_t lit_idx = sema_new_node(s, lit);
+	uint32_t lit_idx = sema_new_node(s, &lit);
 
 	s->ast->nodes[ref_idx].type = NODE_TYPE_ARRAY;
 	s->ast->nodes[ref_idx].child = lit_idx;

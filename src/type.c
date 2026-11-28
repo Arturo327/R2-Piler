@@ -220,19 +220,26 @@ TypeId type_ptr_to (TypeId base)
 	return id;
 }
 
-static uint32_t fn_name_len (const TypeId *params, uint16_t param_count,
-		const TypeId *rets, uint16_t ret_count, int variadic)
+typedef struct FnSig {
+	const TypeId *params;
+	uint16_t pc;
+	const TypeId *rets;
+	uint16_t rc;
+	int variadic;
+} FnSig;
+
+static uint32_t fn_name_len (const FnSig *sig)
 {
 	uint64_t total = 4;
 
-	for (uint16_t i = 0; i < param_count; i++)
-		total += (uint64_t)types[params[i]].len + 2;
-	if (variadic) total += 5;
-	if (ret_count == 1) total += (uint64_t)types[rets[0]].len + 3;
-	else if (ret_count > 1) {
+	for (uint16_t i = 0; i < sig->pc; i++)
+		total += (uint64_t)types[sig->params[i]].len + 2;
+	if (sig->variadic) total += 5;
+	if (sig->rc == 1) total += (uint64_t)types[sig->rets[0]].len + 3;
+	else if (sig->rc > 1) {
 		total += 4;
-		for (uint16_t i = 0; i < ret_count; i++)
-			total += (uint64_t)types[rets[i]].len + 2;
+		for (uint16_t i = 0; i < sig->rc; i++)
+			total += (uint64_t)types[sig->rets[i]].len + 2;
 	}
 	return total > UINT16_MAX ? 0 : (uint32_t)total;
 }
@@ -243,30 +250,30 @@ static char *put_name (char *at, const char *src, uint32_t len)
 	return at + len;
 }
 
-static char *fn_name (const TypeId *params, uint16_t param_count,
-		const TypeId *rets, uint16_t ret_count, int variadic, uint16_t *out_len)
+static char *fn_name (const FnSig *sig, uint16_t *out_len)
 {
-	uint32_t total = fn_name_len(params, param_count, rets, ret_count, variadic);
+	uint32_t total = fn_name_len(sig);
 
 	if (!total) return NULL;
 
 	char *name = arena_alloc(&type_arena, (size_t)total + 1);
 	char *at = put_name(name, "fn(", 3);
 
-	for (uint16_t i = 0; i < param_count; i++) {
+	for (uint16_t i = 0; i < sig->pc; i++) {
 		if (i) at = put_name(at, ", ", 2);
-		at = put_name(at, types[params[i]].name, types[params[i]].len);
+		at = put_name(at, types[sig->params[i]].name, types[sig->params[i]].len);
 	}
-	if (variadic) at = put_name(at, param_count ? ", ..." : "...", param_count ? 5 : 3);
+	if (sig->variadic)
+		at = put_name(at, sig->pc ? ", ..." : "...", sig->pc ? 5 : 3);
 	*at++ = ')';
-	if (ret_count == 1) {
+	if (sig->rc == 1) {
 		at = put_name(at, " : ", 3);
-		at = put_name(at, types[rets[0]].name, types[rets[0]].len);
-	} else if (ret_count > 1) {
+		at = put_name(at, types[sig->rets[0]].name, types[sig->rets[0]].len);
+	} else if (sig->rc > 1) {
 		at = put_name(at, " : (", 4);
-		for (uint16_t i = 0; i < ret_count; i++) {
+		for (uint16_t i = 0; i < sig->rc; i++) {
 			if (i) at = put_name(at, ", ", 2);
-			at = put_name(at, types[rets[i]].name, types[rets[i]].len);
+			at = put_name(at, types[sig->rets[i]].name, types[sig->rets[i]].len);
 		}
 		*at++ = ')';
 	}
@@ -275,32 +282,31 @@ static char *fn_name (const TypeId *params, uint16_t param_count,
 	return name;
 }
 
-static int fn_same (const Type *t, const TypeId *params, uint16_t pc,
-		const TypeId *rets, uint16_t rc, int variadic)
+static int fn_same (const Type *t, const FnSig *sig)
 {
-	if (t->param_count != pc || t->ret_count != rc || t->fn_variadic != variadic)
+	if (t->param_count != sig->pc || t->ret_count != sig->rc
+			|| t->fn_variadic != (sig->variadic != 0))
 		return 0;
-	for (uint16_t i = 0; i < pc; i++)
-		if (t->params[i] != params[i]) return 0;
-	for (uint16_t i = 0; i < rc; i++)
-		if (t->rets[i] != rets[i]) return 0;
+	for (uint16_t i = 0; i < sig->pc; i++)
+		if (t->params[i] != sig->params[i]) return 0;
+	for (uint16_t i = 0; i < sig->rc; i++)
+		if (t->rets[i] != sig->rets[i]) return 0;
 	return 1;
 }
 
-static uint16_t *fn_slot (const TypeId *params, uint16_t pc,
-		const TypeId *rets, uint16_t rc, int variadic)
+static uint16_t *fn_slot (const FnSig *sig)
 {
 	uint32_t h = 2166136261u;
 
-	for (uint16_t i = 0; i < pc; i++)
-		h = (h ^ params[i]) * 16777619u;
+	for (uint16_t i = 0; i < sig->pc; i++)
+		h = (h ^ sig->params[i]) * 16777619u;
 	h = (h ^ 0xFFFFu) * 16777619u;
-	for (uint16_t i = 0; i < rc; i++)
-		h = (h ^ rets[i]) * 16777619u;
-	h = (h ^ (uint32_t)(variadic != 0)) * 16777619u;
+	for (uint16_t i = 0; i < sig->rc; i++)
+		h = (h ^ sig->rets[i]) * 16777619u;
+	h = (h ^ (uint32_t)(sig->variadic != 0)) * 16777619u;
 	h ^= h >> 15;
 	h &= TYPE_HASH_SIZE - 1;
-	while (fn_tab[h] && !fn_same(types + fn_tab[h], params, pc, rets, rc, variadic != 0))
+	while (fn_tab[h] && !fn_same(types + fn_tab[h], sig))
 		h = (h + 1) & (TYPE_HASH_SIZE - 1);
 	return fn_tab + h;
 }
@@ -308,11 +314,12 @@ static uint16_t *fn_slot (const TypeId *params, uint16_t pc,
 TypeId type_fn_of (const TypeId *params, uint16_t param_count,
 		const TypeId *rets, uint16_t ret_count, int variadic)
 {
-	uint16_t *slot = fn_slot(params, param_count, rets, ret_count, variadic);
+	FnSig sig = { params, param_count, rets, ret_count, variadic };
+	uint16_t *slot = fn_slot(&sig);
 
 	if (*slot) return *slot;
 	uint16_t len;
-	char *name = fn_name(params, param_count, rets, ret_count, variadic, &len);
+	char *name = fn_name(&sig, &len);
 	if (!name) return TYPE_ERROR;
 
 	TypeId id = add_type(name, len, TK_FN, TYPE_VOID);

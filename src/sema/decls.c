@@ -11,7 +11,7 @@ static void decl_enum (Sema *s, uint32_t idx)
 		return;
 	}
 	if (symtab_find(&s->table, n->str, n->len) != NO_SYMBOL) {
-		sema_declare(s, n->str, n->len, SYMBOL_ENUM, TYPE_ERROR, idx);
+		sema_declare(s, idx, SYMBOL_ENUM, TYPE_ERROR);
 		return;
 	}
 
@@ -20,7 +20,7 @@ static void decl_enum (Sema *s, uint32_t idx)
 		error_report(s->err, ERR_ERROR, node_loc(n), "too many types");
 		return;
 	}
-	sema_declare(s, n->str, n->len, SYMBOL_ENUM, id, idx);
+	sema_declare(s, idx, SYMBOL_ENUM, id);
 }
 
 static void decl_types (Sema *s)
@@ -329,8 +329,7 @@ static void decl_globals (Sema *s)
 		if (n->type == NODE_FN_DEC || n->type == NODE_EXTERN_FN_DEC) {
 			uint32_t ret = s->ast->nodes[n->child].next_bro;
 			resolve_fn_types(s, idx);
-			uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_FN,
-					s->ast->nodes[ret].data_type, idx);
+			uint32_t sym = sema_declare(s, idx, SYMBOL_FN, s->ast->nodes[ret].data_type);
 			s->table.symbols[sym].fn_type = build_fn_value(s, idx);
 		} else if (n->type == NODE_CLASS_DEC) {
 			decl_class_methods(s, idx);
@@ -344,8 +343,7 @@ static void decl_globals (Sema *s)
 			if (n->len == 4 && memcmp(n->str, "main", 4) == 0)
 				error_report(s->err, ERR_ERROR, node_loc(n),
 						"'main' must be a function");
-			uint32_t sym = sema_declare(s, n->str, n->len, SYMBOL_VAR,
-					n->data_type, idx);
+			uint32_t sym = sema_declare(s, idx, SYMBOL_VAR, n->data_type);
 
 			if (n->child != NO_NODE) mark_placement(s, sym, n->child);
 		}

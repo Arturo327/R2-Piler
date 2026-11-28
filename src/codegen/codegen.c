@@ -1,5 +1,6 @@
 #include "codegen/codegen.h"
 #include "codegen/x86-64/x86_64.h"
+#include "util/strbuf.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,7 +26,7 @@ static const Backend backends[ARCH_COUNT] = {
 	[ARCH_INTERP] = { "interpreter", "interpreter", NULL }
 };
 
-int init_codegen (CodeGen *codegen, Arch arch, Arena *arena, IR *ir, const char *out, OptLevel level)
+int init_codegen (CodeGen *c, Arch arch, IR *ir, const char *out, OptLevel level)
 {
 	const Backend *b = backends + arch;
 
@@ -33,16 +34,15 @@ int init_codegen (CodeGen *codegen, Arch arch, Arena *arena, IR *ir, const char 
 		fprintf(stderr, "Error: %s backend is not implemented\n", b->name);
 		return 1;
 	}
-	codegen->arena = arena;
-	codegen->ir = ir;
-	codegen->out = out;
-	codegen->target = b->target;
-	codegen->opt_level = level;
-	codegen->generate = b->generate;
-	codegen->len = 0;
-	codegen->cap = CG_BUF_INIT;
-	codegen->code = malloc(codegen->cap);
-	if (!codegen->code) {
+	c->ir = ir;
+	c->out = out;
+	c->target = b->target;
+	c->opt_level = level;
+	c->generate = b->generate;
+	c->len = 0;
+	c->cap = CG_BUF_INIT;
+	c->code = malloc(c->cap);
+	if (!c->code) {
 		fprintf(stderr, "Not enough memory\n");
 		exit(1);
 	}
@@ -142,7 +142,7 @@ static void mark_tail_frames (CodeGen *c)
 		while (taint_step(ir, fn, taint))
 			;
 		fn->no_tail = (uint8_t)frame_escapes(ir, fn, taint);
-		arena_release(c->arena, mark);
+		arena_release(c->arena, &mark);
 	}
 }
 
@@ -160,28 +160,16 @@ void cg_printf (CodeGen *c, const char *fmt, ...)
 {
 	va_list ap;
 
-	if (c->cap - c->len < CG_LINE_MAX) {
-		c->code = realloc(c->code, c->cap * 2);
-		if (!c->code) {
-			fprintf(stderr, "Not enough memory\n");
-			exit(1);
-		}
-		c->cap *= 2;
-	}
 	va_start(ap, fmt);
-	int n = vsnprintf(c->code + c->len, CG_LINE_MAX, fmt, ap);
+	sb_vprintf(&c->code, &c->len, &c->cap, fmt, ap);
 	va_end(ap);
-
-	if (n < 0) n = 0;
-	if (n >= CG_LINE_MAX) n = CG_LINE_MAX - 1;
-	c->len += (size_t)n;
 }
 
-int cg_is_tail_call (IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx,
-		IRInstr *call, uint32_t max_args)
+int cg_is_tail_call (IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, IRInstr *call)
 {
 	if (fn->no_tail || call->op != IR_CALL) return 0;
 
+	uint32_t max_args = ctx->arch->arg_reg_max;
 	IRInstr *end = ir->instrs + fn->start + fn->count;
 	IRInstr *ret = call + 1;
 	uint32_t at = (uint32_t)(call - (ir->instrs + fn->start));

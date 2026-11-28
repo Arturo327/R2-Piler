@@ -315,8 +315,7 @@ static uint32_t reject_spread (Sema *s, uint32_t arg)
 	return child == NO_NODE ? arg : child;
 }
 
-static int collect_variadic_args (Sema *s, uint32_t call_idx, uint32_t params_node,
-		uint32_t *arg_at, uint32_t count, uint32_t *extra)
+static int collect_variadic_args(Sema *s, uint32_t call_idx, uint32_t params_node, uint32_t *arg_at, uint32_t count, uint32_t *extra)
 {
 	uint32_t arg = s->ast->nodes[call_idx].child;
 	uint32_t last = NO_NODE;
@@ -388,8 +387,7 @@ static void push_extra (Sema *s, uint32_t val, uint32_t *last, uint32_t *extra)
 	*last = val;
 }
 
-static int check_spread_arg (Sema *s, uint32_t arg, uint32_t next,
-		uint32_t pos, uint32_t fixed, TypeId slice)
+static int check_spread_arg(Sema *s, uint32_t arg, uint32_t next, uint32_t pos, uint32_t fixed, TypeId slice)
 {
 	ASTNode *n = s->ast->nodes + arg;
 	uint32_t child = n->child;
@@ -457,8 +455,7 @@ static void typed_vararg_arg (TypedVarargs *v, uint32_t arg, uint32_t next, Type
 	push_extra(s, val, &v->last, &v->extra);
 }
 
-static int collect_typed_variadic_args (Sema *s, uint32_t call_idx, uint32_t params_node,
-		uint32_t *arg_at, uint32_t count, uint32_t *extra)
+static int collect_typed_variadic_args(Sema *s, uint32_t call_idx, uint32_t params_node, uint32_t *arg_at, uint32_t count, uint32_t *extra)
 {
 	uint32_t fixed = count - 1;
 	TypeId slice = s->ast->nodes[param_at(s, params_node, fixed)].data_type;

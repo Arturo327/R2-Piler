@@ -143,7 +143,7 @@ void color_graph (Graph *g)
 	}
 }
 
-static void color_run (ColorRegs *cr)
+void color_regs (ColorRegs *cr)
 {
 	if (!cr->fn->reg_count) return;
 	mark_weighted(cr);
@@ -151,17 +151,4 @@ static void color_run (ColorRegs *cr)
 	Graph graph;
 	make_graph(cr, &graph);
 	color_graph(&graph);
-}
-
-void color_regs (Arena *arena, IR *ir, IRFn *fn, Reg *regs, RegCtx *ctx, Cfg *cfg)
-{
-	ColorRegs cr = {
-		.arena = arena,
-		.ir = ir,
-		.fn = fn,
-		.regs = regs,
-		.ctx = ctx,
-		.cfg = cfg,
-	};
-	color_run(&cr);
 }

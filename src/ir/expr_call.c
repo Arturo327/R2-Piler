@@ -80,8 +80,7 @@ static uint32_t push_dims (IR *ir, ASTNode *a, TypeId pt, uint32_t *regs, uint32
 	return k;
 }
 
-static uint32_t push_arg_t (IR *ir, ASTNode *call, uint32_t arg, TypeId pt,
-		uint32_t param, uint32_t *regs, uint32_t k)
+static uint32_t push_arg_t(IR *ir, ASTNode *call, uint32_t arg, TypeId pt, uint32_t param, uint32_t *regs, uint32_t k)
 {
 	ASTNode *a = ir->ast->nodes + arg;
 	uint32_t n8 = struct_eightbytes(pt);
@@ -96,7 +95,7 @@ static uint32_t push_arg_t (IR *ir, ASTNode *call, uint32_t arg, TypeId pt,
 	return push_dims(ir, a, pt, regs, k);
 }
 
-static uint32_t push_arg (IR *ir, ASTNode *call, uint32_t arg, uint32_t param, uint32_t *regs, uint32_t k)
+static uint32_t push_arg(IR *ir, ASTNode *call, uint32_t arg, uint32_t param, uint32_t *regs, uint32_t k)
 {
 	TypeId pt = param == NO_NODE ? TYPE_VOID : ir->ast->nodes[param].data_type;
 
@@ -155,8 +154,7 @@ static uint32_t push_varargs (IR *ir, uint32_t arg, TypeId slice, uint32_t *regs
 	return k;
 }
 
-static uint32_t make_ind_call (IR *ir, ASTNode *n, TypeId rtype, uint32_t callee,
-		uint32_t argc, uint32_t dest)
+static uint32_t make_ind_call(IR *ir, ASTNode *n, TypeId rtype, uint32_t callee, uint32_t argc, uint32_t dest)
 {
 	TypeId sig = types[n->sym].base;
 
@@ -200,8 +198,7 @@ static uint32_t gen_call_ind (IR *ir, ASTNode *n, uint32_t dest)
 	return make_ind_call(ir, n, call_ret_type(ir, n, 0), callee, k, dest);
 }
 
-static uint32_t push_typed_args (IR *ir, ASTNode *n, uint32_t arg, uint32_t param,
-		uint32_t *regs, uint32_t k)
+static uint32_t push_typed_args(IR *ir, ASTNode *n, uint32_t arg, uint32_t param, uint32_t *regs, uint32_t k)
 {
 	while (param != NO_NODE && ir->ast->nodes[param].next_bro != NO_NODE) {
 		k = push_arg(ir, n, arg, param, regs, k);

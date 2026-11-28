@@ -569,6 +569,38 @@ uint32_t parse_priv_method (Parser *p)
 	return fn;
 }
 
+static uint32_t parse_class_member (Parser *p)
+{
+	if (p->curr.type == TOK_PRIV) return parse_priv_method(p);
+	if (p->curr.type == TOK_FN) return parse_fn_decl(p);
+	if (p->curr.type == TOK_ID
+			&& (member_named(p->curr, "init", 4)
+				|| member_named(p->curr, "destroy", 7))) {
+		Token name = p->curr;
+		uint16_t flags = member_named(name, "init", 4)
+			? NODE_FLAG_INIT : NODE_FLAG_DESTROY;
+
+		advance(p);
+		if (p->curr.type == TOK_LPAREN)
+			return parse_special_method(p, name, flags);
+		return parse_field_named(p, name);
+	}
+	if (p->curr.type == TOK_ID && member_named(p->curr, "op", 2))
+		return parse_op_member(p);
+	if (p->curr.type == TOK_STRUCT || p->curr.type == TOK_UNION)
+		return parse_struct(p, 0);
+	if (p->curr.type == TOK_PACKED) {
+		advance(p);
+		if (p->curr.type != TOK_STRUCT && p->curr.type != TOK_UNION) {
+			error_report(p->err, ERR_ERROR, token_loc(p->curr), "expected 'struct' or 'union' after 'packed'");
+			p->panic_mode = 1;
+			return new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
+		}
+		return parse_struct(p, 1);
+	}
+	return parse_field(p);
+}
+
 uint32_t parse_class (Parser *p)
 {
 	consume(p, TOK_CLASS, "expected 'class'");
@@ -585,35 +617,7 @@ uint32_t parse_class (Parser *p)
 
 	while (p->curr.type != TOK_RKEY && p->curr.type != TOK_EOF) {
 		Token start = p->curr;
-		uint32_t member;
-
-		if (p->curr.type == TOK_PRIV) member = parse_priv_method(p);
-		else if (p->curr.type == TOK_FN) member = parse_fn_decl(p);
-		else if (p->curr.type == TOK_ID
-				&& (member_named(p->curr, "init", 4)
-					|| member_named(p->curr, "destroy", 7))) {
-			Token name = p->curr;
-			uint16_t flags = member_named(name, "init", 4)
-					? NODE_FLAG_INIT : NODE_FLAG_DESTROY;
-
-			advance(p);
-			if (p->curr.type == TOK_LPAREN)
-				member = parse_special_method(p, name, flags);
-			else member = parse_field_named(p, name);
-		}
-		else if (p->curr.type == TOK_ID && member_named(p->curr, "op", 2))
-			member = parse_op_member(p);
-		else if (p->curr.type == TOK_STRUCT || p->curr.type == TOK_UNION)
-			member = parse_struct(p, 0);
-		else if (p->curr.type == TOK_PACKED) {
-			advance(p);
-			if (p->curr.type != TOK_STRUCT && p->curr.type != TOK_UNION) {
-				error_report(p->err, ERR_ERROR, token_loc(p->curr),
-						"expected 'struct' or 'union' after 'packed'");
-				p->panic_mode = 1;
-				member = new_node(p, NODE_ERROR, p->curr.line, p->curr.col);
-			} else member = parse_struct(p, 1);
-		} else member = parse_field(p);
+		uint32_t member = parse_class_member(p);
 
 		append_child(p, node, &last, member);
 		if (p->panic_mode) syncro(p, start);

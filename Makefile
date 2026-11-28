@@ -1,4 +1,4 @@
-CC = gcc
+CC ?= gcc
 
 CPP_FLAGS = -Isrc
 WARN_FLAGS = -Wall -Wextra

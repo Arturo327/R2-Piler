@@ -76,7 +76,8 @@ typedef struct SymbolTable {
 } SymbolTable;
 
 void symtab_init (SymbolTable *t, Arena *arena);
-uint32_t symtab_declare (SymbolTable *t, Arena *arena, Symbol sym);
+uint32_t symtab_declare (SymbolTable *t, Arena *arena, const Symbol *sym);
+void symtab_rename (SymbolTable *t, uint32_t sym, char *name, uint16_t len);
 uint32_t symtab_find (SymbolTable *t, char *name, uint16_t len);
 void symtab_pop_scope (SymbolTable *t, uint32_t mark);
 void symtab_save_flags (SymbolTable *t, uint8_t *dst, uint32_t mark);
