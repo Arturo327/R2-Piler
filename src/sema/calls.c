@@ -509,6 +509,7 @@ static int value_is_fn_ptr (Sema *s, uint32_t sym_idx)
 	TypeId type = sym->type;
 
 	if (sym->kind != SYMBOL_VAR && sym->kind != SYMBOL_PARAM) return 0;
+	if (sym->by_ref) type = types[type].base;
 	return type_kind(type) == TK_PTR && type_kind(types[type].base) == TK_FN;
 }
 

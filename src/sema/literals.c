@@ -431,7 +431,7 @@ static int concrete_fits (uint64_t bits, TypeId from, TypeId to)
 				: -(int64_t)((uint64_t)1 << (to_bits - 1));
 		max = to_bits == 64 ? INT64_MAX
 				: ((uint64_t)1 << (to_bits - 1)) - 1;
-		return v >= min && (uint64_t)v <= max;
+		return v >= min && v <= (int64_t)max;
 	}
 
 	if (types[to].sign)

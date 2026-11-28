@@ -573,7 +573,7 @@ static Token handle_symbols (Lexer *l)
 	size_t count = sizeof(two_char_ops) / sizeof(two_char_ops[0]);
 
 	for (size_t i = 0; i < count3; i++) {
-		if (three_char_ops[i].first != c
+		if (three_char_ops[i].first != c || !l->cursor[0]
 				|| three_char_ops[i].second != l->cursor[0]
 				|| three_char_ops[i].third != l->cursor[1])
 			continue;

@@ -13,7 +13,7 @@ fn main(0 params, 33 regs) : i64
     str_local.ptr i32 r0, r7
     str_local.i64 r0, r3 +8
     str_local.i64 r0, r5 +16
-    r25 = const.i64 8
+    r25 = const.i64 4
     arg r25 #0
     r26 = call.ptr void malloc
     r28 = const.i32 1

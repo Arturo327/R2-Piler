@@ -481,8 +481,11 @@ void check_fn_defaults_all (Sema *s)
 
 			s->curr_class = s->table.symbols[n->sym].type;
 			for (uint32_t m = n->child; m != NO_NODE; m = s->ast->nodes[m].next_bro)
-				if (s->ast->nodes[m].type == NODE_FN_DEC)
+				if (s->ast->nodes[m].type == NODE_FN_DEC) {
+					s->in_imported = (s->ast->nodes[m].flags & NODE_FLAG_IMPORTED) != 0;
 					check_fn_defaults(s, m);
+					s->in_imported = 0;
+				}
 			s->curr_class = saved;
 		}
 		idx = n->next_bro;

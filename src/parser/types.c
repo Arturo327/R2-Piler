@@ -92,6 +92,7 @@ static TypeSpec *new_spec (Parser *p, uint8_t kind, Token t)
 
 static void append_sig (Parser *p, TypeSpec ***arr, uint32_t *count, uint32_t *cap, TypeSpec *item)
 {
+	if (!item) return;
 	if (*count >= *cap) {
 		uint32_t old = *cap;
 		*cap = old ? old << 1 : 4;
@@ -133,7 +134,7 @@ static void parse_fn_ret (Parser *p, FnSig *sig)
 	if (p->curr.type != TOK_LPAREN) {
 		TypeSpec *ret = parse_type_spec(p, 1, 0);
 
-		if (ret->kind == TS_BUILTIN && ret->builtin == TYPE_VOID) return;
+		if (ret && ret->kind == TS_BUILTIN && ret->builtin == TYPE_VOID) return;
 		append_sig(p, &sig->rets, &sig->ret_count, &sig->ret_cap, ret);
 		return;
 	}

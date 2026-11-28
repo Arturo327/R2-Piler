@@ -372,6 +372,10 @@ static uint32_t parse_field (Parser *p)
 	Token name = p->curr;
 
 	if (consume(p, TOK_ID, "expected field name")) name = p->prev;
+	else {
+		name.str = NULL;
+		name.len = 0;
+	}
 	return parse_field_named(p, name);
 }
 

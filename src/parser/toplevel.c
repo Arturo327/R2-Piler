@@ -55,8 +55,12 @@ uint32_t parse_import (Parser *p, int root)
 	advance(p);
 	uint32_t node = new_node(p, NODE_IMPORT_DEC, kw.line, kw.col);
 
-	p->ast.nodes[node].str = parse_module_name(p,
-			"expected a module name string after 'import'", &p->ast.nodes[node].len);
+	uint16_t len = 0;
+	char *name = parse_module_name(p,
+			"expected a module name string after 'import'", &len);
+
+	p->ast.nodes[node].str = name;
+	p->ast.nodes[node].len = len;
 	if (p->curr.type == TOK_AS) {
 		advance(p);
 		uint32_t alias = new_node(p, NODE_ID, p->curr.line, p->curr.col);

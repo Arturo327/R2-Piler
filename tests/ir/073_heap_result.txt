@@ -32,7 +32,7 @@ fn main(0 params, 33 regs) : i64
     r23 = const.i64 16
     r24 = add.i64 r1, r23
     str_ptr.i64 r24, r22
-    r25 = const.i64 8
+    r25 = const.i64 4
     arg r25 #0
     r26 = call.ptr void malloc
     r27 = move.ptr i32 r26

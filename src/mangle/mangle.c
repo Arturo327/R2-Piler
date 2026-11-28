@@ -6,7 +6,9 @@
 
 #include "mangle/mangle.h"
 
+#ifndef PATH_MAX
 #define PATH_MAX 4096
+#endif
 
 static int segment_char_ok (unsigned char c)
 {

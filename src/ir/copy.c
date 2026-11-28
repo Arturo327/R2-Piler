@@ -73,7 +73,10 @@ void gen_zero_range (IR *ir, uint32_t base, uint64_t size)
 		TypeId ut = left >= 8 ? TYPE_u64 : left >= 4 ? TYPE_u32
 				: left >= 2 ? TYPE_u16 : TYPE_u8;
 
-		make_str_ptr(ir, off ? add_offset(ir, base, off) : base, make_const(ir, 0, ut), ut);
+		uint32_t zero = make_const(ir, 0, ut);
+		uint32_t at = off ? add_offset(ir, base, off) : base;
+
+		make_str_ptr(ir, at, zero, ut);
 		off += types[ut].size;
 	}
 }

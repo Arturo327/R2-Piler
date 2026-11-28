@@ -483,11 +483,12 @@ void decl_class_methods (Sema *s, uint32_t idx)
 
 	if (cls->sym == NO_SYMBOL) return;
 	Symbol *csym = s->table.symbols + cls->sym;
+	TypeId owner = csym->type;
 
-	if (csym->type == TYPE_ERROR || type_kind(csym->type) != TK_CLASS) return;
+	if (owner == TYPE_ERROR || type_kind(owner) != TK_CLASS) return;
 	for (uint32_t m = cls->child; m != NO_NODE; m = s->ast->nodes[m].next_bro)
 		if (s->ast->nodes[m].type == NODE_FN_DEC)
-			declare_class_method(s, m, csym->type);
+			declare_class_method(s, m, owner);
 }
 
 void check_class_methods (Sema *s, uint32_t idx)
@@ -496,11 +497,12 @@ void check_class_methods (Sema *s, uint32_t idx)
 
 	if (cls->sym == NO_SYMBOL) return;
 	Symbol *csym = s->table.symbols + cls->sym;
+	TypeId owner = csym->type;
 
-	if (csym->type == TYPE_ERROR || type_kind(csym->type) != TK_CLASS) return;
+	if (owner == TYPE_ERROR || type_kind(owner) != TK_CLASS) return;
 	TypeId saved = s->curr_class;
 
-	s->curr_class = csym->type;
+	s->curr_class = owner;
 	uint32_t m = cls->child;
 	while (m != NO_NODE) {
 		uint32_t next = s->ast->nodes[m].next_bro;

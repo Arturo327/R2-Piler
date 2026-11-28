@@ -95,8 +95,13 @@ static TypeId check_addr_id (Sema *s, uint32_t idx, uint32_t saved_addr, int *fi
 		*finalized = 1;
 		return type;
 	}
-	if (type != TYPE_ERROR && child->sym != NO_SYMBOL)
-		s->table.symbols[child->sym].addressed = 1;
+	if (type != TYPE_ERROR && child->sym != NO_SYMBOL) {
+		Symbol *sym = s->table.symbols + child->sym;
+
+		sym->addressed = 1;
+		sym->assigned = 1;
+		sym->null_known = 0;
+	}
 	mark_read(s, n->child);
 	return type;
 }

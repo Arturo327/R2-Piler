@@ -36,7 +36,12 @@ static uint32_t gen_new_ptr (IR *ir, ASTNode *n, uint32_t *lens)
 	uint32_t size = NO_REG;
 
 	if (custom) ptr = gen_expr(ir, ir->ast->nodes + n->child);
-	else size = make_const(ir, types[type_flat_element(n->data_type)].size, TYPE_i64);
+	else {
+		TypeId base = dims ? type_flat_element(n->data_type)
+				: types[type_ptr_repr(n->data_type)].base;
+
+		size = make_const(ir, types[base].size, TYPE_i64);
+	}
 
 	for (uint32_t d = 0; d < dims; d++) {
 		lens[d] = new_dim_reg(ir, ir->ast->nodes + node);

@@ -176,7 +176,7 @@ static uint32_t gen_call_ind (IR *ir, ASTNode *n, uint32_t dest)
 {
 	const Type *sig = types + types[n->sym].base;
 	uint32_t argc = count_bros(ir, n->child);
-	uint32_t regs[sig->param_count + argc + 2];
+	uint32_t regs[call_param_slots(ir, n) + argc + 2];
 	uint32_t sret = (uint32_t)call_uses_sret(ir, n);
 	uint32_t arg = n->child;
 	uint32_t k = 0;

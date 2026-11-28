@@ -240,7 +240,7 @@ uint32_t x86_cmp_scratch (X86Fn *f, IRInstr *i, const int8_t *h)
 	uint32_t need = (uint32_t)(h[SC_SRC1] < 0) + x86_op_reg_tmp(f, i->src2, types[i->data_type].size);
 
 	if (cmp_fused(f, i) || h[SC_DST] != VR_SPILL) return need;
-	return need > 1 ? need : 1;
+	return need + 1;
 }
 
 uint32_t x86_select_scratch (X86Fn *f, IRInstr *i, const int8_t *h)

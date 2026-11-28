@@ -428,8 +428,10 @@ static int assign_copy_op (Sema *s, uint32_t idx, uint32_t left,
 	check_op_visibility(s, method, idx);
 	mark_assigned(s, left);
 	set_null_state(s, left, left_kind, 0);
+	mark_read(s, left);
 	if (left_kind == NODE_ID) sym_write(s, s->ast->nodes[left].sym, idx);
 	agg_store(s, left, idx);
+	mark_read(s, left);
 	sema_op_call(s, idx, left, cls, right, method);
 	return 1;
 }
