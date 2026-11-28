@@ -110,11 +110,6 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_RESET] = "NODE_RESET",
 };
 
-static inline void indent (int depth)
-{
-	while (depth-- > 0) printf("  ");
-}
-
 static void dump_decl_flags (ASTNode *n)
 {
 	if (n->str && !(n->flags & NODE_FLAG_INDIRECT))
@@ -370,7 +365,7 @@ static void dump_node (AST *ast, uint32_t idx, int depth)
 		uint32_t next = n->next_bro;
 		const char *name = n->type < NODE_COUNT ? node_names[n->type] : "UNKNOWN";
 
-		indent(depth);
+		for (int k = 0; k < depth; k++) printf("  ");
 		printf("%s [%u:%u]", name, n->line, n->col);
 
 		dump_node_value(n);

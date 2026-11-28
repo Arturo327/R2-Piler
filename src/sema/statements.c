@@ -47,8 +47,6 @@ static void warn_dead_writes (Sema *s, uint32_t idx, Symbol *sym)
 static void warn_unused (Sema *s, uint32_t idx, Symbol *sym)
 {
 	if (sym->kind != SYMBOL_VAR && sym->kind != SYMBOL_PARAM) return;
-	if (sym->decl != NO_NODE
-			&& (s->ast->nodes[sym->decl].flags & NODE_FLAG_SELF)) return;
 
 	if (sym->read) {
 		warn_dead_writes(s, idx, sym);
@@ -586,12 +584,6 @@ static void check_single_return (Sema *s, uint32_t idx, TypeId ret)
 	warn_stack_return(s, cast, ret);
 }
 
-static TypeId ret_type_at (Sema *s, uint32_t list, uint32_t i)
-{
-	if (list == NO_NODE) return i == 0 ? s->curr_ret : TYPE_ERROR;
-	return s->ast->nodes[ast_ret_at(s->ast, list, i)].data_type;
-}
-
 static void check_multi_return (Sema *s, uint32_t idx, uint32_t list, uint32_t count)
 {
 	uint32_t val = s->ast->nodes[idx].child;
@@ -602,7 +594,8 @@ static void check_multi_return (Sema *s, uint32_t idx, uint32_t list, uint32_t c
 		uint32_t next = s->ast->nodes[val].next_bro;
 
 		if (i < count) {
-			TypeId rt = ret_type_at(s, list, i);
+			TypeId rt = list == NO_NODE ? (i == 0 ? s->curr_ret : TYPE_ERROR)
+					: s->ast->nodes[ast_ret_at(s->ast, list, i)].data_type;
 			uint32_t cast = ret_value_type(s, idx, val, rt);
 
 			if (prev == NO_NODE) s->ast->nodes[idx].child = cast;
@@ -698,12 +691,6 @@ static uint32_t loop_body_index (Sema *s, uint32_t idx)
 	return body;
 }
 
-static uint32_t loop_else_index (Sema *s, uint32_t idx)
-{
-	uint32_t body = loop_body_index(s, idx);
-	return s->ast->nodes[body].next_bro;
-}
-
 static int jump_exits_loop (Sema *s, uint32_t idx, uint32_t depth)
 {
 	ASTNode *n = s->ast->nodes + idx;
@@ -724,7 +711,9 @@ static int jump_exits_loop (Sema *s, uint32_t idx, uint32_t depth)
 
 static int loop_else_returns (Sema *s, uint32_t idx)
 {
-	uint32_t els = loop_else_index(s, idx);
+	uint32_t body = loop_body_index(s, idx);
+	uint32_t els = s->ast->nodes[body].next_bro;
+
 	return els != NO_NODE && stmt_returns(s, s->ast->nodes[els].child);
 }
 

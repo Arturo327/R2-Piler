@@ -106,11 +106,28 @@ uint32_t gen_new_ctor (IR *ir, ASTNode *n)
 	return gen_ctor_call(ir, n, ptr);
 }
 
+int destroy_has_self (IR *ir, uint32_t sym)
+{
+	uint32_t decl = ir->symtab->symbols[sym].decl;
+
+	if (decl == NO_NODE) return 1;
+	uint32_t args = ir->ast->nodes[decl].child;
+	uint32_t first = ir->ast->nodes[args].child;
+
+	return first != NO_NODE
+			&& (ir->ast->nodes[first].flags & NODE_FLAG_SELF) != 0;
+}
+
 static void gen_destroy_call (IR *ir, uint32_t sym, uint32_t ptr)
 {
+	uint32_t argc = 0;
+
 	if (sym == NO_SYMBOL) return;
-	make_arg(ir, ptr, 0);
-	make_call(ir, ir->symtab->symbols[sym].ir_id, 1, TYPE_VOID);
+	if (destroy_has_self(ir, sym)) {
+		make_arg(ir, ptr, 0);
+		argc = 1;
+	}
+	make_call(ir, ir->symtab->symbols[sym].ir_id, argc, TYPE_VOID);
 }
 
 void gen_delete (IR *ir, ASTNode *n)

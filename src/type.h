@@ -92,6 +92,7 @@ typedef struct TypeDesc {
 	uint32_t decl;
 	uint16_t field_count;
 	uint8_t layout;
+	uint8_t broken;
 	uint8_t is_union;
 	uint8_t is_packed;
 

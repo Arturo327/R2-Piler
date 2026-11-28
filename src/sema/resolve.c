@@ -105,6 +105,13 @@ static TypeId resolve_array_spec (Sema *s, ASTNode *ref, uint8_t *done, int *def
 	if (id == TYPE_ERROR) return TYPE_ERROR;
 
 	if (!types[id].size) {
+		TypeKind elem = type_kind(type_repr(id));
+
+		if (!s->type_retry && (elem == TK_STRUCT || elem == TK_CLASS)) {
+			s->type_deferred++;
+			if (deferred) *deferred = 1;
+			return TYPE_ERROR;
+		}
 		error_report(s->err, ERR_ERROR, node_loc(ref),
 				"%s element type cannot be void", slice ? "slice" : "array");
 		return TYPE_ERROR;

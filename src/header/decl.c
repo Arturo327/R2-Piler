@@ -63,12 +63,6 @@ static void h_make_init (CHeader *h)
 	h_printf(h, "#endif\n\n");
 }
 
-static void h_make_epilogue (CHeader *h)
-{
-	h_printf(h, "#ifdef __cplusplus\n}\n#endif\n");
-	h_printf(h, "#endif /* %s */\n", h->guard);
-}
-
 void h_make_decls (CHeader *h)
 {
 	AST *ast = h->ir->ast;
@@ -77,7 +71,7 @@ void h_make_decls (CHeader *h)
 			idx = ast->nodes[idx].next_bro) {
 		ASTNode *n = ast->nodes + idx;
 
-		if (!(n->flags & NODE_FLAG_EXPORT)) continue;
+		if (!(n->flags & NODE_FLAG_EXPORT) || (n->flags & NODE_FLAG_IMPORTED)) continue;
 		switch (n->type)
 		{
 		case NODE_FN_DEC:
@@ -91,5 +85,6 @@ void h_make_decls (CHeader *h)
 		}
 	}
 	h_make_init(h);
-	h_make_epilogue(h);
+	h_printf(h, "#ifdef __cplusplus\n}\n#endif\n");
+	h_printf(h, "#endif /* %s */\n", h->guard);
 }

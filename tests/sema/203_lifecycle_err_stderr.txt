@@ -7,9 +7,21 @@ tests/sema/203_lifecycle_err_src.r2:26:2: ERROR: a destructor cannot take parame
 tests/sema/203_lifecycle_err_src.r2:32:2: ERROR: class 'Dup' already has a destructor
      32 |         destroy (self) { }
         |         ^~~~~~~
+tests/sema/203_lifecycle_err_src.r2:10:11: WARNING: unused parameter 'self'
+     10 |         destroy (self) { }
+        |                  ^~~~
+tests/sema/203_lifecycle_err_src.r2:15:11: WARNING: unused parameter 'self'
+     15 |         destroy (self) { }
+        |                  ^~~~
 tests/sema/203_lifecycle_err_src.r2:16:22: ERROR: cannot 'drop' a parameter; parameters are borrowed
      16 |         fn bad(self) { drop self; }
         |                             ^~~~
+tests/sema/203_lifecycle_err_src.r2:31:11: WARNING: unused parameter 'self'
+     31 |         destroy (self) { }
+        |                  ^~~~
+tests/sema/203_lifecycle_err_src.r2:38:11: WARNING: unused parameter 'self'
+     38 |         destroy (self) { }
+        |                  ^~~~
 tests/sema/203_lifecycle_err_src.r2:42:9: ERROR: cannot 'delete' a parameter; parameters are borrowed
      42 |         delete p;
         |                ^
@@ -88,4 +100,4 @@ tests/sema/203_lifecycle_err_src.r2:50:4: WARNING: unused function 'byref'
 tests/sema/203_lifecycle_err_src.r2:54:4: WARNING: unused function 'byref_ptr'
      54 | fn byref_ptr(p : &ptr C) {
         |    ^~~~~~~~~
-21 errors, 9 warnings
+21 errors, 13 warnings

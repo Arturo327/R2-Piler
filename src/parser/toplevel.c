@@ -8,16 +8,28 @@ static void module_path_error (Parser *p, const char *msg)
 
 static int check_module_path (Parser *p, Token name)
 {
-	for (uint32_t i = 0; i < name.len; i++) {
-		if (name.str[i] == ':') {
-			module_path_error(p, "module path cannot contain ':'; use '/' as the separator");
-			return 0;
+	uint32_t seg = 0;
+
+	for (uint32_t i = 0; i <= name.len; i++) {
+		if (i < name.len && name.str[i] != '/') {
+			if (name.str[i] == ':') {
+				module_path_error(p, "module path cannot contain ':'; use '/' as the separator");
+				return 0;
+			}
+			continue;
 		}
-		if (name.str[i] != '/') continue;
-		if (!i || name.str[i - 1] == '/' || i + 1 == name.len) {
+		uint32_t len = i - seg;
+
+		if (!len) {
 			module_path_error(p, "module path has an empty segment");
 			return 0;
 		}
+		if ((len == 1 && name.str[seg] == '.')
+				|| (len == 2 && name.str[seg] == '.' && name.str[seg + 1] == '.')) {
+			module_path_error(p, "module path cannot contain '.' or '..' segments");
+			return 0;
+		}
+		seg = i + 1;
 	}
 	return 1;
 }
@@ -63,7 +75,8 @@ uint32_t parse_import (Parser *p, int root)
 	p->ast.nodes[node].len = len;
 	if (p->curr.type == TOK_AS) {
 		advance(p);
-		uint32_t alias = new_node(p, NODE_ID, p->curr.line, p->curr.col);
+		Token alias_tok = p->curr;
+		uint32_t alias = new_node(p, NODE_ID, alias_tok.line, alias_tok.col);
 
 		if (consume(p, TOK_ID, "expected an alias after 'as'")) {
 			p->ast.nodes[alias].str = p->prev.str;
@@ -141,15 +154,16 @@ static uint32_t mark_visibility (Parser *p, uint32_t node, uint16_t flags)
 	return node;
 }
 
-void mark_decl_flags (Parser *p, uint32_t node, uint16_t flags)
+uint32_t mark_decl_flags (Parser *p, uint32_t node, uint16_t flags)
 {
 	if (p->ast.nodes[node].type == NODE_MULTI_ASSIGN) {
+		p->ast.nodes[node].flags |= flags;
 		for (uint32_t k = p->ast.nodes[node].child; k != NO_NODE;
 				k = p->ast.nodes[k].next_bro)
 			p->ast.nodes[k].flags |= flags;
-		return;
+		return node;
 	}
-	mark_visibility(p, node, flags);
+	return mark_visibility(p, node, flags);
 }
 
 uint32_t parse_pub (Parser *p, int root)
@@ -170,7 +184,7 @@ uint32_t parse_pub (Parser *p, int root)
 		p->panic_mode = 1;
 		return new_node(p, NODE_ERROR, pub.line, pub.col);
 	}
-	return mark_visibility(p, parse_statement_inner(p, root), NODE_FLAG_PUB);
+	return mark_decl_flags(p, parse_statement_inner(p, root), NODE_FLAG_PUB);
 }
 
 uint32_t parse_export (Parser *p, int root)
@@ -189,7 +203,7 @@ uint32_t parse_export (Parser *p, int root)
 		p->panic_mode = 1;
 		return new_node(p, NODE_ERROR, exp.line, exp.col);
 	}
-	return mark_visibility(p, parse_statement_inner(p, root),
+	return mark_decl_flags(p, parse_statement_inner(p, root),
 			NODE_FLAG_PUB | NODE_FLAG_EXPORT);
 }
 

@@ -1,0 +1,4 @@
+tests/opt/048_lifecycle_src.r2:4:11: WARNING: unused parameter 'self'
+      4 |         destroy (self) { }
+        |                  ^~~~
+0 errors, 1 warning

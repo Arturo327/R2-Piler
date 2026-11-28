@@ -11,7 +11,7 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 ## Status
 
 R2-Piler is a work in progress, but the implemented subset is usable and well
-tested: `make test` passes 619 fixtures and `make bench` passes 189 executable
+tested: `make test` passes 633 fixtures and `make bench` passes 198 executable
 assembly fixtures at `-O0` through `-O3`.
 
 The only working backend is **x86-64** (System V AMD64 ABI); ARM, RISC-V and
@@ -69,7 +69,8 @@ scope exit.
 - Visibility: top-level names are file-private by default; `pub` makes them
   public and `export` gives them a plain C-linkable name. `main` must be
   `pub fn main() : i64`.
-- C interop: `extern fn` / `extern var` declarations refer to plain C symbols.
+- C interop: `extern fn` / `extern var` declarations refer to plain C symbols;
+  `export` declarations produce C/C++ headers with `-H`/`--header`.
 - Short-circuit `&&` and `||`, the ternary `cond ? a : b`, and strict
   diagnostics with `file:line:column` locations.
 - Compiles to x86-64 AT&T assembly (System V AMD64 ABI) that links with `gcc`.

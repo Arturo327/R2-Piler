@@ -83,7 +83,7 @@ static void dump_instr (IR *ir, IRInstr *i)
 	if (i->dst != NO_REG)
 		printf("r%u = ", i->dst);
 	printf("%s", op_names[i->op]);
-	if (i->data_type != TYPE_VOID)
+	if (i->data_type != TYPE_VOID && i->data_type < type_count)
 		printf(".%s", types[i->data_type].name);
 	if (i->src1 != NO_REG)
 		printf(" r%u", i->src1);

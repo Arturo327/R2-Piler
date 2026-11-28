@@ -630,7 +630,7 @@ int unify_operands (UnifyCtx *c)
 	TypeId to = common_type(*c->l, *c->r);
 
 	if (to == TYPE_ERROR) {
-		error_report(c->s->err, ERR_ERROR, node_loc(c->n),
+		error_report(c->s->err, ERR_ERROR, node_loc(c->s->ast->nodes + c->idx),
 				"type mismatch: %s vs %s (use 'as' to convert explicitly)",
 				types[*c->l].name, types[*c->r].name);
 		return 0;

@@ -806,12 +806,12 @@ static void check_multi_decl (Sema *s, uint32_t target, TypeId want)
 		n->data_type = t;
 	}
 
-	if (t != TYPE_ERROR && type_kind(t) == TK_ARRAY)
+	if (t != TYPE_ERROR && type_kind(t) == TK_ARRAY && !sema_array_slice_compat(want, t))
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot assign a value of type %s; arrays and slices"
 				" must be modified element by element", types[t].name);
 	else if (want != TYPE_ERROR && t != TYPE_ERROR && t != want
-			&& !sema_implicit_cast_ok(want, t))
+			&& type_kind(t) != TK_ARRAY && !sema_implicit_cast_ok(want, t))
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot assign %s to a variable of type %s;"
 				" use an explicit cast with 'as'",
@@ -846,8 +846,11 @@ static void check_multi_lvalue (Sema *s, uint32_t target, TypeId want, uint32_t 
 
 	ASTNode *n = s->ast->nodes + target;
 	int slice_field = (kind == NODE_DOT || kind == NODE_ID) && type_dyn_rank(l) > 0;
+	int view = lvalue_view(s, target);
 
-	if ((type_kind(l) == TK_ARRAY || type_kind(l) == TK_SLICE) && !slice_field)
+	if (view) {
+		if (want != TYPE_ERROR) assign_view_ok(s, target, l, want);
+	} else if ((type_kind(l) == TK_ARRAY || type_kind(l) == TK_SLICE) && !slice_field)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot assign a value of type %s; arrays and slices"
 				" must be modified element by element", types[l].name);

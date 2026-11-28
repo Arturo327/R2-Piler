@@ -31,6 +31,24 @@ tests/sema/201_init_err_src.r2:3:26: WARNING: unused parameter 'x'
 tests/sema/201_init_err_src.r2:4:32: ERROR: 'self' already declared in this scope
       4 | class B { x : i64; init (self, self) { } }
         |                                ^~~~
+tests/sema/201_init_err_src.r2:4:26: WARNING: unused parameter 'self'
+      4 | class B { x : i64; init (self, self) { } }
+        |                          ^~~~
+tests/sema/201_init_err_src.r2:4:32: WARNING: unused parameter 'self'
+      4 | class B { x : i64; init (self, self) { } }
+        |                                ^~~~
+tests/sema/201_init_err_src.r2:5:26: WARNING: unused parameter 'self'
+      5 | class C { x : i64; init (self) { } init (self) { } }
+        |                          ^~~~
+tests/sema/201_init_err_src.r2:8:26: WARNING: unused parameter 'self'
+      8 | class F { x : i64; init (self) { } fn F (self) { } }
+        |                          ^~~~
+tests/sema/201_init_err_src.r2:9:26: WARNING: unused parameter 'self'
+      9 | class G { x : i64; init (self) { } }
+        |                          ^~~~
+tests/sema/201_init_err_src.r2:13:26: WARNING: unused parameter 'self'
+     13 | class K { x : i64; init (self) { } }
+        |                          ^~~~
 tests/sema/201_init_err_src.r2:17:14: ERROR: class 'G' cannot be initialized with '{...}'; use 'G(...)'
      17 |         var g : G = { .x = 1 };
         |                     ^
@@ -91,4 +109,4 @@ tests/sema/201_init_err_src.r2:13:11: WARNING: unused field 'x' of class 'K'
 tests/sema/201_init_err_src.r2:14:9: WARNING: unused newtype 'N'
      14 | newtype N = K;
         |         ^
-15 errors, 16 warnings
+15 errors, 22 warnings

@@ -26,23 +26,46 @@ static int dest_is_private (IR *ir, ASTNode *lhs)
 	return !mentions_sym(ir, call, root);
 }
 
+static uint32_t assign_slice_param (IR *ir, ASTNode *lhs, ASTNode *rhs)
+{
+	Symbol *s = ir->symtab->symbols + lhs->sym;
+	TypeId type = lhs->data_type;
+	uint32_t tmp = new_struct_temp(ir, type);
+	uint32_t src = gen_slice_desc(ir, tmp, rhs, type);
+	TypeId level = type;
+	int dyn = 0;
+
+	while (type_kind(level) == TK_ARRAY || type_kind(level) == TK_SLICE) {
+		if (type_kind(level) == TK_SLICE) {
+			uint32_t off = (uint64_t)8 * (uint32_t)(dyn + 1);
+			uint32_t len = make_ld_ptr(ir, add_offset(ir, tmp, off), TYPE_i64);
+
+			make_move(ir, s->ir_dims[dyn++], len, TYPE_i64);
+		}
+		level = types[level].base;
+	}
+	make_move(ir, s->ir_id, src, type_ptr_to(type_flat_element(type)));
+	return src;
+}
+
 uint32_t gen_assign (IR *ir, ASTNode *n)
 {
 	ASTNode *lhs = ir->ast->nodes + n->child;
-	int view = lhs->type == NODE_ID && ir->symtab->symbols[lhs->sym].view;
+	Symbol *sym = lhs->type == NODE_ID ? ir->symtab->symbols + lhs->sym : NULL;
+	int view = sym && sym->view;
 
 	if ((lhs->type == NODE_DOT || lhs->type == NODE_ID)
 			&& (type_dyn_rank(lhs->data_type) > 0 || view)) {
+		ASTNode *rhs = ir->ast->nodes + lhs->next_bro;
+
+		if (sym && sym->ir_dims)
+			return assign_slice_param(ir, lhs, rhs);
 		uint32_t dst;
 		if (lhs->type == NODE_DOT) dst = gen_lvalue_addr(ir, lhs);
-		else {
-			Symbol *s = ir->symtab->symbols + lhs->sym;
-			if (!s->depth || s->is_static) {
-				dst = new_reg(ir, TYPE_i64);
-				make_addr_global(ir, dst, s->ir_id, s->type);
-			} else dst = local_storage_addr(ir, s, s->type);
-		}
-		ASTNode *rhs = ir->ast->nodes + lhs->next_bro;
+		else if (!sym->depth || sym->is_static) {
+			dst = new_reg(ir, TYPE_i64);
+			make_addr_global(ir, dst, sym->ir_id, sym->type);
+		} else dst = local_storage_addr(ir, sym, sym->type);
 		return gen_slice_desc(ir, dst, rhs, lhs->data_type);
 	}
 
@@ -110,6 +133,17 @@ static void gen_multi_store (IR *ir, uint32_t target, uint32_t at, TypeId type)
 		return;
 	}
 
+	if (t->type == NODE_ID) {
+		Symbol *s = ir->symtab->symbols + t->sym;
+
+		if (s->view) {
+			TypeId desc = type_array_of(TYPE_u64,
+					(uint32_t)type_dyn_rank(dst) + 1u);
+
+			gen_copy(ir, local_storage_addr(ir, s, dst), at, desc);
+			return;
+		}
+	}
 	uint32_t val = convert_value(ir, make_ld_ptr(ir, at, type), type, dst);
 	uint32_t addr = gen_lvalue_addr(ir, t);
 

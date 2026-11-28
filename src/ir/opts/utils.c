@@ -28,6 +28,8 @@ IRInstr *next_real (IRInstr *code, uint32_t from, uint32_t count)
 int64_t norm_val (uint64_t v, TypeId type)
 {
 	const Type *t = types + type;
+
+	if (!t->size || t->size > 8) return (int64_t)v;
 	unsigned sh = 64u - t->size * 8u;
 
 	v <<= sh;

@@ -200,7 +200,7 @@ static int compile_ir (Compiler *c, CompilerOpts *opts)
 
 	dump_ir(&c->ir);
 	print_err_count(c);
-	return 0;
+	return c->err.err_count ? 1 : 0;
 }
 
 static int compile_optimize (Compiler *c, CompilerOpts *opts)
@@ -212,7 +212,7 @@ static int compile_optimize (Compiler *c, CompilerOpts *opts)
 
 	dump_ir(&c->ir);
 	print_err_count(c);
-	return 0;
+	return c->err.err_count ? 1 : 0;
 }
 
 static int compile_interfaces (Compiler *c, CompilerOpts *opts, R2i *r2i, CHeader *header)
@@ -252,7 +252,15 @@ int compile (Compiler *c, CompilerOpts *opts)
 
 	werror_enabled = opts->werror;
 	if (compile_setup(c, opts, dumping)) return 1;
-	if (opts->dump_tokens) return dump_tokens(&c->lexer) ? 1 : 0;
+	if (opts->dump_tokens) {
+		int status = dump_tokens(&c->lexer);
+
+		if (werror_enabled && c->err.warn_count) {
+			c->err.err_count += c->err.warn_count;
+			c->err.warn_count = 0;
+		}
+		return status || c->err.err_count ? 1 : 0;
+	}
 
 	int stage = compile_parse(c, opts);
 	if (stage != -1) return stage;

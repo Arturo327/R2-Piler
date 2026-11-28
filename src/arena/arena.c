@@ -40,6 +40,7 @@ void arena_init (Arena *a)
 	a->cap = a->block_size;
 	a->last_ptr = NULL;
 	a->last_size = 0;
+	a->marks = 0;
 }
 
 void *arena_alloc (Arena *a, size_t size)
@@ -99,6 +100,7 @@ static void *grow_last (Arena *a, size_t new_size)
 		a->last_size = grown;
 		return a->last_ptr;
 	}
+	if (a->marks) return NULL;
 	if (a->last_ptr == (void *)a->tail->data)
 		return regrow_block(a, grown);
 	return NULL;
@@ -130,6 +132,7 @@ ArenaMark arena_mark (Arena *a)
 	m.tail = a->tail;
 	m.used = a->tail->used;
 	m.cap = a->cap;
+	a->marks++;
 	return m;
 }
 
@@ -147,6 +150,7 @@ void arena_release (Arena *a, const ArenaMark *m)
 	m->tail->used = m->used;
 	a->tail = m->tail;
 	a->cap = m->cap;
+	if (a->marks) a->marks--;
 	a->last_ptr = NULL;
 	a->last_size = 0;
 }

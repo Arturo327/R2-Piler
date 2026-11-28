@@ -18,7 +18,7 @@ NODE_ROOT [0:0]
           NODE_ID [8:51] str="plain"
       NODE_VAR_DEC [9:6] name="s" type=S
         NODE_STRUCT_INIT [9:14]
-          NODE_FIELD_INIT [9:16] field="cb"
+          NODE_FIELD_INIT [9:15] field="cb"
             NODE_ID [9:21] str="plain"
       NODE_VAR_DEC [10:6] name="cond" type=i32
         NODE_LIT_i64 [10:19] i64=1

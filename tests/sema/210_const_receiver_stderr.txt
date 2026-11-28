@@ -1,0 +1,4 @@
+tests/sema/210_const_receiver_src.r2:7:5: ERROR: cannot call a mutating method on a const class value
+      7 |     c.set(5);
+        |     ^
+1 error, 0 warnings

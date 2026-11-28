@@ -70,16 +70,33 @@ static int r2i_print_literal (R2i *r, ASTNode *n)
 static int r2i_print_symbol (R2i *r, ASTNode *n)
 {
 	if (n->type == NODE_ID) {
-		if (n->sym != NO_SYMBOL) r2i_print_fn_name(r, n->sym);
-		return 1;
+		if (n->sym == NO_SYMBOL) return 0;
+		Symbol *s = r->ir->symtab->symbols + n->sym;
+
+		if (s->kind == SYMBOL_FN) {
+			if (s->ir_id >= r->ir->fn_count) return 0;
+			r2i_print_fn_name(r, n->sym);
+			return 1;
+		}
+		if (s->kind == SYMBOL_VAR) {
+			if (s->ir_id >= r->ir->global_count) return 0;
+			r2i_print_global_name(r, n->sym);
+			return 1;
+		}
+		return 0;
 	}
 	if (n->type != NODE_ADDR) return 0;
 	uint32_t child = n->child;
 
-	if (child != NO_NODE && r->ir->ast->nodes[child].sym != NO_SYMBOL) {
-		r2i_printf(r, "$");
-		r2i_print_global_name(r, r->ir->ast->nodes[child].sym);
-	}
+	if (child == NO_NODE) return 0;
+	uint32_t sym = r->ir->ast->nodes[child].sym;
+
+	if (sym == NO_SYMBOL) return 0;
+	Symbol *s = r->ir->symtab->symbols + sym;
+
+	if (s->ir_id >= r->ir->global_count) return 0;
+	r2i_printf(r, "$");
+	r2i_print_global_name(r, sym);
 	return 1;
 }
 
@@ -104,12 +121,6 @@ static void r2i_print_init_list (R2i *r, uint32_t first)
 		r2i_print_expr(r, item);
 	}
 	r2i_printf(r, "}");
-}
-
-static void r2i_print_field_init (R2i *r, ASTNode *n)
-{
-	r2i_printf(r, ".%.*s = ", (int)n->len, n->str);
-	r2i_print_expr(r, n->child);
 }
 
 static void r2i_print_index_init (R2i *r, ASTNode *n)
@@ -138,7 +149,10 @@ void r2i_print_expr (R2i *r, uint32_t idx)
 	case NODE_NOT_A: r2i_printf(r, "~"); r2i_print_expr(r, n->child); return;
 	case NODE_STRUCT_INIT: case NODE_ARRAY_INIT:
 		r2i_print_init_list(r, n->child); return;
-	case NODE_FIELD_INIT: r2i_print_field_init(r, n); return;
+	case NODE_FIELD_INIT:
+		r2i_printf(r, ".%.*s = ", (int)n->len, n->str);
+		r2i_print_expr(r, n->child);
+		return;
 	case NODE_INDEX_INIT: r2i_print_index_init(r, n); return;
 	default:
 		r2i_printf(r, "0");

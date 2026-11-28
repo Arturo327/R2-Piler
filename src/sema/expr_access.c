@@ -503,6 +503,8 @@ static TypeId check_index_op (Sema *s, uint32_t idx, uint32_t base,
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+	check_op_visibility(s, method, idx);
+	reject_const_receiver(s, base, s->ast->nodes[base].data_type, "operator");
 	uint32_t want = index_op_params(s, method);
 	if (got != want) {
 		error_report(s->err, ERR_ERROR, node_loc(n),

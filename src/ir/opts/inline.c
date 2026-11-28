@@ -173,7 +173,7 @@ static void inl_site (Inliner *n, IRInstr *call, const uint32_t *args, uint32_t 
 static int inl_call (Inliner *n, IRInstr *call, uint32_t hi)
 {
 	uint32_t argc = call->argc;
-	uint32_t args[argc + 1];
+	uint32_t *args = arena_alloc(n->arena, ((size_t)argc + 1u) * sizeof(uint32_t));
 	IRInstr *first;
 
 	if (n->count < argc) return 0;

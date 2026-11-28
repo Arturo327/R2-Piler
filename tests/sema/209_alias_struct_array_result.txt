@@ -1,0 +1,5 @@
+struct S [1:8] depth=0 size=8 align=8
+  field x type=i64 offset=0
+type SA [2:6] depth=0 type=SA base=S[2]
+fn main [4:8] depth=0 type=i64
+var a [5:9] depth=1 type=S[2]

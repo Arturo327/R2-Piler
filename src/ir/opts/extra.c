@@ -85,12 +85,6 @@ uint32_t visible_globals (IR *ir, Arena *a, uint32_t *out)
 	return n;
 }
 
-static void kill_visible (OptFn *f)
-{
-	for (uint32_t k = 0; k < f->gvis_count; k++)
-		f->gstamp[f->gvis[k]] = 0;
-}
-
 static int globals_block (Optimizer *opt, OptFn *f, CfgBlock *blk)
 {
 	IRInstr *code = opt->ir->instrs + blk->start;
@@ -101,7 +95,10 @@ static int globals_block (Optimizer *opt, OptFn *f, CfgBlock *blk)
 		IRInstr *in = code + i;
 
 		if (in->op == IR_CALL || in->op == IR_CALL_IND) f->gepoch++;
-		else if (in->op == IR_STR_PTR) kill_visible(f);
+		else if (in->op == IR_STR_PTR) {
+			for (uint32_t k = 0; k < f->gvis_count; k++)
+				f->gstamp[f->gvis[k]] = 0;
+		}
 		else if (in->op == IR_STR_GLOBAL) note_global(f, in, in->src1);
 		else if (in->op == IR_LD_GLOBAL && fwd_global(f, in)) changed = 1;
 		else if (in->op == IR_LD_GLOBAL) note_global(f, in, in->dst);

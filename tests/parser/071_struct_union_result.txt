@@ -30,20 +30,20 @@ NODE_ROOT [0:0]
     NODE_BLOCK [27:21]
       NODE_VAR_DEC [28:6] name="p" type=Punto
         NODE_STRUCT_INIT [28:18]
-          NODE_FIELD_INIT [28:20] field="x"
+          NODE_FIELD_INIT [28:19] field="x"
             NODE_LIT_i64 [28:24] i64=1
-          NODE_FIELD_INIT [28:28] field="y"
+          NODE_FIELD_INIT [28:27] field="y"
             NODE_LIT_i64 [28:32] i64=2
-          NODE_FIELD_INIT [28:36] field="tags"
+          NODE_FIELD_INIT [28:35] field="tags"
             NODE_ARRAY_INIT [28:43]
               NODE_LIT_i64 [28:44] i64=3
               NODE_LIT_i64 [28:47] i64=4
               NODE_LIT_i64 [28:50] i64=5
       NODE_VAR_DEC [29:6] name="c" type=Cpu
         NODE_STRUCT_INIT [29:16]
-          NODE_FIELD_INIT [29:18] field="tag"
+          NODE_FIELD_INIT [29:17] field="tag"
             NODE_LIT_i64 [29:24] i64=0
-          NODE_FIELD_INIT [29:28] field="whole"
+          NODE_FIELD_INIT [29:27] field="whole"
             NODE_LIT_i64 [29:36] i64=7
       NODE_VAR_DEC [30:6] name="llamada" type=i32
         NODE_FN_CALL [30:22] name="suma"

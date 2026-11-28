@@ -1,0 +1,46 @@
+p.r2:4:8: WARNING: unused parameter 'self'
+      4 |         op + (self, b : C) : C { return b; }
+        |               ^~~~
+p.r2:6:8: WARNING: unused parameter 'self'
+      6 |         op - (self, b : C) : C { return b; }
+        |               ^~~~
+p.r2:7:8: WARNING: unused parameter 'self'
+      7 |         op * (self, b : C) : C { return b; }
+        |               ^~~~
+p.r2:8:8: WARNING: unused parameter 'self'
+      8 |         op / (self, b : C) : C { return b; }
+        |               ^~~~
+p.r2:9:8: WARNING: unused parameter 'self'
+      9 |         op % (self, b : C) : C { return b; }
+        |               ^~~~
+p.r2:10:9: WARNING: unused parameter 'self'
+     10 |         op == (self, _b : C) : i64 { return 0; }
+        |                ^~~~
+p.r2:11:9: WARNING: unused parameter 'self'
+     11 |         op != (self, _b : C) : i64 { return 0; }
+        |                ^~~~
+p.r2:12:8: WARNING: unused parameter 'self'
+     12 |         op < (self, _b : C) : i64 { return 0; }
+        |               ^~~~
+p.r2:13:9: WARNING: unused parameter 'self'
+     13 |         op <= (self, _b : C) : i64 { return 0; }
+        |                ^~~~
+p.r2:14:8: WARNING: unused parameter 'self'
+     14 |         op > (self, _b : C) : i64 { return 0; }
+        |               ^~~~
+p.r2:15:9: WARNING: unused parameter 'self'
+     15 |         op >= (self, _b : C) : i64 { return 0; }
+        |                ^~~~
+p.r2:16:8: WARNING: unused parameter 'self'
+     16 |         op & (self, b : C) : C { return b; }
+        |               ^~~~
+p.r2:17:8: WARNING: unused parameter 'self'
+     17 |         op | (self, b : C) : C { return b; }
+        |               ^~~~
+p.r2:18:8: WARNING: unused parameter 'self'
+     18 |         op ^ (self, b : C) : C { return b; }
+        |               ^~~~
+p.r2:21:8: WARNING: unused parameter 'self'
+     21 |         op ! (self) : i64 { return 0; }
+        |               ^~~~
+0 errors, 15 warnings

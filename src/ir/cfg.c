@@ -89,6 +89,7 @@ void cfg_build_lmap (IR *ir, Cfg *cfg)
 		IRInstr *in = ir->instrs + cfg->blocks[j].start;
 
 		if (in->op != IR_LABEL) continue;
+		if (in->target < cfg->lbase || in->target - cfg->lbase >= cfg->lcount) continue;
 		cfg->lmap[in->target - cfg->lbase] = j;
 		cfg->lrefs[in->target - cfg->lbase] = 0;
 	}

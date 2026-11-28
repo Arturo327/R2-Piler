@@ -504,9 +504,13 @@ static void gen_drop (IR *ir, ASTNode *n)
 	if (n->sym == NO_SYMBOL) return;
 
 	uint32_t ptr = gen_expr(ir, ir->ast->nodes + n->child);
+	uint32_t argc = 0;
 
-	make_arg(ir, ptr, 0);
-	make_call(ir, ir->symtab->symbols[n->sym].ir_id, 1, TYPE_VOID);
+	if (destroy_has_self(ir, n->sym)) {
+		make_arg(ir, ptr, 0);
+		argc = 1;
+	}
+	make_call(ir, ir->symtab->symbols[n->sym].ir_id, argc, TYPE_VOID);
 }
 
 static void gen_reset (IR *ir, ASTNode *n)
@@ -516,8 +520,13 @@ static void gen_reset (IR *ir, ASTNode *n)
 	uint32_t ptr = gen_expr(ir, target);
 
 	if (n->sym != NO_SYMBOL) {
-		make_arg(ir, ptr, 0);
-		make_call(ir, ir->symtab->symbols[n->sym].ir_id, 1, TYPE_VOID);
+		uint32_t argc = 0;
+
+		if (destroy_has_self(ir, n->sym)) {
+			make_arg(ir, ptr, 0);
+			argc = 1;
+		}
+		make_call(ir, ir->symtab->symbols[n->sym].ir_id, argc, TYPE_VOID);
 	}
 	if ((uint32_t)n->u64 != NO_SYMBOL) {
 		ASTNode call = *n;

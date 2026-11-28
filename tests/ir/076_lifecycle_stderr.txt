@@ -1,0 +1,4 @@
+tests/ir/076_lifecycle_src.r2:6:11: WARNING: unused parameter 'self'
+      6 |         destroy (self) { }
+        |                  ^~~~
+0 errors, 1 warning

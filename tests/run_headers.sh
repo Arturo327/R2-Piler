@@ -73,7 +73,7 @@ for conf in "$dir"/*/test.conf; do
 	c=""; cpp=""; use_clang=0; want_exit=0; extra=""
 	ok=1
 
-	while read -r key val || [ -n "$key" ]; do
+	while IFS=' ' read -r key val || [ -n "$key" ]; do
 		case "$key" in
 		''|'#'*) continue;;
 		source) src=$val;;
@@ -104,6 +104,7 @@ for conf in "$dir"/*/test.conf; do
 		[ "$status" -eq "$want" ] || {
 			echo "  status $status, want $want"; show "$root/stderr"; ok=0
 		}
+		[ ! -s "$root/stdout" ] || { echo "  unexpected stdout:"; show "$root/stdout"; ok=0; }
 		check_err "$want_err" "$root/stderr" "stderr" || ok=0
 	fi
 

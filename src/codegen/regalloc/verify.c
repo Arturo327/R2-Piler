@@ -243,7 +243,7 @@ static void verify_block_live (Verify *v, uint32_t b)
 
 static void verify_covered(Verify *v, uint32_t r, uint32_t from, uint32_t to, uint32_t first, uint32_t n)
 {
-	RegAlloc *ra = ra;
+	RegAlloc *ra = v->ra;
 	Reg *reg = ra->regs + r;
 	int8_t a = reg->home[from];
 	int8_t b = reg->home[to];
@@ -286,6 +286,8 @@ static void verify_block_edges (Verify *v, uint32_t b)
 {
 	RegAlloc *ra = v->ra;
 	CfgBlock *blk = ra->cfg.blocks + b;
+
+	if (!blk->count) return;
 	IRInstr *last = ra->ir->instrs + blk->start + blk->count - 1;
 	uint32_t at = blk->start - ra->fn->start + blk->count - 1;
 	const EdgeMoves *e = ra->ctx->edges + at;
@@ -293,7 +295,6 @@ static void verify_block_edges (Verify *v, uint32_t b)
 			&& last->op != IR_RET && b + 1 < ra->cfg.block_count;
 	int jump = last->op == IR_JMP || last->op == IR_JZ || last->op == IR_JNZ;
 
-	if (!blk->count) return;
 	v->at = at;
 	if (e->first + e->fall + e->taken > ra->ctx->move_count)
 		verify_fail(v, "edge moves out of range");

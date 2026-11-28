@@ -1,12 +1,36 @@
+tests/sema/207_class_export_err_src.r2:18:10: WARNING: unused parameter 'self'
+     18 |         fn malo(self, x : Interno) : i64 { return 0; }
+        |                 ^~~~
 tests/sema/207_class_export_err_src.r2:18:16: WARNING: unused parameter 'x'
      18 |         fn malo(self, x : Interno) : i64 { return 0; }
         |                       ^
+tests/sema/207_class_export_err_src.r2:20:14: WARNING: unused parameter 'self'
+     20 |         fn template(self) : i64 { return 1; }
+        |                     ^~~~
+tests/sema/207_class_export_err_src.r2:22:15: WARNING: unused parameter 'self'
+     22 |         fn variadico(self, xs : ...i64) : i64 { return 0; }
+        |                      ^~~~
 tests/sema/207_class_export_err_src.r2:22:21: WARNING: unused parameter 'xs'
      22 |         fn variadico(self, xs : ...i64) : i64 { return 0; }
         |                            ^~
+tests/sema/207_class_export_err_src.r2:24:11: WARNING: unused parameter 'self'
+     24 |         fn multi(self) : i64, i32 { return 1, 2; }
+        |                  ^~~~
+tests/sema/207_class_export_err_src.r2:26:12: WARNING: unused parameter 'self'
+     26 |         fn grande(self, g : Grande) : i64 { return g.a; }
+        |                   ^~~~
+tests/sema/207_class_export_err_src.r2:28:12: WARNING: unused parameter 'self'
+     28 |         fn matriz(self, m : i64[][]) : i64 { return 0; }
+        |                   ^~~~
 tests/sema/207_class_export_err_src.r2:28:18: WARNING: unused parameter 'm'
      28 |         fn matriz(self, m : i64[][]) : i64 { return 0; }
         |                         ^
+tests/sema/207_class_export_err_src.r2:30:12: WARNING: unused parameter 'self'
+     30 |         fn vector(self) : i64[2] { return datos; }
+        |                   ^~~~
+tests/sema/207_class_export_err_src.r2:32:11: WARNING: unused parameter 'self'
+     32 |         fn vista(self) : i64[] { return datos; }
+        |                  ^~~~
 tests/sema/207_class_export_err_src.r2:18:16: ERROR: export declaration exposes non-export type 'Interno'
      18 |         fn malo(self, x : Interno) : i64 { return 0; }
         |                       ^
@@ -34,4 +58,4 @@ tests/sema/207_class_export_err_src.r2:32:17: ERROR: an exported class method ca
 tests/sema/207_class_export_err_src.r2:2:2: WARNING: unused field 'v' of struct 'Interno'
       2 |         v : i64;
         |         ^
-8 errors, 4 warnings
+8 errors, 12 warnings

@@ -44,6 +44,8 @@ static int bind_static (Optimizer *opt, OptFn *f, IRInstr *st, const uint8_t *ad
 	if (st == first) return 0;
 	cst = st - 1;
 	while (cst > first && cst->op == IR_NOP) cst--;
+	for (IRInstr *p = cst + 1; p < st; p++)
+		if (stops_static[p->op]) return 0;
 	if (cst->dst != st->src1) return 0;
 	if (!bind_value(opt, cst, g)) return 0;
 
@@ -103,6 +105,7 @@ static void compute_touch (Optimizer *opt)
 	uint32_t words = (ir->global_count + 63) >> 6;
 	int changed = 1;
 
+	if (!words) return;
 	touch_alloc(opt, words);
 	for (uint32_t i = 0; i < ir->fn_count; i++)
 		touch_direct(ir, ir->fns + i, words);

@@ -2,6 +2,7 @@
 #define ARENA_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct ArenaBlock ArenaBlock;
 
@@ -18,6 +19,7 @@ typedef struct Arena {
 	size_t block_size;
 	void *last_ptr;
 	size_t last_size;
+	uint32_t marks;
 } Arena;
 
 void arena_init (Arena *a);

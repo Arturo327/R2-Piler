@@ -54,12 +54,12 @@
 extern "C" {
 #endif
 
+typedef struct Str Str;
 typedef struct {
 	char *data;
 	int64_t len[1];
 } r2_slice_0;
 
-typedef struct Str Str;
 
 struct Str {
 	const char * s;

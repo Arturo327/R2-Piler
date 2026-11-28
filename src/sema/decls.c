@@ -587,6 +587,46 @@ static inline void check_export_name (Sema *s, ASTNode *n)
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"exported name '%.*s' is a C/C++ keyword; rename it",
 				(int)n->len, n->str);
+	if (n->str && n->len >= 3 && ((n->str[0] == 'R' && n->str[1] == '2'
+					&& n->str[2] == '_') || (n->str[0] == 'r' && n->str[1] == '2'
+					&& n->str[2] == '_')))
+		error_report(s->err, ERR_ERROR, node_loc(n),
+				"exported name '%.*s' is reserved for generated headers",
+				(int)n->len, n->str);
+}
+
+static void check_export_type (Sema *s, TypeId type, uint32_t use);
+
+static int export_abi_bad (TypeId t)
+{
+	return type_is_struct_like(t) || type_kind(t) == TK_SLICE
+			|| type_kind(t) == TK_ARRAY;
+}
+
+static void abi_error (Sema *s, uint32_t use, const char *what)
+{
+	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + use),
+			"exported function pointer type has a %s ABI that cannot be represented in C",
+			what);
+}
+
+static void check_export_fn_type (Sema *s, Type *fn, uint32_t use)
+{
+	uint16_t i;
+
+	if (fn->ret_count > 1 || (fn->ret_count && export_abi_bad(fn->rets[0]))) {
+		abi_error(s, use, "return");
+		return;
+	}
+	for (i = 0; i < fn->param_count; i++) {
+		if (export_abi_bad(fn->params[i])) {
+			abi_error(s, use, "parameter");
+			return;
+		}
+		check_export_type(s, fn->params[i], use);
+	}
+	for (i = 0; i < fn->ret_count; i++)
+		check_export_type(s, fn->rets[i], use);
 }
 
 static void check_export_type (Sema *s, TypeId type, uint32_t use)
@@ -598,15 +638,9 @@ static void check_export_type (Sema *s, TypeId type, uint32_t use)
 	case TK_PTR: case TK_ARRAY: case TK_SLICE:
 		check_export_type(s, types[type].base, use);
 		return;
-	case TK_FN: {
-		Type *fn = types + type;
-
-		for (uint16_t i = 0; i < fn->param_count; i++)
-			check_export_type(s, fn->params[i], use);
-		for (uint16_t i = 0; i < fn->ret_count; i++)
-			check_export_type(s, fn->rets[i], use);
+	case TK_FN:
+		check_export_fn_type(s, types + type, use);
 		return;
-	}
 	case TK_STRUCT: case TK_CLASS: case TK_ENUM: case TK_ALIAS: case TK_NEWTYPE: {
 		ASTNode *decl = named_type_decl(s, type);
 		int visible = decl && ((decl->flags & NODE_FLAG_EXPORT)
@@ -829,6 +863,7 @@ void sema_run (Sema *s)
 	resolve_enum_bases(s);
 	sema_finalize_types(s);
 	sema_layout_structs(s);
+	sema_resolve_types_retry(s);
 	types_refresh_const();
 	decl_globals(s);
 	bind_enums(s);

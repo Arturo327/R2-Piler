@@ -23,7 +23,7 @@ static uint32_t parse_param (Parser *p, int *typed)
 			p->ast.nodes[node].type_node = NO_TYPE_NODE;
 			return node;
 		}
-		error_report(p->err, ERR_ERROR, token_loc(p->curr),
+		error_report(p->err, ERR_ERROR, token_loc(p->prev),
 				"'self' has an implicit type and cannot declare one");
 	}
 

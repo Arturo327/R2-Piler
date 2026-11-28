@@ -141,7 +141,7 @@ static void mark_tail_frames (CodeGen *c)
 		memset(taint, 0, bytes);
 		while (taint_step(ir, fn, taint))
 			;
-		fn->no_tail = (uint8_t)frame_escapes(ir, fn, taint);
+		fn->no_tail |= (uint8_t)frame_escapes(ir, fn, taint);
 		arena_release(c->arena, &mark);
 	}
 }

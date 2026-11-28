@@ -243,12 +243,6 @@ static void load_live (Graph *g, uint32_t b)
 	}
 }
 
-static void link_pair (Graph *g, uint32_t a, uint32_t b)
-{
-	g->nodes[a].row[b >> 6] |= 1ull << (b & 63);
-	g->nodes[b].row[a >> 6] |= 1ull << (a & 63);
-}
-
 static void link_live (Graph *g, uint32_t a)
 {
 	for (uint32_t w = 0; w < g->stride; w++) {
@@ -257,7 +251,10 @@ static void link_live (Graph *g, uint32_t a)
 		while (bits) {
 			uint32_t b = (w << 6) + (uint32_t)__builtin_ctzll(bits);
 			bits &= bits - 1;
-			if (b != a) link_pair(g, a, b);
+			if (b != a) {
+				g->nodes[a].row[b >> 6] |= 1ull << (b & 63);
+				g->nodes[b].row[a >> 6] |= 1ull << (a & 63);
+			}
 		}
 	}
 }
@@ -395,12 +392,6 @@ static uint64_t neighbor_pref (Graph *g, uint32_t vreg)
 	return pref;
 }
 
-static void finish_nodes (Graph *g)
-{
-	for (uint32_t i = 0; i < g->node_num; i++)
-		g->nodes[i].pref = neighbor_pref(g, g->nodes[i].vreg);
-}
-
 void build_graph (Graph *g)
 {
 	reset_graph(g);
@@ -412,7 +403,8 @@ void build_graph (Graph *g)
 	for (uint32_t b = g->cfg_first[g->blk]; b < g->cfg_first[g->blk + 1]; b++)
 		sweep_block(g, b);
 
-	finish_nodes(g);
+	for (uint32_t i = 0; i < g->node_num; i++)
+		g->nodes[i].pref = neighbor_pref(g, g->nodes[i].vreg);
 	coalesce_graph(g);
 }
 

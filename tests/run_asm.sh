@@ -83,6 +83,9 @@ for src in "$dir"/*_src.r2; do
 			case "$VG_COUNT" in ''|*[!0-9]*)
 				echo "FAIL $src: -O$olev could not parse Ir:"; cat "$tmp_vg"; ok=0; break;;
 			esac
+			if [ "$HAVE_VG" -eq 1 ] && [ "$VG_COUNT" -eq 0 ]; then
+				echo "FAIL $src: -O$olev collected no Ir (mangled main changed?)"; ok=0; break
+			fi
 			if [ "$code_opt" -ne "$want_exit" ]; then
 				echo "FAIL $src: -O$olev exit $code_opt, want $want_exit"; ok=0; break
 			fi

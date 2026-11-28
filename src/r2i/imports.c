@@ -38,12 +38,6 @@ static void build_mod_maps (R2i *r)
 	}
 }
 
-static int type_module (R2i *r, TypeId id)
-{
-	if (id >= type_count) return -1;
-	return r->type_mod[id];
-}
-
 static void mark_symbol (R2i *r, uint32_t sym_idx)
 {
 	if (sym_idx == NO_SYMBOL) return;
@@ -72,7 +66,7 @@ static void mark_type (R2i *r, TypeId id, uint8_t *seen)
 			mark_type(r, types[id].rets[i], seen);
 		return;
 	case TK_STRUCT: case TK_CLASS: case TK_ENUM: case TK_ALIAS: case TK_NEWTYPE: {
-		int m = type_module(r, id);
+		int m = id < type_count ? r->type_mod[id] : -1;
 
 		if (m >= 0) r->import_used[m] = 1;
 		if (type_kind(id) == TK_NEWTYPE) mark_type(r, types[id].base, seen);

@@ -516,7 +516,7 @@ static int binary_truth (Sema *s, uint32_t left, uint32_t right,
 
 static void binary_shift (UnifyCtx *c)
 {
-	uint32_t idx = (uint32_t)(c->n - c->s->ast->nodes);
+	uint32_t idx = c->idx;
 
 	finalize_type(c->s, *c->right, *c->r);
 	if (!is_literal_node(c->s, *c->right))
@@ -526,9 +526,9 @@ static void binary_shift (UnifyCtx *c)
 
 static int binary_unify (UnifyCtx *c)
 {
-	uint32_t idx = (uint32_t)(c->n - c->s->ast->nodes);
+	uint32_t idx = c->idx;
 
-	if (*c->l == *c->r || !needs_common_type(c->n->type)) return 1;
+	if (*c->l == *c->r || !needs_common_type(c->s->ast->nodes[idx].type)) return 1;
 	if (unify_operands(c)) return 1;
 	c->s->ast->nodes[idx].data_type = TYPE_ERROR;
 	return 0;
@@ -536,12 +536,12 @@ static int binary_unify (UnifyCtx *c)
 
 static TypeId binary_finish (UnifyCtx *c)
 {
-	uint32_t idx = (uint32_t)(c->n - c->s->ast->nodes);
+	uint32_t idx = c->idx;
 	ASTNode *n = c->s->ast->nodes + idx;
 
 	n->child = *c->left;
 	c->s->ast->nodes[*c->left].next_bro = *c->right;
-	n->data_type = binop_result_type(c->n->type, *c->l);
+	n->data_type = binop_result_type(n->type, *c->l);
 	try_fold_binary(c->s, idx);
 	return n->data_type;
 }
@@ -591,7 +591,7 @@ TypeId check_binary (Sema *s, uint32_t idx)
 	if (op_type != NODE_AND_L && op_type != NODE_OR_L
 			&& check_pointer_binary(s, idx, &left, &right, &l, &r))
 		return s->ast->nodes[idx].data_type;
-	UnifyCtx uc = { s, s->ast->nodes + idx, &left, &right, &l, &r };
+	UnifyCtx uc = { s, idx, &left, &right, &l, &r };
 
 	if (op_type == NODE_AND_L || op_type == NODE_OR_L) {
 		if (!check_logic(s, idx, left, right, &l, &r)) return TYPE_ERROR;
@@ -636,7 +636,7 @@ static TypeId ternary_unify(Sema *s, uint32_t idx, uint32_t *then_idx, uint32_t 
 				type_display_name(a), type_display_name(b));
 		return TYPE_ERROR;
 	}
-	UnifyCtx uc = { s, s->ast->nodes + idx, then_idx, else_idx, &a, &b };
+	UnifyCtx uc = { s, idx, then_idx, else_idx, &a, &b };
 	if (a != b && !unify_operands(&uc))
 		return TYPE_ERROR;
 	return a;
@@ -694,15 +694,18 @@ static int cast_types_ok (Sema *s, ASTNode *n, TypeId from, TypeId to)
 				" only pointer-to-pointer casts are supported");
 		return 0;
 	}
-	if (type_kind(from) == TK_ENUM && type_kind(to) == TK_ENUM && from != to) {
+	TypeId fu = type_unconst_of(from);
+	TypeId tu = type_unconst_of(to);
+
+	if (type_kind(fu) == TK_ENUM && type_kind(tu) == TK_ENUM && fu != tu) {
 		error_report(s->err, ERR_ERROR, node_loc(n),
 				"cannot cast between enum types '%s' and '%s';"
 				" cast through the underlying integer type",
 				types[from].name, types[to].name);
 		return 0;
 	}
-	if (type_kind(from) == TK_NEWTYPE && type_kind(to) == TK_NEWTYPE
-			&& from != to) {
+	if (type_kind(fu) == TK_NEWTYPE && type_kind(tu) == TK_NEWTYPE
+			&& fu != tu) {
 		const char *via = type_ptr_repr(from) != TYPE_ERROR
 				? "pointer type" : "integer type";
 

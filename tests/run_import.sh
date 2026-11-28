@@ -58,7 +58,7 @@ check_asm() { # asm-file checks-file
 	while IFS= read -r line; do
 		[ -n "$line" ] || continue
 		want=${line%% *}; pat=${line#* }
-		if grep -Fq -- "$pat" "$1"; then
+		if grep -Fqw -- "$pat" "$1"; then
 			[ "$want" -eq 1 ] && continue
 			echo "  unexpected '$pat'"
 			return 1
@@ -138,13 +138,15 @@ run_case() { # conf
 	}
 	check_err "$stderr_exp" "$root/build$build_count.err" stderr || ok=0
 	if [ "$earlier_bad" -ne 0 ]; then
-		for n in $(seq 1 $((build_count-1))); do
+		n=1
+		while [ "$n" -lt "$build_count" ]; do
 			code=$(cat "$root/build$n.st" 2>/dev/null)
 			if [ "$code" != 0 ] || [ -s "$root/build$n.err" ]; then
 				echo "  earlier build $n failed or warned:"
 				show "$root/build$n.err"
 				ok=0
 			fi
+			n=$((n + 1))
 		done
 	fi
 
@@ -153,12 +155,12 @@ run_case() { # conf
 		[ "$ok" -eq 0 ] || check_asm "$ws/$last_asm" "$checks" || ok=0
 	fi
 
-	if [ "$ok" -eq 1 ] && [ -n "$run_exit" ]; then
-		if [ -z "$run_list" ]; then run_list=$builds; fi
+	if [ "$ok" -eq 1 ] && [ -n "$run_list" ]; then
+		want_exit=${run_exit:-0}
 		if (cd "$ws" && gcc $run_list -o prog 2>"$root/gcc"); then
 			(cd "$ws" && ./prog); code=$?
-			[ "$code" -eq "$run_exit" ] || {
-				echo "  linked program exited $code, want $run_exit"
+			[ "$code" -eq "$want_exit" ] || {
+				echo "  linked program exited $code, want $want_exit"
 				ok=0
 			}
 		else

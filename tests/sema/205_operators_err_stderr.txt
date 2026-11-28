@@ -25,6 +25,12 @@ tests/sema/205_operators_err_src.r2:18:5: ERROR: an operator cannot return sever
 tests/sema/205_operators_err_src.r2:24:15: ERROR: index parameter 'p' of operator '[]' must be an integer type
      24 |         op [] (self, p : ptr i8) : ptr i64 { return $self.x; }
         |                      ^
+tests/sema/205_operators_err_src.r2:9:8: WARNING: unused parameter 'self'
+      9 |         op + (self, b : B) : B { return b; }
+        |               ^~~~
+tests/sema/205_operators_err_src.r2:14:8: WARNING: unused parameter 'self'
+     14 |         op - (self, b : B) : B { return b; }
+        |               ^~~~
 tests/sema/205_operators_err_src.r2:47:17: ERROR: class 'A' has no operator '+'
      47 |         var _c : B = a + b;
         |                        ^
@@ -73,4 +79,4 @@ tests/sema/205_operators_err_src.r2:62:21: ERROR: native indexing takes a single
 tests/sema/205_operators_err_src.r2:55:3: WARNING: value assigned to 'b' is not used
      55 |         b++;
         |          ^~
-24 errors, 1 warning
+24 errors, 3 warnings

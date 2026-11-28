@@ -45,7 +45,9 @@ static int resolve_one_type (Sema *s, uint32_t idx, uint8_t *done)
 
 	if (!(n->type == NODE_TYPE_DEC || n->type == NODE_NEWTYPE_DEC) || n->sym == NO_SYMBOL) return 0;
 	sym = s->table.symbols + n->sym;
-	if (sym->type == TYPE_ERROR || done[sym->type]) return 0;
+	if (sym->type == TYPE_ERROR || done[sym->type] || types[sym->type].broken) return 0;
+	if (s->type_retry && n->type_node == NO_TYPE_NODE
+			&& types[sym->type].base == TYPE_ERROR) return 0;
 	if (!type_decl_target(s, n, done, &target)) return 0;
 
 	types[sym->type].base = target;
@@ -69,10 +71,11 @@ static void report_unresolved (Sema *s, uint32_t idx, uint8_t *done)
 	error_report(s->err, ERR_ERROR, node_loc(n),
 			"circular type definition '%.*s'", (int)n->len, n->str);
 	types[sym->type].base = TYPE_ERROR;
+	types[sym->type].broken = 1;
 	done[sym->type] = 1;
 }
 
-void sema_resolve_types (Sema *s)
+static void resolve_types (Sema *s, int report)
 {
 	uint8_t *done = arena_alloc(s->arena, type_count);
 	uint32_t idx;
@@ -89,11 +92,26 @@ void sema_resolve_types (Sema *s)
 		}
 	} while (progress);
 
+	if (!report || s->type_retry || (!s->type_retry && s->type_deferred)) return;
 	idx = s->ast->nodes[0].child;
 	while (idx != NO_NODE) {
 		report_unresolved(s, idx, done);
 		idx = s->ast->nodes[idx].next_bro;
 	}
+}
+
+void sema_resolve_types (Sema *s)
+{
+	s->type_deferred = 0;
+	resolve_types(s, 1);
+}
+
+void sema_resolve_types_retry (Sema *s)
+{
+	s->type_retry = 1;
+	s->type_deferred = 0;
+	resolve_types(s, 1);
+	s->type_retry = 0;
 }
 
 static int type_is_broken (TypeId id)

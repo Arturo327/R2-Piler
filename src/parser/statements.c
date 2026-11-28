@@ -6,8 +6,10 @@ uint32_t parse_brace_init (Parser *p);
 
 static uint32_t parse_field_init (Parser *p)
 {
+	Token dot = p->curr;
+
 	consume(p, TOK_DOT, "expected '.'");
-	uint32_t node = new_node(p, NODE_FIELD_INIT, p->curr.line, p->curr.col);
+	uint32_t node = new_node(p, NODE_FIELD_INIT, dot.line, dot.col);
 	if (consume(p, TOK_ID, "expected a field name after '.'")) {
 		p->ast.nodes[node].str = p->prev.str;
 		p->ast.nodes[node].len = p->prev.len;

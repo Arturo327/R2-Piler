@@ -56,6 +56,11 @@ extern "C" {
 
 typedef struct Punto Punto;
 typedef union U U;
+#ifdef __cplusplus
+enum Color : uint8_t;
+#else
+typedef uint8_t Color;
+#endif
 typedef struct Bits Bits;
 typedef struct Small Small;
 typedef struct Mixta Mixta;

@@ -67,6 +67,8 @@ typedef struct Sema {
 	uint8_t too_deep;
 	uint8_t ref_arg;
 	uint8_t in_imported;
+	uint8_t type_retry;
+	uint32_t type_deferred;
 
 	const char *mod_name;
 	uint16_t mod_len;

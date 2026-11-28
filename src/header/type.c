@@ -733,8 +733,9 @@ static void h_make_alias (CHeader *h, TypeId id)
 	ASTNode *n = h->ir->ast->nodes + h->decl_nodes[id];
 
 	h_printf(h, "typedef ");
-	h_print_type(h, n->data_type);
-	h_printf(h, " %s;\n\n", h->type_names[id]);
+	h_print_named_type(h, n->data_type, h->type_names[id],
+			(int)strlen(h->type_names[id]));
+	h_printf(h, ";\n\n");
 }
 
 static void h_make_nominal (CHeader *h, TypeId id);
@@ -796,18 +797,26 @@ void h_make_types (CHeader *h)
 {
 	size_t mark = h->len;
 
+	for (uint16_t id = TYPE_COUNT; id < h->type_total; id++) {
+		uint16_t node = h->decl_nodes[id];
+
+		if (!h->type_used[id] || node == 0xFFFF) continue;
+		ASTNode *n = h->ir->ast->nodes + node;
+		if (n->type == NODE_STRUCT_DEC || n->type == NODE_CLASS_DEC)
+			h_printf(h, "typedef %s %s %s;\n",
+					(n->flags & NODE_FLAG_UNION) ? "union" : "struct",
+					h->type_names[id], h->type_names[id]);
+		else if (n->type == NODE_ENUM_DEC) {
+			h_printf(h, "#ifdef __cplusplus\nenum %s : ", h->type_names[id]);
+			h_print_type(h, n->data_type);
+			h_printf(h, ";\n#else\ntypedef ");
+			h_print_type(h, n->data_type);
+			h_printf(h, " %s;\n#endif\n", h->type_names[id]);
+		}
+	}
 	h_make_any(h);
 	h_make_slices(h);
 	h_make_fn_typedefs(h);
-	for (uint16_t id = TYPE_COUNT; id < h->type_total; id++) {
-		uint16_t node = h->decl_nodes[id];
-		if (!h->type_used[id] || node == 0xFFFF) continue;
-		ASTNode *n = h->ir->ast->nodes + node;
-		if (n->type != NODE_STRUCT_DEC && n->type != NODE_CLASS_DEC) continue;
-		h_printf(h, "typedef %s %s %s;\n",
-				(n->flags & NODE_FLAG_UNION) ? "union" : "struct",
-				h->type_names[id], h->type_names[id]);
-	}
 	if (h->len > mark) h_printf(h, "\n");
 	mark = h->len;
 	for (uint16_t id = TYPE_COUNT; id < h->type_total; id++)

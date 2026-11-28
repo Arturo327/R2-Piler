@@ -18,6 +18,7 @@ int opt_coalesce (Optimizer *opt, OptFn *f)
 
 		m = next_real(code, i + 1, f->fn->count);
 		if (!m || m->op != IR_MOVE || m->src1 != a->dst || m->dst == a->dst) continue;
+		if (reg_addressed(f->fn, m->dst)) continue;
 		if (!same_rep(f->fn, a->dst, m->dst)) continue;
 
 		a->dst = m->dst;

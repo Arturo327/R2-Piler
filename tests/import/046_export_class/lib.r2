@@ -9,5 +9,5 @@ export class E {
 
 	fn doble() : E { return E(2); }
 
-	destroy (self) { }
+	destroy () { }
 }

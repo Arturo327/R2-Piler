@@ -7,7 +7,16 @@ tests/sema/199_class_err_src.r2:3:5: ERROR: class 'Caja' already has a field nam
 tests/sema/199_class_err_src.r2:5:16: ERROR: 'self' must be the first parameter of a method
       5 |         fn malo(self, self) : i64 { return 1; }
         |                       ^~~~
+tests/sema/199_class_err_src.r2:3:11: WARNING: unused parameter 'self'
+      3 |         fn valor(self) : i64 { return 1; }
+        |                  ^~~~
 tests/sema/199_class_err_src.r2:5:16: ERROR: 'self' already declared in this scope
+      5 |         fn malo(self, self) : i64 { return 1; }
+        |                       ^~~~
+tests/sema/199_class_err_src.r2:5:10: WARNING: unused parameter 'self'
+      5 |         fn malo(self, self) : i64 { return 1; }
+        |                 ^~~~
+tests/sema/199_class_err_src.r2:5:16: WARNING: unused parameter 'self'
       5 |         fn malo(self, self) : i64 { return 1; }
         |                       ^~~~
 tests/sema/199_class_err_src.r2:13:17: ERROR: class 'Caja' cannot be initialized with '{...}'; use 'Caja(...)'
@@ -28,4 +37,4 @@ tests/sema/199_class_err_src.r2:14:6: WARNING: unused variable 'f'
 tests/sema/199_class_err_src.r2:8:7: WARNING: unused class 'Vacia'
       8 | class Vacia {
         |       ^~~~~
-8 errors, 2 warnings
+8 errors, 5 warnings

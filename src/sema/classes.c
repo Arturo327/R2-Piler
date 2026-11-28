@@ -213,9 +213,10 @@ static int destroy_params_ok (Sema *s, uint32_t fn_idx)
 	uint32_t args = fn->child;
 	uint32_t first = s->ast->nodes[args].child;
 
-	if (first == NO_NODE || !(s->ast->nodes[first].flags & NODE_FLAG_SELF)) {
+	if (first == NO_NODE) return 1;
+	if (!(s->ast->nodes[first].flags & NODE_FLAG_SELF)) {
 		error_report(s->err, ERR_ERROR, node_loc(fn),
-				"a destructor must take 'self' as its first parameter");
+				"a destructor must take 'self' as its first parameter or no parameters");
 		return 0;
 	}
 	if (s->ast->nodes[first].next_bro != NO_NODE) {
@@ -517,6 +518,22 @@ void check_class_methods (Sema *s, uint32_t idx)
 	s->curr_class = saved;
 }
 
+int receiver_is_const (TypeId type)
+{
+	TypeId value = type_unconst_of(type);
+
+	if (type_kind(value) != TK_PTR) return type_is_const(type);
+	return type_is_const(types[value].base);
+}
+
+void reject_const_receiver (Sema *s, uint32_t use, TypeId type, const char *what)
+{
+	if (!receiver_is_const(type)) return;
+	error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + use),
+			"cannot call a mutating %s on a const class value", what);
+	s->ast->nodes[use].data_type = TYPE_ERROR;
+}
+
 static TypeId receiver_class (TypeId type)
 {
 	TypeId value = type_unconst_of(type);
@@ -576,6 +593,7 @@ TypeId sema_op_call (Sema *s, uint32_t idx, uint32_t receiver,
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}
+	reject_const_receiver(s, receiver, s->ast->nodes[receiver].data_type, "operator");
 	uint32_t recv = make_receiver(s, receiver, ptr);
 	const char *spelling = op_spelling(s->ast->nodes[method].op);
 
@@ -862,6 +880,7 @@ typedef struct MethodCall {
 	char *name;
 	uint16_t len;
 	TypeId cls;
+	TypeId base_type;
 } MethodCall;
 
 static int find_method_call (Sema *s, uint32_t idx, MethodCall *mc)
@@ -878,6 +897,7 @@ static int find_method_call (Sema *s, uint32_t idx, MethodCall *mc)
 	TypeId base_type = check_expr(s, mc->base);
 
 	if (base_type == TYPE_ERROR) return -1;
+	mc->base_type = base_type;
 	mc->cls = receiver_class(base_type);
 	if (mc->cls == TYPE_ERROR) return 0;
 
@@ -901,6 +921,7 @@ static TypeId dispatch_method (Sema *s, uint32_t idx, MethodCall *mc)
 	}
 	check_method_visibility(s, sym, mc->dot);
 	if (class_fn_has_self(s, mc->method)) {
+		reject_const_receiver(s, mc->base, mc->base_type, "method");
 		TypeId ptr = type_ptr_to(mc->cls);
 
 		if (ptr == TYPE_ERROR) {

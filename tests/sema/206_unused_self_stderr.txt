@@ -1,0 +1,10 @@
+tests/sema/206_unused_self_src.r2:6:12: WARNING: unused parameter 'self'
+      6 |         fn no_usa(self) : i64 { return 7; }
+        |                   ^~~~
+tests/sema/206_unused_self_src.r2:8:8: WARNING: unused parameter 'self'
+      8 |         op + (self, o : Caja) : Caja { return Caja(o.x); }
+        |               ^~~~
+tests/sema/206_unused_self_src.r2:10:11: WARNING: unused parameter 'self'
+     10 |         destroy (self) { }
+        |                  ^~~~
+0 errors, 3 warnings

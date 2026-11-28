@@ -385,7 +385,7 @@ static void pin_jt_homes (RegAlloc *ra)
 			while (bits) {
 				uint32_t v = (w << 6) + (uint32_t)__builtin_ctzll(bits);
 				bits &= bits - 1;
-				if (v >= ra->fn->reg_count || ra->regs[v].cstate == VR_CONST) continue;
+				if (v >= ra->fn->reg_count || ra->regs[v].cstate != VR_MEM) continue;
 				ra->regs[v].home[jb] = VR_SPILL;
 				for (uint32_t k = 0; k < blk->succ_count; k++) {
 					uint32_t s = cfg->blocks[blk->succ[k]].start - ra->fn->start;
@@ -457,12 +457,6 @@ static void add_edge_move (RegAlloc *ra, uint32_t first, uint32_t vreg, int8_t f
 	m->to = to;
 }
 
-static void live_bit_move (RegAlloc *ra, uint32_t first, uint32_t v, uint32_t from, uint32_t to)
-{
-	if (v >= ra->fn->reg_count || ra->regs[v].cstate == VR_CONST) return;
-	add_edge_move(ra, first, v, ra->regs[v].home[from], ra->regs[v].home[to]);
-}
-
 static uint32_t live_edge_moves (RegAlloc *ra, uint32_t from, uint32_t to, uint32_t cfg_block)
 {
 	uint32_t first = ra->move_count;
@@ -475,7 +469,9 @@ static uint32_t live_edge_moves (RegAlloc *ra, uint32_t from, uint32_t to, uint3
 			uint32_t v = (w << 6) + (uint32_t)__builtin_ctzll(bits);
 
 			bits &= bits - 1;
-			live_bit_move(ra, first, v, from, to);
+			if (v >= ra->fn->reg_count || ra->regs[v].cstate == VR_CONST) continue;
+			add_edge_move(ra, first, v,
+					ra->regs[v].home[from], ra->regs[v].home[to]);
 		}
 	}
 	return ra->move_count - first;
@@ -488,12 +484,6 @@ static uint32_t edge_to_block (RegAlloc *ra, uint32_t from, uint32_t cfg_block)
 
 	if (to == from) return 0;
 	return live_edge_moves(ra, from, to, cfg_block);
-}
-
-static void add_taken_edge (RegAlloc *ra, uint32_t at, uint32_t from, IRInstr *last)
-{
-	uint32_t t = cfg_label_block(ra->ir, &ra->cfg, last->target);
-	if (t != CFG_NO_BLOCK) ra->ctx->edges[at].taken = edge_to_block(ra, from, t);
 }
 
 static void build_block_edges (RegAlloc *ra, uint32_t b)
@@ -510,8 +500,12 @@ static void build_block_edges (RegAlloc *ra, uint32_t b)
 	if (last->op != IR_JMP && last->op != IR_JMP_TBL && last->op != IR_RET
 			&& b + 1 < ra->cfg.block_count)
 		e->fall = edge_to_block(ra, from, b + 1);
-	if (last->op == IR_JMP || last->op == IR_JZ || last->op == IR_JNZ)
-		add_taken_edge(ra, at, from, last);
+	if (last->op == IR_JMP || last->op == IR_JZ || last->op == IR_JNZ) {
+		uint32_t t = cfg_label_block(ra->ir, &ra->cfg, last->target);
+
+		if (t != CFG_NO_BLOCK)
+			ra->ctx->edges[at].taken = edge_to_block(ra, from, t);
+	}
 }
 
 static void build_edges (RegAlloc *ra)

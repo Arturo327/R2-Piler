@@ -169,20 +169,16 @@ static void infer_designated_values (Sema *s, uint32_t ref_idx, uint32_t init_id
 
 	if (elem == NO_NODE) return;
 	while (item != NO_NODE) {
-		ASTNode *it = s->ast->nodes + item;
+		uint32_t paths = s->ast->nodes[item].sym;
+		uint32_t value = (uint32_t)s->ast->nodes[item].u64;
+		uint32_t next = s->ast->nodes[item].next_bro;
 		uint32_t ref = elem;
 
-		for (uint32_t k = 1; k < it->sym && ref != NO_NODE; k++)
+		for (uint32_t k = 1; k < paths && ref != NO_NODE; k++)
 			ref = type_next(s, ref);
-		if (ref != NO_NODE) infer_init_level(s, ref, (uint32_t)it->u64);
-		item = it->next_bro;
+		if (ref != NO_NODE) infer_init_level(s, ref, value);
+		item = next;
 	}
-}
-
-static void infer_designated (Sema *s, uint32_t ref_idx, uint32_t init_idx)
-{
-	infer_designated_levels(s, ref_idx, init_idx);
-	infer_designated_values(s, ref_idx, init_idx);
 }
 
 static void infer_init_level (Sema *s, uint32_t ref_idx, uint32_t init_idx)
@@ -197,7 +193,8 @@ static void infer_init_level (Sema *s, uint32_t ref_idx, uint32_t init_idx)
 	}
 	if (init->type != NODE_ARRAY_INIT) return;
 	if (array_init_designated(s, init_idx)) {
-		infer_designated(s, ref_idx, init_idx);
+		infer_designated_levels(s, ref_idx, init_idx);
+		infer_designated_values(s, ref_idx, init_idx);
 		return;
 	}
 

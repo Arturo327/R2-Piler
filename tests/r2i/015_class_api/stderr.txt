@@ -1,0 +1,7 @@
+a.r2:9:17: WARNING: unused parameter 'self'
+      9 |         priv fn oculto(self) : i64 { return 0; }
+        |                        ^~~~
+a.r2:24:11: WARNING: unused parameter 'self'
+     24 |         destroy (self) { }
+        |                  ^~~~
+0 errors, 2 warnings

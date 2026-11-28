@@ -82,10 +82,10 @@ static void loop_weights (ColorRegs *cr)
 		if (end[t] + 1 < count) cr->w[end[t] + 1]--;
 	}
 
-	int16_t d = 0;
+	int32_t d = 0;
 	for (uint32_t i = 0; i < count; i++) {
-		d = (int16_t)(d + cr->w[i]);
-		int depth = d < LOOP_MAX_DEPTH ? d : LOOP_MAX_DEPTH;
+		d += cr->w[i];
+		int depth = d <= 0 ? 0 : (d < LOOP_MAX_DEPTH ? (int)d : LOOP_MAX_DEPTH);
 		cr->w[i] = (int16_t)(1 << (LOOP_SHIFT * depth));
 	}
 }

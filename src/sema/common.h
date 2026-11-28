@@ -25,6 +25,7 @@ uint32_t sema_new_node (Sema *s, const ASTNode *node);
 void reserve_cast_nodes (Sema *s);
 void sema_decl_type (Sema *s, uint32_t idx);
 void sema_resolve_types (Sema *s);
+void sema_resolve_types_retry (Sema *s);
 void sema_finalize_types (Sema *s);
 uint32_t sema_wrap_cast (Sema *s, uint32_t child, TypeId to_type);
 void check_global_var_init (Sema *s, uint32_t idx);
@@ -54,7 +55,7 @@ int lit_node_bits (Sema *s, ASTNode *n, uint64_t *out);
 
 typedef struct UnifyCtx {
 	Sema *s;
-	ASTNode *n;
+	uint32_t idx;
 	uint32_t *left;
 	uint32_t *right;
 	TypeId *l;
@@ -97,6 +98,8 @@ uint32_t class_method_node (Sema *s, TypeId cls, const char *name, uint16_t len)
 uint32_t class_op_node (Sema *s, TypeId cls, uint8_t op);
 
 TypeId sema_op_call (Sema *s, uint32_t idx, uint32_t receiver, uint32_t args, uint32_t method);
+int receiver_is_const (TypeId type);
+void reject_const_receiver (Sema *s, uint32_t use, TypeId type, const char *what);
 TypeId sema_class_operator (Sema *s, uint32_t idx, uint32_t args, uint8_t op, int *handled);
 TypeId sema_class_reverse (Sema *s, uint32_t idx, uint8_t op, int *handled);
 TypeId sema_truth_value (Sema *s, uint32_t idx, TypeId type);

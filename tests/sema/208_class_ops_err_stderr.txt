@@ -1,6 +1,15 @@
 tests/sema/208_class_ops_err_src.r2:6:5: ERROR: operator '=' of class 'Bad' must take a value of the class by value
       6 |         op = (self, k : i64) : void { self.x = k; }
         |            ^
+tests/sema/208_class_ops_err_src.r2:20:9: WARNING: unused parameter 'self'
+     20 |         op != (self, b : Cmp) : i64 { return b.x != 0; }
+        |                ^~~~
+tests/sema/208_class_ops_err_src.r2:21:8: WARNING: unused parameter 'self'
+     21 |         op - (self, b : Cmp) : Cmp { return b; }
+        |               ^~~~
+tests/sema/208_class_ops_err_src.r2:29:13: WARNING: unused parameter 'self'
+     29 |         priv op + (self, b : Priv) : Priv { return b; }
+        |                    ^~~~
 tests/sema/208_class_ops_err_src.r2:39:6: ERROR: class 'NoTruth' cannot be used as a truth value; define an operator '!=', '==' or '!'
      39 |         if (n) { a = 1; }
         |             ^
@@ -22,4 +31,4 @@ tests/sema/208_class_ops_err_src.r2:48:4: ERROR: operator '+' of class 'Priv' is
 tests/sema/208_class_ops_err_src.r2:49:4: ERROR: operator '=' of class 'Priv' is private
      49 |         r = q;
         |           ^
-8 errors, 0 warnings
+8 errors, 3 warnings

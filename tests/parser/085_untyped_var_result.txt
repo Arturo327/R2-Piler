@@ -20,7 +20,7 @@ NODE_ROOT [0:0]
       NODE_VAR_DEC [8:6] name="e" untyped
         NODE_CAST [8:19] literal type=P
           NODE_STRUCT_INIT [8:10]
-            NODE_FIELD_INIT [8:12] field="x"
+            NODE_FIELD_INIT [8:11] field="x"
               NODE_LIT_i64 [8:16] i64=5
       NODE_VAR_DEC [9:13] name="st" static untyped
         NODE_LIT_i64 [9:18] i64=7

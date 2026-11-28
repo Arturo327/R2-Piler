@@ -289,6 +289,7 @@ static int parse_deps (ImportLoader *l, const char *path, const char *val, size_
 	size_t seg = 0;
 
 	if (!len) return 0;
+	h->dep_count = 0;
 	uint16_t count = 1;
 	for (size_t i = 0; i < len; i++)
 		if (val[i] == ',') count++;
@@ -340,6 +341,8 @@ static int header_field (ImportLoader *l, const char *path, TextLine *line, R2iH
 		return 0;
 	}
 	if (line_value(line, "// imports:", &val, &len)) {
+		if (scan->imports)
+			return header_error(path, "duplicate '// imports:' header");
 		scan->imports = 1;
 		return parse_deps(l, path, val, len, h);
 	}
@@ -357,6 +360,7 @@ static int parse_header (ImportLoader *l, const char *path, char *src, R2iHeader
 	while (next_line(&cursor, &line)) {
 		line_no++;
 		trim_line(&line);
+		if (line.len && line.str[0] != '/') break;
 		if (line_no == 1 && line.len == 9 && memcmp(line.str, "// r2i v1", 9) == 0) {
 			scan.version = 1;
 			continue;
@@ -744,8 +748,11 @@ static uint32_t open_module (ImportLoader *l, const ImportRequest *req, char **s
 	m->mod_len = (uint16_t)h->mod_len;
 	m->has_init = (uint8_t)h->has_init;
 	m->direct = (uint8_t)req->direct;
-	if (req->alias && add_alias(l, idx, req->alias, req->alias_len, req->use))
+	if (req->alias && add_alias(l, idx, req->alias, req->alias_len, req->use)) {
+		l->c->sema.module_count--;
+		l->failed = 1;
 		return NO_MODULE;
+	}
 	return idx;
 }
 

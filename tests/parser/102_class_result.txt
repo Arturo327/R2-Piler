@@ -37,7 +37,7 @@ NODE_ROOT [0:0]
     NODE_BLOCK [8:21]
       NODE_VAR_DEC [9:6] name="c" type=Caja
         NODE_STRUCT_INIT [9:17]
-          NODE_FIELD_INIT [9:19] field="edad"
+          NODE_FIELD_INIT [9:18] field="edad"
             NODE_LIT_i64 [9:26] i64=30
       NODE_FN_CALL [10:3]
         NODE_DOT [10:3] field="cambia"

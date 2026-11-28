@@ -82,6 +82,8 @@ void sema_init (Sema *s, Arena *arena, AST *ast, ErrorReporter *err)
 	s->too_deep = 0;
 	s->ref_arg = 0;
 	s->in_imported = 0;
+	s->type_retry = 0;
+	s->type_deferred = 0;
 	init_import_state(s);
 	symtab_init(&s->table, arena);
 }
@@ -178,7 +180,7 @@ uint32_t sema_new_node (Sema *s, const ASTNode *node)
 	uint32_t idx = s->ast->count++;
 
 	if (idx >= s->ast->cap) {
-		uint32_t new_cap = s->ast->cap << 1;
+		uint32_t new_cap = s->ast->cap ? s->ast->cap << 1 : 64;
 		s->ast->nodes = arena_realloc(s->arena, s->ast->nodes,
 				(size_t)s->ast->cap * sizeof(ASTNode), (size_t)new_cap * sizeof(ASTNode));
 		s->ast->cap = new_cap;
@@ -336,10 +338,12 @@ void check_storage_decl (Sema *s, ASTNode *n)
 
 uint8_t *sema_flags_push (Sema *s, uint32_t n)
 {
-	if (s->flag_top + n > s->flag_cap) {
+	uint32_t want = n ? n : 1;
+
+	if (s->flag_top + want > s->flag_cap) {
 		uint32_t new_cap = s->flag_cap ? s->flag_cap << 1 : 1024;
 
-		while (new_cap < s->flag_top + n) new_cap <<= 1;
+		while (new_cap < s->flag_top + want) new_cap <<= 1;
 		s->flag_stack = arena_realloc(s->arena, s->flag_stack,
 				s->flag_cap, new_cap);
 		s->flag_cap = new_cap;

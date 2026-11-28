@@ -1,6 +1,6 @@
-tests/sema/121_err_union_src.r2:18:43: ERROR: field 'lo' overlaps another initialized member of the same union
+tests/sema/121_err_union_src.r2:18:42: ERROR: field 'lo' overlaps another initialized member of the same union
      18 |         var a : Tagged = {.tag = 1, .whole = 2, .lo = 3};
-        |                                                  ^~
+        |                                                 ^~
 tests/sema/121_err_union_src.r2:7:4: WARNING: unused field 'hi' of struct 'Tagged'
       7 |                         hi: u16;
         |                         ^~
