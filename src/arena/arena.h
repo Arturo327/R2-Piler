@@ -25,6 +25,8 @@ typedef struct Arena {
 void arena_init (Arena *a);
 void *arena_alloc (Arena *a, size_t size);
 void *arena_realloc (Arena *a, void *ptr, size_t old_size, size_t new_size);
+void *arena_alloc_block (Arena *a, size_t size);
+void *arena_realloc_block (Arena *a, void *ptr, size_t old_size, size_t new_size);
 ArenaMark arena_mark (Arena *a);
 void arena_release (Arena *a, const ArenaMark *m);
 void arena_destroy (Arena *a);

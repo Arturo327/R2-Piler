@@ -67,6 +67,13 @@ typedef struct OptFn {
 	uint64_t *live_tmp;
 	size_t live_cap;
 
+	uint32_t *pred_cnt;
+	uint32_t *pred_start;
+	uint32_t *preds;
+	uint32_t pred_cap;
+	uint32_t block_cap;
+	uint8_t *queued;
+
 	CseEntry *cse;
 	uint32_t cse_count;
 
@@ -77,6 +84,26 @@ typedef struct OptFn {
 	uint32_t entry_end;
 } OptFn;
 
+typedef struct BufCaps {
+	size_t lmap;
+	size_t lrefs;
+	size_t defs;
+	size_t uses;
+	size_t def_at;
+	size_t blocks;
+	size_t work;
+	size_t pred_cnt;
+	size_t pred_start;
+	size_t preds;
+	size_t queued;
+	size_t kstamp;
+	size_t kval;
+	size_t gval;
+	size_t gstamp;
+	size_t dstamp;
+	size_t live_tmp;
+} BufCaps;
+
 typedef struct Optimizer {
 	Arena *arena;
 	IR *ir;
@@ -86,6 +113,9 @@ typedef struct Optimizer {
 	uint32_t *lmap;
 	uint32_t *lrefs;
 	OptLevel level;
+	BufCaps cap;
+	uint32_t *gvis;
+	uint32_t gvis_count;
 } Optimizer;
 
 void optimize_ir (IR *ir, Arena *a, OptLevel level);

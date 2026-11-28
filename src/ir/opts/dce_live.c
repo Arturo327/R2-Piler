@@ -63,7 +63,15 @@ int opt_live_dce (Optimizer *opt, OptFn *f)
 
 	cfg_build_edges(opt->ir, cfg);
 	live_setup(opt, f, (size_t)cfg->block_count * words);
-	cfg_live_solve(opt->ir, cfg, f->live, f->live_tmp, words);
+	LiveWork lw = {
+		.ir = opt->ir, .cfg = cfg, .live = f->live,
+		.tmp = f->live_tmp, .words = words, .pred_cnt = f->pred_cnt,
+		.pred_start = f->pred_start, .preds = f->preds,
+		.pred_cap = f->pred_cap, .block_cap = f->block_cap,
+		.work = f->work, .queued = f->queued
+	};
+
+	cfg_live_solve_worklist(&lw);
 	for (uint32_t b = 0; b < cfg->block_count; b++)
 		changed |= live_sweep(opt, f, cfg, b, words);
 	return changed;

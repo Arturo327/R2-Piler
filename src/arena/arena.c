@@ -124,6 +124,55 @@ void *arena_realloc (Arena *a, void *ptr, size_t old_size, size_t new_size)
 	return new_ptr;
 }
 
+void *arena_alloc_block (Arena *a, size_t size)
+{
+	size_t aligned = align_up(size);
+	ArenaBlock *blk = new_block(aligned);
+
+	a->tail->next = blk;
+	a->tail = blk;
+	a->cap = aligned;
+	blk->used = aligned;
+	a->last_ptr = blk->data;
+	a->last_size = aligned;
+	return blk->data;
+}
+
+void *arena_realloc_block (Arena *a, void *ptr, size_t old_size, size_t new_size)
+{
+	ArenaBlock *prev = NULL;
+	ArenaBlock *blk = a->head;
+	ArenaBlock *grown;
+	size_t aligned = align_up(new_size);
+
+	if (new_size <= old_size) return ptr;
+	while (blk && (void *)blk->data != ptr) {
+		prev = blk;
+		blk = blk->next;
+	}
+	if (!blk || a->marks) {
+		void *out = arena_alloc(a, new_size);
+
+		memcpy(out, ptr, old_size);
+		return out;
+	}
+	grown = realloc(blk, sizeof(ArenaBlock) + aligned);
+	if (!grown) {
+		fprintf(stderr, "Not enough memory for arena block\n");
+		exit(1);
+	}
+	if (prev) prev->next = grown;
+	else a->head = grown;
+	grown->used = aligned;
+	if (a->tail == blk) {
+		a->tail = grown;
+		a->cap = aligned;
+		a->last_ptr = grown->data;
+		a->last_size = aligned;
+	}
+	return grown->data;
+}
+
 ArenaMark arena_mark (Arena *a)
 {
 	ArenaMark m;

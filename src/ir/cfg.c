@@ -239,6 +239,68 @@ void cfg_live_solve_full (IR *ir, Cfg *cfg, uint64_t *live, uint64_t *tmp, uint3
 	live_solve(ir, cfg, live, tmp, words);
 }
 
+static void build_preds (LiveWork *lw)
+{
+	Cfg *cfg = lw->cfg;
+	uint32_t nb = cfg->block_count;
+
+	memset(lw->pred_cnt, 0, (size_t)nb * sizeof(uint32_t));
+	for (uint32_t b = 0; b < nb; b++) {
+		CfgBlock *blk = cfg->blocks + b;
+		for (uint32_t k = 0; k < blk->succ_count; k++)
+			lw->pred_cnt[blk->succ[k]]++;
+	}
+	lw->pred_start[0] = 0;
+	for (uint32_t b = 0; b < nb; b++)
+		lw->pred_start[b + 1] = lw->pred_start[b] + lw->pred_cnt[b];
+	memcpy(lw->pred_cnt, lw->pred_start, (size_t)nb * sizeof(uint32_t));
+	for (uint32_t b = 0; b < nb; b++) {
+		CfgBlock *blk = cfg->blocks + b;
+		for (uint32_t k = 0; k < blk->succ_count; k++)
+			lw->preds[lw->pred_cnt[blk->succ[k]]++] = b;
+	}
+}
+
+void cfg_live_solve_worklist (LiveWork *lw)
+{
+	Cfg *cfg = lw->cfg;
+	uint32_t nb = cfg->block_count;
+	uint64_t *live = lw->live;
+	uint32_t sp = 0;
+
+	cfg->live_full = 0;
+	if (nb > lw->block_cap) {
+		live_solve(lw->ir, cfg, live, lw->tmp, lw->words);
+		return;
+	}
+	build_preds(lw);
+	if (lw->pred_start[nb] > lw->pred_cap) {
+		live_solve(lw->ir, cfg, live, lw->tmp, lw->words);
+		return;
+	}
+	memset(live, 0, (size_t)nb * lw->words * sizeof(uint64_t));
+	for (uint32_t b = 0; b < nb; b++, live += lw->words)
+		cfg->blocks[b].live_in = live;
+
+	for (uint32_t b = 0; b < nb; b++) {
+		lw->work[sp++] = b;
+		lw->queued[b] = 1;
+	}
+	while (sp) {
+		uint32_t b = lw->work[--sp];
+
+		lw->queued[b] = 0;
+		if (!live_block(lw->ir, cfg, b, lw->tmp, lw->words)) continue;
+		for (uint32_t k = lw->pred_start[b]; k < lw->pred_start[b + 1]; k++) {
+			uint32_t p = lw->preds[k];
+
+			if (lw->queued[p]) continue;
+			lw->queued[p] = 1;
+			lw->work[sp++] = p;
+		}
+	}
+}
+
 void opt_cfg (OptFn *f, Cfg *cfg)
 {
 	cfg->blocks = f->blocks;

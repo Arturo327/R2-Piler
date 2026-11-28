@@ -11,8 +11,8 @@ static uint32_t push_instr (IR *ir, const IRInstr *instr)
 	if (ir->instr_count >= ir->instr_cap) {
 		uint32_t old_cap = ir->instr_cap;
 		ir->instr_cap <<= 1;
-		ir->instrs = arena_realloc(ir->arena, ir->instrs,old_cap * sizeof(IRInstr),
-				ir->instr_cap * sizeof(IRInstr));
+		ir->instrs = arena_realloc_block(ir->arena, ir->instrs,
+				old_cap * sizeof(IRInstr), ir->instr_cap * sizeof(IRInstr));
 	}
 
 	uint32_t idx = ir->instr_count++;
@@ -87,15 +87,21 @@ uint32_t new_reg (IR *ir, TypeId type)
 
 	if (r >= ir->reg_type_cap) {
 		uint32_t old = ir->reg_type_cap;
-		ir->reg_type_cap = old ? old << 1 : 64;
-		ir->reg_types = arena_realloc(ir->arena, ir->reg_types,
-				old * sizeof(TypeId), ir->reg_type_cap * sizeof(TypeId));
+		uint32_t cap = old ? old << 1 : 64;
+
+		ir->reg_types = old ? arena_realloc_block(ir->arena, ir->reg_types,
+				old * sizeof(TypeId), cap * sizeof(TypeId))
+			: arena_alloc_block(ir->arena, cap * sizeof(TypeId));
+		ir->reg_type_cap = cap;
 	}
 	if (r >= ir->addressed_cap) {
 		uint32_t old = ir->addressed_cap;
-		ir->addressed_cap = old ? old << 1 : 64;
-		ir->addressed = arena_realloc(ir->arena, ir->addressed,
-				old * sizeof(uint8_t), ir->addressed_cap * sizeof(uint8_t));
+		uint32_t cap = old ? old << 1 : 64;
+
+		ir->addressed = old ? arena_realloc_block(ir->arena, ir->addressed,
+				old * sizeof(uint8_t), cap * sizeof(uint8_t))
+			: arena_alloc_block(ir->arena, cap * sizeof(uint8_t));
+		ir->addressed_cap = cap;
 	}
 	ir->reg_types[r] = type;
 	ir->addressed[r] = 0;
@@ -138,7 +144,7 @@ static void init_buffers (IR *ir, Arena *arena)
 
 	ir->instr_count = 0;
 	ir->instr_cap = 256;
-	ir->instrs = arena_alloc(arena, sizeof(IRInstr) * ir->instr_cap);
+	ir->instrs = arena_alloc_block(arena, sizeof(IRInstr) * ir->instr_cap);
 
 	ir->fn_count = 0;
 	ir->fn_cap = 16;
@@ -432,22 +438,58 @@ static uint32_t declare_global (IR *ir, ASTNode *n, Symbol *sym)
 	return push_global(ir, &global);
 }
 
-static uint32_t static_dups (IR *ir, uint32_t k)
+typedef struct StaticKey {
+	const char *name;
+	uint32_t owner;
+	uint32_t count;
+	uint16_t len;
+} StaticKey;
+
+typedef struct StaticDups {
+	StaticKey *tab;
+	uint32_t mask;
+} StaticDups;
+
+static uint32_t static_hash (uint32_t owner, const char *name, uint16_t len)
 {
-	ASTNode *n = ir->ast->nodes + ir->statics[k];
-	uint32_t owner = ir->symtab->symbols[n->sym].owner;
-	uint32_t dups = 0;
+	uint32_t h = 2166136261u;
 
-	for (uint32_t i = 0; i < k; i++) {
-		ASTNode *o = ir->ast->nodes + ir->statics[i];
-
-		if (ir->symtab->symbols[o->sym].owner != owner) continue;
-		if (o->len == n->len && !memcmp(o->str, n->str, n->len)) dups++;
-	}
-	return dups;
+	h = (h ^ owner) * 16777619u;
+	for (uint16_t i = 0; i < len; i++) h = (h ^ (uint8_t)name[i]) * 16777619u;
+	return h;
 }
 
-static uint32_t declare_static (IR *ir, uint32_t node_idx, uint32_t k)
+static uint32_t static_dups (StaticDups *d, uint32_t owner, const char *name, uint16_t len)
+{
+	uint32_t i = static_hash(owner, name, len) & d->mask;
+
+	while (d->tab[i].count) {
+		StaticKey *e = d->tab + i;
+
+		if (e->owner == owner && e->len == len && !memcmp(e->name, name, len))
+			return e->count++;
+		i = (i + 1) & d->mask;
+	}
+	d->tab[i].owner = owner;
+	d->tab[i].name = name;
+	d->tab[i].len = len;
+	d->tab[i].count = 1;
+	return 0;
+}
+
+static StaticDups static_dups_init (IR *ir)
+{
+	StaticDups d;
+	uint32_t cap = 16;
+
+	while (cap < ir->static_count * 2) cap <<= 1;
+	d.tab = arena_alloc(ir->arena, (size_t)cap * sizeof(StaticKey));
+	memset(d.tab, 0, (size_t)cap * sizeof(StaticKey));
+	d.mask = cap - 1;
+	return d;
+}
+
+static uint32_t declare_static (IR *ir, uint32_t node_idx, uint32_t k, StaticDups *dups)
 {
 	ASTNode *n = ir->ast->nodes + node_idx;
 	Symbol *sym = ir->symtab->symbols + n->sym;
@@ -457,9 +499,11 @@ static uint32_t declare_static (IR *ir, uint32_t node_idx, uint32_t k)
 	char *name = arena_alloc(ir->arena, cap);
 	int len = snprintf(name, cap, "sv.%u.%.*s", k, (int)n->len, n->str);
 
-	MangleName m = { .kind = "sv", .mod = ir->mod, .a = owner->name,
-			.alen = owner->len, .b = n->str, .blen = n->len,
-			.dup = static_dups(ir, k) };
+	MangleName m = {
+		.kind = "sv", .mod = ir->mod, .a = owner->name,
+		.alen = owner->len, .b = n->str, .blen = n->len,
+		.dup = static_dups(dups, sym->owner, n->str, n->len)
+	};
 	IRGlobal global = {0};
 
 	global.name = name;
@@ -507,10 +551,11 @@ void declare_globals (IR *ir)
 		idx = n->next_bro;
 	}
 
+	StaticDups dups = static_dups_init(ir);
 	for (uint32_t i = 0; i < ir->static_count; i++) {
 		uint32_t node = ir->statics[i];
 		Symbol *s = ir->symtab->symbols + ir->ast->nodes[node].sym;
-		s->ir_id = declare_static(ir, node, i);
+		s->ir_id = declare_static(ir, node, i, &dups);
 	}
 }
 

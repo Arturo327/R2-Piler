@@ -81,39 +81,91 @@ static void touch_direct (IR *ir, IRFn *fn, uint32_t words)
 	}
 }
 
-static int touch_merge (IR *ir, IRFn *fn, uint32_t words)
+typedef struct TouchGraph {
+	uint32_t *start;
+	uint32_t *list;
+} TouchGraph;
+
+static void touch_graph (IR *ir, Arena *a, TouchGraph *g)
 {
-	int changed = 0;
+	uint32_t n = ir->fn_count;
+	uint32_t *cnt = arena_alloc(a, (size_t)(n + 1) * sizeof(uint32_t));
+	uint32_t *cur;
 
-	for (uint32_t j = 0; j < fn->count; j++) {
-		IRInstr *in = ir->instrs + fn->start + j;
-		const uint64_t *src;
+	memset(cnt, 0, (size_t)(n + 1) * sizeof(uint32_t));
+	for (uint32_t i = 0; i < n; i++) {
+		IRFn *fn = ir->fns + i;
+		for (uint32_t j = 0; j < fn->count; j++) {
+			IRInstr *in = ir->instrs + fn->start + j;
 
-		if (in->op != IR_CALL) continue;
-		src = ir->fns[in->target].gtouch;
-		for (uint32_t w = 0; w < words; w++) {
-			changed |= (src[w] & ~fn->gtouch[w]) != 0;
-			fn->gtouch[w] |= src[w];
+			if (in->op == IR_CALL) cnt[in->target]++;
 		}
 	}
-	return changed;
+	g->start = arena_alloc(a, (size_t)(n + 1) * sizeof(uint32_t));
+	g->start[0] = 0;
+	for (uint32_t i = 0; i < n; i++) g->start[i + 1] = g->start[i] + cnt[i];
+	g->list = arena_alloc(a, (g->start[n] ? g->start[n] : 1) * sizeof(uint32_t));
+	cur = arena_alloc(a, (size_t)n * sizeof(uint32_t));
+	memcpy(cur, g->start, (size_t)n * sizeof(uint32_t));
+	for (uint32_t i = 0; i < n; i++) {
+		IRFn *fn = ir->fns + i;
+		for (uint32_t j = 0; j < fn->count; j++) {
+			IRInstr *in = ir->instrs + fn->start + j;
+
+			if (in->op == IR_CALL) g->list[cur[in->target]++] = i;
+		}
+	}
+}
+
+static void touch_propagate (IR *ir, const TouchGraph *g, uint32_t words, uint32_t *work, uint32_t *queued)
+{
+	uint32_t sp = 0;
+
+	for (uint32_t i = 0; i < ir->fn_count; i++) {
+		work[sp++] = i;
+		queued[i] = 1;
+	}
+	while (sp) {
+		uint32_t f = work[--sp];
+		const uint64_t *src = ir->fns[f].gtouch;
+
+		queued[f] = 0;
+		for (uint32_t k = g->start[f]; k < g->start[f + 1]; k++) {
+			uint32_t c = g->list[k];
+			uint64_t *dst = ir->fns[c].gtouch;
+			int changed = 0;
+
+			for (uint32_t w = 0; w < words; w++) {
+				changed |= (src[w] & ~dst[w]) != 0;
+				dst[w] |= src[w];
+			}
+			if (changed && !queued[c]) {
+				queued[c] = 1;
+				work[sp++] = c;
+			}
+		}
+	}
 }
 
 static void compute_touch (Optimizer *opt)
 {
 	IR *ir = opt->ir;
 	uint32_t words = (ir->global_count + 63) >> 6;
-	int changed = 1;
 
 	if (!words) return;
 	touch_alloc(opt, words);
 	for (uint32_t i = 0; i < ir->fn_count; i++)
 		touch_direct(ir, ir->fns + i, words);
-	while (changed) {
-		changed = 0;
-		for (uint32_t i = 0; i < ir->fn_count; i++)
-			changed |= touch_merge(ir, ir->fns + i, words);
-	}
+
+	ArenaMark mark = arena_mark(opt->arena);
+	TouchGraph g;
+	uint32_t *work = arena_alloc(opt->arena, (size_t)ir->fn_count * sizeof(uint32_t));
+	uint32_t *queued = arena_alloc(opt->arena, (size_t)ir->fn_count * sizeof(uint32_t));
+
+	memset(queued, 0, (size_t)ir->fn_count * sizeof(uint32_t));
+	touch_graph(ir, opt->arena, &g);
+	touch_propagate(ir, &g, words, work, queued);
+	arena_release(opt->arena, &mark);
 }
 
 static void call_dirty (IR *ir, IRInstr *call, uint64_t *dirty, uint32_t words)
