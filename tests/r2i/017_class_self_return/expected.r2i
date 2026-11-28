@@ -1,0 +1,15 @@
+// r2i v1
+// source: $ROOT/a.r2
+// target: x86-64-sysv
+// module: 5chain
+// has_dynamic_init: 0
+// imports:
+// depends:
+// total_imports:
+
+export class C {
+	x : i64;
+	init (self, x : i64);
+	fn set (self, v : i64) : ptr C;
+};
+

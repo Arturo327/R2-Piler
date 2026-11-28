@@ -1,0 +1,25 @@
+tests/sema/212_class_compare_err_src.r2:8:8: ERROR: class 'A' has no operator '=='
+      8 |         r = a == b;
+        |               ^~
+tests/sema/212_class_compare_err_src.r2:9:8: ERROR: class 'A' has no operator '=='
+      9 |         r = a == 1;
+        |               ^~
+tests/sema/212_class_compare_err_src.r2:10:8: ERROR: class 'A' has no operator '<'
+     10 |         r = a < b;
+        |               ^
+tests/sema/212_class_compare_err_src.r2:7:6: WARNING: value assigned to 'r' is not used
+      7 |         var r : i64 = 0;
+        |             ^
+tests/sema/212_class_compare_err_src.r2:8:4: WARNING: value assigned to 'r' is not used
+      8 |         r = a == b;
+        |           ^
+tests/sema/212_class_compare_err_src.r2:9:4: WARNING: value assigned to 'r' is not used
+      9 |         r = a == 1;
+        |           ^
+tests/sema/212_class_compare_err_src.r2:1:11: WARNING: unused field 'x' of class 'A'
+      1 | class A { x : i64; }
+        |           ^
+tests/sema/212_class_compare_err_src.r2:2:11: WARNING: unused field 'x' of class 'B'
+      2 | class B { x : i64; }
+        |           ^
+3 errors, 5 warnings

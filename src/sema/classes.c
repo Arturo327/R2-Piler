@@ -232,6 +232,41 @@ static int destroy_params_ok (Sema *s, uint32_t fn_idx)
 	return 1;
 }
 
+static int self_return_decl (Sema *s, uint32_t fn_idx, TypeId owner)
+{
+	ASTNode *fn = s->ast->nodes + fn_idx;
+	uint32_t first = s->ast->nodes[fn->child].child;
+
+	if (fn->op != OP_NONE || (fn->flags & (NODE_FLAG_INIT | NODE_FLAG_DESTROY)))
+		return 0;
+	if (first == NO_NODE || !(s->ast->nodes[first].flags & NODE_FLAG_SELF))
+		return 0;
+	return type_ptr_to(owner) != TYPE_ERROR;
+}
+
+int method_returns_self (Sema *s)
+{
+	if (s->curr_class == TYPE_ERROR || s->curr_fn == NO_SYMBOL) return 0;
+	Symbol *fn = s->table.symbols + s->curr_fn;
+	if (fn->kind != SYMBOL_FN || fn->decl == NO_NODE) return 0;
+	if (fn->owner != s->curr_class) return 0;
+	return self_return_decl(s, fn->decl, s->curr_class);
+}
+
+uint32_t make_self_id (Sema *s, uint32_t use)
+{
+	ASTNode raw = {0};
+	raw.str = "self";
+	raw.len = 4;
+	raw.line = s->ast->nodes[use].line;
+	raw.col = s->ast->nodes[use].col;
+	uint32_t id = sema_make_id(s, &raw);
+	s->ast->nodes[id].child = NO_NODE;
+	s->ast->nodes[id].next_bro = NO_NODE;
+	s->ast->nodes[id].data_type = type_ptr_to(s->curr_class);
+	return id;
+}
+
 static void register_class_method (Sema *s, uint32_t fn_idx, TypeId owner)
 {
 	ASTNode *fn = s->ast->nodes + fn_idx;
@@ -241,6 +276,13 @@ static void register_class_method (Sema *s, uint32_t fn_idx, TypeId owner)
 	char *qname = arena_alloc(s->arena, cap);
 	int qlen = snprintf(qname, cap, "%.*s::%.*s", (int)ct->len, ct->name,
 			(int)fn->len, fn->str);
+
+	if (self_return_decl(s, fn_idx, owner)
+			&& s->ast->nodes[ret].data_type == TYPE_VOID
+			&& s->ast->nodes[ret].child == NO_NODE) {
+		s->ast->nodes[ret].type_node = NO_TYPE_NODE;
+		s->ast->nodes[ret].data_type = type_ptr_to(owner);
+	}
 
 	if (qlen < 0 || qlen > UINT16_MAX) {
 		error_report(s->err, ERR_ERROR, node_loc(fn), "method name is too long");
@@ -721,8 +763,35 @@ TypeId sema_class_reverse (Sema *s, uint32_t idx, uint8_t op, int *handled)
 	return reverse_op_call(s, idx, method);
 }
 
-TypeId sema_class_operator (Sema *s, uint32_t idx, uint32_t args,
-		uint8_t op, int *handled)
+static uint32_t make_not_node (Sema *s, uint32_t child, uint16_t line, uint16_t col);
+static uint32_t truth_call (Sema *s, uint32_t value, uint32_t zero,
+		uint32_t method, uint16_t line, uint16_t col);
+static TypeId move_truth_into (Sema *s, uint32_t idx, uint32_t result, uint32_t next);
+
+static TypeId derive_comparison (Sema *s, uint32_t idx, uint32_t receiver, uint32_t args, uint32_t method)
+{
+	uint16_t line = s->ast->nodes[idx].line;
+	uint16_t col = s->ast->nodes[idx].col;
+	uint32_t next = s->ast->nodes[idx].next_bro;
+	uint32_t call = truth_call(s, receiver, args, method, line, col);
+	uint32_t result = make_not_node(s, call, line, col);
+
+	return move_truth_into(s, idx, result, next);
+}
+
+static TypeId fieldwise_comparison (Sema *s, uint32_t idx, uint32_t receiver, uint32_t args, uint8_t op)
+{
+	ASTNode *n = s->ast->nodes + idx;
+
+	n->type = NODE_CLASS_EQ;
+	n->u64 = op == OP_NE;
+	n->data_type = TYPE_i64;
+	n->type_node = NO_TYPE_NODE;
+	s->ast->nodes[receiver].next_bro = args;
+	return TYPE_i64;
+}
+
+TypeId sema_class_operator (Sema *s, uint32_t idx, uint32_t args, uint8_t op, int *handled)
 {
 	uint32_t receiver = s->ast->nodes[idx].child;
 	TypeId cls = class_of(s->ast->nodes[receiver].data_type);
@@ -731,14 +800,29 @@ TypeId sema_class_operator (Sema *s, uint32_t idx, uint32_t args,
 	if (op == OP_NONE || cls == TYPE_ERROR) return TYPE_ERROR;
 	*handled = 1;
 	uint32_t method = class_op_node(s, cls, op);
+	int args_checked = 0;
 
+	if (method == NO_NODE && (op == OP_EQ || op == OP_NE)) {
+		uint8_t other = op == OP_EQ ? OP_NE : OP_EQ;
+		uint32_t alt = class_op_node(s, cls, other);
+
+		if (alt != NO_NODE) {
+			check_op_visibility(s, alt, idx);
+			return derive_comparison(s, idx, receiver, args, alt);
+		}
+		TypeId rhs = args == NO_NODE ? TYPE_ERROR : check_expr(s, args);
+
+		args_checked = 1;
+		if (class_of(rhs) == cls)
+			return fieldwise_comparison(s, idx, receiver, args, op);
+	}
 	if (method == NO_NODE) {
 		const char *qual = unary_canon(op) ? "unary " : "";
 
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx),
 				"class '%s' has no %soperator '%s'", types[cls].name, qual,
 				op_spelling(op));
-		if (args != NO_NODE) check_expr(s, args);
+		if (args != NO_NODE && !args_checked) check_expr(s, args);
 		s->ast->nodes[idx].data_type = TYPE_ERROR;
 		return TYPE_ERROR;
 	}

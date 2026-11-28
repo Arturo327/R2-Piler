@@ -1,0 +1,29 @@
+class C [1:7] depth=0 size=16 align=8
+  field x type=i64 offset=0
+  field y type=i8 offset=8
+class D [7:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class E [13:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+fn C::init [4:2] depth=0 type=void
+fn D::init [9:2] depth=0 type=void
+fn D::op$eq [10:5] depth=0 type=i64
+fn E::init [15:2] depth=0 type=void
+fn E::op$ne [16:5] depth=0 type=i64
+fn main [19:8] depth=0 type=i64
+param self [4:8] depth=1 type=ptr C
+param x [4:14] depth=1 type=i64
+param y [4:23] depth=1 type=i8
+param self [9:8] depth=1 type=ptr D
+param x [9:14] depth=1 type=i64
+param self [10:9] depth=1 type=ptr D
+param o [10:15] depth=1 type=D
+param self [15:8] depth=1 type=ptr E
+param x [15:14] depth=1 type=i64
+param self [16:9] depth=1 type=ptr E
+param o [16:15] depth=1 type=E
+var a [20:6] depth=1 type=C
+var b [21:6] depth=1 type=C
+var d [22:6] depth=1 type=D
+var e [23:6] depth=1 type=E
+var r [24:6] depth=1 type=i64

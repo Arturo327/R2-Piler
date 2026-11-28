@@ -2,7 +2,7 @@ class C [3:7] depth=0 size=8 align=8
   field x type=i64 offset=0
 fn C::init [5:2] depth=0 type=void
 fn C::destroy [6:2] depth=0 type=void
-fn C::renew [7:5] depth=0 type=void
+fn C::renew [7:5] depth=0 type=ptr C
 fn by_value [10:4] depth=0 type=i64
 fn by_ptr [15:4] depth=0 type=i64
 fn main [20:8] depth=0 type=i64

@@ -21,6 +21,7 @@ static const char *node_names[NODE_COUNT] = {
 	[NODE_DEC] = "NODE_DEC",
 	[NODE_EQ] = "NODE_EQ",
 	[NODE_NE] = "NODE_NE",
+	[NODE_CLASS_EQ] = "NODE_CLASS_EQ",
 	[NODE_GT] = "NODE_GT",
 	[NODE_GE] = "NODE_GE",
 	[NODE_LT] = "NODE_LT",

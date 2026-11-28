@@ -96,6 +96,8 @@ void decl_class_methods (Sema *s, uint32_t idx);
 void check_class_methods (Sema *s, uint32_t idx);
 uint32_t class_method_node (Sema *s, TypeId cls, const char *name, uint16_t len);
 uint32_t class_op_node (Sema *s, TypeId cls, uint8_t op);
+int method_returns_self (Sema *s);
+uint32_t make_self_id (Sema *s, uint32_t use);
 
 TypeId sema_op_call (Sema *s, uint32_t idx, uint32_t receiver, uint32_t args, uint32_t method);
 int receiver_is_const (TypeId type);

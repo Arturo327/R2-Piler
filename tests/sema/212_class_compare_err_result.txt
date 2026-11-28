@@ -1,0 +1,8 @@
+class A [1:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+class B [2:7] depth=0 size=8 align=8
+  field x type=i64 offset=0
+fn main [4:8] depth=0 type=i64
+var a [5:6] depth=1 type=A
+var b [6:6] depth=1 type=B
+var r [7:6] depth=1 type=i64

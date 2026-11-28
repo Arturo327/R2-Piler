@@ -64,7 +64,7 @@ typedef enum {
 	NODE_DEPENDS_DEC,							// native library dependencies
 	NODE_NEW, NODE_NEW_CTOR, NODE_DELETE, NODE_CTOR_CALL,			// heap/constructors
 	NODE_DROP, NODE_RESET,							// lifetime
-	NODE_CLASS_DEC,								// classes
+	NODE_CLASS_DEC,	NODE_CLASS_EQ,						// classes
 	NODE_COUNT
 } NodeType;
 

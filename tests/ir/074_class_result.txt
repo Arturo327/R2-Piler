@@ -16,7 +16,7 @@ fn Caja::valida(1 params, 3 regs) : i64
     ret.i64 r2
     ret
 
-fn Caja::cambia(2 params, 7 regs) : void
+fn Caja::cambia(2 params, 8 regs) : ptr Caja
     r0 = param.ptr Caja #0
     r1 = param.i64 #1
     r2 = move.ptr Caja r0
@@ -26,6 +26,8 @@ fn Caja::cambia(2 params, 7 regs) : void
     r5 = move.i64 r1
     r6 = add.i64 r4, r5
     str_ptr.i64 r2, r6
+    r7 = move.ptr Caja r0
+    ret.ptr Caja r7
     ret
 
 fn Caja::suma(1 params, 6 regs) : i64
@@ -47,7 +49,7 @@ fn Caja::doble(1 params, 4 regs) : i64
     ret.i64 r3
     ret
 
-fn main(0 params, 10 regs) : i64
+fn main(0 params, 11 regs) : i64
     r1 = addr_local.Caja r0
     r2 = const.i64 1
     arg r1 #0
@@ -57,14 +59,14 @@ fn main(0 params, 10 regs) : i64
     r4 = const.i64 4
     arg r3 #0
     arg r4 #1
-    call Caja::cambia
-    r5 = addr_local.Caja r0
-    arg r5 #0
-    r6 = call.i64 Caja::suma
-    r7 = const.i64 3
-    arg r7 #0
-    r8 = call.i64 Caja::doble
-    r9 = add.i64 r6, r8
-    ret.i64 r9
+    r5 = call.ptr Caja Caja::cambia
+    r6 = addr_local.Caja r0
+    arg r6 #0
+    r7 = call.i64 Caja::suma
+    r8 = const.i64 3
+    arg r8 #0
+    r9 = call.i64 Caja::doble
+    r10 = add.i64 r7, r9
+    ret.i64 r10
     ret
 

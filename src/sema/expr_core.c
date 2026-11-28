@@ -39,7 +39,7 @@ static TypeId check_expr_node (Sema *s, uint32_t idx)
 	case NODE_DOT: return check_dot(s, idx);
 	case NODE_NEW: return check_new(s, idx);
 	case NODE_NEW_CTOR: return check_new_ctor(s, idx);
-	case NODE_CTOR_CALL: return n->data_type;
+	case NODE_CTOR_CALL: case NODE_CLASS_EQ: return n->data_type;
 	case NODE_FN_CALL: return check_fn_call(s, idx);
 	case NODE_ASSIGN: return check_assign(s, idx);
 	case NODE_ADD_ASSIGN: case NODE_SUB_ASSIGN: case NODE_MUL_ASSIGN:

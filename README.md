@@ -11,7 +11,7 @@ assembly. The result links with `gcc`; there is no runtime library to ship.
 ## Status
 
 R2-Piler is a work in progress, but the implemented subset is usable and well
-tested: `make test` passes 633 fixtures and `make bench` passes 198 executable
+tested: `make test` passes 639 fixtures and `make bench` passes 200 executable
 assembly fixtures at `-O0` through `-O3`.
 
 The only working backend is **x86-64** (System V AMD64 ABI); ARM, RISC-V and
@@ -56,8 +56,10 @@ scope exit.
   memory), and an optional destructor by `drop`, `reset` and `delete`. Classes
   can overload operators (`op +`, `op []`, `op =`, compound and `op ++`/`--`)
   on class values, while `ptr C` keeps native pointer behaviour; class values
-  also work as conditions and with a non-class left operand. `pub class` is
-  visible to other R2 modules and `export class` is usable from C/C++.
+  also work as conditions and with a non-class left operand. A `void` method
+  returns `self` implicitly so calls can be chained, and `==`/`!=` compare
+  fields when no operator is defined. `pub class` is visible to other R2
+  modules and `export class` is usable from C/C++.
 - Heap allocation: `new T[N]` / `new T[D1][D2]...` (slices) and `new T`
   (a `ptr T`), with optional custom allocators `new(allocator_expr) T[N]`;
   `delete x;` and `delete(expr) x;` free them. The default forms use

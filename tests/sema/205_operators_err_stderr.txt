@@ -46,9 +46,6 @@ tests/sema/205_operators_err_src.r2:50:18: ERROR: class 'B' has no operator '[]'
 tests/sema/205_operators_err_src.r2:51:19: ERROR: operator cannot be applied to a value of type B
      51 |         var _r : i64 = 5 - b;
         |                          ^
-tests/sema/205_operators_err_src.r2:52:19: ERROR: class 'B' has no operator '=='
-     52 |         var _q : i64 = b == b;
-        |                          ^~
 tests/sema/205_operators_err_src.r2:53:3: ERROR: class 'B' has no method 'add'
      53 |         b.add(b);
         |          ^~~
@@ -79,4 +76,4 @@ tests/sema/205_operators_err_src.r2:62:21: ERROR: native indexing takes a single
 tests/sema/205_operators_err_src.r2:55:3: WARNING: value assigned to 'b' is not used
      55 |         b++;
         |          ^~
-24 errors, 3 warnings
+23 errors, 3 warnings

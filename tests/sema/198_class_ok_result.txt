@@ -2,7 +2,7 @@ class Caja [1:7] depth=0 size=8 align=8
   field edad type=i64 offset=0
 fn Caja::init [3:2] depth=0 type=void
 fn Caja::valida [4:10] depth=0 type=i64
-fn Caja::cambia [5:5] depth=0 type=void
+fn Caja::cambia [5:5] depth=0 type=ptr Caja
 fn Caja::doble [6:5] depth=0 type=i64
 fn main [9:8] depth=0 type=i64
 param self [3:8] depth=1 type=ptr Caja

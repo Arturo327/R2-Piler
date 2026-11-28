@@ -504,6 +504,14 @@ uint32_t gen_expr (IR *ir, ASTNode *n)
 	case NODE_OR_A_ASSIGN: case NODE_XOR_ASSIGN: case NODE_LS_ASSIGN:
 	case NODE_RS_ASSIGN: return gen_compound_assign(ir, n);
 	case NODE_NEG: case NODE_NOT_A: case NODE_NOT_L: return gen_unary(ir, n);
+	case NODE_CLASS_EQ: {
+		TypeId type = ir->ast->nodes[n->child].data_type;
+		uint32_t a = gen_expr(ir, ir->ast->nodes + n->child);
+		uint32_t b = gen_expr(ir, ir->ast->nodes + ir->ast->nodes[n->child].next_bro);
+		uint32_t eq = gen_class_equal(ir, a, b, type);
+
+		return n->u64 ? make_op(ir, IR_NOT_L, eq, NO_REG, TYPE_i64) : eq;
+	}
 	case NODE_AND_L: case NODE_OR_L: return gen_logic(ir, n);
 	case NODE_CAST: return gen_cast(ir, n);
 	case NODE_TERNARY: return gen_ternary(ir, n);

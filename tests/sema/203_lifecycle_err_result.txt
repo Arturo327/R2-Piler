@@ -15,7 +15,7 @@ class C [35:7] depth=0 size=8 align=8
 fn NoDestroy::init [5:2] depth=0 type=void
 fn NoInit::destroy [10:2] depth=0 type=void
 fn BadSelf::destroy [15:2] depth=0 type=void
-fn BadSelf::bad [16:5] depth=0 type=void
+fn BadSelf::bad [16:5] depth=0 type=ptr BadSelf
 fn Dup::destroy [31:2] depth=0 type=void
 fn C::init [37:2] depth=0 type=void
 fn C::destroy [38:2] depth=0 type=void

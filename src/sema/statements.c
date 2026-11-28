@@ -113,6 +113,25 @@ static uint32_t declare_params (Sema *s, uint32_t args)
 	return count;
 }
 
+static void append_self_return (Sema *s, uint32_t body)
+{
+	uint32_t last = s->ast->nodes[body].child;
+	ASTNode raw = {0};
+
+	if (last != NO_NODE)
+		while (s->ast->nodes[last].next_bro != NO_NODE)
+			last = s->ast->nodes[last].next_bro;
+	uint32_t value = make_self_id(s, body);
+	raw.type = NODE_RET;
+	raw.child = value;
+	raw.next_bro = NO_NODE;
+	raw.line = s->ast->nodes[body].line;
+	raw.col = s->ast->nodes[body].col;
+	uint32_t ret = sema_new_node(s, &raw);
+	if (last == NO_NODE) s->ast->nodes[body].child = ret;
+	else s->ast->nodes[last].next_bro = ret;
+}
+
 void check_fn_dec (Sema *s, uint32_t idx)
 {
 	resolve_fn_types(s, idx);
@@ -140,6 +159,8 @@ void check_fn_dec (Sema *s, uint32_t idx)
 	uint32_t count = declare_params(s, args);
 	if (count > MAX_PARAMS)
 		error_report(s->err, ERR_ERROR, node_loc(s->ast->nodes + idx), "too many parameters (max %d)", MAX_PARAMS);
+	if (method_returns_self(s) && !stmt_returns(s, body))
+		append_self_return(s, body);
 	check_block_body(s, body);
 	s->curr_fn = saved_fn;
 
@@ -624,6 +645,13 @@ static void check_return (Sema *s, uint32_t idx)
 	uint32_t first = s->ast->nodes[idx].child;
 
 	if (first == NO_NODE) {
+		if (method_returns_self(s)) {
+			uint32_t self = make_self_id(s, idx);
+
+			s->ast->nodes[idx].child = self;
+			check_single_return(s, idx, s->curr_ret);
+			return;
+		}
 		check_bare_return(s, idx, count);
 		return;
 	}

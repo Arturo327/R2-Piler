@@ -1,6 +1,6 @@
 class C [1:7] depth=0 size=8 align=8
   field x type=i64 offset=0
-fn C::set [3:8] depth=0 type=void
+fn C::set [3:8] depth=0 type=ptr C
 fn main [5:8] depth=0 type=i64
 param self [3:12] depth=1 type=ptr C
 param v [3:18] depth=1 type=i64
